@@ -2,6 +2,6 @@
 __pycache__/
 *.pyc
 .uv/
-data/
-output/
+/data/
+/output/
 config.yaml

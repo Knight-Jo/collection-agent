@@ -1,0 +1,1720 @@
+{
+  "task_id": "task-acb41838-ea15-44ea-8bba-08a64edef59d",
+  "snapshots": [
+    {
+      "id": "cov-7780e4c0-8847-4910-aa07-0319a05cb98d",
+      "task_id": "task-acb41838-ea15-44ea-8bba-08a64edef59d",
+      "created_at": "2026-08-10T16:00:36.396224+00:00",
+      "fingerprint": "1662e8c5dbe87f7f77d040606cecbb7046c1b1d664b0b7670e4a76a0087d3a0f",
+      "gap_score": 22,
+      "no_progress_rounds": 0,
+      "stop_reason": null,
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-b9527296-b68a-4422-a7a6-6b4cdca813fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-2bd2a66b1a3714e1",
+              "statement": "重庆市人民政府办公厅印发《重庆市推动低空经济高质量发展若干政策措施》(渝府办发〔2025〕58号),落款日期为2025年11月22日。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 2,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "2 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3356347a3f2ca9ac",
+              "statement": "《中国低空经济发展指数报告(2026)》于2026年4月29日在第九届数字中国建设峰会期间发布,由中国科学院地理科学与资源研究所牵头编制,旨在评估2025年度中国低空经济发展新态势。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-611b2a12f4f3b0f0",
+              "statement": "2024年全国两会,\"低空经济\"首次写入中国政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-6e96391eba904e5f",
+              "statement": "2023年底举行的中央经济工作会议提出\"打造生物制造、商业航天、低空经济等若干战略性新兴产业\"。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-8fad691a3dd7d58c",
+              "statement": "重庆市低空经济政策措施第15条提出\"加大金融支持力度\":引导存量基金支持低空经济产业项目投资,鼓励股权投资机构加大对低空项目支持力度,对以股权投资方式支持科技创新企业的私募投资基金管理人按投资总额(扣除各级政府及国有企业出资)的1%给予支持,单家管理人累计最高不超过1000万元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "cq.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-91325af365dd96b2",
+              "statement": "工业和信息化部、科学技术部、财政部、中国民用航空局印发《通用航空装备创新应用实施方案(2024—2030年)》,提出到2030年推动低空经济形成万亿级市场规模。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-e0c61f5874a9b0f3",
+              "statement": "《重庆市推动低空经济高质量发展若干政策措施》自印发之日起施行,有效期至2027年12月31日止。",
+              "status": "gap",
+              "candidate_supports_count": 0,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-88475ed0-887e-4171-9cf9-24a5bf83a69d",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 3,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-292aa36ede315b6b",
+              "statement": "亿航智能(EHang)官网列出其在中国多地布局的运营示范点,包括广州黄埔穗港码头(Guangzhou Huangpu Suigang Port)等。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-33c286d36f949796",
+              "statement": "亿航智能(EHang)官网宣称其产品具备全面的适航资格认证(Full Airworthiness Certifications),涵盖Leading Industry Standards。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-804e5018b98ebc8d",
+              "statement": "亿航智能(EHang)入选香港\"低空经济监管沙盒X\"(Low-Altitude Economy Regulatory Sandbox X)试验项目。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-f0cbd1d7-1861-4204-b324-5c4e95e91ae7",
+      "task_id": "task-acb41838-ea15-44ea-8bba-08a64edef59d",
+      "created_at": "2026-08-10T16:00:59.577497+00:00",
+      "fingerprint": "5a0b037f6575f4706e5007ecccd15cc4c041b35f99bae65f1d01ac0a18ea7443",
+      "gap_score": 20,
+      "no_progress_rounds": 0,
+      "stop_reason": null,
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-b9527296-b68a-4422-a7a6-6b4cdca813fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-2bd2a66b1a3714e1",
+              "statement": "重庆市人民政府办公厅印发《重庆市推动低空经济高质量发展若干政策措施》(渝府办发〔2025〕58号),落款日期为2025年11月22日。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 2,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "2 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3356347a3f2ca9ac",
+              "statement": "《中国低空经济发展指数报告(2026)》于2026年4月29日在第九届数字中国建设峰会期间发布,由中国科学院地理科学与资源研究所牵头编制,旨在评估2025年度中国低空经济发展新态势。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-611b2a12f4f3b0f0",
+              "statement": "2024年全国两会,\"低空经济\"首次写入中国政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-6e96391eba904e5f",
+              "statement": "2023年底举行的中央经济工作会议提出\"打造生物制造、商业航天、低空经济等若干战略性新兴产业\"。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-8fad691a3dd7d58c",
+              "statement": "重庆市低空经济政策措施第15条提出\"加大金融支持力度\":引导存量基金支持低空经济产业项目投资,鼓励股权投资机构加大对低空项目支持力度,对以股权投资方式支持科技创新企业的私募投资基金管理人按投资总额(扣除各级政府及国有企业出资)的1%给予支持,单家管理人累计最高不超过1000万元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "cq.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-91325af365dd96b2",
+              "statement": "工业和信息化部、科学技术部、财政部、中国民用航空局印发《通用航空装备创新应用实施方案(2024—2030年)》,提出到2030年推动低空经济形成万亿级市场规模。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-e0c61f5874a9b0f3",
+              "statement": "《重庆市推动低空经济高质量发展若干政策措施》自印发之日起施行,有效期至2027年12月31日止。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "cq.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-88475ed0-887e-4171-9cf9-24a5bf83a69d",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 3,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-292aa36ede315b6b",
+              "statement": "亿航智能(EHang)官网列出其在中国多地布局的运营示范点,包括广州黄埔穗港码头(Guangzhou Huangpu Suigang Port)等。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-33c286d36f949796",
+              "statement": "亿航智能(EHang)官网宣称其产品具备全面的适航资格认证(Full Airworthiness Certifications),涵盖Leading Industry Standards。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-804e5018b98ebc8d",
+              "statement": "亿航智能(EHang)入选香港\"低空经济监管沙盒X\"(Low-Altitude Economy Regulatory Sandbox X)试验项目。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-fd2b5299-c5b5-463a-bbe6-f8a59d32a13b",
+      "task_id": "task-acb41838-ea15-44ea-8bba-08a64edef59d",
+      "created_at": "2026-08-10T16:01:10.047581+00:00",
+      "fingerprint": "5a0b037f6575f4706e5007ecccd15cc4c041b35f99bae65f1d01ac0a18ea7443",
+      "gap_score": 20,
+      "no_progress_rounds": 1,
+      "stop_reason": null,
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-b9527296-b68a-4422-a7a6-6b4cdca813fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-2bd2a66b1a3714e1",
+              "statement": "重庆市人民政府办公厅印发《重庆市推动低空经济高质量发展若干政策措施》(渝府办发〔2025〕58号),落款日期为2025年11月22日。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 2,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "2 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3356347a3f2ca9ac",
+              "statement": "《中国低空经济发展指数报告(2026)》于2026年4月29日在第九届数字中国建设峰会期间发布,由中国科学院地理科学与资源研究所牵头编制,旨在评估2025年度中国低空经济发展新态势。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-611b2a12f4f3b0f0",
+              "statement": "2024年全国两会,\"低空经济\"首次写入中国政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-6e96391eba904e5f",
+              "statement": "2023年底举行的中央经济工作会议提出\"打造生物制造、商业航天、低空经济等若干战略性新兴产业\"。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-8fad691a3dd7d58c",
+              "statement": "重庆市低空经济政策措施第15条提出\"加大金融支持力度\":引导存量基金支持低空经济产业项目投资,鼓励股权投资机构加大对低空项目支持力度,对以股权投资方式支持科技创新企业的私募投资基金管理人按投资总额(扣除各级政府及国有企业出资)的1%给予支持,单家管理人累计最高不超过1000万元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "cq.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-91325af365dd96b2",
+              "statement": "工业和信息化部、科学技术部、财政部、中国民用航空局印发《通用航空装备创新应用实施方案(2024—2030年)》,提出到2030年推动低空经济形成万亿级市场规模。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-e0c61f5874a9b0f3",
+              "statement": "《重庆市推动低空经济高质量发展若干政策措施》自印发之日起施行,有效期至2027年12月31日止。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "cq.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-88475ed0-887e-4171-9cf9-24a5bf83a69d",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 3,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-292aa36ede315b6b",
+              "statement": "亿航智能(EHang)官网列出其在中国多地布局的运营示范点,包括广州黄埔穗港码头(Guangzhou Huangpu Suigang Port)等。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-33c286d36f949796",
+              "statement": "亿航智能(EHang)官网宣称其产品具备全面的适航资格认证(Full Airworthiness Certifications),涵盖Leading Industry Standards。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-804e5018b98ebc8d",
+              "statement": "亿航智能(EHang)入选香港\"低空经济监管沙盒X\"(Low-Altitude Economy Regulatory Sandbox X)试验项目。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-5c8663c5-6827-4ad0-8a33-22be2a477cb4",
+      "task_id": "task-acb41838-ea15-44ea-8bba-08a64edef59d",
+      "created_at": "2026-08-10T16:01:19.342749+00:00",
+      "fingerprint": "5a0b037f6575f4706e5007ecccd15cc4c041b35f99bae65f1d01ac0a18ea7443",
+      "gap_score": 20,
+      "no_progress_rounds": 2,
+      "stop_reason": "no_progress",
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-b9527296-b68a-4422-a7a6-6b4cdca813fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-2bd2a66b1a3714e1",
+              "statement": "重庆市人民政府办公厅印发《重庆市推动低空经济高质量发展若干政策措施》(渝府办发〔2025〕58号),落款日期为2025年11月22日。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 2,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "2 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3356347a3f2ca9ac",
+              "statement": "《中国低空经济发展指数报告(2026)》于2026年4月29日在第九届数字中国建设峰会期间发布,由中国科学院地理科学与资源研究所牵头编制,旨在评估2025年度中国低空经济发展新态势。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-611b2a12f4f3b0f0",
+              "statement": "2024年全国两会,\"低空经济\"首次写入中国政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-6e96391eba904e5f",
+              "statement": "2023年底举行的中央经济工作会议提出\"打造生物制造、商业航天、低空经济等若干战略性新兴产业\"。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-8fad691a3dd7d58c",
+              "statement": "重庆市低空经济政策措施第15条提出\"加大金融支持力度\":引导存量基金支持低空经济产业项目投资,鼓励股权投资机构加大对低空项目支持力度,对以股权投资方式支持科技创新企业的私募投资基金管理人按投资总额(扣除各级政府及国有企业出资)的1%给予支持,单家管理人累计最高不超过1000万元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "cq.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-91325af365dd96b2",
+              "statement": "工业和信息化部、科学技术部、财政部、中国民用航空局印发《通用航空装备创新应用实施方案(2024—2030年)》,提出到2030年推动低空经济形成万亿级市场规模。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-e0c61f5874a9b0f3",
+              "statement": "《重庆市推动低空经济高质量发展若干政策措施》自印发之日起施行,有效期至2027年12月31日止。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "cq.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-88475ed0-887e-4171-9cf9-24a5bf83a69d",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 3,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-292aa36ede315b6b",
+              "statement": "亿航智能(EHang)官网列出其在中国多地布局的运营示范点,包括广州黄埔穗港码头(Guangzhou Huangpu Suigang Port)等。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-33c286d36f949796",
+              "statement": "亿航智能(EHang)官网宣称其产品具备全面的适航资格认证(Full Airworthiness Certifications),涵盖Leading Industry Standards。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-804e5018b98ebc8d",
+              "statement": "亿航智能(EHang)入选香港\"低空经济监管沙盒X\"(Low-Altitude Economy Regulatory Sandbox X)试验项目。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-2a0f02ab-3db7-406e-8484-fff8669c769a",
+      "task_id": "task-acb41838-ea15-44ea-8bba-08a64edef59d",
+      "created_at": "2026-08-10T16:02:07.588331+00:00",
+      "fingerprint": "5a0b037f6575f4706e5007ecccd15cc4c041b35f99bae65f1d01ac0a18ea7443",
+      "gap_score": 20,
+      "no_progress_rounds": 3,
+      "stop_reason": "no_progress",
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-b9527296-b68a-4422-a7a6-6b4cdca813fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-2bd2a66b1a3714e1",
+              "statement": "重庆市人民政府办公厅印发《重庆市推动低空经济高质量发展若干政策措施》(渝府办发〔2025〕58号),落款日期为2025年11月22日。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 2,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "2 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3356347a3f2ca9ac",
+              "statement": "《中国低空经济发展指数报告(2026)》于2026年4月29日在第九届数字中国建设峰会期间发布,由中国科学院地理科学与资源研究所牵头编制,旨在评估2025年度中国低空经济发展新态势。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-611b2a12f4f3b0f0",
+              "statement": "2024年全国两会,\"低空经济\"首次写入中国政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-6e96391eba904e5f",
+              "statement": "2023年底举行的中央经济工作会议提出\"打造生物制造、商业航天、低空经济等若干战略性新兴产业\"。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-8fad691a3dd7d58c",
+              "statement": "重庆市低空经济政策措施第15条提出\"加大金融支持力度\":引导存量基金支持低空经济产业项目投资,鼓励股权投资机构加大对低空项目支持力度,对以股权投资方式支持科技创新企业的私募投资基金管理人按投资总额(扣除各级政府及国有企业出资)的1%给予支持,单家管理人累计最高不超过1000万元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "cq.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-91325af365dd96b2",
+              "statement": "工业和信息化部、科学技术部、财政部、中国民用航空局印发《通用航空装备创新应用实施方案(2024—2030年)》,提出到2030年推动低空经济形成万亿级市场规模。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-e0c61f5874a9b0f3",
+              "statement": "《重庆市推动低空经济高质量发展若干政策措施》自印发之日起施行,有效期至2027年12月31日止。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "cq.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-88475ed0-887e-4171-9cf9-24a5bf83a69d",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 3,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-292aa36ede315b6b",
+              "statement": "亿航智能(EHang)官网列出其在中国多地布局的运营示范点,包括广州黄埔穗港码头(Guangzhou Huangpu Suigang Port)等。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-33c286d36f949796",
+              "statement": "亿航智能(EHang)官网宣称其产品具备全面的适航资格认证(Full Airworthiness Certifications),涵盖Leading Industry Standards。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-804e5018b98ebc8d",
+              "statement": "亿航智能(EHang)入选香港\"低空经济监管沙盒X\"(Low-Altitude Economy Regulatory Sandbox X)试验项目。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-8a6028a7-6953-49f4-8cf2-8ea8f5dc9d8a",
+      "task_id": "task-acb41838-ea15-44ea-8bba-08a64edef59d",
+      "created_at": "2026-08-10T16:02:11.740825+00:00",
+      "fingerprint": "5a0b037f6575f4706e5007ecccd15cc4c041b35f99bae65f1d01ac0a18ea7443",
+      "gap_score": 20,
+      "no_progress_rounds": 4,
+      "stop_reason": "no_progress",
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-b9527296-b68a-4422-a7a6-6b4cdca813fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-2bd2a66b1a3714e1",
+              "statement": "重庆市人民政府办公厅印发《重庆市推动低空经济高质量发展若干政策措施》(渝府办发〔2025〕58号),落款日期为2025年11月22日。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 2,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "2 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3356347a3f2ca9ac",
+              "statement": "《中国低空经济发展指数报告(2026)》于2026年4月29日在第九届数字中国建设峰会期间发布,由中国科学院地理科学与资源研究所牵头编制,旨在评估2025年度中国低空经济发展新态势。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-611b2a12f4f3b0f0",
+              "statement": "2024年全国两会,\"低空经济\"首次写入中国政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-6e96391eba904e5f",
+              "statement": "2023年底举行的中央经济工作会议提出\"打造生物制造、商业航天、低空经济等若干战略性新兴产业\"。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-8fad691a3dd7d58c",
+              "statement": "重庆市低空经济政策措施第15条提出\"加大金融支持力度\":引导存量基金支持低空经济产业项目投资,鼓励股权投资机构加大对低空项目支持力度,对以股权投资方式支持科技创新企业的私募投资基金管理人按投资总额(扣除各级政府及国有企业出资)的1%给予支持,单家管理人累计最高不超过1000万元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "cq.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-91325af365dd96b2",
+              "statement": "工业和信息化部、科学技术部、财政部、中国民用航空局印发《通用航空装备创新应用实施方案(2024—2030年)》,提出到2030年推动低空经济形成万亿级市场规模。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-e0c61f5874a9b0f3",
+              "statement": "《重庆市推动低空经济高质量发展若干政策措施》自印发之日起施行,有效期至2027年12月31日止。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "cq.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-88475ed0-887e-4171-9cf9-24a5bf83a69d",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 3,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-292aa36ede315b6b",
+              "statement": "亿航智能(EHang)官网列出其在中国多地布局的运营示范点,包括广州黄埔穗港码头(Guangzhou Huangpu Suigang Port)等。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-33c286d36f949796",
+              "statement": "亿航智能(EHang)官网宣称其产品具备全面的适航资格认证(Full Airworthiness Certifications),涵盖Leading Industry Standards。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-804e5018b98ebc8d",
+              "statement": "亿航智能(EHang)入选香港\"低空经济监管沙盒X\"(Low-Altitude Economy Regulatory Sandbox X)试验项目。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    }
+  ]
+}

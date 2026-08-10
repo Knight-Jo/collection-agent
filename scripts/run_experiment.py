@@ -42,7 +42,7 @@ def _git_head() -> str:
         return "unknown"
 
 
-async def main() -> int:
+def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--name", required=True, help="实验名称（如 baseline / fix-repetition）")
     parser.add_argument("--topic", required=True)
@@ -54,6 +54,9 @@ async def main() -> int:
     parser.add_argument("--dry", type=int, default=0, help="前 N 个工具轮次后中止（调试用，0=完整运行）")
     parser.add_argument("--config", default=None, help="config.yaml 路径")
     args = parser.parse_args()
+    if not 2 <= len(args.questions) <= 6:
+        print("错误: questions 数量必须为 2-6 个", file=sys.stderr)
+        return 1
 
     number = _next_run_number()
     run_dir = RUNS_DIR / f"{number:03d}-{args.name}"
@@ -109,13 +112,10 @@ async def main() -> int:
     manifest["exit_code"] = proc.returncode
     (run_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    # 快照 state/ 与 output/（含 raw 原文供取证分析）
+    # 快照 state/（含 raw 原文供取证分析）；output/ 已由 agent 直接写入 run_dir/output/
     if (run_dir / "data").exists():
         shutil.copytree(run_dir / "data", run_dir / "data_snapshot", dirs_exist_ok=True)
         shutil.copytree(run_dir / "data" / "intel", state_dir, dirs_exist_ok=True)
-    if (run_dir / "output").exists():
-        for f in (run_dir / "output").iterdir():
-            shutil.copy2(f, output_dir / f.name)
 
     print(f"实验完成: {run_dir}")
     print(f"  耗时: {manifest['elapsed_seconds']}s  exit={proc.returncode}")

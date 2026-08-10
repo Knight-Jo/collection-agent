@@ -1,0 +1,15 @@
+{
+  "id": "review-6088dcfbe3a842c8",
+  "task_id": "task-acb41838-ea15-44ea-8bba-08a64edef59d",
+  "fact_id": "fact-3356347a3f2ca9ac",
+  "evidence_id": "ev-028b67af3c54eda9",
+  "verdict": "partial",
+  "reason": "quote 支持了发布时间和场合、编制单位（中国科学院地理科学与资源研究所）及报告名称，但未提及报告旨在评估2025年度中国低空经济发展新态势这一目的/内容声明。",
+  "unsupported_parts": [
+    "旨在评估2025年度中国低空经济发展新态势"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-10T15:59:46.231844+00:00"
+}

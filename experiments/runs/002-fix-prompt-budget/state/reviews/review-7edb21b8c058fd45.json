@@ -1,0 +1,13 @@
+{
+  "id": "review-7edb21b8c058fd45",
+  "task_id": "task-acb41838-ea15-44ea-8bba-08a64edef59d",
+  "fact_id": "fact-6e96391eba904e5f",
+  "evidence_id": "ev-95d675f090d97ce4",
+  "verdict": "full",
+  "reason": "quote 完整支持 fact 的所有重要组成：时间（去年底/2023年底）、会议（中央经济工作会议）、提出内容（打造生物制造、商业航天、低空经济等若干战略性新兴产业）均完全对应，不存在遗漏或冲突。",
+  "unsupported_parts": [],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-10T16:00:34.112187+00:00"
+}

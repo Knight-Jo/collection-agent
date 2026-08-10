@@ -32,27 +32,37 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _write_trace(path: str, messages) -> None:
-    import json as _json
+def _msg_to_json(value):
+    """递归转换 dataclass/pydantic 消息为可 JSON 序列化的结构。"""
+    if hasattr(value, "model_dump"):
+        try:
+            return value.model_dump(mode="json")
+        except Exception:
+            pass
+    if hasattr(value, "__dataclass_fields__"):
+        return {k: _msg_to_json(getattr(value, k)) for k in value.__dataclass_fields__}
+    if isinstance(value, dict):
+        return {k: _msg_to_json(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_msg_to_json(v) for v in value]
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return str(value)
 
+
+def _write_trace(path: str, messages) -> None:
     events = []
     for msg in messages:
-        part = msg.parts[0] if msg.parts else None
-        kind = type(part).__name__ if part else "none"
-        if kind == "ToolCallPart":
-            events.append({"type": "tool_call", "tool": part.tool_name, "args": part.args})
-        elif kind == "ToolReturnPart":
-            events.append({"type": "tool_result", "tool": part.tool_name, "tool_call_id": part.tool_call_id})
-        elif kind == "ModelRequestPart":
-            events.append({"type": "model_request", "kind": type(part).__name__})
-    # 补充原始消息序列，便于深挖
-    raw = []
-    for msg in messages:
-        try:
-            raw.append(_json.loads(msg.model_dump_json()))
-        except Exception:
-            raw.append(str(msg))
-    (Path(path)).write_text(_json.dumps({"events": events, "messages": raw}, ensure_ascii=False, indent=2), encoding="utf-8")
+        for part in msg.parts:
+            kind = type(part).__name__
+            if kind == "ToolCallPart":
+                events.append({"type": "tool_call", "tool": part.tool_name, "args": part.args})
+            elif kind == "ToolReturnPart":
+                events.append({"type": "tool_result", "tool": part.tool_name, "tool_call_id": part.tool_call_id})
+            elif kind == "ModelRequestPart":
+                events.append({"type": "model_request", "kind": type(part).__name__})
+    raw = [_msg_to_json(msg) for msg in messages]
+    (Path(path)).write_text(json.dumps({"events": events, "messages": raw}, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 async def _run(args: argparse.Namespace) -> int:
@@ -73,6 +83,11 @@ async def _run(args: argparse.Namespace) -> int:
         f"require_recency={str(args.require_recency).lower()}（{recency_required}）。\n"
         f"【检索纪律】先按问题逐一 web_search（每问题至少一次），优先官方/政府/主流新闻/学术来源；"
         f"每问题定向抓取 2-3 篇不同来源组的文档；同一问题至少 2 个独立来源组才可能达到 covered。\n"
+        f"【检索多样性·重要】避免反复抓取同一批结果：web_search 返回的 already_archived=true 表示"
+        f"该 URL 已归档，不要再抓取；若某问题结果几乎全部已归档（fresh_count 很小），必须换更具体的"
+        f"查询词（公司名/机构名/具体事件/年份），或把 language 设为 en 搜英文一手来源（公司新闻稿、"
+        f"交易所公告、行业媒体），而不是重复同一查询。百度百科/维基百科只能当背景知识，"
+        f"不能作为主要证据来源；优先抓取 gov.cn/新闻/企业官网/学术来源。\n"
         f"【事实纪律】fact_save 只登记单一、原子、可独立核验的命题；引文必须逐字覆盖命题的"
         f"全部重要组成（主体/动作/范围/时间/数量）；evidence_audit 返回 partial 时用 fact_supersede "
         f"拆分为更窄的事实，或保存覆盖完整组成的引文。\n"

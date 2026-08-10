@@ -1,0 +1,17 @@
+{
+  "id": "review-a7749b1f22524c51",
+  "task_id": "task-acb41838-ea15-44ea-8bba-08a64edef59d",
+  "fact_id": "fact-2bd2a66b1a3714e1",
+  "evidence_id": "ev-7a961b4fb3b6b6c2",
+  "verdict": "partial",
+  "reason": "引文仅提供了文件编号'渝府办发〔2025〕58号'，该编号与fact中的文件编号一致，但未提及文件名称、印发机关或落款日期等fact中的其他重要组成成分。",
+  "unsupported_parts": [
+    "文件名称《重庆市推动低空经济高质量发展若干政策措施》",
+    "印发机关为重庆市人民政府办公厅",
+    "落款日期2025年11月22日"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-10T16:00:34.112085+00:00"
+}

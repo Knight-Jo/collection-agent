@@ -1,0 +1,69 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/nas928/guandewei/project/collection-agent-pydantic/src/intel_agent/__main__.py", line 4, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/nas928/guandewei/project/collection-agent-pydantic/src/intel_agent/main.py", line 106, in main
+    return asyncio.run(_run(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/guandewei/.conda/envs/collection-agent-pydantic/lib/python3.12/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/home/guandewei/.conda/envs/collection-agent-pydantic/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/guandewei/.conda/envs/collection-agent-pydantic/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/nas928/guandewei/project/collection-agent-pydantic/src/intel_agent/main.py", line 96, in _run
+    usage = result.usage()
+            ^^^^^^^^^^^^^^
+TypeError: 'RunUsage' object is not callable
+The task is now complete (stage: done). Let me provide the final report to the user.
+
+## 情报任务完成报告：低空经济
+
+### 任务状态
+- **主题**：低空经济
+- **任务ID**：`task-acb41838-ea15-44ea-8bba-08a64edef59d`
+- **阶段**：`done`（collect → assess → challenge → done）
+- **覆盖等级**：`insufficient`（gap_score=20，`stop_reason=no_progress`）
+- **产物**：
+  - 证据包：`output/低空经济-evidence-package.md`（绑定 coverage `cov-8a6028a7`）
+  - 研判：`output/低空经济-assessment.md`（绑定 coverage `cov-8a6028a7`）
+
+### 检索纪律与预算约束说明
+本次任务遇到重要的**外部约束**：`web_search` 预算在早期即因网络错误与查询过宽被耗竭（search_attempts=6，`search_stop_reason=search_budget_exhausted`），其中针对亿航的多条检索均因网络错误失败。这直接导致：
+1. **亿航问题**未能获取到任何独立第三方来源与具体订单数据；
+2. **2026年投融资问题**无法取得2026年度量化统计。
+
+我从首轮成功检索获得官方来源（中国政府网、重庆市政府、中科院2026报告）与亿航官网进行定向抓取。共16条证据、4个文档（gov.cn、cq.gov.cn、lrsd.org.cn、ehang.com×2）。
+
+### 主要发现（均为「转述 reported」+ 低置信推断）
+
+**问题1：2026年低空经济投资与融资趋势**（部分覆盖）
+- 低空经济2024年首次写入政府工作报告；2023年底中央经济工作会议提出打造"生物制造、商业航天、低空经济等战略性新兴产业"（中国政府网）。
+- 工信部等四部门《通用航空装备创新应用实施方案（2024-2030）》提出2030年形成万亿级市场规模（中国政府网）。
+- 重庆市2025年11月印发低空经济政策措施，其中第15条明确"加大金融支持力度"：对以股权投资支持低空科技企业的私募基金管理人按投资额1%给予支持、单家最高1000万元（重庆市政府）- **这是可核验的产业金融支持实例**。
+- **推断（低置信）**：国家与地方密集的制度与金融支持说明2026年低空经济仍处政策驱动的投资扩张期，但缺乏2026年度具体投融资总额/轮次/增速的量化确认。
+
+**问题2：亿航智能商业化进展与订单情况**（严重缺口）
+- 仅能呈报亿航**官网自报**内容：宣称具备全面适航资格认证、布局国内多处运营示范点、入选香港"低空经济监管沙盒X"试验项目。
+- **"订单情况"这一核心要素完全缺失**——无任何具体订单数量/金额/交付数据，且全部证据为单一来源自报、审计为partial，无独立第三方证实。
+
+### 置信度
+- 整体研判置信度：**低**（low）
+- 已知可靠部分（政策/制度事实单源转述）可信，但受单来源组限制无法交叉验证；量化结论与亿航订单均不成立。
+
+### 矛盾
+- 无已登记的证据矛盾（contradicts=0），未触发冲突处理流程。
+
+### 缺口披露
+1. **独立来源组不足**：所有已覆盖事实仅1个独立来源组（多为官方单源），未达每问题≥2个独立来源组的默认充分性；cover_eval 未能将任何事实提升至 covered。
+2. **2026年投融资量化数据缺失**：无法获得2026年度投融资总额/轮次/增速的权威统计。
+3. **亿航订单数据完全缺失**：无具体订单量与交付数据，且无第三方独立来源交叉验证官网自报。
+4. 上述缺口已在红队复审第1轮中确认接受（两项问题均登记为 `accepted_partial_questions`，结论如实转为低置信、单源转述呈现，未作夸大推断）。
+
+### 提示
+如需完整证据链，建议在**新的检索预算任务**下重新执行：①为亿航补充独立第三方来源（媒体/财报/股价公告）与具体订单数据；②为2026年投融资趋势补充行业统计与权威机构报告（如《中国低空经济发展指数报告(2026)》全文PDF）。本次受预算约束未能补齐这两处核心证据。

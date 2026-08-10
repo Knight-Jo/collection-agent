@@ -1,0 +1,13 @@
+{
+  "id": "review-ae32dd7830fb14c2",
+  "task_id": "task-acb41838-ea15-44ea-8bba-08a64edef59d",
+  "fact_id": "fact-e0c61f5874a9b0f3",
+  "evidence_id": "ev-ea7b95739cbdc0b8",
+  "verdict": "full",
+  "reason": "引文直接陈述了'本政策措施自印发之日起施行，有效期至2027年12月31日止'，与事实中关于印发之日起施行和有效期至2027年12月31日止的所有重要组成完全一致。",
+  "unsupported_parts": [],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-10T16:00:55.210161+00:00"
+}

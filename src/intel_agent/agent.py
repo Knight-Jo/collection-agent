@@ -237,6 +237,23 @@ def _block_repetition(ctx: RunContext[AgentDeps], name: str, params: dict, limit
     return None
 
 
+def _archived_urls(cwd: Path) -> set[str]:
+    docs_dir = cwd / "data" / "intel" / "documents"
+    urls: set[str] = set()
+    if not docs_dir.exists():
+        return urls
+    for f in docs_dir.glob("*.json"):
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        for key in ("final_url", "canonical_url", "requested_url"):
+            url = data.get(key)
+            if url:
+                urls.add(str(url).rstrip("/"))
+    return urls
+
+
 def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
     settings = settings or Settings()
     api_key = settings.model_api_key()
@@ -258,7 +275,8 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         language: str = "zh-CN",
         time_range: Literal["day", "week", "month", "year"] | None = None,
     ) -> dict:
-        """检索公开网页。结果只是候选线索，必须继续用 web_fetch 抓取并保存文档。"""
+        """检索公开网页。结果只是候选线索，必须继续用 web_fetch 抓取并保存文档。
+        already_archived=true 表示该 URL 已抓取过，不要重复抓取；结果全部已归档时应换查询词或改 language 搜索。"""
         return await _guarded(lambda: _web_search(ctx, query, max_results, category, language, time_range))
 
     async def _web_search(ctx, query, max_results, category, language, time_range) -> dict:
@@ -269,13 +287,25 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         broad, reason = is_broad_query(query)
         if broad:
             return {"results": [], "engineUsed": "blocked", "error": f"查询过宽：{reason}"}
-        return await web_search(
+        result = await web_search(
             query,
             max_results,
             client=ctx.deps.http,
             searxng_url=ctx.deps.settings.search.searxng_url,
             opts={"category": category, "language": language, "time_range": time_range} if time_range else {"category": category, "language": language},
         )
+        # 标记已归档 URL：防止模型反复抓取同一批候选，倒逼换词/翻页
+        archived = _archived_urls(ctx.deps.cwd)
+        for item in result.get("results", []):
+            item["already_archived"] = item["url"].rstrip("/") in archived
+        fresh = sum(1 for item in result.get("results", []) if not item.get("already_archived"))
+        result["fresh_count"] = fresh
+        result["hint"] = (
+            "本批结果已全部归档过；请换用更具体的查询（公司名/年份/事件），"
+            "或搜索英文来源，不要重复抓取。" if fresh == 0 and result.get("results")
+            else "优先抓取 already_archived=false 的结果。"
+        )
+        return result
 
     @agent.tool(name="web_fetch")
     async def web_fetch_tool(ctx: RunContext[AgentDeps], url: str, max_bytes: int = DEFAULT_MAX_BYTES) -> dict:

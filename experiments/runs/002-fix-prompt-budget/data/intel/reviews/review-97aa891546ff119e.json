@@ -1,0 +1,13 @@
+{
+  "id": "review-97aa891546ff119e",
+  "task_id": "task-acb41838-ea15-44ea-8bba-08a64edef59d",
+  "fact_id": "fact-91325af365dd96b2",
+  "evidence_id": "ev-948c2dc1fa13add5",
+  "verdict": "full",
+  "reason": "quote完整支持fact的所有重要组成：包括四个部委（工业和信息化部、科学技术部、财政部、中国民用航空局）、文件名称《通用航空装备创新应用实施方案(2024—2030年)》、目标时间（2030年）以及推动低空经济形成万亿级市场规模的目标，均与fact逐字对应。",
+  "unsupported_parts": [],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-10T15:59:46.231950+00:00"
+}
