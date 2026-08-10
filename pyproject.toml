@@ -1,0 +1,11 @@
+[project]
+name = "collection-agent-pydantic"
+version = "0.1.0"
+description = "Pydantic AI agent for collection"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic-ai",
+]
+
+[tool.uv]
+package = false
