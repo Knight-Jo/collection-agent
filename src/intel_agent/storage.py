@@ -1,0 +1,116 @@
+"""Atomic JSON/file I/O with SHA-256 integrity (port of storage.ts)."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import uuid
+from pathlib import Path
+
+from .models import IntelDocument, IntelError
+from .security import source_group_of
+from .source import source_type_for_domain
+
+INTEL_ROOT = Path("data/intel")
+
+
+def sha256(data: bytes | str) -> str:
+    if isinstance(data, str):
+        data = data.encode("utf-8")
+    return hashlib.sha256(data).hexdigest()
+
+
+def ensure_intel_dirs(cwd: Path) -> None:
+    for rel in [
+        "data/intel/tasks",
+        "data/intel/documents",
+        "data/intel/facts",
+        "data/intel/evidence",
+        "data/intel/reviews",
+        "data/intel/coverage",
+        "data/raw",
+        "output",
+    ]:
+        (cwd / rel).mkdir(parents=True, exist_ok=True)
+
+
+def _safe_path(root: Path, path: str | Path) -> Path:
+    full = (root / path).resolve()
+    if full != root.resolve() and root.resolve() not in full.parents:
+        raise IntelError("INVALID_INPUT", f"路径越界: {path}")
+    return full
+
+
+def intel_path(cwd: Path, path: str | Path) -> Path:
+    return _safe_path(cwd / INTEL_ROOT, path)
+
+
+def workspace_path(cwd: Path, path: str | Path) -> Path:
+    return _safe_path(cwd, path)
+
+
+def read_json(cwd: Path, path: str) -> dict | list:
+    full = intel_path(cwd, path)
+    if not full.exists():
+        raise IntelError("NOT_FOUND", f"记录不存在: {path}")
+    try:
+        return json.loads(full.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        raise IntelError("STORAGE_CORRUPT", f"JSON 损坏: {path}")
+
+
+def write_json_atomic(cwd: Path, path: str, value: object) -> None:
+    ensure_intel_dirs(cwd)
+    full = intel_path(cwd, path)
+    full.parent.mkdir(parents=True, exist_ok=True)
+    temporary = full.with_name(f"{full.name}.{uuid.uuid4()}.tmp")
+    try:
+        temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        os.replace(temporary, full)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def write_file_atomic(cwd: Path, path: str, value: bytes | str) -> None:
+    full = workspace_path(cwd, path)
+    full.parent.mkdir(parents=True, exist_ok=True)
+    temporary = full.with_name(f"{full.name}.{uuid.uuid4()}.tmp")
+    try:
+        data = value if isinstance(value, bytes) else value.encode("utf-8")
+        temporary.write_bytes(data)
+        os.replace(temporary, full)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def list_json(cwd: Path, directory: str) -> list[dict]:
+    full = intel_path(cwd, directory)
+    if not full.exists():
+        return []
+    return [read_json(cwd, f"{directory}/{name}") for name in sorted(os.listdir(full)) if name.endswith(".json")]
+
+
+def verify_document_integrity(cwd: Path, document: IntelDocument) -> None:
+    raw_path = workspace_path(cwd, document.raw_path)
+    text_path = workspace_path(cwd, document.text_path)
+    if not raw_path.exists() or not text_path.exists():
+        raise IntelError("DOCUMENT_TAMPERED", f"文档文件缺失: {document.id}")
+    if sha256(raw_path.read_bytes()) != document.raw_sha256:
+        raise IntelError("DOCUMENT_TAMPERED", f"原文哈希不匹配: {document.id}")
+    if sha256(text_path.read_bytes()) != document.text_sha256:
+        raise IntelError("DOCUMENT_TAMPERED", f"正文哈希不匹配: {document.id}")
+    try:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(document.final_url)
+    except Exception:
+        raise IntelError("DOCUMENT_TAMPERED", f"文档元数据不匹配: {document.id}")
+    if (
+        document.id != f"doc-{sha256(f'{document.canonical_url}\n{document.raw_sha256}')[:16]}"
+        or document.source_group != source_group_of(document.final_url)
+        or document.source_type != source_type_for_domain(parsed.hostname or "")
+    ):
+        raise IntelError("DOCUMENT_TAMPERED", f"文档元数据不匹配: {document.id}")

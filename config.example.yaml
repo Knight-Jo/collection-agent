@@ -1,0 +1,24 @@
+model:
+  provider: deepseek
+  name: deepseek-chat
+  base_url: https://api.deepseek.com/v1
+  api_key_env: DEEPSEEK_API_KEY
+
+# 语义审核专用模型（可选；默认与主 agent 相同）
+# audit_model:
+#   name: deepseek-chat
+#   base_url: https://api.deepseek.com/v1
+#   api_key_env: DEEPSEEK_API_KEY
+
+search:
+  # 本地 SearXNG 实例地址；设为 null 则跳过，只用 Bing/Baidu 直连
+  searxng_url: http://127.0.0.1:8888
+
+storage:
+  data_dir: data/intel
+  raw_dir: data/raw
+  output_dir: output
+
+budgets:
+  search_attempts: 6
+  fetch_attempts_since_evidence: 6
