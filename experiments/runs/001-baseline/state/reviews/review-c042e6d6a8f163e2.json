@@ -1,0 +1,16 @@
+{
+  "id": "review-c042e6d6a8f163e2",
+  "task_id": "task-7f61267e-06ad-4612-8b0c-79a22d0badd4",
+  "fact_id": "fact-144dae2c8c5f7ba6",
+  "evidence_id": "ev-65aa9d5db064d333",
+  "verdict": "partial",
+  "reason": "该quote仅支持了报告中科院地理科学与资源研究所牵头编制的部分，但未提及发布时间（2026年4月29日）、发布场合（第九届数字中国建设峰会）、报告名称（《中国低空经济发展指数报告(2026)》）的正式对外发布，也未提及对全国及31个省（区、市）进行系统性评估的内容。",
+  "unsupported_parts": [
+    "2026年4月29日第九届数字中国建设峰会期间正式对外发布",
+    "对全国整体及31个省（区、市）低空经济发展水平开展系统性评估"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-10T15:50:56.959062+00:00"
+}

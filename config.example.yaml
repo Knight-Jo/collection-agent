@@ -22,3 +22,5 @@ storage:
 budgets:
   search_attempts: 6
   fetch_attempts_since_evidence: 6
+  # 主 agent 最大模型请求数（含工具轮次与独立语义审核请求）
+  request_limit: 200

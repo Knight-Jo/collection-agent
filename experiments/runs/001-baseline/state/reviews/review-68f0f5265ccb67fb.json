@@ -1,0 +1,19 @@
+{
+  "id": "review-68f0f5265ccb67fb",
+  "task_id": "task-7f61267e-06ad-4612-8b0c-79a22d0badd4",
+  "fact_id": "fact-84cb34f4f8675662",
+  "evidence_id": "ev-2c8c920fc677c135",
+  "verdict": "partial",
+  "reason": "该quote确认了政策有效期至2027年12月31日，且自印发之日起施行，支持了Fact中'有效期至2027年12月31日'的部分，但未提及发文主体、印发日期、文件名称、17条举措及具体支持内容。",
+  "unsupported_parts": [
+    "重庆市人民政府办公厅",
+    "2025年11月22日印发",
+    "《重庆市推动低空经济高质量发展若干政策措施》",
+    "17条举措",
+    "支持低空示范场景、产业创新与保障体系建设"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-10T15:49:15.295751+00:00"
+}

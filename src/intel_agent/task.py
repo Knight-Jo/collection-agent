@@ -12,6 +12,7 @@ from .models import (
     IntelError,
     IntelTask,
     SufficiencyCriteria,
+    TaskOutputBinding,
     TaskStage,
     new_id,
     utc_now,
@@ -131,13 +132,13 @@ def bind_task_output(cwd: Path, task_id: str, kind: str, path: str, coverage: Co
     full_path = workspace_path(cwd, path)
     if not full_path.exists():
         raise IntelError("NOT_FOUND", f"产物文件不存在: {path}")
-    binding = {
-        "coverage_id": coverage.id,
-        "coverage_fingerprint": coverage.fingerprint,
-        "path": path,
-        "content_sha256": sha256(full_path.read_bytes()),
-        "created_at": utc_now(),
-    }
+    binding = TaskOutputBinding(
+        coverage_id=coverage.id,
+        coverage_fingerprint=coverage.fingerprint,
+        path=path,
+        content_sha256=sha256(full_path.read_bytes()),
+        created_at=utc_now(),
+    )
     task = task.model_copy(
         update={"outputs": task.outputs.model_copy(update={kind: binding}), "updated_at": utc_now()}
     )

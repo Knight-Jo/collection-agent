@@ -1,0 +1,17 @@
+{
+  "id": "review-653b09dec2d15e05",
+  "task_id": "task-7f61267e-06ad-4612-8b0c-79a22d0badd4",
+  "fact_id": "fact-e21802b2a264b492",
+  "evidence_id": "ev-c75dc83dcb244698",
+  "verdict": "partial",
+  "reason": "quote 支持了低空经济作为综合性经济形态、以低空飞行活动为核心/牵引的定义部分，但遗漏了 Fact 中的多个重要组成：'有人驾驶和无人驾驶航空器'未被完整覆盖（quote 仅提到无人驾驶飞行）、具体产品列表（无人机、eVTOL、直升飞机、传统固定翼飞机）完全未出现、以及'涉及居民消费和工业应用两大场景'也未被提及。",
+  "unsupported_parts": [
+    "有人驾驶和无人驾驶航空器",
+    "相关产品主要包括无人机、eVTOL、直升飞机、传统固定翼飞机",
+    "涉及居民消费和工业应用两大场景"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-10T15:50:22.890054+00:00"
+}

@@ -84,14 +84,15 @@ def publication_date(raw: str | None) -> str | None:
 def extract_html(html: str) -> dict:
     title_m = re.search(r"<title[^>]*>([\s\S]*?)</title>", html, flags=re.I)
     title = " ".join(_decode_entities(title_m.group(1) if title_m else "").split()).strip()
+    meta_names = "article:published_time|pubdate|publishdate|dc\\.date|datepublished|article:modified_time|created|firstpublishedtime"
     meta = re.search(
-        r'<meta[^>]+(?:property|name)=["\'](?:article:published_time|date|publishdate|dc\.date)["\'][^>]+content=["\']([^"\']+)',
+        rf'<meta[^>]+(?:property|name)=["\'](?:{meta_names})["\'][^>]+content=["\']([^"\']+)',
         html,
         flags=re.I,
     )
     if not meta:
         meta = re.search(
-            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+(?:property|name)=["\'](?:article:published_time|date|publishdate|dc\.date)["\']',
+            rf'<meta[^>]+content=["\']([^"\']+)["\'][^>]+(?:property|name)=["\'](?:{meta_names})["\']',
             html,
             flags=re.I,
         )
@@ -120,7 +121,14 @@ def extract_html(html: str) -> dict:
     elif time_date:
         publish_time, publish_time_source = time_date, "time-element"
     else:
-        publish_time, publish_time_source = None, "unknown"
+        text_date = None
+        for m in re.finditer(r"(?:20\d{2}[-/年.]\d{1,2}[-/月.]\d{1,2})", text):
+            candidate = publication_date(m.group(0))
+            if candidate:
+                text_date = candidate
+                break
+        publish_time = text_date
+        publish_time_source = "unknown"
     return {"title": title, "text": text, "publish_time": publish_time, "publish_time_source": publish_time_source}
 
 
@@ -283,6 +291,11 @@ async def fetch_document(
         extracted = extract_html(raw_text)
     else:
         extracted = {"title": _url_string(final_url), "text": raw_text.replace("\r\n", "\n").strip(), "publish_time": None, "publish_time_source": "unknown"}
+    if not extracted["publish_time"]:
+        url_match = re.search(r"/(20\d{2})[-/]?(\d{2})[-/]?(\d{2})/", _url_string(final_url))
+        if url_match and is_valid_calendar_date(f"{url_match.group(1)}-{url_match.group(2)}-{url_match.group(3)}"):
+            extracted["publish_time"] = f"{url_match.group(1)}-{url_match.group(2)}-{url_match.group(3)}"
+            extracted["publish_time_source"] = "unknown"
     canonical_url = canonicalize_url(_url_string(final_url))
     raw_hash = sha256(raw_bytes)
     document_id = f"doc-{sha256(f'{canonical_url}\n{raw_hash}')[:16]}"

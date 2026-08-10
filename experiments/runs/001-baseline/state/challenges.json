@@ -1,0 +1,79 @@
+{
+  "items": [
+    {
+      "id": "challenge-86bc4676-6acc-4890-87c2-3ba9069e8002",
+      "task_id": "task-7f61267e-06ad-4612-8b0c-79a22d0badd4",
+      "round": 1,
+      "status": "confirmed",
+      "evidence_ids_before": [
+        "ev-015e070ef61ee6d7",
+        "ev-0481b9da0c44183e",
+        "ev-27418648604ffd3d",
+        "ev-286e12d5e5ff3896",
+        "ev-2c8c920fc677c135",
+        "ev-2cf22f54bc13470e",
+        "ev-324b7888db3eaf2c",
+        "ev-3350c5dda6f730fe",
+        "ev-3742a1b9dde9976c",
+        "ev-3fc7325703482b4b",
+        "ev-50eb6f3d63adb160",
+        "ev-65aa9d5db064d333",
+        "ev-7050ca022633e41a",
+        "ev-7f3605b4e16c061b",
+        "ev-96b008282fd5af2d",
+        "ev-af72912b8c0ce39e",
+        "ev-b14a7980e57dabec",
+        "ev-b593c0f47076bf0b",
+        "ev-b6e24d6252ea6d6f",
+        "ev-c75dc83dcb244698",
+        "ev-d7d5a44e23237775",
+        "ev-da0ba59f0f4ab8b4",
+        "ev-e0ff4e64c592d772"
+      ],
+      "points": [
+        {
+          "id": "cp-r1-b09ec13e-921f-4590-88dd-5ff3dec5d99a",
+          "question_ids": [
+            "q-9be17503-757f-4918-aca5-c2dc5fb76d31",
+            "q-b5c46b06-9741-420b-9aa2-be11a533cc8c"
+          ],
+          "category": "时效性",
+          "challenge": "绝大多数事实（定义、战略定位、2024-2025政策）基于2024年及更早内容，无法满足默认120天时效窗口；研判结论可能反映过时状态而非当前现状。",
+          "gap_action": "补充2026年内的最新官方政策与最新定义表述；若无法获得则在最终报告中明确披露时效缺口。",
+          "status": "dismissed",
+          "reason": "本轮已尝试补充2026年在时效窗口内的政策内容（新增2026年政府工作报告相关事实fact-34cb30dabdcdb01e并保存引文ev-b6c729ac3fb058ef），但其支持为partial而非full，且该来源（百度百科）发布时间未知，无法满足120天强制时效。任务搜索预算已耗尽（SEARCH_BUDGET_EXHAUSTED，共6次），无法再发现并获取新的时效窗口内官方来源。该缺口将在最终报告中如实披露：本研判多数政策/定义事实基于2024-2025内容，反映的是较长期演进而非仅120天内的最新动态。",
+          "new_evidence_ids": []
+        },
+        {
+          "id": "cp-r1-e3c08bde-495b-407b-9b91-45a6e5710cf3",
+          "question_ids": [
+            "q-b582ba6f-2fa4-4dbd-b6b3-0fb7443408e0"
+          ],
+          "category": "来源独立性",
+          "challenge": "峰飞V2000CG取证、2025通航/无人机数据、eVTOL载人OC三个事实仅来自百度百科单一来源，且百科非高质量来源；市场规模为机构测算转述，缺乏第二个独立高质量来源组验证。",
+          "gap_action": "为上述事实补充官方/政府或权威行业来源；否则保留为单源转述并降级为 reported。",
+          "status": "dismissed",
+          "reason": "这些单源（百度百科）事实已在研判中正确处理为reported（单源转述）结论并标注attribution（百度百科词条），未作为交叉验证的covered事实呈现；峰飞V2000CG事实实际源自www.gov.cn官方来源。因搜索预算耗尽无法补充第二个独立高质量来源，故按规则7保留为reported并在最终报告中注明来源独立性局限。",
+          "new_evidence_ids": []
+        },
+        {
+          "id": "cp-r1-677fbe0c-31eb-4370-a682-abdeff62e5b9",
+          "question_ids": [
+            "q-b5c46b06-9741-420b-9aa2-be11a533cc8c",
+            "q-b582ba6f-2fa4-4dbd-b6b3-0fb7443408e0"
+          ],
+          "category": "证据完备性",
+          "challenge": "重庆政策、2023无人机产业、2026指数报告三个事实没有任何 full 支持引文（全部 partial），无法进入研判结论，形成覆盖缺口。",
+          "gap_action": "补充能完整支持这些命题的引文或拆分事实；若无法实现则接受并披露。",
+          "status": "dismissed",
+          "reason": "重庆政策、2023无人机产业、2026指数报告三个事实已在本轮前通过fact_supersede拆分成更窄的可单引文支持事实，但经evidence_audit仍为partial（部分引文只覆盖事实部分命题），无full支持引文，因此未纳入研判结论。受搜索预算耗尽制约无法补充完整支持引文，已在最终报告中作为覆盖缺口接受并披露。",
+          "new_evidence_ids": []
+        }
+      ],
+      "accepted_partial_questions": [],
+      "converged": false,
+      "created_at": "2026-08-10T15:51:37.493336+00:00",
+      "confirmed_at": "2026-08-10T15:52:20.035188+00:00"
+    }
+  ]
+}

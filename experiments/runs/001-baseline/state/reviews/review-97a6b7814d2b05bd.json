@@ -1,0 +1,18 @@
+{
+  "id": "review-97a6b7814d2b05bd",
+  "task_id": "task-7f61267e-06ad-4612-8b0c-79a22d0badd4",
+  "fact_id": "fact-ce901b3a55692914",
+  "evidence_id": "ev-7050ca022633e41a",
+  "verdict": "partial",
+  "reason": "该引文支持了事实中的'自印发之日起施行、有效期至2027年12月31日'这一部分，但未涉及印发主体、文件名称、目的等其它重要组成。",
+  "unsupported_parts": [
+    "重庆市人民政府办公厅",
+    "2025年11月22日印发",
+    "文件名称《重庆市推动低空经济高质量发展若干政策措施》",
+    "抢抓低空经济发展机遇、拓展低空示范场景、培育低空产业、健全保障体系"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-10T15:50:22.889996+00:00"
+}

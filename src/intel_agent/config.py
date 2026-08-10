@@ -29,6 +29,7 @@ class StorageConfig(BaseModel):
 class BudgetConfig(BaseModel):
     search_attempts: int = 6
     fetch_attempts_since_evidence: int = 6
+    request_limit: int = 200
 
 
 class Settings(BaseModel):

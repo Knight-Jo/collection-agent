@@ -1,0 +1,20 @@
+{
+  "run_number": 1,
+  "name": "baseline",
+  "started_at": "2026-08-10T23:00:00+08:00",
+  "git_head": "pre-trace",
+  "topic": "低空经济",
+  "questions": [
+    "2026年低空经济投资与融资趋势",
+    "亿航智能商业化进展与订单情况"
+  ],
+  "criteria": {
+    "min_independent_sources": 2,
+    "min_high_quality_sources": 1,
+    "recency_days": 120,
+    "require_recency": false
+  },
+  "max_turns": 40,
+  "exit_code": 1,
+  "note": "pydantic-ai 默认 request_limit=50 在 challenge 阶段耗尽，未到达 done"
+}
