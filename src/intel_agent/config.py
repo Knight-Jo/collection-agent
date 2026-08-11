@@ -38,6 +38,23 @@ class FetchConfig(BaseModel):
     enable_httpx_fallback: bool = True
 
 
+class CrawlConfig(BaseModel):
+    max_depth: int = Field(default=2, ge=0)
+    max_urls: int = Field(default=200, ge=1)
+    max_total_bytes: int = Field(default=1_073_741_824, ge=1)
+    max_html_bytes: int = Field(default=5_242_880, ge=1)
+    max_attachment_bytes: int = Field(default=52_428_800, ge=1)
+    concurrency: int = Field(default=4, ge=1)
+    per_host_concurrency: int = Field(default=1, ge=1)
+    per_host_delay_seconds: float = Field(default=1.0, ge=0)
+    cache_ttl_hours: int = Field(default=24, ge=0)
+    retries: int = Field(default=2, ge=0)
+    obey_robots: bool = True
+    ocr_languages: str = "chi_sim+eng"
+    whisper_model: str = "small"
+    enabled_by_default: bool = True
+
+
 class WebConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = Field(default=6780, ge=1, le=65_535)
@@ -82,6 +99,7 @@ class Settings(BaseModel):
     storage: StorageConfig = Field(default_factory=StorageConfig)
     budgets: BudgetConfig = Field(default_factory=BudgetConfig)
     fetch: FetchConfig = Field(default_factory=FetchConfig)
+    crawl: CrawlConfig = Field(default_factory=CrawlConfig)
     web: WebConfig = Field(default_factory=WebConfig)
     sources: SourcesConfig = Field(default_factory=SourcesConfig)
 

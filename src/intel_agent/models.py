@@ -25,6 +25,66 @@ SupportVerdict = Literal["full", "partial", "irrelevant", "contradicts"]
 SUPPORT_REVIEW_PROMPT_VERSION = "support-entailment-v1"
 
 
+class CrawlValidators(BaseModel):
+    etag: str | None = None
+    last_modified: str | None = None
+
+
+class ExtractionState(BaseModel):
+    status: Literal[
+        "pending", "complete", "unavailable", "failed", "skipped"
+    ] = "pending"
+    processor: str | None = None
+    text_path: str | None = None
+    error: str | None = None
+
+
+class ExtractionResult(BaseModel):
+    status: Literal["complete", "unavailable", "failed", "skipped"]
+    text: str = ""
+    links: list[str] = Field(default_factory=list)
+    processor: str | None = None
+    error: str | None = None
+
+
+class CrawlEntry(BaseModel):
+    canonical_url: str
+    parent_url: str | None = None
+    depth: int = Field(ge=0)
+    priority: float
+    status: Literal[
+        "queued",
+        "fetching",
+        "complete",
+        "reused",
+        "skipped_robots",
+        "skipped_http",
+        "skipped_limit",
+        "skipped_unsupported",
+        "failed",
+    ] = "queued"
+    attempts: int = 0
+    downloaded_bytes: int = 0
+    document_id: str | None = None
+    error: str | None = None
+    mime_type: str | None = None
+    size: int | None = None
+    extraction: ExtractionState = Field(default_factory=ExtractionState)
+    validators: CrawlValidators = Field(default_factory=CrawlValidators)
+    created_at: str
+    updated_at: str
+
+
+class CrawlSnapshot(BaseModel):
+    task_id: str
+    status: Literal["running", "complete", "paused"] = "running"
+    entries: list[CrawlEntry] = Field(default_factory=list)
+    downloaded_bytes: int = 0
+    config: dict[str, object] = Field(default_factory=dict)
+    created_at: str
+    updated_at: str
+
+
 class SufficiencyCriteria(BaseModel):
     min_independent_sources: int
     min_high_quality_sources: int

@@ -8,7 +8,7 @@ import os
 import uuid
 from pathlib import Path
 
-from .models import IntelDocument, IntelError
+from .models import CrawlSnapshot, IntelDocument, IntelError
 from .security import source_group_of
 from .source import source_type_for_domain
 
@@ -30,6 +30,7 @@ def ensure_intel_dirs(cwd: Path) -> None:
         "data/intel/evidence",
         "data/intel/reviews",
         "data/intel/coverage",
+        "data/intel/crawls",
         "data/raw",
         "output",
     ]:
@@ -116,6 +117,27 @@ def list_json(cwd: Path, directory: str) -> list[dict]:
         read_json_object(cwd, f"{directory}/{name}")
         for name in sorted(os.listdir(full))
         if name.endswith(".json")
+    ]
+
+
+def save_crawl(cwd: Path, snapshot: CrawlSnapshot) -> None:
+    """Atomically persist the resumable crawl frontier for one task."""
+    write_json_atomic(
+        cwd, f"crawls/{snapshot.task_id}.json", snapshot.model_dump()
+    )
+
+
+def load_crawl(cwd: Path, task_id: str) -> CrawlSnapshot:
+    """Load one task's crawl frontier."""
+    return CrawlSnapshot.model_validate(
+        read_json(cwd, f"crawls/{task_id}.json")
+    )
+
+
+def list_crawls(cwd: Path) -> list[CrawlSnapshot]:
+    """Load all crawl snapshots used for cross-task cache reuse."""
+    return [
+        CrawlSnapshot.model_validate(item) for item in list_json(cwd, "crawls")
     ]
 
 

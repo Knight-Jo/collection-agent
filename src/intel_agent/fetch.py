@@ -10,7 +10,7 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlsplit, urlunsplit
 
 from . import document_extract as _document_extract
 from .document_extract import (
@@ -40,6 +40,7 @@ DEFAULT_MAX_BYTES = 5 * 1024 * 1024
 DEFAULT_TIMEOUT_MS = 25_000
 REDIRECT_STATUSES = {301, 302, 303, 307, 308}
 MAX_REDIRECTS = 5
+USER_AGENT = "pi-intelligence-collector/1.0"
 
 
 @dataclass
@@ -56,17 +57,33 @@ def canonicalize_url(raw: str) -> str:
     # Tracking params (utm_*/spm/from/source) produce distinct URLs for the
     # same content; stripping and sorting them gives one canonical form so
     # dedup and content-addressed IDs are stable across sessions.
-    parsed = urlparse(raw)
-    from urllib.parse import parse_qsl, urlencode
-
+    parsed = urlsplit(raw)
     params = [
         (k, v)
-        for k, v in parse_qsl(parsed.query)
-        if not re.match(r"^(?:utm_|spm$|from$|source$)", k, flags=re.I)
+        for k, v in parse_qsl(parsed.query, keep_blank_values=True)
+        if not re.match(
+            r"^(?:utm_|spm$|from$|source$|fbclid$|gclid$|dclid$|msclkid$|mc_cid$|mc_eid$|_ga$|igshid$)",
+            k,
+            flags=re.I,
+        )
     ]
     params.sort()
     query = urlencode(params)
-    return parsed._replace(fragment="", query=query).geturl()
+    scheme = parsed.scheme.lower()
+    hostname = (parsed.hostname or "").lower()
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+    default_port = (scheme == "http" and port == 80) or (
+        scheme == "https" and port == 443
+    )
+    host = f"[{hostname}]" if ":" in hostname else hostname
+    netloc = host if port is None or default_port else f"{host}:{port}"
+    path = parsed.path or "/"
+    if path != "/":
+        path = path.rstrip("/") or "/"
+    return urlunsplit((scheme, netloc, path, query, ""))
 
 
 def injection_warnings(text: str) -> list[str]:
@@ -93,7 +110,7 @@ def injection_warnings(text: str) -> list[str]:
 
 async def pinned_fetch(
     input_url: str,
-    _init: dict | None,
+    init: dict | None,
     address: str,
     max_bytes: int = DEFAULT_MAX_BYTES,
 ) -> FetchedResponse:
@@ -111,11 +128,20 @@ async def pinned_fetch(
     )
     try:
         path = f"{parsed.path or '/'}{('?' + parsed.query) if parsed.query else ''}"
+        extra_headers = "".join(
+            f"{key}: {value}\r\n"
+            for key, value in (init or {}).get("headers", {}).items()
+            if "\r" not in key
+            and "\n" not in key
+            and "\r" not in value
+            and "\n" not in value
+        )
         request = (
             f"GET {path} HTTP/1.1\r\n"
             f"Host: {parsed.hostname}{f':{port}' if port not in (80, 443) else ''}\r\n"
-            "User-Agent: pi-intelligence-collector/1.0\r\n"
-            "Accept: text/html,text/plain,application/xhtml+xml\r\n"
+            f"User-Agent: {USER_AGENT}\r\n"
+            "Accept: text/html,application/xhtml+xml,application/pdf,text/plain,*/*;q=0.8\r\n"
+            f"{extra_headers}"
             "Connection: close\r\n\r\n"
         )
         writer.write(request.encode("latin-1"))
@@ -219,6 +245,7 @@ async def fetch_with_validated_redirects(
     fetcher: FetchLike,
     resolver: AddressResolver | None,
     max_bytes: int,
+    request_init: dict | None = None,
 ) -> tuple[FetchedResponse, object]:
     """Fetch following redirects, re-validating every hop as a public URL.
 
@@ -228,7 +255,11 @@ async def fetch_with_validated_redirects(
     """
     current_url, addresses = await resolve_public_url(raw_url, resolver)
     for redirects in range(MAX_REDIRECTS + 1):
-        response = await fetcher(_url_string(current_url), None, addresses[0])
+        response = await fetcher(
+            _url_string(current_url),
+            request_init if redirects == 0 else None,
+            addresses[0],
+        )
         if response.status not in REDIRECT_STATUSES:
             return response, current_url
         if redirects >= MAX_REDIRECTS:

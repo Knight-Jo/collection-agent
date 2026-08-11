@@ -22,6 +22,13 @@ dev = [
     "pytest-cov",
     "ruff>=0.16.2",
 ]
+media = [
+    "Pillow",
+    "pytesseract",
+    "openpyxl",
+    "python-pptx",
+    "faster-whisper",
+]
 
 [project.scripts]
 intel-agent-web = "intel_agent.web.app:main"

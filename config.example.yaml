@@ -29,6 +29,22 @@ fetch:
   # pinned_fetch 超时/失败时回退到 httpx 抓取（兼容 WAF/Cloudflare 站点，如投资者关系页）
   enable_httpx_fallback: true
 
+crawl:
+  max_depth: 2
+  max_urls: 200
+  max_total_bytes: 1073741824
+  max_html_bytes: 5242880
+  max_attachment_bytes: 52428800
+  concurrency: 4
+  per_host_concurrency: 1
+  per_host_delay_seconds: 1.0
+  cache_ttl_hours: 24
+  retries: 2
+  obey_robots: true
+  ocr_languages: chi_sim+eng
+  whisper_model: small
+  enabled_by_default: true
+
 web:
   # Web 工作台监听地址和端口；仅本机访问可将 host 设为 127.0.0.1
   host: 0.0.0.0
