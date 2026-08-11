@@ -1,0 +1,98 @@
+
+
+  <!DOCTYPE html>
+  <html lang="en">
+
+  <head>
+    
+      <meta charset="UTF-8">
+      <meta http-equiv="X-UA-Compatible" content="IE=edge">
+      <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+      <title>APEC SOM delegates impressed by tech innovations in China's Guangzhou </title>
+      <meta name="format-detection" content="telephone=no" />
+      <meta name="format-detection" content="email=no" />
+      <meta property="fb:pages" content="338109312883186" />
+      <meta property="ia:markup_url" content="https://xhnewsapi.xinhuaxmt.com/v100/indexlist.html?id=909" />
+      <meta name="apple-moblie-web-app-capable" content="yes" />
+
+      <meta property="og:url" content="https://xhnewsapi.xinhuaxmt.com/share/news?id=1177026112749568&showType=3008" />
+      <meta property="og:title" content="APEC SOM delegates impressed by tech innovations in China&#039;s Guangzhou " />
+      <meta property="og:description" content="" />
+      <meta property="og:type" content="article" />
+      <meta property="og:image" content="https://xhnews-static.xinhuaxmt.com/photo/202602/210012026020800195923_w405_h720.jpg" />
+
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:creator" content="Xinhua News" />
+      <meta name="twitter:title" content="APEC SOM delegates impressed by tech innovations in China&#039;s Guangzhou " />
+      <meta name="twitter:description" content="" />
+      <meta name="twitter:site" content="@Xinhua News" />
+      <meta name="twitter:image:src" content="https://xhnews-static.xinhuaxmt.com/photo/202602/210012026020800195923_w405_h720.jpg" />
+      <meta name="twitter:image" content="https://xhnews-static.xinhuaxmt.com/photo/202602/210012026020800195923_w405_h720.jpg" />
+      <meta name="twitter:app:id:iphone" content="1291745928">
+      <meta name="twitter:app:url:iphone" content="xinhuanews://news?id=1177026112749568&showtype=3008&newstype=1001&columnId=0&columnType=0">
+      <meta name="twitter:app:id:googleplay" content="com.xinhuamm.xinhuanews">
+      <meta name="twitter:app:url:googleplay" content="xinhuanews://news?id=1177026112749568&showtype=3008&newstype=1001&columnId=0&columnType=0">
+
+      <meta type="metaTags" name="application-name" content="Xinhua News" />
+      <meta type="metaTags" name="application-name" content="Xinhua News" />
+      <meta type="metaTags" name="mobile-web-app-capable" content="yes" />
+      <meta type="metaTags" name="msapplication-TileImage" content="Xinhua News" />
+      <meta type="metaTags" name="msapplication-TileColor" content="#1778fb" />
+      <meta type="metaTags" name="cleartype" http-equiv="cleartype" content="on" />
+
+      <meta property="al:ios:url" content="xinhuanews://news?id=1177026112749568&showtype=3008&newstype=1001&columnId=0&columnType=0">
+      <meta property="al:ios:app_store_id" content="1291745928">
+      <meta property="al:ios:app_name" content="Xinhua News">
+      <meta property="al:android:package" content="com.xinhuamm.xinhuanews">
+      <meta property="al:android:app_name" content="Xinhua News">
+      <meta property="al:android:url" content="xinhuanews://news?id=1177026112749568&showtype=3008&newstype=1001&columnId=0&columnType=0">
+      
+      <!-- <base href="https://pre-xhnews.oss-cn-beijing.aliyuncs.com"> -->
+<base href="https://xhnews-static.xinhuaxmt.com">
+      <link rel="stylesheet" href="/v100/static/css/news-iframe.css?_t=1633926503996" />
+  </head>
+
+  <body>
+
+    <iframe id="newsIframe" src=""></iframe>
+    <script type="text/javascript" src="/v100/static/plus/jquery-2.2.4.min.js"></script>
+    <script type="text/javascript" src="/v100/static/js/common.js?_t=1633926503996"></script>
+    <script type="text/javascript" src="/v100/static/js/jweixin-1.6.0.js"></script>
+
+    <script type="text/javascript">
+      function isMobile() {
+        if (window.navigator.userAgent.match(/(phone|pad|pod|iPhone|iPod|ios|iPad|Android|Mobile|BlackBerry|IEMobile|MQQBrowser|JUC|Fennec|wOSBrowser|BrowserNG|WebOS|Symbian|Windows Phone)/i)) {
+          return true;
+        } else {
+          return false;
+        }
+      }
+
+      function setIframeHeight() {
+        let iframeHeight = $newsIframe.contents().height();
+        $newsIframe.height(iframeHeight);
+      }
+
+      function jumpToDetail(newsUrl) {
+        location.href = newsUrl;
+      }
+
+      var newsUrl = location.origin + '/share/news' + location.search;
+      var $newsIframe = $("#newsIframe");
+
+      if (isMobile()) {
+        location.href = newsUrl;
+      } else {
+        var $newsIframe = $("#newsIframe");
+        $newsIframe.attr('src', newsUrl);
+      }
+
+      $newsIframe.load(function () {
+        // setIframeHeight();
+      });
+    </script>
+
+  </body>
+
+  </html>

@@ -1,0 +1,15 @@
+{
+
+  "instructions": [
+      "common/code-review.md",
+      "common/coding-style.md",
+      "common/development-workflow.md",
+      "common/patterns.md",
+      "python/coding-sytle.md",
+      "python/fastapi.md",
+      "python/hooks.md",
+      "python/patterns.md",
+      "python/security.md",
+      "python/testing.md"
+    ]
+}

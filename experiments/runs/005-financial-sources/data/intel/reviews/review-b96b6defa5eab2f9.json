@@ -1,0 +1,16 @@
+{
+  "id": "review-b96b6defa5eab2f9",
+  "task_id": "task-5e3a26f3-8587-4c10-9156-a79cea196083",
+  "fact_id": "fact-d3a374668c7925c2",
+  "evidence_id": "ev-b8329a493b6138e2",
+  "verdict": "partial",
+  "reason": "该quote支持了'单次充电续航超100英里'这一事实，但没有提及这是'无人驾驶载人eVTOL机型'，也未说明EHang（亿航智能）推出了该机型，因此只部分支持Fact。",
+  "unsupported_parts": [
+    "亿航智能推出",
+    "长航程无人驾驶载人eVTOL机型"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-11T03:56:08.781848+00:00"
+}

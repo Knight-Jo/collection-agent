@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 
 from .audit import is_full_support
@@ -11,6 +12,33 @@ from .fact import load_fact
 from .models import ChallengePoint, ChallengeRound, IntelError, new_id, utc_now
 from .storage import intel_path, read_json, write_json_atomic
 from .task import load_task, save_task
+
+
+def short_id(prefix: str) -> str:
+    """短 ID（8 位十六进制）：LLM 复制长 UUID 易出错，挑战点/证据引用用短 ID 更稳。"""
+    return f"{prefix}-{uuid.uuid4().hex[:8]}"
+
+
+def tolerant_id(provided: str, expected_ids: list[str], what: str) -> str:
+    """容错 ID 匹配：精确 → 唯一前缀（≥6 位）→ 模糊（difflib）；失败时给出全部有效 ID。"""
+    if provided in expected_ids:
+        return provided
+    candidates = [eid for eid in expected_ids if eid.startswith(provided)]
+    if len(candidates) == 1:
+        return candidates[0]
+    if len(candidates) > 1:
+        raise IntelError(
+            "CHALLENGE_INVALID", f"{what}「{provided}」前缀与多个 ID 冲突；有效 ID: {', '.join(expected_ids)}"
+        )
+    import difflib
+
+    close = difflib.get_close_matches(provided, expected_ids, n=1, cutoff=0.85)
+    if close:
+        return close[0]
+    raise IntelError(
+        "CHALLENGE_INVALID",
+        f"{what}「{provided}」不存在；有效 ID: {', '.join(expected_ids)}",
+    )
 
 
 def _load_store(cwd: Path) -> dict:
@@ -39,13 +67,16 @@ def start_challenge(cwd: Path, task_id: str, round_: int, points: list[dict]) ->
             raise IntelError("CHALLENGE_INVALID", "上一轮尚未确认")
     if not points:
         raise IntelError("CHALLENGE_INVALID", "挑战至少包含一个挑战点")
-    valid_question_ids = {q.id for q in task.questions}
+    valid_question_ids = [q.id for q in task.questions]
     challenge_points: list[ChallengePoint] = []
     for point in points:
         question_ids = list(dict.fromkeys(point.get("question_ids", [])))
+        try:
+            question_ids = [tolerant_id(qid, valid_question_ids, "问题 ID") for qid in question_ids]
+        except IntelError:
+            raise
         if (
             not question_ids
-            or any(qid not in valid_question_ids for qid in question_ids)
             or not str(point.get("category", "")).strip()
             or not str(point.get("challenge", "")).strip()
             or not str(point.get("gap_action", "")).strip()
@@ -53,7 +84,7 @@ def start_challenge(cwd: Path, task_id: str, round_: int, points: list[dict]) ->
             raise IntelError("CHALLENGE_INVALID", "挑战点字段或问题 ID 无效")
         challenge_points.append(
             ChallengePoint(
-                id=new_id(f"cp-r{round_}"),
+                id=short_id(f"cp-r{round_}"),
                 question_ids=question_ids,
                 category=str(point["category"]).strip(),
                 challenge=str(point["challenge"]).strip(),
@@ -98,14 +129,22 @@ def confirm_challenge(
     if round_data is None:
         raise IntelError("CHALLENGE_INVALID", f"未找到开放挑战轮次: {round_}")
     round_obj = ChallengeRound.model_validate(round_data)
+    valid_question_ids = [q.id for q in task.questions]
     for accepted in accepted_partial_questions:
-        if not any(q.id == accepted.get("question_id") for q in task.questions):
-            raise IntelError("CHALLENGE_INVALID", f"接受不充分问题 ID 无效: {accepted.get('question_id')}")
+        accepted["question_id"] = tolerant_id(
+            str(accepted.get("question_id", "")), valid_question_ids, "问题 ID"
+        )
         if not str(accepted.get("reason", "")).strip():
             raise IntelError("CHALLENGE_INVALID", "接受不充分问题必须提供理由")
-    resolutions_map = {r.get("point_id"): r for r in resolutions}
+    # 容错 ID 匹配：LLM 可能抄错长 ID，按唯一前缀回退
+    expected_point_ids = [p.id for p in round_obj.points]
+    resolutions_map: dict[str, dict] = {}
+    for r in resolutions:
+        resolved = tolerant_id(str(r.get("point_id", "")), expected_point_ids, "挑战点 ID")
+        resolutions_map[resolved] = r
     if len(resolutions_map) != len(round_obj.points) or any(p.id not in resolutions_map for p in round_obj.points):
-        raise IntelError("CHALLENGE_INVALID", "必须处理本轮全部挑战点")
+        raise IntelError("CHALLENGE_INVALID", f"必须处理本轮全部挑战点；有效 ID: {', '.join(expected_point_ids)}")
+    evidence_ids_all = [e.id for e in list_evidence_for_task(cwd, task.id)]
     evidence_by_id = {e.id: e for e in list_evidence_for_task(cwd, task.id)}
     before = set(round_obj.evidence_ids_before)
     points: list[ChallengePoint] = []
@@ -123,6 +162,8 @@ def confirm_challenge(
         new_evidence_ids = list(dict.fromkeys(resolution.get("new_evidence_ids", [])))
         if not new_evidence_ids:
             raise IntelError("CHALLENGE_INVALID", "addressed 必须提供新增证据")
+        resolved_evidence_ids = [tolerant_id(eid, evidence_ids_all, "新增证据 ID") for eid in new_evidence_ids]
+        new_evidence_ids = list(dict.fromkeys(resolved_evidence_ids))
         for evidence_id in new_evidence_ids:
             if evidence_id in before:
                 raise IntelError("CHALLENGE_INVALID", f"不是挑战后新增证据: {evidence_id}")

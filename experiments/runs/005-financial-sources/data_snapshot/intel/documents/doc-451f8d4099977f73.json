@@ -1,0 +1,18 @@
+{
+  "id": "doc-451f8d4099977f73",
+  "requested_url": "https://xhnewsapi.xinhuaxmt.com/share/news_pc?id=1177026112749568&showType=3008&utdId=4bba6eb2a4da495cbee7f711fc107b00&version=5.2.0",
+  "final_url": "https://xhnewsapi.xinhuaxmt.com/share/news_pc?id=1177026112749568&showType=3008&utdId=4bba6eb2a4da495cbee7f711fc107b00&version=5.2.0",
+  "canonical_url": "https://xhnewsapi.xinhuaxmt.com/share/news_pc?id=1177026112749568&showType=3008&utdId=4bba6eb2a4da495cbee7f711fc107b00&version=5.2.0",
+  "title": "APEC SOM delegates impressed by tech innovations in China's Guangzhou",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-11T03:56:20.068266+00:00",
+  "source_type": "other",
+  "source_group": "xinhuaxmt.com",
+  "raw_path": "data/raw/doc-451f8d4099977f73.raw",
+  "raw_sha256": "c8f43bfe75d15f9ab5f55ee88e1261cb51d05fd480e8337914c68fa4060c13d9",
+  "text_path": "data/raw/doc-451f8d4099977f73.txt",
+  "text_sha256": "240094ffe3091ef094c30d6e293ee254a5b74d8c693fa3ff8961933eb4d77f4d",
+  "injection_warnings": []
+}

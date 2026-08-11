@@ -1,0 +1,68 @@
+{
+  "items": [
+    {
+      "id": "challenge-a23bdc8c-e052-41ae-8488-ae82161c7005",
+      "task_id": "task-5e3a26f3-8587-4c10-9156-a79cea196083",
+      "round": 1,
+      "status": "open",
+      "evidence_ids_before": [
+        "ev-13c4daeb55609a9c",
+        "ev-154a7bedf5cbd2e7",
+        "ev-186a25f309ff31cc",
+        "ev-3853974333b2aebb",
+        "ev-443d2a23e65b2612",
+        "ev-6d0c743c92896307",
+        "ev-799e3c1036336e51",
+        "ev-8a474bf5fd17715a",
+        "ev-9948f401843af4a8",
+        "ev-a0c876a958da9274",
+        "ev-a2f2ca43db1d685b",
+        "ev-bea635b94248f632",
+        "ev-ca5e132019f093d6",
+        "ev-da67306a93d0c978"
+      ],
+      "points": [
+        {
+          "id": "cp-r1-8e3b3efd-1152-4b97-8b37-458dada6a0ee",
+          "question_ids": [
+            "q-05bdba70-e648-44aa-a9c0-d5fb2c7ffceb"
+          ],
+          "category": "证据独立性",
+          "challenge": "亿航智能的三大核心财务数据（2025财年营收4.18亿元、2026Q1营收2570万元、2026全年指引6亿元）全部来自单一来源 stockanalysis.com，未获第二个独立来源组交叉验证。该研判的财务结论是否可信？",
+          "gap_action": "补充第二个独立来源（如亿航官方新闻稿/交易所公告/主流财经媒体）对上述财务数据进行交叉验证。",
+          "status": "open",
+          "reason": "",
+          "new_evidence_ids": []
+        },
+        {
+          "id": "cp-r1-e634d625-ef97-4afe-90d8-54e53083cb95",
+          "question_ids": [
+            "q-f75127d1-5338-48f3-b4d5-249cd19f030b"
+          ],
+          "category": "证据矛盾",
+          "challenge": "fact-ade4a50765a03431（低空经济列入国家'十五五'规划）存在一条被审核为'contradicts'的候选支持引文，与该事实的支持证据相矛盾，尚未消解。该事实能否成立？",
+          "gap_action": "消解或登记矛盾，补检索权威来源（如官方规划文件）确认'十五五'规划对低空经济的表述。",
+          "status": "open",
+          "reason": "",
+          "new_evidence_ids": []
+        },
+        {
+          "id": "cp-r1-377ded8e-e9fa-45ac-ad77-19bbd5fa80d6",
+          "question_ids": [
+            "q-05bdba70-e648-44aa-a9c0-d5fb2c7ffceb"
+          ],
+          "category": "订单与交付数据缺失",
+          "challenge": "关键问题聚焦亿航智能商业化进展与订单情况，但现有证据缺乏具体的订单量与交付量数据（如 EH216-S 季度交付架次），仅有时点里程碑（哈萨克斯坦首飞、香港沙盒申请）与财务概况。订单情况研判证据不足。",
+          "gap_action": "补检索亿航官方交付量/订单量数据（如季度交付架次）。",
+          "status": "open",
+          "reason": "",
+          "new_evidence_ids": []
+        }
+      ],
+      "accepted_partial_questions": [],
+      "converged": false,
+      "created_at": "2026-08-11T03:54:32.938205+00:00",
+      "confirmed_at": null
+    }
+  ]
+}

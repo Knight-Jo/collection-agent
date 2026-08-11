@@ -1,0 +1,18 @@
+{
+  "id": "doc-df5aebddcfdfdcf4",
+  "requested_url": "https://ir.ehang.com/news-releases",
+  "final_url": "https://ir.ehang.com/news-releases",
+  "canonical_url": "https://ir.ehang.com/news-releases",
+  "title": "EHang Holdings Limited | News Releases",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-11T03:33:35.876334+00:00",
+  "source_type": "other",
+  "source_group": "ehang.com",
+  "raw_path": "data/raw/doc-df5aebddcfdfdcf4.raw",
+  "raw_sha256": "67e4e44da37c3d877a4dccbb4039614ef9aefa21a59ba1263b0ba491d54b7099",
+  "text_path": "data/raw/doc-df5aebddcfdfdcf4.txt",
+  "text_sha256": "3e69b65abe3076c6e3126014ff9d5bc372e18b7261e176dcaa122a1c34df51d2",
+  "injection_warnings": []
+}

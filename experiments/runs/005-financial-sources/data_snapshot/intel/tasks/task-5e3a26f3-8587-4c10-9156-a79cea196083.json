@@ -1,0 +1,47 @@
+{
+  "id": "task-5e3a26f3-8587-4c10-9156-a79cea196083",
+  "topic": "低空经济（Low-Altitude Economy）",
+  "stage": "challenge",
+  "questions": [
+    {
+      "id": "q-f75127d1-5338-48f3-b4d5-249cd19f030b",
+      "text": "2026年低空经济投资与融资趋势"
+    },
+    {
+      "id": "q-05bdba70-e648-44aa-a9c0-d5fb2c7ffceb",
+      "text": "亿航智能商业化进展与订单情况"
+    }
+  ],
+  "criteria": {
+    "min_independent_sources": 2,
+    "min_high_quality_sources": 1,
+    "recency_days": 120,
+    "require_recency": false
+  },
+  "collection": {
+    "search_attempts": 6,
+    "search_stop_reason": "search_budget_exhausted",
+    "fetch_attempts_since_evidence": 0,
+    "evidence_count": 20,
+    "stop_reason": null
+  },
+  "outputs": {
+    "package": {
+      "coverage_id": "cov-e828c796-f338-47c5-acea-143b87ec264c",
+      "coverage_fingerprint": "b14ca8be616b7266a1bd1c499e1db13e1ee34df0d70a4504d193001c7470fab9",
+      "path": "output/低空经济-low-altitude-economy-evidence-package.md",
+      "content_sha256": "6fbfb24b03d7c29de655c8cd91c1caa8fda91170ea08e551fb2f5b5ddb33ab45",
+      "created_at": "2026-08-11T04:01:43.040555+00:00"
+    },
+    "assessment": {
+      "coverage_id": "cov-e828c796-f338-47c5-acea-143b87ec264c",
+      "coverage_fingerprint": "b14ca8be616b7266a1bd1c499e1db13e1ee34df0d70a4504d193001c7470fab9",
+      "path": "output/低空经济-low-altitude-economy-assessment.md",
+      "content_sha256": "2d641e06f28dfcc06d5e775550b53b9b8c5b47b8e5607d422a90037d77dd0c2d",
+      "created_at": "2026-08-11T04:01:54.807802+00:00"
+    }
+  },
+  "challenge_round": 1,
+  "created_at": "2026-08-11T03:31:23.786977+00:00",
+  "updated_at": "2026-08-11T04:01:54.807865+00:00"
+}

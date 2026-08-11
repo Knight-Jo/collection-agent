@@ -10,6 +10,7 @@
 | 002 | fix-prompt-budget | **done**（5 min） | 预算 200/用户问题原样/标准显式/publish_time 修复；检索仍同质 | ✅ |
 | 003 | search-diversity | 卡死循环（150 事件） | gap_score 20→13；Q2=gap；死循环；`str.replace` bug | ✅ |
 | 004 | link-expansion-pdf | 2 轮挑战未收敛但**干净终态**（16 min, exit=0） | **首个 covered fact + 首个 addressed 点**；来源扩展/PDF/纪律生效；订单数据仍缺 | ✅ |
+| 005 | financial-sources | 挑战 confirm 9 连败（ID 抄错），未收敛终态（31 min, exit=0） | **财务数据破冰**（Q1/FY2025/指引）；IR httpx 回退生效；**发现 P0: 长 UUID 抄错死锁** | ✅ |
 
 ## 改进清单（按优先级）
 
@@ -24,11 +25,13 @@
 - [x] **P2** fetch 发布时间提取: PubDate meta + 正文/URL 兜底
 - [x] **P3** 修复 `str.replace(count=)` TypeError 与 `result.usage()` crash
 
-### 待办（005+）
-- [ ] **P1** IR/证券数据源专项: ir.ehang.com 超时重试/更长超时；引导 sec.gov/EDGAR、东方财富
-- [ ] **P1** 投资融资类问题定向来源: caixin.com / cls.cn / 清科投中报告页
-- [ ] **P2** 单源 facts 交叉验证纪律（第二个独立来源组）
-- [ ] **P4** 中文查询英文并行检索（EN 变体实际执行）
+### 待办（006+）
+- [x] **P1** IR 抓取超时: httpx 回退（005 生效，ir.ehang.com 成功）
+- [x] **P1** 金融/IR 定向来源: suggested_direct_sources + caixin/cls/eastmoney 提示词（005 生效）
+- [x] **P0** 长 UUID 抄错死锁: 短 ID + tolerant_id 容错匹配 + 错误信息列有效 ID（005 修复，待 006 验证）
+- [ ] **P2** 单源财务数据交叉验证渠道（stockanalysis 页内链接展开）
+- [ ] **P3** 验证码页检测（百度安全验证类页面拒绝归档）
+- [ ] **P3** contradicts 证据处理流程验证（005 首次出现）
 
 ## 结论沉淀（跨实验）
 

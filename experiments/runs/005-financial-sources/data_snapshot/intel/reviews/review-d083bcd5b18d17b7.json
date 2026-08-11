@@ -1,0 +1,18 @@
+{
+  "id": "review-d083bcd5b18d17b7",
+  "task_id": "task-5e3a26f3-8587-4c10-9156-a79cea196083",
+  "fact_id": "fact-d3a374668c7925c2",
+  "evidence_id": "ev-a50b5e2287eae9a1",
+  "verdict": "partial",
+  "reason": "Quote mentions a 'line of long-range, pilotless eVTOL aircraft' which supports the existence of long-range pilotless eVTOL aircraft (supporting the long-range and unmanned/eVTOL aspects), but does not support the specific model name VT35, the company 亿航智能 (EHang), the single-charge range of over 100 miles, or the '载人' (passenger-carrying) aspect.",
+  "unsupported_parts": [
+    "VT35机型名称",
+    "亿航智能 (EHang公司)",
+    "单次充电续航超100英里",
+    "载人 (passenger-carrying)"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-11T03:57:35.447632+00:00"
+}

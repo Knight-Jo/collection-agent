@@ -1,0 +1,19 @@
+{
+  "id": "review-b37d3b0529f02003",
+  "task_id": "task-5e3a26f3-8587-4c10-9156-a79cea196083",
+  "fact_id": "fact-c3c845603aae03d5",
+  "evidence_id": "ev-799e3c1036336e51",
+  "verdict": "partial",
+  "reason": "该quote仅提供了标题\"Pilotless Human-Carrying eVTOL Flight in the Heart of Kazakhstan\"，虽然支持了\"无人驾驶载人eVTOL飞行\"和\"哈萨克斯坦\"（中亚）这两个要素，但未提及具体日期（2026年8月10日）、具体公司/型号（亿航智能EH216-S）、\"首次\"这一性质，以及\"首都\"这一具体地点。标题中的\"Heart of Kazakhstan\"不能确定是首都还是其他地点。",
+  "unsupported_parts": [
+    "日期：2026年8月10日",
+    "机型：EH216-S（亿航智能）",
+    "'首次'的定性",
+    "'首都'这一具体地点",
+    "'中亚'这一范围"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-11T03:48:45.253768+00:00"
+}
