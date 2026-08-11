@@ -32,10 +32,17 @@ def normalize_quote(value: str) -> str:
     return value.replace("\r\n", "\n").replace("\r", "\n").strip()
 
 
+def _require_successful_extraction(document: IntelDocument) -> None:
+    if document.extraction_status != "complete":
+        raise IntelError(
+            "EXTRACTION_UNAVAILABLE",
+            f"文档正文提取未成功: {document.id}",
+        )
+
+
 def _evidence_id(
     # Line range is part of the ID: the same quote at a different position is
     # a different evidence record, so document revisions can't alias quotes.
-
     fact_id: str,
     document_id: str,
     relation: str,
@@ -76,6 +83,7 @@ def verify_evidence(cwd: Path, evidence: EvidenceSupport) -> EvidenceSupport:
     fact = load_fact(cwd, evidence.fact_id)
     document = load_document(cwd, evidence.document_id)
     verify_document_integrity(cwd, document)
+    _require_successful_extraction(document)
     quote = normalize_quote(evidence.quote)
     try:
         line_start, line_end = locate_quote(cwd, document, quote)
@@ -152,6 +160,7 @@ def save_evidence(
         raise IntelError("INVALID_INPUT", "quote 不能为空")
     document = load_document(cwd, document_id)
     verify_document_integrity(cwd, document)
+    _require_successful_extraction(document)
     line_start, line_end = locate_quote(cwd, document, quote)
     id_ = _evidence_id(
         fact.id, document.id, relation, line_start, line_end, quote

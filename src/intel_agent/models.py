@@ -71,6 +71,7 @@ class CrawlEntry(BaseModel):
     size: int | None = None
     extraction: ExtractionState = Field(default_factory=ExtractionState)
     validators: CrawlValidators = Field(default_factory=CrawlValidators)
+    outbound_links: list[str] = Field(default_factory=list)
     created_at: str
     updated_at: str
 
@@ -149,6 +150,9 @@ class IntelDocument(BaseModel):
     raw_sha256: str
     text_path: str
     text_sha256: str
+    extraction_status: Literal["complete", "unavailable", "failed"] = (
+        "complete"
+    )
     injection_warnings: list[str] = Field(default_factory=list)
 
 
@@ -313,10 +317,11 @@ class ChallengeRound(BaseModel):
 class IntelError(Exception):
     """Error carrying a stable machine-readable code (e.g. UNSAFE_URL)."""
 
-    def __init__(self, code: str, message: str):
+    def __init__(self, code: str, message: str, *, downloaded_bytes: int = 0):
         super().__init__(message)
         self.code = code
         self.name = "IntelError"
+        self.downloaded_bytes = downloaded_bytes
 
 
 def new_id(prefix: str) -> str:

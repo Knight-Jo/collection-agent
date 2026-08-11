@@ -5,7 +5,7 @@ import pytest
 from intel_agent.evidence import list_evidence_for_fact, save_evidence
 from intel_agent.fact import load_fact, save_fact, supersede_fact
 from intel_agent.models import IntelError
-from intel_agent.storage import read_json_object
+from intel_agent.storage import read_json_object, write_json_atomic
 from tests.conftest import make_document, new_task
 
 
@@ -83,6 +83,54 @@ def test_evidence_quote_not_found(cwd):
     assert e.value.code == "QUOTE_NOT_FOUND"
 
 
+@pytest.mark.parametrize("extraction_status", ["unavailable", "failed"])
+def test_evidence_rejects_document_without_successful_extraction(
+    cwd, extraction_status
+):
+    task = new_task(cwd)
+    question = task.questions[0]
+    document = make_document(cwd, "archived but not extracted")
+    record = read_json_object(cwd, f"documents/{document.id}.json")
+    record["extraction_status"] = extraction_status
+    write_json_atomic(cwd, f"documents/{document.id}.json", record)
+    fact = save_fact(cwd, task.id, question.id, "某事实")
+
+    with pytest.raises(IntelError) as error:
+        save_evidence(
+            cwd,
+            fact.id,
+            document.id,
+            "supports",
+            "archived but not extracted",
+        )
+
+    assert error.value.code == "EXTRACTION_UNAVAILABLE"
+
+
+def test_existing_evidence_becomes_unusable_if_extraction_is_not_successful(
+    cwd,
+):
+    task = new_task(cwd)
+    question = task.questions[0]
+    document = make_document(cwd, "successfully extracted quote")
+    fact = save_fact(cwd, task.id, question.id, "某事实")
+    save_evidence(
+        cwd,
+        fact.id,
+        document.id,
+        "supports",
+        "successfully extracted quote",
+    )
+    record = read_json_object(cwd, f"documents/{document.id}.json")
+    record["extraction_status"] = "failed"
+    write_json_atomic(cwd, f"documents/{document.id}.json", record)
+
+    with pytest.raises(IntelError) as error:
+        list_evidence_for_fact(cwd, fact.id)
+
+    assert error.value.code == "EXTRACTION_UNAVAILABLE"
+
+
 def test_document_tamper_detected(cwd):
     task = new_task(cwd)
     q = task.questions[0]
@@ -102,8 +150,6 @@ def test_fact_metadata_corruption_detected(cwd):
     fact = save_fact(cwd, task.id, q.id, "某事实")
     data = read_json_object(cwd, f"facts/{fact.id}.json")
     data["statement"] = "被篡改的陈述"
-    from intel_agent.storage import write_json_atomic
-
     write_json_atomic(cwd, f"facts/{fact.id}.json", data)
     with pytest.raises(IntelError) as e:
         load_fact(cwd, fact.id)

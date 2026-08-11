@@ -33,6 +33,7 @@ _REJECTED_SUFFIXES = {
     ".ps1",
     ".rar",
     ".sh",
+    ".svg",
     ".tar",
     ".xz",
     ".zip",
@@ -48,12 +49,26 @@ _REJECTED_MIMES = {
     "application/x-sh",
     "application/x-tar",
     "application/zip",
+    "image/svg+xml",
     "text/javascript",
 }
 _PLAIN_SUFFIXES = {".csv", ".txt"}
 _IMAGE_SUFFIXES = {".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
 _AUDIO_SUFFIXES = {".flac", ".m4a", ".mp3", ".ogg", ".wav"}
 _VIDEO_SUFFIXES = {".mov", ".mp4", ".webm"}
+_IMAGE_MIMES = {"image/jpeg", "image/png", "image/tiff", "image/webp"}
+_AUDIO_MIMES = {
+    "audio/flac",
+    "audio/mp4",
+    "audio/mpeg",
+    "audio/ogg",
+    "audio/wav",
+    "audio/x-flac",
+    "audio/x-m4a",
+    "audio/x-wav",
+}
+_VIDEO_MIMES = {"video/mp4", "video/quicktime", "video/webm"}
+_GENERIC_MIMES = {"", "application/octet-stream", "binary/octet-stream"}
 _OFFICE_MIMES = {
     "application/msword": "doc",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
@@ -106,21 +121,27 @@ def is_rejected_resource(mime_type: str, url: str) -> bool:
 def is_supported_resource(mime_type: str, url: str) -> bool:
     mime = mime_type.split(";", 1)[0].strip().lower()
     suffix = Path(urlparse(url).path).suffix.lower()
-    return bool(
-        mime in {"text/html", "application/xhtml+xml", "application/pdf"}
+    supported_mime = bool(
+        mime
+        in {
+            "application/pdf",
+            "application/xhtml+xml",
+            "text/csv",
+            "text/html",
+            "text/plain",
+        }
         or mime.startswith("text/plain")
-        or mime == "text/csv"
         or mime in _OFFICE_MIMES
-        or mime.startswith("image/")
-        or mime.startswith("audio/")
-        or mime.startswith("video/")
-        or suffix
-        in _PLAIN_SUFFIXES
+        or mime in _IMAGE_MIMES | _AUDIO_MIMES | _VIDEO_MIMES
+    )
+    supported_suffix = suffix in (
+        _PLAIN_SUFFIXES
         | _IMAGE_SUFFIXES
         | _AUDIO_SUFFIXES
         | _VIDEO_SUFFIXES
         | {".doc", ".docx", ".pdf", ".ppt", ".pptx", ".xls", ".xlsx"}
     )
+    return supported_mime or (mime in _GENERIC_MIMES and supported_suffix)
 
 
 def _number_lines(text: str) -> str:
@@ -364,15 +385,17 @@ def extract_resource(
                 links=links,
                 processor="python-pptx",
             )
-        if mime.startswith("image/") or suffix in _IMAGE_SUFFIXES:
+        if mime in _IMAGE_MIMES or (
+            mime in _GENERIC_MIMES and suffix in _IMAGE_SUFFIXES
+        ):
             return ExtractionResult(
                 status="complete",
                 text=_number_lines(_ocr_image(raw, ocr_languages)),
                 processor="tesseract",
             )
-        if (
-            mime.startswith(("audio/", "video/"))
-            or suffix in _AUDIO_SUFFIXES | _VIDEO_SUFFIXES
+        if mime in _AUDIO_MIMES | _VIDEO_MIMES or (
+            mime in _GENERIC_MIMES
+            and suffix in _AUDIO_SUFFIXES | _VIDEO_SUFFIXES
         ):
             segments = _transcribe_media(raw, suffix, whisper_model)
             text = "\n".join(
@@ -392,6 +415,7 @@ def extract_resource(
     except (
         ImportError,
         FileNotFoundError,
+        OSError,
         subprocess.SubprocessError,
     ) as error:
         return ExtractionResult(status="unavailable", error=str(error))

@@ -153,11 +153,19 @@ async def pinned_fetch(
             if not chunk:
                 break
             size += len(chunk)
-            if size > max_bytes + 65_536:
-                raise IntelError(
-                    "RESPONSE_TOO_LARGE", f"响应超过 {max_bytes} 字节"
-                )
             chunks.append(chunk)
+            if size > max_bytes + 65_536:
+                raw_response = b"".join(chunks)
+                separator = raw_response.find(b"\r\n\r\n")
+                raise IntelError(
+                    "RESPONSE_TOO_LARGE",
+                    f"响应超过 {max_bytes} 字节",
+                    downloaded_bytes=(
+                        len(raw_response) - separator - 4
+                        if separator >= 0
+                        else 0
+                    ),
+                )
     finally:
         writer.close()
         with suppress(Exception):
@@ -188,7 +196,9 @@ async def httpx_fallback_fetch(
         body = response.content
         if len(body) > max_bytes:
             raise IntelError(
-                "RESPONSE_TOO_LARGE", f"响应超过 {max_bytes} 字节"
+                "RESPONSE_TOO_LARGE",
+                f"响应超过 {max_bytes} 字节",
+                downloaded_bytes=len(body),
             )
         return FetchedResponse(
             status=response.status_code,
@@ -213,10 +223,15 @@ def parse_http_response(
             key, value = line.split(":", 1)
             headers[key.strip().lower()] = value.strip()
     body = raw[separator + 4 :]
+    downloaded_body_bytes = len(body)
     if re.search(r"chunked", headers.get("transfer-encoding", ""), re.I):
         body = decode_chunked(body)
     if len(body) > max_bytes:
-        raise IntelError("RESPONSE_TOO_LARGE", f"响应超过 {max_bytes} 字节")
+        raise IntelError(
+            "RESPONSE_TOO_LARGE",
+            f"响应超过 {max_bytes} 字节",
+            downloaded_bytes=downloaded_body_bytes,
+        )
     return FetchedResponse(
         status=int(status_m.group(1)), headers=headers, body=body
     )
@@ -310,7 +325,11 @@ async def fetch_document(
         )
     raw_bytes = response.body
     if len(raw_bytes) > max_bytes:
-        raise IntelError("RESPONSE_TOO_LARGE", f"响应超过 {max_bytes} 字节")
+        raise IntelError(
+            "RESPONSE_TOO_LARGE",
+            f"响应超过 {max_bytes} 字节",
+            downloaded_bytes=len(raw_bytes),
+        )
     raw_text = decode_body(raw_bytes, content_type)
     is_html = bool(re.search(r"html|xhtml", content_type))
     is_pdf = "pdf" in content_type

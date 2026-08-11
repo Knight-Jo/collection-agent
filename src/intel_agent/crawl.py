@@ -7,6 +7,7 @@ import mimetypes
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
 
@@ -198,6 +199,7 @@ def _copy_cache(entry: CrawlEntry, cached: CrawlEntry) -> None:
     entry.size = cached.size
     entry.validators = cached.validators.model_copy(deep=True)
     entry.extraction = cached.extraction.model_copy(deep=True)
+    entry.outbound_links = list(cached.outbound_links)
     entry.updated_at = utc_now()
 
 
@@ -221,6 +223,7 @@ def _archive_resource(
     mime_type: str,
     raw: bytes,
     text: str,
+    extraction_status: Literal["complete", "unavailable", "failed"],
 ) -> IntelDocument:
     canonical_url = canonicalize_url(final_url)
     raw_hash = sha256(raw)
@@ -229,6 +232,18 @@ def _archive_resource(
     if intel_path(cwd, record_path).exists():
         document = IntelDocument.model_validate(read_json(cwd, record_path))
         verify_document_integrity(cwd, document)
+        if (
+            extraction_status == "complete"
+            and document.extraction_status != "complete"
+        ):
+            write_file_atomic(cwd, document.text_path, text)
+            document = document.model_copy(
+                update={
+                    "text_sha256": sha256(text),
+                    "extraction_status": "complete",
+                }
+            )
+            write_json_atomic(cwd, record_path, document.model_dump())
         return document
     raw_path = f"data/raw/{document_id}.raw"
     text_path = f"data/raw/{document_id}.txt"
@@ -253,6 +268,7 @@ def _archive_resource(
         raw_sha256=raw_hash,
         text_path=text_path,
         text_sha256=sha256(text),
+        extraction_status=extraction_status,
         injection_warnings=injection_warnings(text),
     )
     write_json_atomic(cwd, record_path, document.model_dump())
@@ -340,6 +356,36 @@ class _CrawlRunner:
                 await self.sleep(delay)
             self.host_last_start[hostname] = loop.time()
 
+    async def _account_download(
+        self, entry: CrawlEntry, downloaded_bytes: int
+    ) -> None:
+        async with self.byte_lock:
+            entry.downloaded_bytes += downloaded_bytes
+            self.snapshot.downloaded_bytes += downloaded_bytes
+            exceeded = (
+                self.snapshot.downloaded_bytes > self.config.max_total_bytes
+            )
+        await self.persist()
+        if exceeded:
+            raise IntelError("CRAWL_LIMIT", "crawl byte limit reached")
+
+    async def _fetch_hop(
+        self,
+        entry: CrawlEntry,
+        url: str,
+        request_init: dict | None,
+        address: str,
+    ) -> FetchedResponse:
+        hostname = urlparse(url).hostname or ""
+        host_semaphore = self.host_semaphores.setdefault(
+            hostname, asyncio.Semaphore(self.config.per_host_concurrency)
+        )
+        async with host_semaphore:
+            await self.rate_limit(hostname)
+            response = await self.fetcher(url, request_init, address)
+            await self._account_download(entry, len(response.body))
+        return response
+
     async def fetch(self, entry: CrawlEntry) -> list[str]:
         if self.snapshot.downloaded_bytes >= self.config.max_total_bytes:
             entry.status = "skipped_limit"
@@ -364,12 +410,8 @@ class _CrawlRunner:
             if age <= timedelta(hours=self.config.cache_ttl_hours):
                 _copy_cache(entry, cached)
                 await self.persist()
-                return []
-        hostname = urlparse(entry.canonical_url).hostname or ""
-        host_semaphore = self.host_semaphores.setdefault(
-            hostname, asyncio.Semaphore(self.config.per_host_concurrency)
-        )
-        async with self.global_semaphore, host_semaphore:
+                return list(entry.outbound_links)
+        async with self.global_semaphore:
             entry.status = "fetching"
             entry.updated_at = utc_now()
             await self.persist()
@@ -386,20 +428,31 @@ class _CrawlRunner:
             last_error: Exception | None = None
             for attempt in range(self.config.retries + 1):
                 entry.attempts += 1
+                response = None
                 try:
-                    await self.rate_limit(hostname)
                     async with asyncio.timeout(DEFAULT_TIMEOUT_MS / 1000):
                         (
                             response,
                             final_url,
                         ) = await fetch_with_validated_redirects(
                             entry.canonical_url,
-                            self.fetcher,
+                            lambda url, init, address: self._fetch_hop(
+                                entry, url, init, address
+                            ),
                             self.resolver,
                             self.config.max_attachment_bytes,
                             {"headers": headers},
                         )
                     if response.status not in {429} and response.status < 500:
+                        break
+                    if (
+                        self.snapshot.downloaded_bytes
+                        >= self.config.max_total_bytes
+                    ):
+                        last_error = IntelError(
+                            "CRAWL_LIMIT", "crawl byte limit reached"
+                        )
+                        response = None
                         break
                     if attempt < self.config.retries:
                         retry_after = response.headers.get("retry-after", "0")
@@ -411,12 +464,34 @@ class _CrawlRunner:
                     last_error = error
                     if (
                         isinstance(error, IntelError)
-                        and error.code == "UNSAFE_URL"
+                        and error.downloaded_bytes
                     ):
+                        try:
+                            await self._account_download(
+                                entry, error.downloaded_bytes
+                            )
+                        except IntelError as limit_error:
+                            last_error = limit_error
+                    if isinstance(
+                        last_error, IntelError
+                    ) and last_error.code in {
+                        "CRAWL_LIMIT",
+                        "RESPONSE_TOO_LARGE",
+                        "UNSAFE_URL",
+                    }:
                         break
                     if attempt < self.config.retries:
                         await self.sleep(0)
             if response is None:
+                if isinstance(last_error, IntelError) and last_error.code in {
+                    "CRAWL_LIMIT",
+                    "RESPONSE_TOO_LARGE",
+                }:
+                    entry.status = "skipped_limit"
+                    entry.error = str(last_error)
+                    entry.updated_at = utc_now()
+                    await self.persist()
+                    return []
                 code = (
                     f"{last_error.code}: "
                     if isinstance(last_error, IntelError)
@@ -431,7 +506,7 @@ class _CrawlRunner:
                 _load_cached_document(self.cwd, cached)
                 _copy_cache(entry, cached)
                 await self.persist()
-                return []
+                return list(entry.outbound_links)
             if 400 <= response.status < 500:
                 entry.status = "skipped_http"
                 entry.error = f"HTTP {response.status}"
@@ -480,18 +555,6 @@ class _CrawlRunner:
                 entry.updated_at = utc_now()
                 await self.persist()
                 return []
-            async with self.byte_lock:
-                if (
-                    self.snapshot.downloaded_bytes + len(response.body)
-                    > self.config.max_total_bytes
-                ):
-                    entry.status = "skipped_limit"
-                    entry.error = "crawl byte limit reached"
-                    entry.updated_at = utc_now()
-                    await self.persist()
-                    return []
-                self.snapshot.downloaded_bytes += len(response.body)
-                entry.downloaded_bytes = len(response.body)
             extracted = await asyncio.to_thread(
                 extract_resource,
                 response.body,
@@ -507,6 +570,9 @@ class _CrawlRunner:
                 mime_type,
                 response.body,
                 extracted.text,
+                "failed"
+                if extracted.status == "skipped"
+                else extracted.status,
             )
             entry.canonical_url = document.canonical_url
             entry.document_id = document.id
@@ -517,6 +583,7 @@ class _CrawlRunner:
                 text_path=document.text_path,
                 error=extracted.error,
             )
+            entry.outbound_links = list(extracted.links)
             entry.updated_at = utc_now()
             await self.persist()
             return extracted.links

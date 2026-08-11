@@ -4,14 +4,19 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from urllib.parse import urlparse
 
 import pytest
 
 from intel_agent.config import CrawlConfig
 from intel_agent.crawl import crawl_collect, create_crawl, enqueue_url
 from intel_agent.evidence import load_document
-from intel_agent.fetch import FetchedResponse, canonicalize_url
-from intel_agent.models import CrawlSnapshot, ExtractionResult
+from intel_agent.fetch import (
+    FetchedResponse,
+    canonicalize_url,
+    parse_http_response,
+)
+from intel_agent.models import CrawlSnapshot, ExtractionResult, IntelError
 from intel_agent.storage import (
     load_crawl,
     read_json_object,
@@ -37,6 +42,16 @@ def test_canonicalize_url_deduplicates_equivalent_urls():
     assert canonicalize_url("https://example.com:8443/a/") == (
         "https://example.com:8443/a"
     )
+
+
+def test_oversized_response_error_reports_downloaded_body_bytes():
+    raw = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n12345"
+
+    with pytest.raises(IntelError) as error:
+        parse_http_response(raw, max_bytes=3)
+
+    assert error.value.code == "RESPONSE_TOO_LARGE"
+    assert error.value.downloaded_bytes == 5
 
 
 def test_crawl_config_uses_documented_defaults():
@@ -121,9 +136,13 @@ async def test_crawl_retries_and_enforces_byte_limit(cwd):
         nonlocal calls
         calls += 1
         if calls == 1:
-            return FetchedResponse(status=500)
+            return FetchedResponse(status=500, body=b"fail")
         if calls == 2:
-            return FetchedResponse(status=429, headers={"retry-after": "0"})
+            return FetchedResponse(
+                status=429,
+                headers={"retry-after": "0"},
+                body=b"busy",
+            )
         return FetchedResponse(
             status=200,
             headers={"content-type": "text/plain", "etag": '"v1"'},
@@ -134,7 +153,7 @@ async def test_crawl_retries_and_enforces_byte_limit(cwd):
         cwd,
         task.id,
         ["https://example.com/a"],
-        config=CrawlConfig(retries=2, max_total_bytes=4, obey_robots=False),
+        config=CrawlConfig(retries=2, max_total_bytes=10, obey_robots=False),
         fetcher=fetcher,
         resolver=_public_resolver,
     )
@@ -143,7 +162,8 @@ async def test_crawl_retries_and_enforces_byte_limit(cwd):
     assert calls == 3
     assert entry.attempts == 3
     assert entry.status == "skipped_limit"
-    assert entry.downloaded_bytes == 0
+    assert entry.downloaded_bytes == 13
+    assert snapshot.downloaded_bytes == 13
     assert (
         load_task(cwd, task.id).collection.fetch_attempts_since_evidence == 0
     )
@@ -247,6 +267,55 @@ async def test_crawl_reuses_fresh_cross_task_cache_and_revalidates_stale(cwd):
     }
     assert third.entries[0].status == "reused"
     assert third.entries[0].document_id == document_id
+
+
+@pytest.mark.asyncio
+async def test_fresh_cache_reuse_preserves_recursive_discovery(cwd):
+    first_task = new_task(cwd)
+
+    async def first_fetcher(url, init, address):
+        body = (
+            b'<html><a href="/next">next</a>root</html>'
+            if url.endswith("/root")
+            else b"next"
+        )
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=body,
+        )
+
+    await crawl_collect(
+        cwd,
+        first_task.id,
+        ["https://example.com/root"],
+        config=CrawlConfig(
+            max_depth=1, obey_robots=False, per_host_delay_seconds=0
+        ),
+        fetcher=first_fetcher,
+        resolver=_public_resolver,
+    )
+    second_task = new_task(cwd)
+
+    async def must_not_fetch(url, init, address):
+        raise AssertionError("fresh cached crawl must not fetch")
+
+    snapshot = await crawl_collect(
+        cwd,
+        second_task.id,
+        ["https://example.com/root"],
+        config=CrawlConfig(
+            max_depth=1, obey_robots=False, per_host_delay_seconds=0
+        ),
+        fetcher=must_not_fetch,
+        resolver=_public_resolver,
+    )
+
+    assert {entry.canonical_url for entry in snapshot.entries} == {
+        "https://example.com/root",
+        "https://example.com/next",
+    }
+    assert {entry.status for entry in snapshot.entries} == {"reused"}
 
 
 @pytest.mark.asyncio
@@ -355,6 +424,91 @@ async def test_crawl_records_http_and_unsupported_skips(
     )
 
     assert snapshot.entries[0].status == expected_status
+    assert snapshot.entries[0].downloaded_bytes == len(response.body)
+    assert snapshot.downloaded_bytes == len(response.body)
+
+
+@pytest.mark.asyncio
+async def test_crawl_counts_redirect_response_bodies(cwd):
+    task = new_task(cwd)
+
+    async def fetcher(url, init, address):
+        if url.endswith("/start"):
+            return FetchedResponse(
+                status=302,
+                headers={"location": "/missing"},
+                body=b"hop",
+            )
+        return FetchedResponse(status=404, body=b"gone")
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/start"],
+        config=CrawlConfig(obey_robots=False, per_host_delay_seconds=0),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+    )
+
+    assert snapshot.entries[0].status == "skipped_http"
+    assert snapshot.entries[0].downloaded_bytes == 7
+    assert snapshot.downloaded_bytes == 7
+
+
+@pytest.mark.asyncio
+async def test_crawl_counts_body_from_streaming_size_rejection(cwd):
+    task = new_task(cwd)
+
+    async def fetcher(url, init, address):
+        raise IntelError(
+            "RESPONSE_TOO_LARGE",
+            "response exceeded limit",
+            downloaded_bytes=5,
+        )
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/large"],
+        config=CrawlConfig(
+            retries=0, obey_robots=False, per_host_delay_seconds=0
+        ),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+    )
+
+    assert snapshot.entries[0].status == "skipped_limit"
+    assert snapshot.entries[0].downloaded_bytes == 5
+    assert snapshot.downloaded_bytes == 5
+
+
+@pytest.mark.asyncio
+async def test_crawl_counts_oversized_returned_resource(cwd):
+    task = new_task(cwd)
+
+    async def fetcher(url, init, address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/plain"},
+            body=b"large",
+        )
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/large"],
+        config=CrawlConfig(
+            max_attachment_bytes=3,
+            obey_robots=False,
+            per_host_delay_seconds=0,
+        ),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+    )
+
+    assert snapshot.entries[0].status == "skipped_limit"
+    assert snapshot.entries[0].downloaded_bytes == 5
+    assert snapshot.downloaded_bytes == 5
 
 
 @pytest.mark.asyncio
@@ -483,3 +637,77 @@ async def test_crawl_applies_per_host_concurrency_and_delay(cwd):
 
     assert max_active == 1
     assert any(delay > 0 for delay in delays)
+
+
+@pytest.mark.asyncio
+async def test_redirect_destination_obeys_host_concurrency_and_delay(cwd):
+    task = new_task(cwd)
+    target_active = 0
+    max_target_active = 0
+    delays: list[float] = []
+
+    async def fetcher(url, init, address):
+        nonlocal target_active, max_target_active
+        if "target.example" not in url:
+            path = urlparse(url).path
+            return FetchedResponse(
+                status=302,
+                headers={"location": f"https://target.example{path}"},
+            )
+        target_active += 1
+        max_target_active = max(max_target_active, target_active)
+        await asyncio.sleep(0)
+        target_active -= 1
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/plain"},
+            body=b"target",
+        )
+
+    async def fake_sleep(delay: float):
+        delays.append(delay)
+
+    await crawl_collect(
+        cwd,
+        task.id,
+        ["https://one.example/a", "https://two.example/b"],
+        config=CrawlConfig(
+            concurrency=2,
+            per_host_concurrency=1,
+            per_host_delay_seconds=1,
+            obey_robots=False,
+        ),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+        sleep=fake_sleep,
+    )
+
+    assert max_target_active == 1
+    assert any(delay > 0 for delay in delays)
+
+
+@pytest.mark.asyncio
+async def test_retry_reports_later_security_error_not_stale_response(cwd):
+    task = new_task(cwd)
+    calls = 0
+
+    async def fetcher(url, init, address):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return FetchedResponse(status=500, body=b"retry")
+        raise IntelError("UNSAFE_URL", "blocked on retry")
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/retry"],
+        config=CrawlConfig(
+            retries=1, obey_robots=False, per_host_delay_seconds=0
+        ),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+    )
+
+    assert snapshot.entries[0].status == "failed"
+    assert "UNSAFE_URL" in (snapshot.entries[0].error or "")

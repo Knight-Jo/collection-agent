@@ -56,12 +56,41 @@ def test_missing_optional_processor_marks_extraction_unavailable(monkeypatch):
     assert "pytesseract" in (result.error or "")
 
 
+def test_missing_tesseract_executable_marks_extraction_unavailable(
+    monkeypatch,
+):
+    def unavailable(raw, languages):
+        raise OSError("tesseract executable was not found")
+
+    monkeypatch.setattr("intel_agent.extract._ocr_image", unavailable)
+    result = extract_resource(
+        b"original", "image/png", "https://example.com/photo.png"
+    )
+    assert result.status == "unavailable"
+    assert "tesseract" in (result.error or "")
+
+
+@pytest.mark.parametrize(
+    ("mime_type", "url"),
+    [
+        ("image/svg+xml", "https://example.com/image.svg"),
+        ("image/gif", "https://example.com/image.gif"),
+        ("audio/aac", "https://example.com/audio.aac"),
+        ("video/x-msvideo", "https://example.com/video.avi"),
+    ],
+)
+def test_rejects_unlisted_media_formats(mime_type, url):
+    result = extract_resource(b"original", mime_type, url)
+    assert result.status == "skipped"
+
+
 @pytest.mark.parametrize(
     ("mime_type", "url"),
     [
         ("application/zip", "https://example.com/a.zip"),
         ("application/javascript", "https://example.com/a.js"),
         ("application/x-msdownload", "https://example.com/a.exe"),
+        ("text/plain", "https://example.com/image.svg"),
     ],
 )
 def test_rejects_archives_scripts_and_executables(mime_type, url):
