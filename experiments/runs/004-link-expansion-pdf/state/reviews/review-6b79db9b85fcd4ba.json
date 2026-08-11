@@ -1,0 +1,18 @@
+{
+  "id": "review-6b79db9b85fcd4ba",
+  "task_id": "task-6ff68abf-8b56-4a12-a5b9-f4b9f8557754",
+  "fact_id": "fact-b4d39195de12756c",
+  "evidence_id": "ev-92ed76789e12d045",
+  "verdict": "partial",
+  "reason": "该quote支持了fact中的核心动作（亿航白鹭在合肥骆岗公园完成22580架GHOSTDRONE 4.0同时升空）以及时间暗示（当晚），但未提及《中国民航报》报道、2026年2月16日的具体日期、刷新纪录和吉尼斯认证等信息。",
+  "unsupported_parts": [
+    "《中国民航报》报道",
+    "2026年2月16日",
+    "刷新纪录",
+    "吉尼斯世界纪录认证"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-11T02:33:13.079035+00:00"
+}

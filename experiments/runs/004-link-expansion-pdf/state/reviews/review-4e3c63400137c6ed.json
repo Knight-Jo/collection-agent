@@ -1,0 +1,15 @@
+{
+  "id": "review-4e3c63400137c6ed",
+  "task_id": "task-6ff68abf-8b56-4a12-a5b9-f4b9f8557754",
+  "fact_id": "fact-13622ee3a4781ba9",
+  "evidence_id": "ev-88088f57f836e840",
+  "verdict": "partial",
+  "reason": "quote 支持了'中亚首次eVTOL载人飞行'、'亿航EH216-S'、'在哈萨克斯坦首都中心完成载人首飞'等关键要素，但未提及'2026年'这一时间要素，因此部分支持事实。",
+  "unsupported_parts": [
+    "2026年"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-11T02:29:15.639016+00:00"
+}

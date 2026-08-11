@@ -1,0 +1,11 @@
+{
+  "id": "fact-f7069294873372d3",
+  "task_id": "task-6ff68abf-8b56-4a12-a5b9-f4b9f8557754",
+  "question_id": "q-b83ce2ad-6639-42c7-a2f4-6bceb838a73d",
+  "statement": "《中国民航报》报道,亿航白鹭在合肥骆岗公园完成22580架新一代编队无人机GHOSTDRONE 4.0同时升空。",
+  "status": "active",
+  "superseded_by": [],
+  "supersession_reason": "",
+  "created_at": "2026-08-11T02:35:20.966170+00:00",
+  "updated_at": "2026-08-11T02:35:20.966187+00:00"
+}

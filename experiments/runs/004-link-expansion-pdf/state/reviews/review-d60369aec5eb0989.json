@@ -1,0 +1,15 @@
+{
+  "id": "review-d60369aec5eb0989",
+  "task_id": "task-6ff68abf-8b56-4a12-a5b9-f4b9f8557754",
+  "fact_id": "fact-6dacc8f6ee78810f",
+  "evidence_id": "ev-61491c1119682266",
+  "verdict": "partial",
+  "reason": "quote 支持了核心事实：EH216-S从喜洲古镇飞往双廊古镇、用时10分钟飞越洱海、亿航物流航空器同步完成配送飞行。但fact指明报道来源为\"新华网报道\"，quote中未体现这一来源信息。",
+  "unsupported_parts": [
+    "新华网报道"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-11T02:33:13.078996+00:00"
+}

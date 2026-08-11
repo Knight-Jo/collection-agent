@@ -1,0 +1,14 @@
+{
+  "id": "fact-6bceb41609f5a00d",
+  "task_id": "task-6ff68abf-8b56-4a12-a5b9-f4b9f8557754",
+  "question_id": "q-b83ce2ad-6639-42c7-a2f4-6bceb838a73d",
+  "statement": "亿航EH216-S已在海外多地(哈萨克斯坦、瑞士、墨西哥、泰国等)开展载人飞行示范,多款产品亮相2026年央视春晚(16架EH216-S与22580架无人机编队)。(来源:亿航官网新闻动态)",
+  "status": "superseded",
+  "superseded_by": [
+    "fact-13622ee3a4781ba9",
+    "fact-9809f48e10fde166"
+  ],
+  "supersession_reason": "原复合事实包含多个独立子命题（海外载人首飞、春晚编队），需拆分为原子事实以便独立核验。",
+  "created_at": "2026-08-11T02:28:29.386375+00:00",
+  "updated_at": "2026-08-11T02:28:45.048986+00:00"
+}

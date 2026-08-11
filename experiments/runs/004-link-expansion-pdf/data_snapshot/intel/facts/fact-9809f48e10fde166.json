@@ -1,0 +1,13 @@
+{
+  "id": "fact-9809f48e10fde166",
+  "task_id": "task-6ff68abf-8b56-4a12-a5b9-f4b9f8557754",
+  "question_id": "q-b83ce2ad-6639-42c7-a2f4-6bceb838a73d",
+  "statement": "2026年央视春晚,16架亿航EH216-S载人eVTOL与22580架GD4.0无人机编队表演。(来源:亿航官网新闻动态)",
+  "status": "superseded",
+  "superseded_by": [
+    "fact-19b8fc759f6a2d8f"
+  ],
+  "supersession_reason": "原事实含\"2026年央视\"时间状语，引文未明示年份，拆分为纯断言以匹配引文蕴含。",
+  "created_at": "2026-08-11T02:28:41.930375+00:00",
+  "updated_at": "2026-08-11T02:30:03.930403+00:00"
+}

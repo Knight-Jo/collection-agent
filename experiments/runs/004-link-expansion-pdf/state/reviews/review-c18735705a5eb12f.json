@@ -1,0 +1,13 @@
+{
+  "id": "review-c18735705a5eb12f",
+  "task_id": "task-6ff68abf-8b56-4a12-a5b9-f4b9f8557754",
+  "fact_id": "fact-19b8fc759f6a2d8f",
+  "evidence_id": "ev-c956934c1d15561e",
+  "verdict": "full",
+  "reason": "quote完整支持fact的所有重要组成：16架EH216-S、22580架GD4.0无人机、编队表演、央视春晚（春晚盛会）全部在quote中明确出现。",
+  "unsupported_parts": [],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-11T02:38:31.282074+00:00"
+}

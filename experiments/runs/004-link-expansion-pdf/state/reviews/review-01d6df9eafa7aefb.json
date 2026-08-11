@@ -1,0 +1,18 @@
+{
+  "id": "review-01d6df9eafa7aefb",
+  "task_id": "task-6ff68abf-8b56-4a12-a5b9-f4b9f8557754",
+  "fact_id": "fact-f52e3bd1cf70a6b1",
+  "evidence_id": "ev-1aac38b1e8a9f8d3",
+  "verdict": "partial",
+  "reason": "quote仅支持fact中\"万亿级至十万亿级产业集群\"这一组成部分，但未提及\"十五五\"时期、低空经济作为新兴支柱产业、飞行汽车(eVTOL)以及CCTV报道等关键要素。",
+  "unsupported_parts": [
+    "\"十五五\"时期",
+    "低空经济作为新兴支柱产业打造",
+    "飞行汽车(eVTOL)",
+    "CCTV报道来源"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-11T02:29:15.639154+00:00"
+}
