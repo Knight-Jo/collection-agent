@@ -28,6 +28,19 @@ Ruff is the required formatter and linter. Configuration in `pyproject.toml` tar
 
 Pyright runs in `basic` mode across `src/`, `scripts/`, and `tests/`. Run `pyright` before committing; fix errors instead of weakening project-wide checks.
 
+## Comments and documentation:
+
+- use english to write comments
+- Prefer self-explanatory code over comments.
+- Comments should explain why, constraints, assumptions, or non-obvious behavior.
+- Do not write comments that merely restate the code.
+- Public APIs should have concise docstrings.
+- Complex algorithms and workarounds should document their rationale.
+- If a change affects public behavior, configuration, APIs, deployment,
+  data formats, or architecture, update the relevant documentation.
+- Do not modify documentation for purely internal changes unless necessary.
+- Keep documentation consistent with the implementation.
+
 ## Comments & Documentation
 
 Prefer self-explanatory code. Comments should explain intent, constraints, assumptions, or non-obvious behavior rather than restating code. Public APIs should have concise docstrings. Update relevant documentation when behavior, configuration, APIs, data formats, or architecture change.
