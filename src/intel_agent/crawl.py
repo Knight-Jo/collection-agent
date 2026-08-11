@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import mimetypes
 import threading
+from collections import Counter
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal
@@ -54,6 +56,21 @@ from .storage import (
 
 RobotsAllowed = Callable[[str], Awaitable[bool]]
 Sleep = Callable[[float], Awaitable[None]]
+CrawlEventType = Literal[
+    "crawl.started",
+    "crawl.progress",
+    "crawl.resource",
+    "crawl.completed",
+]
+
+
+@dataclass(frozen=True)
+class CrawlEvent:
+    type: CrawlEventType
+    data: dict[str, object]
+
+
+CrawlEventCallback = Callable[[CrawlEvent], Awaitable[None]]
 _ATTACHMENT_SUFFIXES = {
     ".csv",
     ".doc",
@@ -79,6 +96,32 @@ _ATTACHMENT_SUFFIXES = {
     ".xls",
     ".xlsx",
 }
+
+
+def _crawl_counts(snapshot: CrawlSnapshot) -> dict[str, int]:
+    counts = Counter(entry.status for entry in snapshot.entries)
+    return {
+        "total": len(snapshot.entries),
+        "queued": counts["queued"],
+        "fetching": counts["fetching"],
+        "complete": counts["complete"],
+        "reused": counts["reused"],
+        "failed": counts["failed"],
+        "skipped": sum(
+            count
+            for status, count in counts.items()
+            if status.startswith("skipped_")
+        ),
+    }
+
+
+def _crawl_event_data(snapshot: CrawlSnapshot) -> dict[str, object]:
+    return {
+        "task_id": snapshot.task_id,
+        "status": snapshot.status,
+        "downloaded_bytes": snapshot.downloaded_bytes,
+        "counts": _crawl_counts(snapshot),
+    }
 
 
 def _priority(
@@ -332,6 +375,7 @@ class _CrawlRunner:
         resolver: AddressResolver | None,
         robots_allowed: RobotsAllowed,
         sleep: Sleep,
+        on_event: CrawlEventCallback | None,
     ):
         self.cwd = cwd
         self.snapshot = snapshot
@@ -340,17 +384,48 @@ class _CrawlRunner:
         self.resolver = resolver
         self.robots_allowed = robots_allowed
         self.sleep = sleep
+        self.on_event = on_event
         self.global_semaphore = asyncio.Semaphore(config.concurrency)
         self.host_semaphores: dict[str, asyncio.Semaphore] = {}
         self.host_locks: dict[str, asyncio.Lock] = {}
         self.host_last_start: dict[str, float] = {}
         self.persist_lock = asyncio.Lock()
         self.byte_lock = asyncio.Lock()
+        self.resource_statuses = {
+            id(entry): entry.status for entry in snapshot.entries
+        }
 
     async def persist(self) -> None:
         async with self.persist_lock:
             self.snapshot.updated_at = utc_now()
             save_crawl(self.cwd, self.snapshot)
+            if self.on_event is None:
+                return
+            terminal = {
+                "complete",
+                "reused",
+                "skipped_robots",
+                "skipped_http",
+                "skipped_limit",
+                "skipped_unsupported",
+                "failed",
+            }
+            for entry in self.snapshot.entries:
+                previous = self.resource_statuses.get(id(entry))
+                self.resource_statuses[id(entry)] = entry.status
+                if entry.status in terminal and entry.status != previous:
+                    await self.on_event(
+                        CrawlEvent(
+                            "crawl.resource",
+                            {
+                                **_crawl_event_data(self.snapshot),
+                                "resource": entry.model_dump(),
+                            },
+                        )
+                    )
+            await self.on_event(
+                CrawlEvent("crawl.progress", _crawl_event_data(self.snapshot))
+            )
 
     async def rate_limit(self, hostname: str) -> None:
         loop = asyncio.get_running_loop()
@@ -620,6 +695,7 @@ async def crawl_collect(
     resolver: AddressResolver | None = None,
     robots_allowed: RobotsAllowed | None = None,
     sleep: Sleep = asyncio.sleep,
+    on_event: CrawlEventCallback | None = None,
 ) -> CrawlSnapshot:
     """Run or resume a task crawl without consuming the agent fetch budget."""
     seeds = seeds or []
@@ -650,7 +726,12 @@ async def crawl_collect(
         resolver,
         robots_allowed,
         sleep,
+        on_event,
     )
+    if on_event is not None:
+        await on_event(
+            CrawlEvent("crawl.started", _crawl_event_data(snapshot))
+        )
     try:
         while queued := [
             entry for entry in snapshot.entries if entry.status == "queued"
@@ -689,4 +770,8 @@ async def crawl_collect(
         raise
     snapshot.status = "complete"
     await runner.persist()
+    if on_event is not None:
+        await on_event(
+            CrawlEvent("crawl.completed", _crawl_event_data(snapshot))
+        )
     return snapshot

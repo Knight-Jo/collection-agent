@@ -61,6 +61,7 @@ def test_build_task_prompt_preserves_user_input_and_criteria():
 async def test_run_agent_task_streams_events(monkeypatch, cwd):
     received: list[object] = []
     result = SimpleNamespace(output="完成")
+    deps = SimpleNamespace(crawl_event_callback=None)
 
     class FakeEvents:
         def __init__(self):
@@ -86,7 +87,8 @@ async def test_run_agent_task_streams_events(monkeypatch, cwd):
     class FakeAgent:
         def run_stream_events(self, prompt, **kwargs):
             assert "低空经济" in prompt
-            assert kwargs["deps"] == "deps"
+            assert kwargs["deps"] is deps
+            assert deps.crawl_event_callback is on_event
             assert kwargs["usage_limits"].request_limit == 200
             return FakeContext()
 
@@ -95,7 +97,7 @@ async def test_run_agent_task_streams_events(monkeypatch, cwd):
     )
     monkeypatch.setattr(
         "intel_agent.runner.build_deps",
-        lambda _cwd, _settings, *, deep_crawl: "deps",
+        lambda _cwd, _settings, *, deep_crawl: deps,
     )
 
     async def on_event(event: object) -> None:

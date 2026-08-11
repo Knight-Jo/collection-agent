@@ -17,6 +17,7 @@ from pydantic_ai import (
 from pydantic_ai.exceptions import RunCancelled
 
 from ..config import Settings
+from ..crawl import CrawlEvent
 from ..models import IntelError, utc_now
 from ..runner import TaskRunSpec, run_agent_task
 from ..task import load_task
@@ -229,6 +230,8 @@ class RunRegistry:
 def _project_native_event(
     event: object,
 ) -> tuple[str, dict[str, Any]] | None:
+    if isinstance(event, CrawlEvent):
+        return event.type, event.data
     if isinstance(event, FunctionToolCallEvent):
         return (
             "tool.started",

@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+from importlib.util import find_spec
 from pathlib import Path
+from shutil import which
 from typing import Literal
+from urllib.parse import urlparse
 
 import uvicorn
 from fastapi import FastAPI, Request
@@ -18,6 +21,8 @@ from ..models import IntelError
 from .runs import RunRegistry
 from .schemas import (
     ArtifactView,
+    CrawlStatus,
+    ProcessorStatus,
     RunCreate,
     RunView,
     ServiceStatus,
@@ -25,7 +30,12 @@ from .schemas import (
     TaskSummary,
     TaskView,
 )
-from .views import get_artifact, get_task_view, list_task_summaries
+from .views import (
+    get_artifact,
+    get_resource_download,
+    get_task_view,
+    list_task_summaries,
+)
 
 
 def create_app(
@@ -49,6 +59,7 @@ def create_app(
             "NOT_FOUND": 404,
             "RUN_ALREADY_ACTIVE": 409,
             "OUTPUT_TAMPERED": 409,
+            "DOCUMENT_TAMPERED": 409,
             "MODEL_NOT_CONFIGURED": 503,
             "INVALID_INPUT": 422,
         }.get(error.code, 400)
@@ -83,6 +94,17 @@ def create_app(
                 name="SearXNG",
                 configured=bool(settings.search.searxng_url),
             ),
+            crawl=CrawlStatus(
+                default_enabled=settings.crawl.enabled_by_default
+            ),
+            processors=ProcessorStatus(
+                tesseract=bool(
+                    which("tesseract") and find_spec("pytesseract")
+                ),
+                ffmpeg=which("ffmpeg") is not None,
+                whisper=find_spec("faster_whisper") is not None,
+                libreoffice=which("libreoffice") is not None,
+            ),
         )
 
     @app.get("/api/tasks", response_model=list[TaskSummary])
@@ -92,6 +114,21 @@ def create_app(
     @app.get("/api/tasks/{task_id}", response_model=TaskView)
     async def task_detail(task_id: str) -> TaskView:
         return get_task_view(app.state.cwd, task_id)
+
+    @app.get("/api/tasks/{task_id}/resources/{document_id}/download")
+    async def resource_download(
+        task_id: str, document_id: str
+    ) -> FileResponse:
+        path, document = get_resource_download(
+            app.state.cwd, task_id, document_id
+        )
+        filename = Path(urlparse(document.final_url).path).name or document.id
+        return FileResponse(
+            path,
+            media_type=document.content_type,
+            filename=filename,
+            headers={"X-Content-Type-Options": "nosniff"},
+        )
 
     @app.get(
         "/api/tasks/{task_id}/artifacts/{kind}", response_model=ArtifactView

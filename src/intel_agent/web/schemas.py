@@ -10,6 +10,7 @@ from ..models import (
     ChallengeRound,
     CoverageSnapshot,
     EvidenceConflict,
+    ExtractionState,
     FactCoverage,
     IntelTask,
     QuestionCoverage,
@@ -19,11 +20,23 @@ from ..models import (
 from ..runner import TaskRunSpec
 
 RunStatus = Literal["queued", "running", "completed", "failed", "cancelled"]
+CrawlResourceStatus = Literal[
+    "queued",
+    "fetching",
+    "complete",
+    "reused",
+    "skipped_robots",
+    "skipped_http",
+    "skipped_limit",
+    "skipped_unsupported",
+    "failed",
+]
 
 
 class RunCreate(BaseModel):
     topic: str
     questions: list[str]
+    deep_crawl: bool | None = None
     criteria: SufficiencyCriteria = Field(
         default_factory=lambda: SufficiencyCriteria(
             min_independent_sources=2,
@@ -74,10 +87,23 @@ class ServiceStatus(BaseModel):
     configured: bool
 
 
+class CrawlStatus(BaseModel):
+    default_enabled: bool
+
+
+class ProcessorStatus(BaseModel):
+    tesseract: bool
+    ffmpeg: bool
+    whisper: bool
+    libreoffice: bool
+
+
 class SystemStatus(BaseModel):
     model: ServiceStatus
     audit: ServiceStatus
     search: ServiceStatus
+    crawl: CrawlStatus
+    processors: ProcessorStatus
 
 
 class TaskSummary(BaseModel):
@@ -130,12 +156,26 @@ class QuestionView(BaseModel):
     facts: list[FactView]
 
 
+class CrawlResourceView(BaseModel):
+    canonical_url: str
+    source_chain: list[str]
+    depth: int
+    status: CrawlResourceStatus
+    mime_type: str | None = None
+    size: int | None = None
+    downloaded_bytes: int
+    document_id: str | None = None
+    extraction: ExtractionState
+    error: str | None = None
+
+
 class TaskView(BaseModel):
     task: IntelTask
     coverage: CoverageSnapshot | None = None
     questions: list[QuestionView]
     conflicts: list[EvidenceConflict]
     challenges: list[ChallengeRound]
+    resources: list[CrawlResourceView]
 
 
 class ArtifactView(BaseModel):

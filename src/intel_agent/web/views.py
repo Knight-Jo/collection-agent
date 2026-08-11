@@ -12,11 +12,18 @@ from ..conflicts import load_conflicts
 from ..coverage import latest_coverage
 from ..evidence import list_evidence_for_task, load_document
 from ..fact import list_facts_for_task
-from ..models import IntelError, IntelTask
-from ..storage import list_json, sha256, workspace_path
+from ..models import CrawlEntry, IntelDocument, IntelError, IntelTask
+from ..storage import (
+    list_json,
+    load_crawl,
+    sha256,
+    verify_document_integrity,
+    workspace_path,
+)
 from ..task import load_task
 from .schemas import (
     ArtifactView,
+    CrawlResourceView,
     DocumentSummary,
     EvidenceView,
     FactView,
@@ -24,6 +31,46 @@ from .schemas import (
     TaskSummary,
     TaskView,
 )
+
+
+def _source_chain(
+    entry: CrawlEntry, entries_by_url: dict[str, CrawlEntry]
+) -> list[str]:
+    chain = [entry.canonical_url]
+    parent_url = entry.parent_url
+    seen = {entry.canonical_url}
+    while parent_url and parent_url not in seen:
+        chain.append(parent_url)
+        seen.add(parent_url)
+        parent = entries_by_url.get(parent_url)
+        parent_url = parent.parent_url if parent else None
+    chain.reverse()
+    return chain
+
+
+def _crawl_resources(cwd: Path, task_id: str) -> list[CrawlResourceView]:
+    try:
+        crawl = load_crawl(cwd, task_id)
+    except IntelError as error:
+        if error.code == "NOT_FOUND":
+            return []
+        raise
+    entries_by_url = {entry.canonical_url: entry for entry in crawl.entries}
+    return [
+        CrawlResourceView(
+            canonical_url=entry.canonical_url,
+            source_chain=_source_chain(entry, entries_by_url),
+            depth=entry.depth,
+            status=entry.status,
+            mime_type=entry.mime_type,
+            size=entry.size,
+            downloaded_bytes=entry.downloaded_bytes,
+            document_id=entry.document_id,
+            extraction=entry.extraction,
+            error=entry.error,
+        )
+        for entry in crawl.entries
+    ]
 
 
 def list_task_summaries(cwd: Path) -> list[TaskSummary]:
@@ -119,7 +166,28 @@ def get_task_view(cwd: Path, task_id: str) -> TaskView:
         ],
         conflicts=load_conflicts(cwd, task.id),
         challenges=list_challenge_rounds(cwd, task.id),
+        resources=_crawl_resources(cwd, task.id),
     )
+
+
+def get_resource_download(
+    cwd: Path, task_id: str, document_id: str
+) -> tuple[Path, IntelDocument]:
+    """Resolve a task-owned original only after document integrity checks."""
+    load_task(cwd, task_id)
+    try:
+        crawl = load_crawl(cwd, task_id)
+    except IntelError as error:
+        if error.code != "NOT_FOUND":
+            raise
+        raise IntelError(
+            "NOT_FOUND", f"任务资源不存在: {document_id}"
+        ) from error
+    if not any(entry.document_id == document_id for entry in crawl.entries):
+        raise IntelError("NOT_FOUND", f"任务资源不存在: {document_id}")
+    document = load_document(cwd, document_id)
+    verify_document_integrity(cwd, document)
+    return workspace_path(cwd, document.raw_path), document
 
 
 def get_artifact(

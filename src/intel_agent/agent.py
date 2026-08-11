@@ -29,8 +29,8 @@ from .challenge import confirm_challenge, start_challenge
 from .config import ModelConfig, Settings
 from .conflicts import resolve_conflict, save_conflict
 from .coverage import eval_coverage
+from .crawl import CrawlEventCallback, create_crawl
 from .crawl import crawl_collect as run_crawl_collect
-from .crawl import create_crawl
 from .evidence import list_evidence_for_task, load_document, save_evidence
 from .fact import load_fact, save_fact, supersede_fact
 from .fetch import DEFAULT_MAX_BYTES, fetch_document
@@ -194,6 +194,7 @@ class AgentDeps:
     cwd: Path
     settings: Settings
     deep_crawl: bool = False
+    crawl_event_callback: CrawlEventCallback | None = None
     http: httpx.AsyncClient = field(default_factory=httpx.AsyncClient)
     judge: Judge | None = None
     judge_provider: str = ""
@@ -477,7 +478,10 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         if not task.deep_crawl:
             raise IntelError("INVALID_INPUT", "该任务未启用深度抓取")
         snapshot = await run_crawl_collect(
-            ctx.deps.cwd, task.id, config=ctx.deps.settings.crawl
+            ctx.deps.cwd,
+            task.id,
+            config=ctx.deps.settings.crawl,
+            on_event=ctx.deps.crawl_event_callback,
         )
         return snapshot.model_dump()
 

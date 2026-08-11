@@ -9,8 +9,16 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from intel_agent.config import Settings
+from intel_agent.models import (
+    CrawlEntry,
+    CrawlSnapshot,
+    ExtractionState,
+    utc_now,
+)
+from intel_agent.storage import save_crawl
 from intel_agent.web.app import create_app, main
-from tests.conftest import new_task
+from intel_agent.web.schemas import RunCreate
+from tests.conftest import make_document, new_task
 
 
 def test_system_and_task_endpoints(cwd, monkeypatch):
@@ -26,6 +34,108 @@ def test_system_and_task_endpoints(cwd, monkeypatch):
     assert system.json()["model"]["configured"] is True
     assert tasks.json()[0]["id"] == task.id
     assert detail.json()["task"]["topic"] == "测试主题"
+
+
+def test_system_reports_crawl_default_and_processor_availability(
+    cwd, monkeypatch
+):
+    monkeypatch.setattr(
+        "intel_agent.web.app.which",
+        lambda command: (
+            f"/usr/bin/{command}"
+            if command in {"tesseract", "ffmpeg"}
+            else None
+        ),
+    )
+    monkeypatch.setattr(
+        "intel_agent.web.app.find_spec",
+        lambda module: (
+            object() if module in {"pytesseract", "faster_whisper"} else None
+        ),
+    )
+    settings = Settings.model_validate(
+        {"crawl": {"enabled_by_default": False}}
+    )
+
+    response = TestClient(create_app(cwd=cwd, settings=settings)).get(
+        "/api/system"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["crawl"] == {"default_enabled": False}
+    assert response.json()["processors"] == {
+        "tesseract": True,
+        "ffmpeg": True,
+        "whisper": True,
+        "libreoffice": False,
+    }
+
+
+def test_run_create_preserves_deep_crawl_omission():
+    payload = {
+        "topic": "测试主题",
+        "questions": ["问题甲", "问题乙"],
+    }
+
+    omitted = RunCreate.model_validate(payload)
+    disabled = RunCreate.model_validate({**payload, "deep_crawl": False})
+
+    assert omitted.deep_crawl is None
+    assert omitted.to_spec().deep_crawl is None
+    assert disabled.to_spec().deep_crawl is False
+
+
+def test_resource_download_checks_ownership_and_integrity(cwd):
+    task = new_task(cwd)
+    document = make_document(cwd, "original resource")
+    now = utc_now()
+    save_crawl(
+        cwd,
+        CrawlSnapshot(
+            task_id=task.id,
+            status="complete",
+            entries=[
+                CrawlEntry(
+                    canonical_url=document.canonical_url,
+                    depth=0,
+                    priority=0,
+                    status="complete",
+                    downloaded_bytes=len(b"original resource"),
+                    document_id=document.id,
+                    mime_type=document.content_type,
+                    size=len(b"original resource"),
+                    extraction=ExtractionState(status="complete"),
+                    created_at=now,
+                    updated_at=now,
+                )
+            ],
+            created_at=now,
+            updated_at=now,
+        ),
+    )
+    client = TestClient(create_app(cwd=cwd, settings=Settings()))
+
+    response = client.get(
+        f"/api/tasks/{task.id}/resources/{document.id}/download"
+    )
+
+    assert response.status_code == 200
+    assert response.content == b"original resource"
+    assert response.headers["content-disposition"].startswith("attachment;")
+    assert response.headers["x-content-type-options"] == "nosniff"
+
+    other_task = new_task(cwd, ["问题丙", "问题丁"])
+    unowned = client.get(
+        f"/api/tasks/{other_task.id}/resources/{document.id}/download"
+    )
+    assert unowned.status_code == 404
+
+    (cwd / document.raw_path).write_bytes(b"tampered")
+    tampered = client.get(
+        f"/api/tasks/{task.id}/resources/{document.id}/download"
+    )
+    assert tampered.status_code == 409
+    assert tampered.json()["error"]["code"] == "DOCUMENT_TAMPERED"
 
 
 def test_create_run_requires_model_key(cwd, monkeypatch):

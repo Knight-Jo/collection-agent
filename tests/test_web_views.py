@@ -9,8 +9,15 @@ import pytest
 from intel_agent.audit import audit_task_evidence
 from intel_agent.coverage import eval_coverage
 from intel_agent.fact import save_fact
-from intel_agent.models import IntelError
+from intel_agent.models import (
+    CrawlEntry,
+    CrawlSnapshot,
+    ExtractionState,
+    IntelError,
+    utc_now,
+)
 from intel_agent.package import generate_package
+from intel_agent.storage import save_crawl
 from intel_agent.web.views import (
     get_artifact,
     get_task_view,
@@ -52,6 +59,66 @@ def test_get_task_view_nests_fact_evidence_review_and_document(cwd):
     assert fact_view.evidence[0].review.verdict == "full"
     assert fact_view.evidence[0].document.title == "测试文档"
     assert view.coverage is not None
+
+
+def test_get_task_view_includes_every_crawl_resource_and_source_chain(cwd):
+    task = new_task(cwd)
+    document = make_document(cwd, "archived")
+    now = utc_now()
+    child_url = "https://example.com/report.pdf"
+    save_crawl(
+        cwd,
+        CrawlSnapshot(
+            task_id=task.id,
+            status="complete",
+            downloaded_bytes=19,
+            entries=[
+                CrawlEntry(
+                    canonical_url=document.canonical_url,
+                    depth=0,
+                    priority=0,
+                    status="complete",
+                    downloaded_bytes=8,
+                    document_id=document.id,
+                    mime_type="text/html",
+                    size=8,
+                    extraction=ExtractionState(
+                        status="complete", processor="html"
+                    ),
+                    created_at=now,
+                    updated_at=now,
+                ),
+                CrawlEntry(
+                    canonical_url=child_url,
+                    parent_url=document.canonical_url,
+                    depth=1,
+                    priority=1,
+                    status="failed",
+                    downloaded_bytes=11,
+                    error="network failed",
+                    extraction=ExtractionState(
+                        status="failed", error="network failed"
+                    ),
+                    created_at=now,
+                    updated_at=now,
+                ),
+            ],
+            created_at=now,
+            updated_at=now,
+        ),
+    )
+
+    resources = get_task_view(cwd, task.id).resources
+
+    assert len(resources) == 2
+    assert resources[0].document_id == document.id
+    assert resources[0].mime_type == "text/html"
+    assert resources[0].size == 8
+    assert resources[0].downloaded_bytes == 8
+    assert resources[0].extraction.processor == "html"
+    assert resources[1].source_chain == [document.canonical_url, child_url]
+    assert resources[1].status == "failed"
+    assert resources[1].error == "network failed"
 
 
 def test_get_artifact_verifies_bound_content(cwd):

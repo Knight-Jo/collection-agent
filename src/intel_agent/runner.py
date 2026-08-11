@@ -8,8 +8,6 @@ from pathlib import Path
 from pydantic import BaseModel, field_validator, model_validator
 from pydantic_ai import (
     AgentRunResult,
-    AgentRunResultEvent,
-    AgentStreamEvent,
     CancellationToken,
 )
 from pydantic_ai.usage import UsageLimits
@@ -18,8 +16,7 @@ from .agent import build_agent, build_deps
 from .config import Settings
 from .models import SufficiencyCriteria
 
-RunnerEvent = AgentStreamEvent | AgentRunResultEvent[str]
-EventCallback = Callable[[RunnerEvent], Awaitable[None]]
+EventCallback = Callable[[object], Awaitable[None]]
 
 
 class TaskRunSpec(BaseModel):
@@ -129,6 +126,8 @@ async def run_agent_task(
     )
     agent = build_agent(settings)
     deps = build_deps(cwd, settings, deep_crawl=bool(resolved_spec.deep_crawl))
+    if hasattr(deps, "crawl_event_callback"):
+        deps.crawl_event_callback = on_event
     async with agent.run_stream_events(
         build_task_prompt(resolved_spec),
         deps=deps,
