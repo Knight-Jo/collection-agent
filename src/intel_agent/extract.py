@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import multiprocessing
 import os
+import queue
 import re
 import shutil
 import signal
@@ -13,6 +15,7 @@ from html.parser import HTMLParser
 from importlib import import_module
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 from urllib.parse import urljoin, urlparse
 
 from .document_extract import decode_body, extract_docx_text, extract_html
@@ -156,6 +159,10 @@ def _number_lines(text: str) -> str:
 
 
 class _ExtractionCancelled(Exception):
+    pass
+
+
+class _ProcessorUnavailable(Exception):
     pass
 
 
@@ -345,6 +352,85 @@ def _convert_legacy_office(
         return output.read_bytes()
 
 
+def _whisper_worker(audio_path: str, model_name: str, results: Any) -> None:
+    """Load and run faster-whisper entirely inside one owned process."""
+    try:
+        whisper_model_class = import_module("faster_whisper").WhisperModel
+        segments, _ = whisper_model_class(model_name).transcribe(audio_path)
+        results.put(
+            (
+                "complete",
+                [
+                    (
+                        float(segment.start),
+                        float(segment.end),
+                        str(segment.text).strip(),
+                    )
+                    for segment in segments
+                    if str(segment.text).strip()
+                ],
+            )
+        )
+    except (ImportError, FileNotFoundError) as error:
+        results.put(("unavailable", str(error)))
+    except Exception as error:
+        results.put(("failed", str(error)))
+
+
+def _terminate_worker(process: Any) -> None:
+    if not process.is_alive():
+        process.join()
+        return
+    process.terminate()
+    process.join(timeout=1)
+    if process.is_alive():
+        process.kill()
+        process.join()
+
+
+def _run_whisper_worker(
+    audio: Path,
+    model_name: str,
+    cancellation_event: threading.Event | None,
+) -> list[tuple[float, float, str]]:
+    if cancellation_event is not None and cancellation_event.is_set():
+        raise _ExtractionCancelled("extraction cancelled")
+    context = multiprocessing.get_context("spawn")
+    results = context.Queue()
+    process = context.Process(
+        target=_whisper_worker,
+        args=(str(audio), model_name, results),
+    )
+    process.start()
+    try:
+        while process.is_alive():
+            if cancellation_event is not None and cancellation_event.is_set():
+                _terminate_worker(process)
+                raise _ExtractionCancelled("extraction cancelled")
+            process.join(timeout=0.05)
+        if cancellation_event is not None and cancellation_event.is_set():
+            raise _ExtractionCancelled("extraction cancelled")
+        try:
+            status, payload = results.get(timeout=1)
+        except queue.Empty as error:
+            raise RuntimeError(
+                f"faster-whisper worker exited with code {process.exitcode}"
+            ) from error
+    finally:
+        _terminate_worker(process)
+        results.close()
+        results.cancel_join_thread()
+    if status == "unavailable":
+        raise _ProcessorUnavailable(str(payload))
+    if status == "failed":
+        raise RuntimeError(str(payload))
+    if status != "complete" or not isinstance(payload, list):
+        raise RuntimeError("invalid faster-whisper worker result")
+    return [
+        (float(start), float(end), str(text)) for start, end, text in payload
+    ]
+
+
 def _transcribe_media(
     raw: bytes,
     suffix: str,
@@ -354,8 +440,6 @@ def _transcribe_media(
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
         raise FileNotFoundError("ffmpeg")
-    whisper_model_class = import_module("faster_whisper").WhisperModel
-
     with tempfile.TemporaryDirectory() as directory:
         source = Path(directory) / f"source{suffix or '.bin'}"
         audio = Path(directory) / "audio.wav"
@@ -376,16 +460,7 @@ def _transcribe_media(
             ],
             cancellation_event,
         )
-        segments, _ = whisper_model_class(model_name).transcribe(str(audio))
-        return [
-            (
-                float(segment.start),
-                float(segment.end),
-                str(segment.text).strip(),
-            )
-            for segment in segments
-            if str(segment.text).strip()
-        ]
+        return _run_whisper_worker(audio, model_name, cancellation_event)
 
 
 def _timestamp(seconds: float) -> str:
@@ -523,6 +598,7 @@ def extract_resource(
     except (
         ImportError,
         FileNotFoundError,
+        _ProcessorUnavailable,
         subprocess.SubprocessError,
     ) as error:
         return ExtractionResult(status="unavailable", error=str(error))

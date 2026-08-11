@@ -3,18 +3,32 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import subprocess
+import time
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from pydantic_ai.exceptions import RunCancelled
+from pydantic_ai import Agent, RunContext
+from pydantic_ai.models.test import TestModel
 
+import intel_agent.extract as extract_module
+import intel_agent.runner as runner_module
+from intel_agent.agent import AgentDeps, build_deps
 from intel_agent.config import CrawlConfig, Settings
 from intel_agent.crawl import crawl_collect
 from intel_agent.fetch import FetchedResponse
 from intel_agent.models import IntelError
 from intel_agent.storage import load_crawl
+from intel_agent.task import create_task
 from intel_agent.web.runs import RunRegistry
 from tests.test_runner import make_spec
+
+
+def _blocking_whisper_worker(_audio, marker_path, _results):
+    Path(marker_path).write_text(str(os.getpid()), encoding="utf-8")
+    time.sleep(30)
 
 
 @pytest.mark.asyncio
@@ -164,63 +178,100 @@ async def test_registry_projects_live_crawl_events(cwd):
 
 
 @pytest.mark.asyncio
-async def test_registry_cancellation_pauses_crawl_for_resume(cwd):
-    fetching = asyncio.Event()
-    task_ids: list[str] = []
-
-    async def fake_runner(
-        run_cwd, _settings, spec, *, on_event, cancellation_token
-    ):
-        from intel_agent.task import create_task
-
-        task = create_task(
-            run_cwd,
-            spec.topic,
-            spec.questions,
-            spec.criteria,
-            deep_crawl=True,
+async def test_registry_cancellation_pauses_crawl_for_resume(cwd, monkeypatch):
+    marker = cwd / "whisper.pid"
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        make_spec().criteria,
+        deep_crawl=True,
+    )
+    settings = Settings(
+        crawl=CrawlConfig(
+            max_depth=0,
+            obey_robots=False,
+            per_host_delay_seconds=0,
+            whisper_model=str(marker),
         )
-        task_ids.append(task.id)
+    )
+    agent = Agent(
+        TestModel(call_tools=["crawl_collect"]),
+        deps_type=AgentDeps,
+        output_type=str,
+    )
 
-        async def fetcher(_url, _init, _address):
-            fetching.set()
-            return await asyncio.Future()
-
-        async def resolver(_hostname):
-            return ["93.184.216.34"]
-
-        crawl = asyncio.create_task(
-            crawl_collect(
-                run_cwd,
-                task.id,
-                ["https://example.com/resource.txt"],
-                config=CrawlConfig(
-                    obey_robots=False, per_host_delay_seconds=0
-                ),
-                fetcher=fetcher,
-                resolver=resolver,
-                on_event=on_event,
-            )
+    async def fetcher(_url, _init, _address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "audio/mpeg"},
+            body=b"audio",
         )
-        while not cancellation_token.cancelled:
-            await asyncio.sleep(0)
-        crawl.cancel()
-        try:
-            await crawl
-        except asyncio.CancelledError as error:
-            raise RunCancelled("cancelled") from error
 
-    registry = RunRegistry(cwd, Settings(), runner=fake_runner)
-    created = await registry.create(make_spec())
-    await fetching.wait()
+    async def resolver(_hostname):
+        return ["93.184.216.34"]
 
-    registry.cancel(created.run_id)
-    await registry.wait(created.run_id)
+    @agent.tool(name="crawl_collect")
+    async def crawl_collect_tool(ctx: RunContext[AgentDeps]):
+        return await crawl_collect(
+            ctx.deps.cwd,
+            task.id,
+            ["https://example.com/clip.mp3"],
+            config=ctx.deps.settings.crawl,
+            fetcher=fetcher,
+            resolver=resolver,
+            on_event=ctx.deps.crawl_event_callback,
+        )
 
-    assert registry.get(created.run_id).status == "cancelled"
-    assert "run.cancelled" in [
-        event.type for event in registry.events(created.run_id)
-    ]
-    snapshot = load_crawl(cwd, task_ids[0])
-    assert snapshot.status == "paused"
-    assert snapshot.entries[0].status == "queued"
+    def fake_run_process(command, _cancellation_event=None):
+        Path(command[-1]).write_bytes(b"wav")
+        return subprocess.CompletedProcess(command, 0, b"", b"")
+
+    deps: list[AgentDeps] = []
+
+    def capture_deps(*args, **kwargs):
+        built = build_deps(*args, **kwargs)
+        deps.append(built)
+        return built
+
+    monkeypatch.setattr(runner_module, "build_agent", lambda _settings: agent)
+    monkeypatch.setattr(runner_module, "build_deps", capture_deps)
+    monkeypatch.setattr(
+        extract_module, "_whisper_worker", _blocking_whisper_worker
+    )
+    monkeypatch.setattr(extract_module, "_run_process", fake_run_process)
+    monkeypatch.setattr(extract_module.shutil, "which", lambda _name: "ffmpeg")
+    registry = RunRegistry(cwd, settings)
+
+    try:
+        created = await registry.create(
+            make_spec().model_copy(update={"deep_crawl": True})
+        )
+        async with asyncio.timeout(10):
+            while not marker.exists():
+                view = registry.get(created.run_id)
+                assert view.status not in {
+                    "failed",
+                    "completed",
+                    "cancelled",
+                }, view.error
+                await asyncio.sleep(0.01)
+        pid = int(marker.read_text(encoding="utf-8"))
+
+        started = asyncio.get_running_loop().time()
+        registry.cancel(created.run_id)
+        await asyncio.wait_for(registry.wait(created.run_id), timeout=2)
+
+        assert asyncio.get_running_loop().time() - started < 2
+        assert registry.get(created.run_id).status == "cancelled"
+        event_types = [event.type for event in registry.events(created.run_id)]
+        assert "run.cancelled" in event_types
+        assert "crawl.completed" not in event_types
+        snapshot = load_crawl(cwd, task.id)
+        assert snapshot.status == "paused"
+        assert snapshot.entries[0].status == "queued"
+        with pytest.raises(ProcessLookupError):
+            os.kill(pid, 0)
+    finally:
+        for item in deps:
+            await item.http.aclose()

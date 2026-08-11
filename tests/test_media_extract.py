@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
 
 import pytest
 
 import intel_agent.extract as extract_module
 from intel_agent.extract import extract_resource, is_rejected_resource
+
+
+def _processor_error_whisper_worker(_audio, model_name, results):
+    results.put((model_name, "processor error"))
 
 
 def test_extract_html_text_links_and_plain_text():
@@ -48,6 +54,34 @@ def test_transcript_has_timestamps(monkeypatch):
     )
     assert result.text == "[00:00:00.000 --> 00:00:01.250] hello"
     assert result.processor == "faster-whisper"
+
+
+@pytest.mark.parametrize(
+    ("worker_result", "expected_status"),
+    [("unavailable", "unavailable"), ("failed", "failed")],
+)
+def test_whisper_worker_preserves_processor_failure_semantics(
+    monkeypatch, worker_result, expected_status
+):
+    def fake_run_process(command, _cancellation_event=None):
+        Path(command[-1]).write_bytes(b"wav")
+        return subprocess.CompletedProcess(command, 0, b"", b"")
+
+    monkeypatch.setattr(
+        extract_module, "_whisper_worker", _processor_error_whisper_worker
+    )
+    monkeypatch.setattr(extract_module, "_run_process", fake_run_process)
+    monkeypatch.setattr(extract_module.shutil, "which", lambda _name: "ffmpeg")
+
+    result = extract_resource(
+        b"audio",
+        "audio/mpeg",
+        "https://example.com/clip.mp3",
+        whisper_model=worker_result,
+    )
+
+    assert result.status == expected_status
+    assert result.error == "processor error"
 
 
 def test_missing_optional_processor_marks_extraction_unavailable(monkeypatch):
