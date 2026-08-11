@@ -19,6 +19,15 @@ def _processor_error_whisper_worker(_audio, model_name, results):
     results.put((model_name, "processor error"))
 
 
+def _large_result_whisper_worker(_audio, _model_name, results):
+    results.put(
+        (
+            "complete",
+            [(1.5, 62.25, "large transcript " * 100_000)],
+        )
+    )
+
+
 def test_extract_html_text_links_and_plain_text():
     html = b'<html><body>Hello <a href="/next">next</a></body></html>'
     result = extract_resource(html, "text/html", "https://example.com/root")
@@ -82,6 +91,49 @@ def test_whisper_worker_preserves_processor_failure_semantics(
 
     assert result.status == expected_status
     assert result.error == "processor error"
+
+
+def test_large_whisper_result_completes_without_queue_deadlock(monkeypatch):
+    def fake_run_process(command, _cancellation_event=None):
+        Path(command[-1]).write_bytes(b"wav")
+        return subprocess.CompletedProcess(command, 0, b"", b"")
+
+    monkeypatch.setattr(
+        extract_module, "_whisper_worker", _large_result_whisper_worker
+    )
+    monkeypatch.setattr(extract_module, "_run_process", fake_run_process)
+    monkeypatch.setattr(extract_module.shutil, "which", lambda _name: "ffmpeg")
+    cancellation = threading.Event()
+    finished = threading.Event()
+    outcome = []
+
+    def run() -> None:
+        try:
+            outcome.append(
+                extract_resource(
+                    b"audio",
+                    "audio/mpeg",
+                    "https://example.com/clip.mp3",
+                    cancellation_event=cancellation,
+                )
+            )
+        finally:
+            finished.set()
+
+    extraction = threading.Thread(target=run)
+    extraction.start()
+    completed_without_cancellation = finished.wait(timeout=8)
+    if not completed_without_cancellation:
+        cancellation.set()
+        assert finished.wait(timeout=2), "Whisper worker cleanup also blocked"
+    extraction.join()
+
+    assert completed_without_cancellation, "large Whisper result deadlocked"
+    assert outcome[0].status == "complete"
+    expected_segment = "large transcript " * 100_000
+    assert outcome[0].text == (
+        f"[00:00:01.500 --> 00:01:02.250] {expected_segment}"
+    )
 
 
 def test_missing_optional_processor_marks_extraction_unavailable(monkeypatch):

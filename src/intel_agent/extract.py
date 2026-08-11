@@ -403,19 +403,28 @@ def _run_whisper_worker(
     )
     process.start()
     try:
+        result = None
+        while result is None:
+            if cancellation_event is not None and cancellation_event.is_set():
+                _terminate_worker(process)
+                raise _ExtractionCancelled("extraction cancelled")
+            try:
+                result = results.get(timeout=0.05)
+            except queue.Empty:
+                if not process.is_alive():
+                    try:
+                        result = results.get(timeout=1)
+                    except queue.Empty as error:
+                        raise RuntimeError(
+                            "faster-whisper worker exited with code "
+                            f"{process.exitcode}"
+                        ) from error
         while process.is_alive():
             if cancellation_event is not None and cancellation_event.is_set():
                 _terminate_worker(process)
                 raise _ExtractionCancelled("extraction cancelled")
             process.join(timeout=0.05)
-        if cancellation_event is not None and cancellation_event.is_set():
-            raise _ExtractionCancelled("extraction cancelled")
-        try:
-            status, payload = results.get(timeout=1)
-        except queue.Empty as error:
-            raise RuntimeError(
-                f"faster-whisper worker exited with code {process.exitcode}"
-            ) from error
+        status, payload = result
     finally:
         _terminate_worker(process)
         results.close()
