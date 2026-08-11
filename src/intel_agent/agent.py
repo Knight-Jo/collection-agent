@@ -1,4 +1,12 @@
-"""Pydantic AI agent: 15 tools + system prompt (port of index.ts + AGENTS.md)."""
+"""Pydantic AI agent: 15 tools + system prompt (port of index.ts + AGENTS.md).
+
+Port differences from the TypeScript original: tools are plain decorated
+functions on a pydantic-ai Agent (vs. pi.registerTool); budget/duplicate
+guards live inside tool wrappers (vs. pi.on("tool_call") hooks); the
+entailment judge is a separate pydantic-ai Agent with structured output
+(vs. complete() + tool-call constraint); repetition and archived-URL hints
+were added to curb LLM re-fetch loops observed in experiments.
+"""
 
 from __future__ import annotations
 

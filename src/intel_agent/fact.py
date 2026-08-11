@@ -16,6 +16,9 @@ from .task import load_task
 
 
 def _fact_id(task_id: str, question_id: str, statement: str) -> str:
+    # Content-derived 64-bit ID: same fact text yields the same ID (idempotent
+    # saves, dedup across sources); birthday-bound collision risk is negligible
+    # at this scale (~4B records for 50% chance).
     return f"fact-{sha256(f'{task_id}\n{question_id}\n{statement}')[:16]}"
 
 

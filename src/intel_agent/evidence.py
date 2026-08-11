@@ -33,6 +33,9 @@ def normalize_quote(value: str) -> str:
 
 
 def _evidence_id(
+    # Line range is part of the ID: the same quote at a different position is
+    # a different evidence record, so document revisions can't alias quotes.
+
     fact_id: str,
     document_id: str,
     relation: str,
