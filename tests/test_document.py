@@ -17,7 +17,7 @@ async def test_fetch_saves_document(cwd):
     async def fetcher(url, init, address):
         return FetchedResponse(status=200, headers={"content-type": "text/html"}, body=html.encode())
 
-    document, content = await fetch_document(cwd, "https://news.example.com/a", fetcher=fetcher, resolver=_public_resolver)
+    document, content, links = await fetch_document(cwd, "https://news.example.com/a", fetcher=fetcher, resolver=_public_resolver)
     assert document.id.startswith("doc-")
     assert "测试主题" in content
     assert content.startswith("<untrusted_web_content>")
@@ -26,14 +26,14 @@ async def test_fetch_saves_document(cwd):
     assert (cwd / document.text_path).exists()
 
     # 幂等：重复抓取返回同一文档
-    document2, _ = await fetch_document(cwd, "https://news.example.com/a", fetcher=fetcher, resolver=_public_resolver)
+    document2, _, _ = await fetch_document(cwd, "https://news.example.com/a", fetcher=fetcher, resolver=_public_resolver)
     assert document2.id == document.id
 
 
 @pytest.mark.asyncio
 async def test_fetch_rejects_unsupported_content(cwd):
     async def fetcher(url, init, address):
-        return FetchedResponse(status=200, headers={"content-type": "application/pdf"}, body=b"%PDF-1.4")
+        return FetchedResponse(status=200, headers={"content-type": "application/json"}, body=b"{\"x\": 1}")
 
     with pytest.raises(IntelError) as e:
         await fetch_document(cwd, "https://news.example.com/file.pdf", fetcher=fetcher, resolver=_public_resolver)
@@ -61,7 +61,7 @@ async def test_fetch_follows_validated_redirects(cwd):
             return FetchedResponse(status=301, headers={"location": "https://news.example.com/final"}, body=b"")
         return FetchedResponse(status=200, headers={"content-type": "text/html"}, body=html)
 
-    document, _ = await fetch_document(cwd, "https://news.example.com/start", fetcher=fetcher, resolver=_public_resolver)
+    document, _, _ = await fetch_document(cwd, "https://news.example.com/start", fetcher=fetcher, resolver=_public_resolver)
     assert document.final_url == "https://news.example.com/final"
     assert len(calls) == 2
 

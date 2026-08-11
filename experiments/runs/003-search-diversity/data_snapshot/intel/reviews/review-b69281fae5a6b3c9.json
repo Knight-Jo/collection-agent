@@ -1,0 +1,18 @@
+{
+  "id": "review-b69281fae5a6b3c9",
+  "task_id": "task-5b9180e4-c6e7-4286-80bc-4649f696cfce",
+  "fact_id": "fact-10997e0e1faa325a",
+  "evidence_id": "ev-15b9d397ee91e32f",
+  "verdict": "partial",
+  "reason": "quote 支持了fact中的两项金融支持措施（引导存量基金支持低空经济项目投资、鼓励股权机构加大支持力度），但quote未提及文件名称《重庆市推动低空经济高质量发展若干政策措施》、文号(渝府办发〔2025〕58号)、印发机关（重庆市人民政府办公厅）和印发时间（2025年11月）等文件属性信息。",
+  "unsupported_parts": [
+    "重庆市人民政府办公厅印发",
+    "2025年11月",
+    "《重庆市推动低空经济高质量发展若干政策措施》",
+    "渝府办发〔2025〕58号"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-10T16:09:08.977824+00:00"
+}

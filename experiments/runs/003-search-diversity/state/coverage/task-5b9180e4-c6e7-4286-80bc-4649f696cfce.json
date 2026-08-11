@@ -1,0 +1,1102 @@
+{
+  "task_id": "task-5b9180e4-c6e7-4286-80bc-4649f696cfce",
+  "snapshots": [
+    {
+      "id": "cov-613a945e-3261-4f1a-b7b6-57058ba40af0",
+      "task_id": "task-5b9180e4-c6e7-4286-80bc-4649f696cfce",
+      "created_at": "2026-08-10T16:08:49.959501+00:00",
+      "fingerprint": "724714b77dd7e27c39d3ea0a3970567b66474c19a9ddb055e30042542bf80ee2",
+      "gap_score": 12,
+      "no_progress_rounds": 0,
+      "stop_reason": null,
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-d5dba9fe-7785-4d36-af3a-5386e747140f",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 5,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-4fa8a28b11fa9bdf",
+              "statement": "《中国低空经济发展指数报告(2026)》是2026年度最新报告,旨在评估2025年度中国低空经济发展新态势和新格局。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "lrsd.org.cn"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 1,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-5494208ba2b55f22",
+              "statement": "2026年4月29日,由中国科学院地理科学与资源研究所牵头、联合多家单位编制的《中国低空经济发展指数报告(2026)》在第九届数字中国建设峰会期间正式对外发布。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-8b8f7c8a5d77d248",
+              "statement": "国家有关部门发布的《通用航空装备创新应用实施方案(2024—2030年)》提出,到2030年推动低空经济形成万亿级市场规模。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-b36603c4633707dc",
+              "statement": "《中国低空经济发展指数报告(2026)》围绕创新效力、产业实力、场景活力、发展潜力、保障能力五个维度,构建\"3层级—84项指标\"的低空经济发展指数评价体系。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "lrsd.org.cn"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 1,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-b81cc8df56601090",
+              "statement": "根据中国政府网站刊文引述的研究机构测算,2023年中国低空经济规模已超过5000亿元,2030年有望达到2万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-de3e5733-58fd-43c2-8cb5-96ed2dcb7e06",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "gap",
+          "fact_count": 0,
+          "covered_fact_count": 0,
+          "facts": [],
+          "notes": [
+            "尚未登记事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-31aca7c1-eb98-4eda-9d3c-9fa36eea9b31",
+      "task_id": "task-5b9180e4-c6e7-4286-80bc-4649f696cfce",
+      "created_at": "2026-08-10T16:09:34.426154+00:00",
+      "fingerprint": "6cc1a260b32896fe9972f00146fe13d81cf345fac6b5ed8a16b36a9e3bb7ebc1",
+      "gap_score": 13,
+      "no_progress_rounds": 1,
+      "stop_reason": null,
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-d5dba9fe-7785-4d36-af3a-5386e747140f",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 6,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-4fa8a28b11fa9bdf",
+              "statement": "《中国低空经济发展指数报告(2026)》是2026年度最新报告,旨在评估2025年度中国低空经济发展新态势和新格局。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "lrsd.org.cn"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 1,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-5494208ba2b55f22",
+              "statement": "2026年4月29日,由中国科学院地理科学与资源研究所牵头、联合多家单位编制的《中国低空经济发展指数报告(2026)》在第九届数字中国建设峰会期间正式对外发布。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-8b8f7c8a5d77d248",
+              "statement": "国家有关部门发布的《通用航空装备创新应用实施方案(2024—2030年)》提出,到2030年推动低空经济形成万亿级市场规模。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-b36603c4633707dc",
+              "statement": "《中国低空经济发展指数报告(2026)》围绕创新效力、产业实力、场景活力、发展潜力、保障能力五个维度,构建\"3层级—84项指标\"的低空经济发展指数评价体系。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "lrsd.org.cn"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 1,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-b81cc8df56601090",
+              "statement": "根据中国政府网站刊文引述的研究机构测算,2023年中国低空经济规模已超过5000亿元,2030年有望达到2万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-ed33653cd18709a7",
+              "statement": "重庆市2025年发布的推动低空经济高质量发展政策措施提出,引导和推动存量基金支持低空经济产业项目投资,鼓励股权投资机构加大对低空项目支持力度。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "cq.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-de3e5733-58fd-43c2-8cb5-96ed2dcb7e06",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "gap",
+          "fact_count": 0,
+          "covered_fact_count": 0,
+          "facts": [],
+          "notes": [
+            "尚未登记事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-8a7aed48-0f2c-4fef-8b05-f16f8a96b55b",
+      "task_id": "task-5b9180e4-c6e7-4286-80bc-4649f696cfce",
+      "created_at": "2026-08-10T16:09:42.962362+00:00",
+      "fingerprint": "6cc1a260b32896fe9972f00146fe13d81cf345fac6b5ed8a16b36a9e3bb7ebc1",
+      "gap_score": 13,
+      "no_progress_rounds": 2,
+      "stop_reason": "no_progress",
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-d5dba9fe-7785-4d36-af3a-5386e747140f",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 6,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-4fa8a28b11fa9bdf",
+              "statement": "《中国低空经济发展指数报告(2026)》是2026年度最新报告,旨在评估2025年度中国低空经济发展新态势和新格局。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "lrsd.org.cn"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 1,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-5494208ba2b55f22",
+              "statement": "2026年4月29日,由中国科学院地理科学与资源研究所牵头、联合多家单位编制的《中国低空经济发展指数报告(2026)》在第九届数字中国建设峰会期间正式对外发布。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-8b8f7c8a5d77d248",
+              "statement": "国家有关部门发布的《通用航空装备创新应用实施方案(2024—2030年)》提出,到2030年推动低空经济形成万亿级市场规模。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-b36603c4633707dc",
+              "statement": "《中国低空经济发展指数报告(2026)》围绕创新效力、产业实力、场景活力、发展潜力、保障能力五个维度,构建\"3层级—84项指标\"的低空经济发展指数评价体系。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "lrsd.org.cn"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 1,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-b81cc8df56601090",
+              "statement": "根据中国政府网站刊文引述的研究机构测算,2023年中国低空经济规模已超过5000亿元,2030年有望达到2万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-ed33653cd18709a7",
+              "statement": "重庆市2025年发布的推动低空经济高质量发展政策措施提出,引导和推动存量基金支持低空经济产业项目投资,鼓励股权投资机构加大对低空项目支持力度。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "cq.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-de3e5733-58fd-43c2-8cb5-96ed2dcb7e06",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "gap",
+          "fact_count": 0,
+          "covered_fact_count": 0,
+          "facts": [],
+          "notes": [
+            "尚未登记事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-26654c1f-2240-4915-9374-c720fd7d6421",
+      "task_id": "task-5b9180e4-c6e7-4286-80bc-4649f696cfce",
+      "created_at": "2026-08-10T16:10:36.378943+00:00",
+      "fingerprint": "6cc1a260b32896fe9972f00146fe13d81cf345fac6b5ed8a16b36a9e3bb7ebc1",
+      "gap_score": 13,
+      "no_progress_rounds": 3,
+      "stop_reason": "no_progress",
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-d5dba9fe-7785-4d36-af3a-5386e747140f",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 6,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-4fa8a28b11fa9bdf",
+              "statement": "《中国低空经济发展指数报告(2026)》是2026年度最新报告,旨在评估2025年度中国低空经济发展新态势和新格局。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "lrsd.org.cn"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 1,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-5494208ba2b55f22",
+              "statement": "2026年4月29日,由中国科学院地理科学与资源研究所牵头、联合多家单位编制的《中国低空经济发展指数报告(2026)》在第九届数字中国建设峰会期间正式对外发布。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-8b8f7c8a5d77d248",
+              "statement": "国家有关部门发布的《通用航空装备创新应用实施方案(2024—2030年)》提出,到2030年推动低空经济形成万亿级市场规模。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-b36603c4633707dc",
+              "statement": "《中国低空经济发展指数报告(2026)》围绕创新效力、产业实力、场景活力、发展潜力、保障能力五个维度,构建\"3层级—84项指标\"的低空经济发展指数评价体系。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "lrsd.org.cn"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 1,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-b81cc8df56601090",
+              "statement": "根据中国政府网站刊文引述的研究机构测算,2023年中国低空经济规模已超过5000亿元,2030年有望达到2万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-ed33653cd18709a7",
+              "statement": "重庆市2025年发布的推动低空经济高质量发展政策措施提出,引导和推动存量基金支持低空经济产业项目投资,鼓励股权投资机构加大对低空项目支持力度。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "cq.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-de3e5733-58fd-43c2-8cb5-96ed2dcb7e06",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "gap",
+          "fact_count": 0,
+          "covered_fact_count": 0,
+          "facts": [],
+          "notes": [
+            "尚未登记事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-e5a4db8e-ff23-4c97-bce7-b39cca93aa2f",
+      "task_id": "task-5b9180e4-c6e7-4286-80bc-4649f696cfce",
+      "created_at": "2026-08-10T16:11:10.182808+00:00",
+      "fingerprint": "6cc1a260b32896fe9972f00146fe13d81cf345fac6b5ed8a16b36a9e3bb7ebc1",
+      "gap_score": 13,
+      "no_progress_rounds": 4,
+      "stop_reason": "no_progress",
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-d5dba9fe-7785-4d36-af3a-5386e747140f",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 6,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-4fa8a28b11fa9bdf",
+              "statement": "《中国低空经济发展指数报告(2026)》是2026年度最新报告,旨在评估2025年度中国低空经济发展新态势和新格局。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "lrsd.org.cn"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 1,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-5494208ba2b55f22",
+              "statement": "2026年4月29日,由中国科学院地理科学与资源研究所牵头、联合多家单位编制的《中国低空经济发展指数报告(2026)》在第九届数字中国建设峰会期间正式对外发布。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-8b8f7c8a5d77d248",
+              "statement": "国家有关部门发布的《通用航空装备创新应用实施方案(2024—2030年)》提出,到2030年推动低空经济形成万亿级市场规模。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-b36603c4633707dc",
+              "statement": "《中国低空经济发展指数报告(2026)》围绕创新效力、产业实力、场景活力、发展潜力、保障能力五个维度,构建\"3层级—84项指标\"的低空经济发展指数评价体系。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "lrsd.org.cn"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 1,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-b81cc8df56601090",
+              "statement": "根据中国政府网站刊文引述的研究机构测算,2023年中国低空经济规模已超过5000亿元,2030年有望达到2万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-ed33653cd18709a7",
+              "statement": "重庆市2025年发布的推动低空经济高质量发展政策措施提出,引导和推动存量基金支持低空经济产业项目投资,鼓励股权投资机构加大对低空项目支持力度。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "cq.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-de3e5733-58fd-43c2-8cb5-96ed2dcb7e06",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "gap",
+          "fact_count": 0,
+          "covered_fact_count": 0,
+          "facts": [],
+          "notes": [
+            "尚未登记事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-85e2de51-2fff-49cc-8d3b-f98e0fb62dde",
+      "task_id": "task-5b9180e4-c6e7-4286-80bc-4649f696cfce",
+      "created_at": "2026-08-10T16:11:58.887428+00:00",
+      "fingerprint": "6cc1a260b32896fe9972f00146fe13d81cf345fac6b5ed8a16b36a9e3bb7ebc1",
+      "gap_score": 13,
+      "no_progress_rounds": 5,
+      "stop_reason": "no_progress",
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-d5dba9fe-7785-4d36-af3a-5386e747140f",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 6,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-4fa8a28b11fa9bdf",
+              "statement": "《中国低空经济发展指数报告(2026)》是2026年度最新报告,旨在评估2025年度中国低空经济发展新态势和新格局。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "lrsd.org.cn"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 1,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-5494208ba2b55f22",
+              "statement": "2026年4月29日,由中国科学院地理科学与资源研究所牵头、联合多家单位编制的《中国低空经济发展指数报告(2026)》在第九届数字中国建设峰会期间正式对外发布。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-8b8f7c8a5d77d248",
+              "statement": "国家有关部门发布的《通用航空装备创新应用实施方案(2024—2030年)》提出,到2030年推动低空经济形成万亿级市场规模。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-b36603c4633707dc",
+              "statement": "《中国低空经济发展指数报告(2026)》围绕创新效力、产业实力、场景活力、发展潜力、保障能力五个维度,构建\"3层级—84项指标\"的低空经济发展指数评价体系。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "lrsd.org.cn"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 1,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-b81cc8df56601090",
+              "statement": "根据中国政府网站刊文引述的研究机构测算,2023年中国低空经济规模已超过5000亿元,2030年有望达到2万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-ed33653cd18709a7",
+              "statement": "重庆市2025年发布的推动低空经济高质量发展政策措施提出,引导和推动存量基金支持低空经济产业项目投资,鼓励股权投资机构加大对低空项目支持力度。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "cq.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-de3e5733-58fd-43c2-8cb5-96ed2dcb7e06",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "gap",
+          "fact_count": 0,
+          "covered_fact_count": 0,
+          "facts": [],
+          "notes": [
+            "尚未登记事实"
+          ]
+        }
+      ]
+    }
+  ]
+}

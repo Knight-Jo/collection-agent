@@ -257,7 +257,7 @@ async def web_search(
             1 for r in merged if r.hits >= 1 and r.kind in ("government", "news", "official")
         )
         if len(merged) == 0 or relevant_count < 2:
-            variants = [v.replace(r"^site:\S+\s*", "", count=1) for v in authoritative_variants(query)[:2]]
+            variants = [re.sub(r"^site:\S+\s*", "", v, count=1) for v in authoritative_variants(query)[:2]]
             boosts = await asyncio.gather(
                 *(searxng_search(client, searxng_url, v, max_results, {**opts, "language": language}) for v in variants),
                 return_exceptions=True,

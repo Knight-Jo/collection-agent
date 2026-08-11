@@ -1,0 +1,13 @@
+{
+  "id": "review-242d012a0d7088f3",
+  "task_id": "task-5b9180e4-c6e7-4286-80bc-4649f696cfce",
+  "fact_id": "fact-b81cc8df56601090",
+  "evidence_id": "ev-08a19a7b616a2ba9",
+  "verdict": "full",
+  "reason": "引言完整支持了事实中的所有重要组成：研究机构测算、2023年低空经济规模超过5000亿元、2030年有望达到2万亿元。唯一的细微差异是事实提到\"中国政府网站刊文引述\"，而引言未提及来源网站，但这是关于来源背景的补充说明，并非事实的核心主张部分。核心的数据（5000亿元、2万亿元）、时间（2023年、2030年）、主体（中国低空经济）均完全一致。",
+  "unsupported_parts": [],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-10T16:08:46.159608+00:00"
+}

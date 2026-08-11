@@ -1,0 +1,16 @@
+{
+  "id": "review-6642cb3b1e04742d",
+  "task_id": "task-5b9180e4-c6e7-4286-80bc-4649f696cfce",
+  "fact_id": "fact-259bb4e3826f8fff",
+  "evidence_id": "ev-d28bff59491d7cc6",
+  "verdict": "partial",
+  "reason": "quote支持fact中的发布时间（2026年4月29日）、编制机构（中国科学院地理科学与资源研究所牵头）和报告名称《中国低空经济发展指数报告(2026)》以及正式对外发布等关键信息。但quote未提及fact中的'多单位联合发布'这一组成，也未提及报告评估'2025年度中国低空经济发展新态势和新格局'这一内容范围。",
+  "unsupported_parts": [
+    "多单位联合发布",
+    "评估2025年度中国低空经济发展新态势和新格局"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-10T16:07:51.512561+00:00"
+}

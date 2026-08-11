@@ -86,8 +86,11 @@ async def _run(args: argparse.Namespace) -> int:
         f"【检索多样性·重要】避免反复抓取同一批结果：web_search 返回的 already_archived=true 表示"
         f"该 URL 已归档，不要再抓取；若某问题结果几乎全部已归档（fresh_count 很小），必须换更具体的"
         f"查询词（公司名/机构名/具体事件/年份），或把 language 设为 en 搜英文一手来源（公司新闻稿、"
-        f"交易所公告、行业媒体），而不是重复同一查询。百度百科/维基百科只能当背景知识，"
+        f"交易所公告、行业媒体），或使用 filetype=pdf 搜索政府报告/白皮书。百度百科/维基百科只能当背景知识，"
         f"不能作为主要证据来源；优先抓取 gov.cn/新闻/企业官网/学术来源。\n"
+        f"【来源扩展】web_fetch 返回的 outbound_links 可继续直接抓取（不消耗搜索预算），优先跟进"
+        f"gov.cn/新闻/学术/公司官网链接；已知权威来源（如 ir.亿航公司.com、sec.gov、caixin.com）"
+        f"可直接 web_fetch 无需先搜索。\n"
         f"【事实纪律】fact_save 只登记单一、原子、可独立核验的命题；引文必须逐字覆盖命题的"
         f"全部重要组成（主体/动作/范围/时间/数量）；evidence_audit 返回 partial 时用 fact_supersede "
         f"拆分为更窄的事实，或保存覆盖完整组成的引文。\n"
@@ -108,7 +111,7 @@ async def _run(args: argparse.Namespace) -> int:
     if args.trace:
         _write_trace(args.trace, result.all_messages())
     print(result.output)
-    usage = result.usage()
+    usage = result.usage
     print(f"\n[usage] requests={usage.requests} total_tokens={usage.total_tokens}")
     return 0
 

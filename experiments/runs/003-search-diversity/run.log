@@ -1,0 +1,86 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/nas928/guandewei/project/collection-agent-pydantic/src/intel_agent/__main__.py", line 4, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/nas928/guandewei/project/collection-agent-pydantic/src/intel_agent/main.py", line 121, in main
+    return asyncio.run(_run(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/guandewei/.conda/envs/collection-agent-pydantic/lib/python3.12/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/home/guandewei/.conda/envs/collection-agent-pydantic/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/guandewei/.conda/envs/collection-agent-pydantic/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/nas928/guandewei/project/collection-agent-pydantic/src/intel_agent/main.py", line 111, in _run
+    usage = result.usage()
+            ^^^^^^^^^^^^^^
+TypeError: 'RunUsage' object is not callable
+Now let me present the final comprehensive report to the user, being transparent about the task state. Let me provide the honest summary of the intelligence collection effort.
+
+---
+
+# 低空经济公开来源情报收集与研判报告
+
+## 一、任务执行概况
+
+**任务ID**：`task-5b9180e4-c6e7-4286-80bc-4649f696cfce`
+**关键问题**：
+1. 2026年低空经济投资与融资趋势
+2. 亿航智能商业化进展与订单情况
+
+**关键限制（必须如实披露）**：本任务的**任务级搜索预算在6次尝试后即耗尽**（`SEARCH_BUDGET_EXHAUSTED`），其中多次搜索因搜索引擎网络错误返回空结果或查询过宽被阻断。这意味着问题2（亿航智能）*未能检索到任何候选来源*，问题1（低空经济投资融资）仅检索到3个官方来源。覆盖评估连续多轮 `gap_score` 未下降，触发 `stop_reason=no_progress`，按纪律停止检索。
+
+**当前阶段**：任务停留在 `challenge` 阶段，`done` 阶段被系统以此处原因拒绝：**红队复审未确认收敛**。原因在于覆盖不充分（问题1仅 partial、问题2为 gap）且搜索预算耗尽无法补充证据，挑战点只能以 dismissed 处理、无法以 addressed（新增证据）收敛。以下为根据已有、已归档、经审核证据的研判与缺口说明。
+
+---
+
+## 二、结论与置信度
+
+### 问题1：2026年低空经济投资与融资趋势（覆盖：partial，置信度：中）
+
+| 结论 | 类型 | 来源归属 | 引文要点 |
+|---|---|---|---|
+| 2023年中国低空经济规模已超5000亿元，2030年有望达2万亿元 | reported | 中国政府网引述研究机构测算 | "2023年中国低空经济规模已超过5000亿元，2030年有望达到2万亿元" |
+| 国家《通用航空装备创新应用实施方案（2024—2030年）》提出到2030年推动低空经济形成万亿级市场 | reported | 中国政府网 | "提出到2030年，推动低空经济形成万亿级市场规模" |
+| 重庆市2025年政策提出引导存量基金支持低空产业投资、鼓励股权机构加大支持力度 | reported | 重庆市人民政府办公厅（渝府办发〔2025〕58号） | "引导和推动存量基金支持低空经济产业项目投资，鼓励股权投资机构加大对低空项目支持力度" |
+| 《中国低空经济发展指数报告(2026)》2026年4月发布、评估2025年度格局，采用"五力"指标 | reported（背景） | 中科院地理资源所发布方 | 报告发布与评估体系信息 |
+
+**研判**：截至2026年年中，中国低空经济投资与融资**主要表现为政策驱动**（国家级万亿规模目标、地方财政/基金/股权投资扶持），**缺乏对2026年资本市场投融资事件与总量的独立量化证据**。所有事实均为**单一官方来源**，未达到 `min_independent_sources=2`，故不作为确证事实、仅作单源转述（reported）呈现。
+
+### 问题2：亿航智能商业化进展与订单情况（覆盖：gap，**无法核证**）
+
+因搜索预算耗尽，**未检索到任何关于亿航智能的候选来源**，未登记任何事实或证据。该问题作为**不可消解的接受部分问题**已披露，**无法在本检索预算内回答**。
+
+**矛盾**：无（未发现相互矛盾证据）。
+**置信度总评**：中低。问题1的政策性事实有官方单一来源支撑但缺乏独立佐证；问题2完全缺口。
+
+---
+
+## 三、主要缺口
+
+1. **亿航智能（问题2）完全无来源**：搜索预算耗尽（6次尝试后 `SEARCH_BUDGET_EXHAUSTED`），且多次引擎错误，未获得任何亿航候选页面。未猜 URL（纪律禁止）。
+2. **低空经济投资/融资无资本市场量化数据**：仅有政策与规模目标，无2026年具体融资事件、金额、轮次或上市公司动态。
+3. **所有事实单源**：gov.cn、cq.gov.cn、lrsd.org.cn 各支撑不同命题，均未达2个独立来源组。
+
+---
+
+## 四、产物路径
+
+- **证据包**：`output/低空经济-low-altitude-economy-公开来源情报收集与研判-evidence-package.md`（11条证据，绑定最新覆盖 cov-85e2de51）
+- **研判**：`output/低空经济-low-altitude-economy-公开来源情报收集与研判-assessment.md`
+- **已归档原始文档**：`data/raw/`（gov.cn 政府文章、重庆市政府政策措施、中科院《中国低空经济发展指数报告(2026)》）
+
+每个证据均附来源、SHA-256 哈希与行号引文，可复核。
+
+---
+
+## 五、诚信声明与后续建议
+
+本次收集受**搜索预算耗尽**这一固定限制，未能完成两个问题的充分覆盖，`done` 阶段被系统拒绝（红队复审未收敛）。所有引文均**逐字**来自已归档正文，未改述、未伪造、未引用证据库外材料；单源内容均标注 `reported` 归属；检索与覆盖缺口均已如实披露。
+
+**建议后续**：在获得新的搜索/抓取预算后，优先针对问题2检索亿航智能（NASDAQ: EH）的公司新闻稿、交易所公告与主流行业媒体，以及问题1的2026年资本市场投融资事件（融资轮次、IPO、基金规模），以补齐独立来源组并朝向 `done` 收敛。

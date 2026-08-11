@@ -1,0 +1,15 @@
+{
+  "id": "review-b918e55e8a9c67cf",
+  "task_id": "task-5b9180e4-c6e7-4286-80bc-4649f696cfce",
+  "fact_id": "fact-8b8f7c8a5d77d248",
+  "evidence_id": "ev-3c832aaaccbab0e0",
+  "verdict": "partial",
+  "reason": "quote 支持了事实中的核心内容（到2030年推动低空经济形成万亿级市场规模），但quote 仅涵盖了推动低空经济形成万亿级市场规模这一部分，未提及《通用航空装备创新应用实施方案(2024—2030年)》这一文件名，也未明确'国家有关部门'这一发布主体。然而，quote 中出现的'提出到2030年推动低空经济形成万亿级市场规模'直接支持了事实中最重要的具体目标内容，但遗漏了方案名称和发布主体这两个重要组成。",
+  "unsupported_parts": [
+    "国家有关部门发布的《通用航空装备创新应用实施方案(2024—2030年)》"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-10T16:08:46.159561+00:00"
+}

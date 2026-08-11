@@ -1,0 +1,15 @@
+{
+  "id": "review-2d81aa26b12bdfa9",
+  "task_id": "task-5b9180e4-c6e7-4286-80bc-4649f696cfce",
+  "fact_id": "fact-5494208ba2b55f22",
+  "evidence_id": "ev-bc0ab1301782294e",
+  "verdict": "partial",
+  "reason": "quote支持了fact中的时间（2026年4月29日）、发布场合（第九届数字中国建设峰会期间）、牵头单位（中国科学院地理科学与资源研究所）、报告名称（《中国低空经济发展指数报告(2026)》）和正式对外发布等核心要素，但quote未提及'联合多家单位编制'这一事实，因此属于部分支持。",
+  "unsupported_parts": [
+    "联合多家单位编制"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-10T16:08:46.159528+00:00"
+}

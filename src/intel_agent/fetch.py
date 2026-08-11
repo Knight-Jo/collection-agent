@@ -132,6 +132,64 @@ def extract_html(html: str) -> dict:
     return {"title": title, "text": text, "publish_time": publish_time, "publish_time_source": publish_time_source}
 
 
+def extract_outbound_links(html: str, base_url: str, limit: int = 30) -> list[dict]:
+    """提取 HTML 中的外链（供种子文档链接展开，绕过搜索直接扩展来源）。"""
+    from urllib.parse import urljoin
+
+    seen: set[str] = set()
+    links: list[dict] = []
+    for m in re.finditer(r'<a[^>]+href=["\']([^"\']+)["\']', html, flags=re.I):
+        href = m.group(1).strip()
+        if not href or href.startswith(("#", "javascript:", "mailto:", "tel:")):
+            continue
+        try:
+            url = urljoin(base_url, href)
+            parsed = urlparse(url)
+        except Exception:
+            continue
+        if parsed.scheme not in ("http", "https") or parsed.hostname is None:
+            continue
+        if parsed.hostname == urlparse(base_url).hostname:
+            continue
+        normalized = url.split("#")[0].rstrip("/")
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        links.append({"url": normalized, "hostname": parsed.hostname.lower()})
+        if len(links) >= limit:
+            break
+    return links
+
+
+def extract_pdf_text(raw_bytes: bytes) -> str:
+    """用 PyMuPDF 提取 PDF 全文（逐页合并，页间换行）。"""
+    import fitz
+
+    document = fitz.open(stream=raw_bytes, filetype="pdf")
+    try:
+        pages = [page.get_text("text") for page in document]
+    finally:
+        document.close()
+    text = "\n".join(pages)
+    return "\n".join(line.strip() for line in text.split("\n") if line.strip())
+
+
+def extract_docx_text(raw_bytes: bytes) -> str:
+    """用 python-docx 提取 .docx 全文（段落 + 表格）。"""
+    from io import BytesIO
+
+    from docx import Document
+
+    document = Document(BytesIO(raw_bytes))
+    parts = [p.text for p in document.paragraphs if p.text.strip()]
+    for table in document.tables:
+        for row in table.rows:
+            cells = [c.text.strip() for c in row.cells if c.text.strip()]
+            if cells:
+                parts.append(" | ".join(cells))
+    return "\n".join(parts)
+
+
 def canonicalize_url(raw: str) -> str:
     parsed = urlparse(raw)
     from urllib.parse import parse_qsl, urlencode
@@ -265,7 +323,7 @@ async def fetch_document(
     fetcher: FetchLike | None = None,
     resolver: AddressResolver | None = None,
     max_bytes: int | None = None,
-) -> tuple[IntelDocument, str]:
+) -> tuple[IntelDocument, str, list[dict]]:
     max_bytes = max_bytes or DEFAULT_MAX_BYTES
     fetcher = fetcher or (lambda u, i, a: pinned_fetch(u, i, a, max_bytes))
     try:
@@ -280,17 +338,33 @@ async def fetch_document(
     if response.status != 200:
         raise IntelError("NETWORK_ERROR", f"抓取失败: HTTP {response.status}")
     content_type = response.headers.get("content-type", "").lower()
-    if not re.match(r"^(?:text/html|application/xhtml\+xml|text/plain)(?:;|$)", content_type):
+    allowed = r"^(?:text/html|application/xhtml\+xml|text/plain|application/pdf|application/msword|application/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)(?:;|$)"
+    if not re.match(allowed, content_type):
         raise IntelError("UNSUPPORTED_CONTENT", f"不支持的内容类型: {content_type or 'unknown'}")
     raw_bytes = response.body
     if len(raw_bytes) > max_bytes:
         raise IntelError("RESPONSE_TOO_LARGE", f"响应超过 {max_bytes} 字节")
     raw_text = decode_body(raw_bytes, content_type)
     is_html = bool(re.search(r"html|xhtml", content_type))
+    is_pdf = "pdf" in content_type
+    is_docx = "officedocument" in content_type or "msword" in content_type
     if is_html:
         extracted = extract_html(raw_text)
+    elif is_pdf:
+        try:
+            text = extract_pdf_text(raw_bytes)
+        except Exception as error:
+            raise IntelError("NETWORK_ERROR", f"PDF 文本提取失败: {error}")
+        extracted = {"title": Path(urlparse(_url_string(final_url)).path).name, "text": text, "publish_time": None, "publish_time_source": "unknown"}
+    elif is_docx:
+        try:
+            text = extract_docx_text(raw_bytes)
+        except Exception as error:
+            raise IntelError("NETWORK_ERROR", f"Word 文本提取失败: {error}")
+        extracted = {"title": Path(urlparse(_url_string(final_url)).path).name, "text": text, "publish_time": None, "publish_time_source": "unknown"}
     else:
         extracted = {"title": _url_string(final_url), "text": raw_text.replace("\r\n", "\n").strip(), "publish_time": None, "publish_time_source": "unknown"}
+    outbound_links = extract_outbound_links(raw_text, _url_string(final_url)) if is_html else []
     if not extracted["publish_time"]:
         url_match = re.search(r"/(20\d{2})[-/]?(\d{2})[-/]?(\d{2})/", _url_string(final_url))
         if url_match and is_valid_calendar_date(f"{url_match.group(1)}-{url_match.group(2)}-{url_match.group(3)}"):
@@ -303,7 +377,7 @@ async def fetch_document(
     if (cwd / "data/intel" / document_path).exists():
         existing = IntelDocument.model_validate(read_json(cwd, document_path))
         verify_document_integrity(cwd, existing)
-        return existing, f"<untrusted_web_content>\n{extracted['text']}\n</untrusted_web_content>"
+        return existing, f"<untrusted_web_content>\n{extracted['text']}\n</untrusted_web_content>", outbound_links
     raw_path = f"data/raw/{document_id}.raw"
     text_path = f"data/raw/{document_id}.txt"
     write_file_atomic(cwd, raw_path, raw_bytes)
@@ -328,7 +402,7 @@ async def fetch_document(
         injection_warnings=injection_warnings(extracted["text"]),
     )
     write_json_atomic(cwd, document_path, document.model_dump())
-    return document, f"<untrusted_web_content>\n{extracted['text']}\n</untrusted_web_content>"
+    return document, f"<untrusted_web_content>\n{extracted['text']}\n</untrusted_web_content>", outbound_links
 
 
 def _now() -> str:

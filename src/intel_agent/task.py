@@ -197,4 +197,19 @@ def summarize_task(cwd: Path, task_id: str | None = None) -> dict:
         "challenge": "完成最多两轮红队复审。",
         "done": "任务已完成。",
     }[task.stage]
+    # 防死循环：两轮红队已确认但仍未收敛时给出终态指引
+    if task.stage == "challenge" and task.challenge_round >= 2:
+        challenges_path = intel_path(cwd, "challenges.json")
+        if challenges_path.exists():
+            store = read_json(cwd, "challenges.json")
+            latest = next(
+                (r for r in store.get("items", []) if r.get("task_id") == task.id and r.get("round") == task.challenge_round),
+                None,
+            )
+            if latest and latest.get("status") == "confirmed" and not latest.get("converged"):
+                next_action = (
+                    "已完成两轮红队复审且未收敛，无法推进到 done。"
+                    "请停止调用 intel_status(stage=done) 与 intel_challenge_*，"
+                    "直接向用户总结：结论、置信度、矛盾、缺口及收敛失败原因。"
+                )
     return {"task": task.model_dump(), "next_action": next_action}
