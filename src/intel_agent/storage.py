@@ -16,6 +16,7 @@ INTEL_ROOT = Path("data/intel")
 
 
 def sha256(data: bytes | str) -> str:
+    """SHA-256 hex digest; all content-addressed IDs and integrity checks use it."""
     if isinstance(data, str):
         data = data.encode("utf-8")
     return hashlib.sha256(data).hexdigest()
@@ -58,6 +59,7 @@ def workspace_path(cwd: Path, path: str | Path) -> Path:
 
 
 def read_json(cwd: Path, path: str) -> dict | list:
+    """Read a JSON record from data/intel, raising STORAGE_CORRUPT on bad JSON."""
     full = intel_path(cwd, path)
     if not full.exists():
         raise IntelError("NOT_FOUND", f"记录不存在: {path}")

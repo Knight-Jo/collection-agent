@@ -59,6 +59,8 @@ class TaskOutputs(BaseModel):
 
 
 class IntelTask(BaseModel):
+    """A collection task: topic, questions, budgets, stage, and output bindings."""
+
     id: str
     topic: str
     stage: TaskStage
@@ -91,6 +93,8 @@ class IntelDocument(BaseModel):
 
 
 class Fact(BaseModel):
+    """A canonical atomic statement; superseded facts keep history for audit."""
+
     id: str
     task_id: str
     question_id: str
@@ -103,6 +107,8 @@ class Fact(BaseModel):
 
 
 class EvidenceSupport(BaseModel):
+    """An exact quote from an archived document linked to a fact (supports/contradicts)."""
+
     id: str
     task_id: str
     fact_id: str
@@ -116,6 +122,8 @@ class EvidenceSupport(BaseModel):
 
 
 class SupportReview(BaseModel):
+    """Immutable judge verdict for one evidence; only full counts toward coverage."""
+
     id: str
     task_id: str
     fact_id: str
@@ -173,6 +181,8 @@ class QuestionCoverage(BaseModel):
 
 
 class CoverageSnapshot(BaseModel):
+    """Point-in-time coverage state; outputs bind to it via fingerprint."""
+
     id: str
     task_id: str
     created_at: str
@@ -241,6 +251,8 @@ class ChallengeRound(BaseModel):
 
 
 class IntelError(Exception):
+    """Error carrying a stable machine-readable code (e.g. UNSAFE_URL)."""
+
     def __init__(self, code: str, message: str):
         super().__init__(message)
         self.code = code
@@ -248,10 +260,12 @@ class IntelError(Exception):
 
 
 def new_id(prefix: str) -> str:
+    """Random ID for non-content-addressed records; collision assumed negligible."""
     return f"{prefix}-{uuid.uuid4()}"
 
 
 def normalized_statement(value: str) -> str:
+    """NFKC-normalize and collapse whitespace so equal facts get equal IDs."""
     return " ".join(unicodedata.normalize("NFKC", value).split())
 
 

@@ -69,6 +69,7 @@ class SourcesConfig(BaseModel):
 
 
 class Settings(BaseModel):
+    """Top-level configuration; API keys are read from env, never stored here."""
     model: ModelConfig = Field(default_factory=ModelConfig)
     audit_model: ModelConfig | None = None
     search: SearchConfig = Field(default_factory=SearchConfig)
@@ -86,6 +87,7 @@ class Settings(BaseModel):
 
 
 def load_config(path: str | Path | None = None) -> Settings:
+    """Load config.yaml (defaults to ./config.yaml when present)."""
     if path is None:
         default = Path("config.yaml")
         path = default if default.exists() else None

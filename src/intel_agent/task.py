@@ -41,6 +41,7 @@ def create_task(
     questions: list[str],
     criteria: SufficiencyCriteria | dict,
 ) -> IntelTask:
+    """Create a task with stable question IDs and persist it as the active task."""
     if isinstance(criteria, dict):
         criteria = SufficiencyCriteria.model_validate(criteria)
     topic = topic.strip()
@@ -229,6 +230,7 @@ def _verify_current_outputs(cwd: Path, task: IntelTask) -> None:
 
 
 def set_task_stage(cwd: Path, task_id: str, stage: TaskStage) -> IntelTask:
+    """Advance stage by exactly one step; assess/done enforce hard preconditions."""
     task = load_task(cwd, task_id)
     current = STAGE_ORDER.index(task.stage)
     if STAGE_ORDER.index(stage) != current + 1:
@@ -280,6 +282,7 @@ def set_task_stage(cwd: Path, task_id: str, stage: TaskStage) -> IntelTask:
 
 
 def summarize_task(cwd: Path, task_id: str | None = None) -> dict:
+    """Return task state plus a next-action hint (terminal guidance when stuck)."""
     task = load_task(cwd, task_id)
     next_action = {
         "collect": "按问题 ID 检索并抓取文档，再保存可定位引文。",
