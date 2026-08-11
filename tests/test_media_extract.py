@@ -65,6 +65,300 @@ def test_transcript_has_timestamps(monkeypatch):
     assert result.processor == "faster-whisper"
 
 
+def test_extract_xlsx_cells_and_hyperlinks_with_optional_processor_fake(
+    monkeypatch,
+):
+    class Hyperlink:
+        target = "https://example.com/external"
+
+    class Cell:
+        def __init__(self, coordinate, value, hyperlink=None):
+            self.coordinate = coordinate
+            self.value = value
+            self.hyperlink = hyperlink
+
+    class Sheet:
+        title = "Summary"
+
+        def iter_rows(self):
+            return [
+                [Cell("A1", "Report https://example.com/in-text")],
+                [Cell("B2", 42, Hyperlink())],
+            ]
+
+    class Workbook:
+        worksheets = [Sheet()]
+
+        def close(self):
+            pass
+
+    class Openpyxl:
+        @staticmethod
+        def load_workbook(_stream, read_only, data_only):
+            assert not read_only
+            assert data_only
+            return Workbook()
+
+    monkeypatch.setattr(extract_module, "import_module", lambda _: Openpyxl)
+
+    result = extract_resource(
+        b"workbook", "application/octet-stream", "https://example.com/a.xlsx"
+    )
+
+    assert result.status == "complete"
+    assert result.processor == "openpyxl"
+    assert result.text == (
+        "Summary!A1: Report https://example.com/in-text\nSummary!B2: 42"
+    )
+    assert result.links == [
+        "https://example.com/external",
+        "https://example.com/in-text",
+    ]
+
+
+def test_extract_pptx_text_and_hyperlinks_with_optional_processor_fake(
+    monkeypatch,
+):
+    class Hyperlink:
+        address = "https://example.com/slide-link"
+
+    class ClickAction:
+        hyperlink = Hyperlink()
+
+    class Shape:
+        text = "Briefing https://example.com/in-text"
+        click_action = ClickAction()
+
+    class Slide:
+        shapes = [Shape()]
+
+    class Presentation:
+        slides = [Slide()]
+
+    class Pptx:
+        @staticmethod
+        def Presentation(_stream):
+            return Presentation()
+
+    monkeypatch.setattr(extract_module, "import_module", lambda _: Pptx)
+
+    result = extract_resource(
+        b"presentation",
+        "application/octet-stream",
+        "https://example.com/a.pptx",
+    )
+
+    assert result.status == "complete"
+    assert result.processor == "python-pptx"
+    assert result.text == "Slide 1: Briefing https://example.com/in-text"
+    assert result.links == [
+        "https://example.com/slide-link",
+        "https://example.com/in-text",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("mime_type", "url", "converted", "processor", "expected_text"),
+    [
+        (
+            "application/msword",
+            "https://example.com/old.doc",
+            b"docx",
+            "python-docx",
+            "converted document",
+        ),
+        (
+            "application/vnd.ms-excel",
+            "https://example.com/old.xls",
+            b"xlsx",
+            "openpyxl",
+            "converted workbook",
+        ),
+        (
+            "application/vnd.ms-powerpoint",
+            "https://example.com/old.ppt",
+            b"pptx",
+            "python-pptx",
+            "converted slides",
+        ),
+    ],
+)
+def test_legacy_office_resources_use_converted_content(
+    monkeypatch, mime_type, url, converted, processor, expected_text
+):
+    def convert(_raw, _suffix, target, _cancellation_event=None):
+        if target.encode() != converted:
+            raise AssertionError("unexpected legacy conversion target")
+        return converted
+
+    def extract_docx(raw, _base_url):
+        if raw != b"docx":
+            raise AssertionError(
+                "document extractor did not receive conversion"
+            )
+        return "converted document", ["https://example.com/doc-link"]
+
+    def extract_xlsx(raw, _base_url):
+        if raw != b"xlsx":
+            raise AssertionError(
+                "spreadsheet extractor did not receive conversion"
+            )
+        return "converted workbook", ["https://example.com/xls-link"]
+
+    def extract_pptx(raw, _base_url):
+        if raw != b"pptx":
+            raise AssertionError(
+                "presentation extractor did not receive conversion"
+            )
+        return "converted slides", ["https://example.com/ppt-link"]
+
+    monkeypatch.setattr(extract_module, "_convert_legacy_office", convert)
+    monkeypatch.setattr(extract_module, "_extract_docx", extract_docx)
+    monkeypatch.setattr(extract_module, "_extract_xlsx", extract_xlsx)
+    monkeypatch.setattr(extract_module, "_extract_pptx", extract_pptx)
+
+    result = extract_resource(b"legacy", mime_type, url)
+
+    assert result.status == "complete"
+    assert result.processor == processor
+    assert result.text == expected_text
+    assert result.links == [
+        f"https://example.com/{url.rsplit('.', 1)[-1]}-link"
+    ]
+
+
+def test_legacy_office_converter_returns_the_generated_file(monkeypatch):
+    def run_process(command, _cancellation_event=None):
+        directory = Path(command[command.index("--outdir") + 1])
+        target = command[command.index("--convert-to") + 1]
+        (directory / f"source.{target}").write_bytes(b"converted workbook")
+        return subprocess.CompletedProcess(command, 0, b"", b"")
+
+    monkeypatch.setattr(
+        extract_module.shutil, "which", lambda _: "libreoffice"
+    )
+    monkeypatch.setattr(extract_module, "_run_process", run_process)
+
+    converted = extract_module._convert_legacy_office(
+        b"legacy workbook", "xls", "xlsx"
+    )
+
+    assert converted == b"converted workbook"
+
+
+def test_whisper_worker_returns_timestamped_segments_from_processor(
+    monkeypatch,
+):
+    class Segment:
+        start = 1.25
+        end = 2.5
+        text = " spoken text "
+
+    class WhisperModel:
+        def __init__(self, model_name):
+            self.model_name = model_name
+
+        def transcribe(self, _audio_path):
+            return [Segment()], object()
+
+    faster_whisper = type("FasterWhisper", (), {"WhisperModel": WhisperModel})
+
+    class Results:
+        values: list[tuple[str, object]] = []
+
+        def put(self, value):
+            self.values.append(value)
+
+    monkeypatch.setattr(
+        extract_module, "import_module", lambda _: faster_whisper
+    )
+    results = Results()
+
+    extract_module._whisper_worker("audio.wav", "small", results)
+
+    assert results.values == [("complete", [(1.25, 2.5, "spoken text")])]
+
+
+@pytest.mark.parametrize(
+    ("error", "expected_status"),
+    [
+        (ImportError("faster-whisper missing"), "unavailable"),
+        (RuntimeError("model failed"), "failed"),
+    ],
+)
+def test_whisper_worker_returns_processor_errors(
+    monkeypatch, error, expected_status
+):
+    def unavailable(_module_name):
+        raise error
+
+    class Results:
+        values: list[tuple[str, object]] = []
+
+        def put(self, value):
+            self.values.append(value)
+
+    monkeypatch.setattr(extract_module, "import_module", unavailable)
+    results = Results()
+
+    extract_module._whisper_worker("audio.wav", "small", results)
+
+    assert results.values == [(expected_status, str(error))]
+
+
+def test_whisper_runner_returns_complete_worker_result(monkeypatch, tmp_path):
+    class Results:
+        def __init__(self):
+            self.values = [("complete", [(0, 1.5, "transcript")])]
+
+        def get(self, timeout):
+            return self.values.pop(0)
+
+        def close(self):
+            pass
+
+        def cancel_join_thread(self):
+            pass
+
+    class Process:
+        exitcode = 0
+
+        def __init__(self, **_kwargs):
+            pass
+
+        def start(self):
+            pass
+
+        def is_alive(self):
+            return False
+
+        def join(self, timeout=None):
+            pass
+
+        def terminate(self):
+            pass
+
+        def kill(self):
+            pass
+
+    class Context:
+        def Queue(self):
+            return Results()
+
+        def Process(self, **kwargs):
+            return Process(**kwargs)
+
+    monkeypatch.setattr(
+        extract_module.multiprocessing, "get_context", lambda _: Context()
+    )
+
+    segments = extract_module._run_whisper_worker(
+        tmp_path / "audio.wav", "small", None
+    )
+
+    assert segments == [(0.0, 1.5, "transcript")]
+
+
 @pytest.mark.parametrize(
     ("worker_result", "expected_status"),
     [("unavailable", "unavailable"), ("failed", "failed")],
