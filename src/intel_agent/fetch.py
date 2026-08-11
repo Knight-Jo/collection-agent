@@ -12,6 +12,14 @@ from datetime import UTC
 from pathlib import Path
 from urllib.parse import urlparse
 
+from . import document_extract as _document_extract
+from .document_extract import (
+    decode_body,
+    extract_docx_text,
+    extract_html,
+    extract_outbound_links,
+    extract_pdf_text,
+)
 from .models import IntelDocument, IntelError, is_valid_calendar_date
 from .security import AddressResolver, resolve_public_url, source_group_of
 from .source import source_type_for_domain
@@ -22,6 +30,8 @@ from .storage import (
     write_file_atomic,
     write_json_atomic,
 )
+
+publication_date = _document_extract.publication_date
 
 DEFAULT_MAX_BYTES = 5 * 1024 * 1024
 DEFAULT_TIMEOUT_MS = 25_000
@@ -37,180 +47,6 @@ class FetchedResponse:
 
 
 FetchLike = Callable[[str, dict | None, str], Awaitable[FetchedResponse]]
-
-
-def _decode_entities(value: str) -> str:
-    value = (
-        value.replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", '"')
-        .replace("&#39;", "'")
-        .replace("&apos;", "'")
-        .replace("&nbsp;", " ")
-        .replace("&#160;", " ")
-    )
-
-    def dec(m: re.Match) -> str:
-        try:
-            return chr(int(m.group(1)))
-        except ValueError:
-            return ""
-
-    value = re.sub(r"&#(\d+);", dec, value)
-
-    def hex_dec(m: re.Match) -> str:
-        try:
-            return chr(int(m.group(1), 16))
-        except ValueError:
-            return ""
-
-    return re.sub(r"&#x([0-9a-f]+);", hex_dec, value, flags=re.I)
-
-
-def decode_body(body: bytes, content_type: str) -> str:
-    m = re.search(r"charset=[\"']?([\w-]+)", content_type, flags=re.I)
-    charset = (m.group(1).lower() if m else "utf-8") or "utf-8"
-    if charset == "gb2312":
-        charset = "gbk"
-    try:
-        return body.decode(charset)
-    except (LookupError, UnicodeDecodeError):
-        return body.decode("utf-8", errors="replace")
-
-
-def publication_date(raw: str | None) -> str | None:
-    if not raw:
-        return None
-    m = re.search(r"(\d{4})[-/年.](\d{1,2})[-/月.](\d{1,2})", raw)
-    if not m:
-        return None
-    value = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
-    return value if is_valid_calendar_date(value) else None
-
-
-def extract_html(html: str) -> dict:
-    title_m = re.search(r"<title[^>]*>([\s\S]*?)</title>", html, flags=re.I)
-    title = " ".join(
-        _decode_entities(title_m.group(1) if title_m else "").split()
-    ).strip()
-    meta_names = "article:published_time|pubdate|publishdate|dc\\.date|datepublished|article:modified_time|created|firstpublishedtime"
-    meta = re.search(
-        rf'<meta[^>]+(?:property|name)=["\'](?:{meta_names})["\'][^>]+content=["\']([^"\']+)',
-        html,
-        flags=re.I,
-    )
-    if not meta:
-        meta = re.search(
-            rf'<meta[^>]+content=["\']([^"\']+)["\'][^>]+(?:property|name)=["\'](?:{meta_names})["\']',
-            html,
-            flags=re.I,
-        )
-    time_m = re.search(r"<time[^>]+datetime=[\"']([^\"']+)", html, flags=re.I)
-    meta_date = publication_date(meta.group(1) if meta else None)
-    time_date = publication_date(time_m.group(1) if time_m else None)
-    cleaned = re.sub(r"<script[\s\S]*?</script>", " ", html, flags=re.I)
-    cleaned = re.sub(r"<style[\s\S]*?</style>", " ", cleaned, flags=re.I)
-    cleaned = re.sub(r"<noscript[\s\S]*?</noscript>", " ", cleaned, flags=re.I)
-    cleaned = re.sub(r"<svg[\s\S]*?</svg>", " ", cleaned, flags=re.I)
-    cleaned = re.sub(r"<(?:br|hr)\s*/?>", "\n", cleaned, flags=re.I)
-    cleaned = re.sub(
-        r"</(?:p|div|h[1-6]|li|tr|section|article|blockquote|table|ul|ol|header|footer|figure|time)>",
-        "\n",
-        cleaned,
-        flags=re.I,
-    )
-    cleaned = re.sub(r"<[^>]+>", " ", cleaned)
-    text = "\n".join(
-        line.strip()
-        for line in re.sub(
-            r"[ \t]+", " ", _decode_entities(cleaned).replace("\r\n", "\n")
-        ).split("\n")
-        if line.strip()
-    )
-    if meta_date:
-        publish_time, publish_time_source = meta_date, "meta"
-    elif time_date:
-        publish_time, publish_time_source = time_date, "time-element"
-    else:
-        text_date = None
-        for m in re.finditer(r"(?:20\d{2}[-/年.]\d{1,2}[-/月.]\d{1,2})", text):
-            candidate = publication_date(m.group(0))
-            if candidate:
-                text_date = candidate
-                break
-        publish_time = text_date
-        publish_time_source = "unknown"
-    return {
-        "title": title,
-        "text": text,
-        "publish_time": publish_time,
-        "publish_time_source": publish_time_source,
-    }
-
-
-def extract_outbound_links(
-    html: str, base_url: str, limit: int = 30
-) -> list[dict]:
-    """提取 HTML 中的外链（供种子文档链接展开，绕过搜索直接扩展来源）。"""
-    from urllib.parse import urljoin
-
-    seen: set[str] = set()
-    links: list[dict] = []
-    for m in re.finditer(r'<a[^>]+href=["\']([^"\']+)["\']', html, flags=re.I):
-        href = m.group(1).strip()
-        if not href or href.startswith(
-            ("#", "javascript:", "mailto:", "tel:")
-        ):
-            continue
-        try:
-            url = urljoin(base_url, href)
-            parsed = urlparse(url)
-        except Exception:
-            continue
-        if parsed.scheme not in ("http", "https") or parsed.hostname is None:
-            continue
-        if parsed.hostname == urlparse(base_url).hostname:
-            continue
-        normalized = url.split("#")[0].rstrip("/")
-        if normalized in seen:
-            continue
-        seen.add(normalized)
-        links.append({"url": normalized, "hostname": parsed.hostname.lower()})
-        if len(links) >= limit:
-            break
-    return links
-
-
-def extract_pdf_text(raw_bytes: bytes) -> str:
-    """用 PyMuPDF 提取 PDF 全文（逐页合并，页间换行）。"""
-    import fitz
-
-    document = fitz.open(stream=raw_bytes, filetype="pdf")
-    try:
-        pages = [str(page.get_text("text")) for page in document]
-    finally:
-        document.close()
-    text = "\n".join(pages)
-    return "\n".join(line.strip() for line in text.split("\n") if line.strip())
-
-
-def extract_docx_text(raw_bytes: bytes) -> str:
-    """用 python-docx 提取 .docx 全文（段落 + 表格）。"""
-    from io import BytesIO
-
-    from docx import Document
-
-    document = Document(BytesIO(raw_bytes))
-    parts = [str(p.text) for p in document.paragraphs if str(p.text).strip()]
-    for table in document.tables:
-        for row in table.rows:
-            cells = [
-                str(c.text).strip() for c in row.cells if str(c.text).strip()
-            ]
-            if cells:
-                parts.append(" | ".join(cells))
-    return "\n".join(parts)
 
 
 def canonicalize_url(raw: str) -> str:

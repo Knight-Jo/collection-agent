@@ -56,8 +56,10 @@ src/intel_agent/
 ├── storage.py      # 原子 JSON I/O + SHA-256 完整性校验
 ├── security.py     # URL 校验、私有地址拦截、DNS 解析
 ├── source.py       # 域名分类（government/news/social/...）
-├── search.py       # SearXNG + Bing + Baidu 并行搜索、查询词分析
-├── fetch.py        # DNS-pinned 抓取、HTML/PDF/Word 提取、注入检测、外链展开
+├── search.py       # SearXNG + Bing + Baidu 并行搜索与结果聚合
+├── search_queries.py # 查询词分析、去重与变体生成
+├── fetch.py        # DNS-pinned 抓取、HTTP 解析、注入检测与文档归档
+├── document_extract.py # HTML/PDF/Word 文本、日期与外链提取
 ├── fact.py         # 事实 CRUD + supersede（无环替换链）
 ├── evidence.py     # 证据 CRUD + 引文行号定位
 ├── audit.py        # 语义支撑审计（独立 LLM 法官）

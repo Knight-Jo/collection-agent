@@ -4,12 +4,27 @@ from __future__ import annotations
 
 import asyncio
 import re
-from datetime import date
 
 import httpx
 from pydantic import BaseModel
 
+from . import search_queries as _search_queries
+from .search_queries import (
+    PUNCT_RE,
+    STOP_TERMS,
+    authoritative_variants,
+)
 from .source import DomainKind, classify_domain, domain_kind_label
+
+GENERIC_TERMS = _search_queries.GENERIC_TERMS
+STOP_WORDS = _search_queries.STOP_WORDS
+build_query_variants = _search_queries.build_query_variants
+extract_keywords = _search_queries.extract_keywords
+industry_terms = _search_queries.industry_terms
+is_broad_query = _search_queries.is_broad_query
+is_semantic_duplicate = _search_queries.is_semantic_duplicate
+query_similarity = _search_queries.query_similarity
+tokenize_query = _search_queries.tokenize_query
 
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -28,83 +43,6 @@ class SearchResult(BaseModel):
     kind_label: str
     hits: int
     url_note: str | None = None
-
-
-PUNCT_RE = re.compile(r"[？?。.!！,，;；:：\"'“”‘’()（）]")
-STOP_TERMS = {
-    "如何",
-    "怎样",
-    "怎么",
-    "什么",
-    "为什么",
-    "哪些",
-    "多少",
-    "进展",
-    "情况",
-    "现状",
-    "未来",
-    "最新",
-    "官方",
-    "公告",
-    "争议",
-    "质疑",
-    "同比",
-    "增长",
-    "统计",
-    "里程碑",
-    "突破",
-    "技术",
-}
-GENERIC_TERMS = {
-    "投资",
-    "融资",
-    "商业化",
-    "产业",
-    "发展",
-    "市场",
-    "政策",
-    "法规",
-    "经济",
-    "进展",
-    "影响",
-    "情况",
-    "现状",
-    "相关",
-    "最新",
-    "数据",
-    "公告",
-    "官方",
-    "标准",
-    "技术",
-    "规模",
-    "企业",
-}
-STOP_WORDS = STOP_TERMS | {
-    "是否",
-    "有没有",
-    "是否已",
-    "目前",
-    "中国",
-    "2026",
-    "2025",
-    "年",
-    "和",
-    "与",
-    "及",
-    "的",
-    "了",
-    "在",
-    "对",
-    "其",
-    "the",
-    "a",
-    "an",
-    "of",
-    "for",
-    "to",
-    "in",
-    "on",
-}
 
 
 def count_hits(query: str, title: str, snippet: str) -> int:
@@ -442,115 +380,3 @@ async def web_search(
     finally:
         if close_client:
             await client.aclose()
-
-
-# ---------------------------------------------------------------------------
-# 检索词变体生成
-# ---------------------------------------------------------------------------
-
-
-def tokenize_query(query: str) -> list[str]:
-    tokens: set[str] = set()
-    for m in re.findall(r"[a-zA-Z][a-zA-Z0-9-]{1,}", query):
-        w = m.lower()
-        if w not in STOP_WORDS and len(w) >= 3:
-            tokens.add(w)
-    for seg in re.split(r"[^\u4e00-\u9fa5]+", query):
-        if (
-            len(seg) >= 2
-            and seg not in STOP_WORDS
-            and seg not in GENERIC_TERMS
-        ):
-            tokens.add(seg)
-    for m in re.findall(r"\d{4}", query):
-        tokens.add(m)
-    return list(tokens)
-
-
-def is_broad_query(query: str) -> tuple[bool, str | None]:
-    t = query.strip()
-    if len(t) < 4:
-        return True, "查询过短"
-    tokens = [x for x in tokenize_query(t) if not re.fullmatch(r"\d{4}", x)]
-    if len(tokens) < 2:
-        return (
-            True,
-            f"仅 {len(tokens)} 个实体词（如“{t}”），建议加限定词：年份/公司/机构/具体指标",
-        )
-    return False, None
-
-
-def query_similarity(a: str, b: str) -> float:
-    A, B = tokenize_query(a), tokenize_query(b)
-    if not A or not B:
-        return 0.0
-    inter = sum(1 for x in A if x in B)
-    return inter / min(len(A), len(B))
-
-
-def is_semantic_duplicate(a: str, b: str) -> bool:
-    A = [x for x in tokenize_query(a) if x not in GENERIC_TERMS]
-    B = [x for x in tokenize_query(b) if x not in GENERIC_TERMS]
-    if len(A) < 3 or len(B) < 3:
-        return False
-    inter = sum(1 for x in A if x in B)
-    return inter / min(len(A), len(B)) >= 0.6
-
-
-def authoritative_variants(query: str) -> list[str]:
-    kw = extract_keywords(query, 12)
-    return [
-        q
-        for q in [
-            f"site:gov.cn {kw}",
-            f"site:ndrc.gov.cn {kw}",
-            f"site:news.cn {kw}",
-            f"site:people.com.cn {kw}",
-        ]
-        if len(q.split()) >= 2
-    ]
-
-
-def industry_terms(question: str) -> list[str]:
-    kw = extract_keywords(question, 12)
-    extra: list[str] = []
-    if re.search(r"投资|融资|商业化|市场|估值|商业", question):
-        extra += [
-            f"{kw} 融资 轮次 金额",
-            f"{kw} 基金 投资 规模",
-            f"{kw} IPO 上市 订单",
-        ]
-    if re.search(r"政策|法规|条例|监管|标准", question):
-        extra += [f"{kw} 条例 意见稿", f"{kw} 标准 体系"]
-    if re.search(r"进展|发展|突破|技术", question):
-        extra += [f"{kw} 里程碑 进展", f"{kw} 突破 技术"]
-    return extra
-
-
-def extract_keywords(question: str, max_len: int = 14) -> str:
-    kw = re.sub(r"^(q\d*[:：\s]*|问题\d*[:：\s]*)", "", question, flags=re.I)
-    terms = [
-        t
-        for t in re.sub(
-            r"[？?。.!！,，;；:：\"'“”‘’()（）【】]", " ", kw
-        ).split()
-        if len(t) >= 2 and t not in STOP_TERMS
-    ]
-    result = " ".join(terms)
-    return result[:max_len] or question[:max_len]
-
-
-def build_query_variants(topic: str, question: str) -> list[str]:
-    kw = extract_keywords(question)
-    year = date.today().year
-    variants = [
-        f"{topic} {kw}",
-        f"{kw} {year}",
-        f"{kw} 最新 数据",
-        f"{kw} 官方 公告",
-        f"{kw} 争议 质疑",
-        f"{kw} 同比 增长 统计",
-        f"EN:{kw} {year} official update（将关键词译为英文后搜索）",
-    ]
-    variants.extend(industry_terms(question))
-    return [v for v in variants if len(v.split()) >= 2 or v.startswith("EN:")]
