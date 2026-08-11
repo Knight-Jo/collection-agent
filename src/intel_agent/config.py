@@ -38,6 +38,11 @@ class FetchConfig(BaseModel):
     enable_httpx_fallback: bool = True
 
 
+class WebConfig(BaseModel):
+    host: str = "0.0.0.0"
+    port: int = Field(default=6780, ge=1, le=65_535)
+
+
 class SourcesConfig(BaseModel):
     """Known authoritative sources returned by intel_plan for direct fetch.
 
@@ -70,12 +75,14 @@ class SourcesConfig(BaseModel):
 
 class Settings(BaseModel):
     """Top-level configuration; API keys are read from env, never stored here."""
+
     model: ModelConfig = Field(default_factory=ModelConfig)
     audit_model: ModelConfig | None = None
     search: SearchConfig = Field(default_factory=SearchConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
     budgets: BudgetConfig = Field(default_factory=BudgetConfig)
     fetch: FetchConfig = Field(default_factory=FetchConfig)
+    web: WebConfig = Field(default_factory=WebConfig)
     sources: SourcesConfig = Field(default_factory=SourcesConfig)
 
     def model_api_key(self) -> str | None:

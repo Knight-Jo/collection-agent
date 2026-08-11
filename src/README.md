@@ -30,6 +30,7 @@ main → agent → search/fetch → task/fact/evidence
 | `fact.py` | 管理事实生命周期、替换关系和循环检测。 |
 | `fetch.py` | 执行安全网络抓取、重定向校验、HTTP 解析及文档归档；继续重新导出提取函数以兼容既有调用方。 |
 | `main.py` | 解析 CLI 参数、构造任务提示词并运行 Agent。 |
+| `runner.py` | 定义任务输入、统一提示词，并向 CLI 与 Web 推送 Agent 事件。 |
 | `models.py` | 集中定义任务、事实、证据、审核、覆盖度等 Pydantic 模型。 |
 | `package.py` | 将事实、审核结果和来源信息生成 Markdown 证据包。 |
 | `search.py` | 适配 Bing、百度、百度新闻和 SearXNG，合并、排序搜索结果；继续重新导出查询辅助函数。 |
@@ -38,5 +39,6 @@ main → agent → search/fetch → task/fact/evidence
 | `source.py` | 按域名识别政府、媒体、百科、社交等来源类型。 |
 | `storage.py` | 提供安全路径、原子文件写入、JSON 读写和 SHA-256 完整性校验。 |
 | `task.py` | 管理任务、预算、阶段转换、输出绑定和状态摘要。 |
+| `web/` | 提供 FastAPI API、单进程运行注册表、SSE 进度和前端读模型。 |
 
 新增模块时，应保持职责单一，避免从底层模块反向导入 `agent.py` 或 `main.py`。公共函数迁移后，应在原模块保留重新导出，避免破坏现有调用方。

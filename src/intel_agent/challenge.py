@@ -51,6 +51,21 @@ def _load_store(cwd: Path) -> dict:
     return store
 
 
+def list_challenge_rounds(
+    cwd: Path, task_id: str | None = None
+) -> list[ChallengeRound]:
+    """Return validated challenge rounds, optionally filtered by task."""
+    rounds = [
+        ChallengeRound.model_validate(item)
+        for item in _load_store(cwd)["items"]
+    ]
+    return (
+        [item for item in rounds if item.task_id == task_id]
+        if task_id
+        else rounds
+    )
+
+
 def start_challenge(
     cwd: Path, task_id: str, round_: int, points: list[dict]
 ) -> ChallengeRound:

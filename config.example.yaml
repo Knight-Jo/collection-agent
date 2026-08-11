@@ -29,6 +29,11 @@ fetch:
   # pinned_fetch 超时/失败时回退到 httpx 抓取（兼容 WAF/Cloudflare 站点，如投资者关系页）
   enable_httpx_fallback: true
 
+web:
+  # Web 工作台监听地址和端口；仅本机访问可将 host 设为 127.0.0.1
+  host: 0.0.0.0
+  port: 6780
+
 sources:
   # 已知权威来源（intel_plan 按问题关键词返回 suggested_direct_sources，可直接抓取）
   financial:
