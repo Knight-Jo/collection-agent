@@ -15,12 +15,12 @@ from .task import load_task, save_task
 
 
 def short_id(prefix: str) -> str:
-    """短 ID（8 位十六进制）：LLM 复制长 UUID 易出错，挑战点/证据引用用短 ID 更稳。"""
+    """Short 8-hex ID: LLMs reliably copy short IDs, long UUIDs get mangled."""
     return f"{prefix}-{uuid.uuid4().hex[:8]}"
 
 
 def tolerant_id(provided: str, expected_ids: list[str], what: str) -> str:
-    """容错 ID 匹配：精确 → 唯一前缀（≥6 位）→ 模糊（difflib）；失败时给出全部有效 ID。"""
+    """Match a possibly-mangled ID: exact, unique prefix, then fuzzy (difflib)."""
     if provided in expected_ids:
         return provided
     candidates = [eid for eid in expected_ids if eid.startswith(provided)]

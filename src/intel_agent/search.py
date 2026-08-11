@@ -267,7 +267,7 @@ async def web_search(
     searxng_url: str | None = "http://127.0.0.1:8888",
     opts: dict | None = None,
 ) -> dict:
-    """执行搜索：SearXNG → Bing → 百度 → 百度资讯，四路并发合并去重。"""
+    """Search SearXNG, Bing, Baidu and Baidu News concurrently, merging deduped results."""
     opts = opts or {}
     close_client = client is None
     client = client or httpx.AsyncClient(timeout=SEARCH_TIMEOUT)

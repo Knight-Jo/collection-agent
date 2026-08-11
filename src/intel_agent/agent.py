@@ -192,7 +192,7 @@ def _build_chat_model(cfg: ModelConfig, api_key: str | None):
 
 
 class JudgeAgent:
-    """隔离的语义审核 judge：独立 Agent + 独立 model，绝不与主 agent 共享上下文。"""
+    """Isolated entailment judge: its own agent and model, never sharing the main context."""
 
     def __init__(self, cfg: ModelConfig, api_key: str | None):
         self.agent = Agent(
@@ -273,7 +273,7 @@ def _block_repetition(
 
 
 def _suggest_sources(sources, questions) -> list[dict]:
-    """按问题关键词匹配已知权威来源清单，返回可直接抓取的建议。"""
+    """Match question keywords against known authoritative source lists; hints may be fetched directly."""
     financial_kw = re.compile(
         r"融资|投资|市场|规模|估值|IPO|财报|业绩|订单|交付|资金"
     )

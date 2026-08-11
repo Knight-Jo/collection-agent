@@ -51,7 +51,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _msg_to_json(value):
-    """递归转换 dataclass/pydantic 消息为可 JSON 序列化的结构。"""
+    """Recursively convert dataclass/pydantic message objects to JSON-safe structures."""
     if hasattr(value, "model_dump"):
         try:
             return value.model_dump(mode="json")

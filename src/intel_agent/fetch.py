@@ -97,7 +97,8 @@ async def pinned_fetch(
     address: str,
     max_bytes: int = DEFAULT_MAX_BYTES,
 ) -> FetchedResponse:
-    """DNS-pinned TCP/TLS fetch：连到已校验的公网 IP，TLS 仍用原主机名 SNI。"""
+    """DNS-pinned TCP/TLS fetch: connect to the validated public IP while
+    keeping the original hostname for TLS SNI."""
     parsed = urlparse(input_url)
     https = parsed.scheme == "https"
     port = parsed.port or (443 if https else 80)
@@ -144,7 +145,7 @@ async def httpx_fallback_fetch(
     _address: str,
     max_bytes: int = DEFAULT_MAX_BYTES,
 ) -> FetchedResponse:
-    """httpx 回退抓取：兼容 WAF/Cloudflare 站点（无 DNS pinning，仅用于 IR/财报等低风险页）。"""
+    """httpx fallback for WAF/Cloudflare sites; trades away DNS pinning (low-risk pages only)."""
     import httpx
 
     async with httpx.AsyncClient(
