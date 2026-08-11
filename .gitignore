@@ -6,5 +6,8 @@ __pycache__/
 /output/
 config.yaml
 .worktree/
+web/node_modules/
+web/dist/
+web/coverage/
 
 pi-prototype-collection

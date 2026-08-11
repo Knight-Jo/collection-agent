@@ -31,6 +31,20 @@ python -m intel_agent --topic "低空经济" \
   --config config.yaml --min-sources 2 --min-quality 1 --recency 120
 ```
 
+### Web 工作台
+
+工作台提供任务创建、实时进度、证据链和研判报告。前端依赖与脚本统一使用 Bun 1.3.14：
+
+```bash
+cd web
+bun install --frozen-lockfile
+bun run build
+cd ..
+intel-agent-web --config config.yaml
+```
+
+默认访问 `http://127.0.0.1:6780`。监听地址和端口通过 `config.yaml` 的 `web.host`、`web.port` 配置；`--host` 与 `--port` 可用于临时覆盖。开发时分别运行后端和 `cd web && bun run dev`；Vite 会将 `/api` 转发到本地后端。
+
 运行结束后产物位于：
 - `data/intel/` — 任务/事实/证据/审核/覆盖等状态（JSON，原子写入）
 - `data/raw/` — 文档原文（.raw）与提取正文（.txt）
@@ -45,6 +59,7 @@ python -m intel_agent --topic "低空经济" \
 | `search.searxng_url` | 本地 SearXNG 地址；`null` 则只用 Bing/Baidu 直连 |
 | `budgets` | 搜索/抓取/模型请求预算（request_limit 默认 200） |
 | `fetch.enable_httpx_fallback` | pinned 抓取失败时回退 httpx（兼容 WAF/Cloudflare 站点） |
+| `web.host` / `web.port` | Web 工作台监听地址与端口（默认 `0.0.0.0:6780`） |
 | `sources` | 金融/IR/政策已知权威来源清单（intel_plan 按问题关键词建议） |
 
 ## 项目结构
@@ -69,8 +84,11 @@ src/intel_agent/
 ├── assess.py       # 结构化研判（fact/reported/inference）
 ├── challenge.py    # 红队挑战（两轮，容错 ID 匹配）
 ├── task.py         # 任务生命周期、预算、阶段门控
-└── main.py         # CLI 入口
+├── main.py         # CLI 入口
+├── runner.py       # CLI 与 Web 共用的 Agent 运行器
+└── web/            # FastAPI API、运行状态与前端读模型
 tests/              # pytest 测试套件（60+ 用例）
+web/                # React/Vite 本地工作台
 scripts/            # 实验运行器与分析器
 experiments/        # 迭代实验结果、轨迹与报告
 ```

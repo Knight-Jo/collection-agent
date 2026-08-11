@@ -4,12 +4,14 @@ version = "0.1.0"
 description = "Pydantic AI agent for OSINT collection (port of pi-prototype-collection)"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.115.0",
     "pydantic-ai",
     "httpx",
     "pyyaml",
     "tldextract",
     "pymupdf>=1.28.2",
     "python-docx>=1.2.0",
+    "uvicorn>=0.30.0",
 ]
 
 [project.optional-dependencies]
@@ -17,8 +19,12 @@ dev = [
     "pyright>=1.1.411",
     "pytest",
     "pytest-asyncio",
+    "pytest-cov",
     "ruff>=0.16.2",
 ]
+
+[project.scripts]
+intel-agent-web = "intel_agent.web.app:main"
 
 [build-system]
 requires = ["hatchling"]
