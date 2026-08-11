@@ -33,6 +33,9 @@ from .storage import (
 
 publication_date = _document_extract.publication_date
 
+# 5MB comfortably covers long-form articles/reports while bounding memory and
+# the attack surface for hostile servers; 25s balances slow sites against the
+# LLM turn budget; 5 redirects bounds loop chains without blocking legit pages.
 DEFAULT_MAX_BYTES = 5 * 1024 * 1024
 DEFAULT_TIMEOUT_MS = 25_000
 REDIRECT_STATUSES = {301, 302, 303, 307, 308}

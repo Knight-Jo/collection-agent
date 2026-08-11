@@ -26,6 +26,9 @@ class StorageConfig(BaseModel):
 
 
 class BudgetConfig(BaseModel):
+    # search_attempts/fetch_attempts mirror the original pi prototype (hard
+    # cap vs sliding window, see task.py); request_limit guards total LLM API
+    # spend for one run, covering both agent turns and audit judge calls.
     search_attempts: int = 6
     fetch_attempts_since_evidence: int = 6
     request_limit: int = 200
@@ -36,7 +39,12 @@ class FetchConfig(BaseModel):
 
 
 class SourcesConfig(BaseModel):
-    """已知权威来源清单（关键词 → 建议直接抓取的 URL/域名）。"""
+    """Known authoritative sources returned by intel_plan for direct fetch.
+
+    Keyword-matched against each question (financial/IR/policy terms) so the
+    agent can fetch vetted domains without spending search budget. Lists are
+    defaults for the Chinese low-altitude-economy use case; extend per domain.
+    """
 
     financial: list[str] = Field(
         default_factory=lambda: [

@@ -221,6 +221,8 @@ def eval_coverage(
     ]
     covered = sum(1 for q in per_question if q.status == "covered")
     ratio = covered / len(task.questions)
+    # Level thresholds: all questions covered -> sufficient; >=70% -> mostly
+    # sufficient (collection may stop); below that the task is still gapped.
     level = (
         "sufficient"
         if ratio == 1
@@ -257,6 +259,10 @@ def eval_coverage(
             ensure_ascii=False,
         )
     )
+    # Only a strictly smaller gap_score counts as progress; the agent gets two
+    # consecutive rounds to improve before no_progress stops collection. Note a
+    # gap_score increase is also "not progress" — e.g. newly found contradicting
+    # evidence raises the score, which correctly means more collection, not less.
     history = _load_history(cwd, task.id)
     previous = history.snapshots[-1] if history.snapshots else None
     progressed = previous is None or gap_score < previous.gap_score

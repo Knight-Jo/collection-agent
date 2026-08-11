@@ -28,6 +28,9 @@ from .storage import (
 
 ACTIVE_TASK_FILE = "active-task.json"
 STAGE_ORDER: list[TaskStage] = ["collect", "assess", "challenge", "done"]
+# Budgets mirror the original pi prototype. Search is a hard per-task cap
+# (queries never get cheaper to run); fetch is a sliding window that resets on
+# new evidence, so the agent is never hard-stopped mid-progress.
 FETCH_ATTEMPT_LIMIT = 6
 SEARCH_ATTEMPT_LIMIT = 6
 
@@ -147,6 +150,8 @@ def record_search_attempt(cwd: Path, task_id: str | None = None) -> dict:
 def record_evidence_progress(
     cwd: Path, task_id: str, evidence_count: int
 ) -> dict:
+    # Real progress resets the fetch window and clears the stop reason: the
+    # fetch budget is a "attempts since last evidence" counter, not a total cap.
     task = load_task(cwd, task_id)
     if evidence_count < task.collection.evidence_count:
         raise IntelError("INVALID_INPUT", "证据进展计数无效")
