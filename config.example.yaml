@@ -24,3 +24,21 @@ budgets:
   fetch_attempts_since_evidence: 6
   # 主 agent 最大模型请求数（含工具轮次与独立语义审核请求）
   request_limit: 200
+
+fetch:
+  # pinned_fetch 超时/失败时回退到 httpx 抓取（兼容 WAF/Cloudflare 站点，如投资者关系页）
+  enable_httpx_fallback: true
+
+sources:
+  # 已知权威来源（intel_plan 按问题关键词返回 suggested_direct_sources，可直接抓取）
+  financial:
+    - https://www.caixin.com
+    - https://www.cls.cn
+    - https://quote.eastmoney.com
+    - https://xueqiu.com
+  ir_company:
+    - https://ir.ehang.com
+    - https://www.sec.gov/edgar
+  policy:
+    - https://www.gov.cn
+    - https://www.ndrc.gov.cn

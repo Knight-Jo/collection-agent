@@ -32,12 +32,43 @@ class BudgetConfig(BaseModel):
     request_limit: int = 200
 
 
+class FetchConfig(BaseModel):
+    enable_httpx_fallback: bool = True
+
+
+class SourcesConfig(BaseModel):
+    """已知权威来源清单（关键词 → 建议直接抓取的 URL/域名）。"""
+
+    financial: list[str] = Field(
+        default_factory=lambda: [
+            "https://www.caixin.com",
+            "https://www.cls.cn",
+            "https://quote.eastmoney.com",
+            "https://xueqiu.com",
+        ]
+    )
+    ir_company: list[str] = Field(
+        default_factory=lambda: [
+            "https://ir.ehang.com",
+            "https://www.sec.gov/edgar",
+        ]
+    )
+    policy: list[str] = Field(
+        default_factory=lambda: [
+            "https://www.gov.cn",
+            "https://www.ndrc.gov.cn",
+        ]
+    )
+
+
 class Settings(BaseModel):
     model: ModelConfig = Field(default_factory=ModelConfig)
     audit_model: ModelConfig | None = None
     search: SearchConfig = Field(default_factory=SearchConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
     budgets: BudgetConfig = Field(default_factory=BudgetConfig)
+    fetch: FetchConfig = Field(default_factory=FetchConfig)
+    sources: SourcesConfig = Field(default_factory=SourcesConfig)
 
     def model_api_key(self) -> str | None:
         return os.environ.get(self.model.api_key_env)

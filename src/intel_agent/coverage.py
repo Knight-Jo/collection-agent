@@ -78,6 +78,9 @@ def _evaluate_fact(
         notes.append("存在未消解矛盾")
     if unresolved_contradictions > 0:
         notes.append("存在未登记或未处理的反证")
+    if source_gap > 0 and supports:
+        keywords = " ".join(fact.statement.split()[:6])
+        notes.append(f"建议搜索「{keywords}」的交叉验证来源（第 2 个独立来源组）")
     if pending > 0:
         notes.append(f"{pending} 条候选支持尚未语义审核")
     if partial > 0:

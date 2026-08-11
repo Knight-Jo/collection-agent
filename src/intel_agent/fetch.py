@@ -252,6 +252,29 @@ async def pinned_fetch(input_url: str, _init: dict | None, address: str, max_byt
     return parse_http_response(b"".join(chunks), max_bytes)
 
 
+async def httpx_fallback_fetch(input_url: str, _init: dict | None, _address: str, max_bytes: int = DEFAULT_MAX_BYTES) -> FetchedResponse:
+    """httpx 回退抓取：兼容 WAF/Cloudflare 站点（无 DNS pinning，仅用于 IR/财报等低风险页）。"""
+    import httpx
+
+    async with httpx.AsyncClient(timeout=20.0, follow_redirects=False) as client:
+        response = await client.get(
+            input_url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/pdf,text/plain,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8",
+            },
+        )
+        body = response.content
+        if len(body) > max_bytes:
+            raise IntelError("RESPONSE_TOO_LARGE", f"响应超过 {max_bytes} 字节")
+        return FetchedResponse(
+            status=response.status_code,
+            headers={k.lower(): v for k, v in response.headers.items()},
+            body=body,
+        )
+
+
 def parse_http_response(raw: bytes, max_bytes: int = DEFAULT_MAX_BYTES) -> FetchedResponse:
     separator = raw.find(b"\r\n\r\n")
     if separator < 0:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -254,6 +255,34 @@ def _block_repetition(ctx: RunContext[AgentDeps], name: str, params: dict, limit
     return None
 
 
+def _suggest_sources(sources, questions) -> list[dict]:
+    """按问题关键词匹配已知权威来源清单，返回可直接抓取的建议。"""
+    financial_kw = re.compile(r"融资|投资|市场|规模|估值|IPO|财报|业绩|订单|交付|资金")
+    ir_kw = re.compile(r"订单|交付|商业化|进展|业绩|财报|上市|公告")
+    policy_kw = re.compile(r"政策|法规|条例|监管|标准|规划")
+    out: list[dict] = []
+    for q in questions:
+        matched: list[str] = []
+        text = q.text
+        if financial_kw.search(text):
+            matched += sources.financial
+        if ir_kw.search(text):
+            matched += sources.ir_company
+        if policy_kw.search(text):
+            matched += sources.policy
+        if matched:
+            out.append(
+                {
+                    "question_id": q.id,
+                    "direct_fetch_hint": (
+                        "以下已知权威来源可跳过 web_search 直接 web_fetch（不消耗搜索预算）："
+                        + "、".join(matched)
+                    ),
+                }
+            )
+    return out
+
+
 def _archived_urls(cwd: Path) -> set[str]:
     docs_dir = cwd / "data" / "intel" / "documents"
     urls: set[str] = set()
@@ -334,10 +363,25 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         if block:
             return {"ok": False, "error": {"code": "BLOCKED_REPETITION", "message": block}}
         collection = record_fetch_attempt(ctx.deps.cwd)
-        document, content, outbound_links = await fetch_document(ctx.deps.cwd, url, max_bytes=max_bytes)
+        fetched_via = "pinned"
+        try:
+            document, content, outbound_links = await fetch_document(ctx.deps.cwd, url, max_bytes=max_bytes)
+        except IntelError as error:
+            if not ctx.deps.settings.fetch.enable_httpx_fallback or error.code not in ("NETWORK_ERROR", "TIMEOUT", "UNSAFE_URL"):
+                raise
+            from .fetch import httpx_fallback_fetch
+
+            try:
+                document, content, outbound_links = await fetch_document(
+                    ctx.deps.cwd, url, fetcher=httpx_fallback_fetch, max_bytes=max_bytes
+                )
+                fetched_via = "httpx-fallback"
+            except IntelError:
+                raise
         preview = content[:20_000]
         return {
             "document": document.model_dump(),
+            "fetched_via": fetched_via,
             "remaining_fetch_budget": FETCH_ATTEMPT_LIMIT - collection["fetch_attempts_since_evidence"],
             "preview": preview + ("\n[正文预览已截断]" if len(content) > len(preview) else ""),
             "outbound_links": outbound_links,
@@ -455,6 +499,7 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                 {"question_id": q.id, "queries": build_query_variants(task.topic, q.text)}
                 for q in task.questions
             ],
+            "suggested_direct_sources": _suggest_sources(ctx.deps.settings.sources, task.questions),
         }
 
     @agent.tool(name="intel_status")
