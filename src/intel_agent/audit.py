@@ -27,6 +27,9 @@ from .task import load_task
 
 
 def review_id(fact_id: str, evidence_id: str) -> str:
+    # The prompt version is part of the ID: bumping the judge prompt yields
+    # different review IDs, implicitly invalidating all prior verdicts instead
+    # of silently reinterpreting them under a changed rubric.
     return f"review-{sha256(f'{fact_id}\n{evidence_id}\n{SUPPORT_REVIEW_PROMPT_VERSION}')[:16]}"
 
 
@@ -35,6 +38,9 @@ Judge = Callable[[Fact, list[EvidenceSupport]], Awaitable[list[dict]]]
 
 
 def validate_verdict(result: dict) -> dict:
+    # Tight structure guards: bounded reason/parts keep stored reviews small
+    # and force the judge to justify itself; full must not carry unsupported
+    # parts, partial must name them — else the verdict is unusable for coverage.
     unsupported = result.get("unsupported_parts") or []
     reason = (result.get("reason") or "").strip()
     if (

@@ -146,6 +146,12 @@ def confirm_challenge(
     resolutions: list[dict],
     accepted_partial_questions: list[dict],
 ) -> ChallengeRound:
+    # An "addressed" point must prove the agent actually went back and gathered
+    # new material: evidence must be created after the round started (freshness),
+    # belong to an active fact (no resurrecting superseded chains), be fully
+    # audited when supporting (no unverified claims), and relate to the
+    # challenged question (no scope smuggling). Each check is a separate gate
+    # so failures tell the model exactly what to fix.
     task = load_task(cwd, task_id)
     store = _load_store(cwd)
     round_data = next(

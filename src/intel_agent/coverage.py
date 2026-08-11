@@ -97,6 +97,10 @@ def _evaluate_fact(
     unresolved_contradictions = sum(
         1 for e in contradicts if e.id not in registered
     )
+    # gap_score is a plain sum of independent deficits; each term is 0 when
+    # satisfied, so score 0 == fully covered. Contradictions and unresolved
+    # conflicts count directly because a covered fact must not sit on a
+    # contested base.
     source_gap = max(0, criteria.min_independent_sources - len(source_groups))
     quality_gap = max(
         0, criteria.min_high_quality_sources - len(high_quality_groups)
