@@ -45,3 +45,18 @@ it("shows crawl progress and resources with their completed state", () => {
     "running", "running", "completed", "completed",
   ]);
 });
+
+it("does not show failed or skipped crawl resources as completed", () => {
+  render(
+    <RunTimeline
+      events={[
+        { id: 1, type: "crawl.resource", timestamp: "2026-08-11T09:00:00Z", data: { resource: { status: "failed" } } },
+        { id: 2, type: "crawl.resource", timestamp: "2026-08-11T09:00:01Z", data: { resource: { status: "skipped_robots" } } },
+      ]}
+    />,
+  );
+
+  expect(screen.getByText("抓取资源失败")).toBeInTheDocument();
+  expect(screen.getByText("已跳过抓取资源")).toBeInTheDocument();
+  expect(screen.getAllByRole("listitem").map((item) => item.dataset.state)).toEqual(["failed", "skipped"]);
+});
