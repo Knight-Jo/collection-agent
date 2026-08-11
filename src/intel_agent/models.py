@@ -4,12 +4,21 @@ from __future__ import annotations
 
 import unicodedata
 import uuid
-from datetime import date, datetime, timezone
-from typing import Annotated, Literal, Union
+from datetime import UTC, date, datetime
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-SourceType = Literal["news", "official", "encyclopedia", "industry", "academic", "social", "government", "other"]
+SourceType = Literal[
+    "news",
+    "official",
+    "encyclopedia",
+    "industry",
+    "academic",
+    "social",
+    "government",
+    "other",
+]
 TaskStage = Literal["collect", "assess", "challenge", "done"]
 QuestionStatus = Literal["covered", "partial", "gap"]
 SupportVerdict = Literal["full", "partial", "irrelevant", "contradicts"]
@@ -200,7 +209,7 @@ class InferenceConclusion(BaseModel):
 
 
 AssessmentConclusion = Annotated[
-    Union[FactConclusion, ReportedConclusion, InferenceConclusion],
+    FactConclusion | ReportedConclusion | InferenceConclusion,
     Field(discriminator="kind"),
 ]
 
@@ -223,7 +232,9 @@ class ChallengeRound(BaseModel):
     status: Literal["open", "confirmed"]
     evidence_ids_before: list[str]
     points: list[ChallengePoint]
-    accepted_partial_questions: list[dict[str, str]] = Field(default_factory=list)
+    accepted_partial_questions: list[dict[str, str]] = Field(
+        default_factory=list
+    )
     converged: bool = False
     created_at: str
     confirmed_at: str | None = None
@@ -252,4 +263,4 @@ def is_valid_calendar_date(value: str) -> bool:
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()

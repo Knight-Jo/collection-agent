@@ -29,11 +29,16 @@ def cwd(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def new_task(cwd: Path, questions: list[str] | None = None, criteria: SufficiencyCriteria = DEFAULT_CRITERIA):
+def new_task(
+    cwd: Path,
+    questions: list[str] | None = None,
+    criteria: SufficiencyCriteria = DEFAULT_CRITERIA,
+):
     return create_task(
         cwd,
         "测试主题",
-        questions or ["问题甲：测试主题的现状如何", "问题乙：测试主题的进展如何"],
+        questions
+        or ["问题甲：测试主题的现状如何", "问题乙：测试主题的进展如何"],
         criteria,
     )
 
@@ -77,16 +82,30 @@ def make_document(
     return document
 
 
-def save_evidence(cwd: Path, fact_id: str, document: IntelDocument | str, relation: str, quote: str, notes: str = ""):
+def save_evidence(
+    cwd: Path,
+    fact_id: str,
+    document: IntelDocument | str,
+    relation: str,
+    quote: str,
+    notes: str = "",
+):
     from intel_agent.evidence import save_evidence as _save
 
-    document_id = document.id if isinstance(document, IntelDocument) else document
+    document_id = (
+        document.id if isinstance(document, IntelDocument) else document
+    )
     return _save(cwd, fact_id, document_id, relation, quote, notes)
 
 
 async def fake_judge(fact, evidence):
     """默认全部判 full。"""
     return [
-        {"evidence_id": e.id, "verdict": "full", "reason": "引文完整支持 Fact", "unsupported_parts": []}
+        {
+            "evidence_id": e.id,
+            "verdict": "full",
+            "reason": "引文完整支持 Fact",
+            "unsupported_parts": [],
+        }
         for e in evidence
     ]

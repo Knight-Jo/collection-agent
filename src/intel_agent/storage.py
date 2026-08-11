@@ -56,8 +56,8 @@ def read_json(cwd: Path, path: str) -> dict | list:
         raise IntelError("NOT_FOUND", f"记录不存在: {path}")
     try:
         return json.loads(full.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        raise IntelError("STORAGE_CORRUPT", f"JSON 损坏: {path}")
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise IntelError("STORAGE_CORRUPT", f"JSON 损坏: {path}") from error
 
 
 def write_json_atomic(cwd: Path, path: str, value: object) -> None:
@@ -66,7 +66,10 @@ def write_json_atomic(cwd: Path, path: str, value: object) -> None:
     full.parent.mkdir(parents=True, exist_ok=True)
     temporary = full.with_name(f"{full.name}.{uuid.uuid4()}.tmp")
     try:
-        temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        temporary.write_text(
+            json.dumps(value, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
         os.replace(temporary, full)
     except Exception:
         temporary.unlink(missing_ok=True)
@@ -90,7 +93,11 @@ def list_json(cwd: Path, directory: str) -> list[dict]:
     full = intel_path(cwd, directory)
     if not full.exists():
         return []
-    return [read_json(cwd, f"{directory}/{name}") for name in sorted(os.listdir(full)) if name.endswith(".json")]
+    return [
+        read_json(cwd, f"{directory}/{name}")
+        for name in sorted(os.listdir(full))
+        if name.endswith(".json")
+    ]
 
 
 def verify_document_integrity(cwd: Path, document: IntelDocument) -> None:
@@ -106,11 +113,17 @@ def verify_document_integrity(cwd: Path, document: IntelDocument) -> None:
         from urllib.parse import urlparse
 
         parsed = urlparse(document.final_url)
-    except Exception:
-        raise IntelError("DOCUMENT_TAMPERED", f"文档元数据不匹配: {document.id}")
+    except Exception as error:
+        raise IntelError(
+            "DOCUMENT_TAMPERED", f"文档元数据不匹配: {document.id}"
+        ) from error
     if (
-        document.id != f"doc-{sha256(f'{document.canonical_url}\n{document.raw_sha256}')[:16]}"
+        document.id
+        != f"doc-{sha256(f'{document.canonical_url}\n{document.raw_sha256}')[:16]}"
         or document.source_group != source_group_of(document.final_url)
-        or document.source_type != source_type_for_domain(parsed.hostname or "")
+        or document.source_type
+        != source_type_for_domain(parsed.hostname or "")
     ):
-        raise IntelError("DOCUMENT_TAMPERED", f"文档元数据不匹配: {document.id}")
+        raise IntelError(
+            "DOCUMENT_TAMPERED", f"文档元数据不匹配: {document.id}"
+        )

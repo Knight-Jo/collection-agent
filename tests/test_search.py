@@ -7,7 +7,6 @@ from intel_agent.search import (
     industry_terms,
     is_broad_query,
     is_semantic_duplicate,
-    query_similarity,
     tokenize_query,
 )
 
@@ -30,7 +29,9 @@ def test_broad_query_detection():
 
 
 def test_semantic_duplicate():
-    assert is_semantic_duplicate("亿航智能 2026 年 订单 金额", "亿航智能 2026 订单 规模 金额")
+    assert is_semantic_duplicate(
+        "亿航智能 2026 年 订单 金额", "亿航智能 2026 订单 规模 金额"
+    )
     assert not is_semantic_duplicate("亿航智能 订单", "低空经济 政策")
 
 

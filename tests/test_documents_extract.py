@@ -2,7 +2,13 @@
 
 import pytest
 
-from intel_agent.fetch import FetchedResponse, extract_docx_text, extract_outbound_links, extract_pdf_text, fetch_document
+from intel_agent.fetch import (
+    FetchedResponse,
+    extract_docx_text,
+    extract_outbound_links,
+    extract_pdf_text,
+    fetch_document,
+)
 
 PDF_RAW = b"""%PDF-1.4
 1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
@@ -31,12 +37,12 @@ startxref
 def test_extract_outbound_links():
     html = '<a href="https://www.gov.cn/a">gov</a><a href="https://news.cn/b">news</a><a href="#anchor">same</a><a href="/relative">rel</a><a href="https://www.gov.cn/a">dup</a>'
     links = extract_outbound_links(html, "https://example.com/page")
-    urls = [l["url"] for l in links]
+    urls = [link["url"] for link in links]
     assert "https://www.gov.cn/a" in urls
     assert "https://news.cn/b" in urls
     # 去重 + 过滤锚点 + 同域（含相对路径）过滤
     assert len(urls) == 2
-    assert all(l["hostname"] for l in links)
+    assert all(link["hostname"] for link in links)
 
 
 def test_extract_outbound_links_filters_same_host():
@@ -72,13 +78,20 @@ def test_extract_docx_text():
 @pytest.mark.asyncio
 async def test_fetch_pdf_document(cwd):
     async def fetcher(url, init, address):
-        return FetchedResponse(status=200, headers={"content-type": "application/pdf"}, body=PDF_RAW)
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "application/pdf"},
+            body=PDF_RAW,
+        )
 
     async def resolver(hostname):
         return ["93.184.216.34"]
 
     document, content, links = await fetch_document(
-        cwd, "https://report.example.com/low-altitude.pdf", fetcher=fetcher, resolver=resolver
+        cwd,
+        "https://report.example.com/low-altitude.pdf",
+        fetcher=fetcher,
+        resolver=resolver,
     )
     assert "PDF report" in content
     assert document.content_type == "application/pdf"
@@ -87,10 +100,16 @@ async def test_fetch_pdf_document(cwd):
 
 @pytest.mark.asyncio
 async def test_fetch_html_returns_outbound_links(cwd):
-    html = '<html><body><a href="https://gov.cn/next">next</a>正文</body></html>'
+    html = (
+        '<html><body><a href="https://gov.cn/next">next</a>正文</body></html>'
+    )
 
     async def fetcher(url, init, address):
-        return FetchedResponse(status=200, headers={"content-type": "text/html"}, body=html.encode())
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=html.encode(),
+        )
 
     async def resolver(hostname):
         return ["93.184.216.34"]

@@ -5,15 +5,23 @@ from __future__ import annotations
 import asyncio
 import re
 import ssl
+from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from dataclasses import dataclass, field
+from datetime import UTC
 from pathlib import Path
-from typing import Awaitable, Callable
 from urllib.parse import urlparse
 
 from .models import IntelDocument, IntelError, is_valid_calendar_date
 from .security import AddressResolver, resolve_public_url, source_group_of
 from .source import source_type_for_domain
-from .storage import read_json, sha256, verify_document_integrity, write_file_atomic, write_json_atomic
+from .storage import (
+    read_json,
+    sha256,
+    verify_document_integrity,
+    write_file_atomic,
+    write_json_atomic,
+)
 
 DEFAULT_MAX_BYTES = 5 * 1024 * 1024
 DEFAULT_TIMEOUT_MS = 25_000
@@ -83,7 +91,9 @@ def publication_date(raw: str | None) -> str | None:
 
 def extract_html(html: str) -> dict:
     title_m = re.search(r"<title[^>]*>([\s\S]*?)</title>", html, flags=re.I)
-    title = " ".join(_decode_entities(title_m.group(1) if title_m else "").split()).strip()
+    title = " ".join(
+        _decode_entities(title_m.group(1) if title_m else "").split()
+    ).strip()
     meta_names = "article:published_time|pubdate|publishdate|dc\\.date|datepublished|article:modified_time|created|firstpublishedtime"
     meta = re.search(
         rf'<meta[^>]+(?:property|name)=["\'](?:{meta_names})["\'][^>]+content=["\']([^"\']+)',
@@ -113,7 +123,9 @@ def extract_html(html: str) -> dict:
     cleaned = re.sub(r"<[^>]+>", " ", cleaned)
     text = "\n".join(
         line.strip()
-        for line in re.sub(r"[ \t]+", " ", _decode_entities(cleaned).replace("\r\n", "\n")).split("\n")
+        for line in re.sub(
+            r"[ \t]+", " ", _decode_entities(cleaned).replace("\r\n", "\n")
+        ).split("\n")
         if line.strip()
     )
     if meta_date:
@@ -129,10 +141,17 @@ def extract_html(html: str) -> dict:
                 break
         publish_time = text_date
         publish_time_source = "unknown"
-    return {"title": title, "text": text, "publish_time": publish_time, "publish_time_source": publish_time_source}
+    return {
+        "title": title,
+        "text": text,
+        "publish_time": publish_time,
+        "publish_time_source": publish_time_source,
+    }
 
 
-def extract_outbound_links(html: str, base_url: str, limit: int = 30) -> list[dict]:
+def extract_outbound_links(
+    html: str, base_url: str, limit: int = 30
+) -> list[dict]:
     """提取 HTML 中的外链（供种子文档链接展开，绕过搜索直接扩展来源）。"""
     from urllib.parse import urljoin
 
@@ -140,7 +159,9 @@ def extract_outbound_links(html: str, base_url: str, limit: int = 30) -> list[di
     links: list[dict] = []
     for m in re.finditer(r'<a[^>]+href=["\']([^"\']+)["\']', html, flags=re.I):
         href = m.group(1).strip()
-        if not href or href.startswith(("#", "javascript:", "mailto:", "tel:")):
+        if not href or href.startswith(
+            ("#", "javascript:", "mailto:", "tel:")
+        ):
             continue
         try:
             url = urljoin(base_url, href)
@@ -194,7 +215,11 @@ def canonicalize_url(raw: str) -> str:
     parsed = urlparse(raw)
     from urllib.parse import parse_qsl, urlencode
 
-    params = [(k, v) for k, v in parse_qsl(parsed.query) if not re.match(r"^(?:utm_|spm$|from$|source$)", k, flags=re.I)]
+    params = [
+        (k, v)
+        for k, v in parse_qsl(parsed.query)
+        if not re.match(r"^(?:utm_|spm$|from$|source$)", k, flags=re.I)
+    ]
     params.sort()
     query = urlencode(params)
     return parsed._replace(fragment="", query=query).geturl()
@@ -207,10 +232,19 @@ def injection_warnings(text: str) -> list[str]:
         re.compile(r"(?:调用|使用).{0,8}(?:工具|tool)", re.I),
         re.compile(r"ignore (?:all )?(?:previous|prior) instructions", re.I),
     ]
-    return [line[:160] for line in text.split("\n") if any(p.search(line) for p in patterns)]
+    return [
+        line[:160]
+        for line in text.split("\n")
+        if any(p.search(line) for p in patterns)
+    ]
 
 
-async def pinned_fetch(input_url: str, _init: dict | None, address: str, max_bytes: int = DEFAULT_MAX_BYTES) -> FetchedResponse:
+async def pinned_fetch(
+    input_url: str,
+    _init: dict | None,
+    address: str,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+) -> FetchedResponse:
     """DNS-pinned TCP/TLS fetch：连到已校验的公网 IP，TLS 仍用原主机名 SNI。"""
     parsed = urlparse(input_url)
     https = parsed.scheme == "https"
@@ -241,22 +275,29 @@ async def pinned_fetch(input_url: str, _init: dict | None, address: str, max_byt
                 break
             size += len(chunk)
             if size > max_bytes + 65_536:
-                raise IntelError("RESPONSE_TOO_LARGE", f"响应超过 {max_bytes} 字节")
+                raise IntelError(
+                    "RESPONSE_TOO_LARGE", f"响应超过 {max_bytes} 字节"
+                )
             chunks.append(chunk)
     finally:
         writer.close()
-        try:
+        with suppress(Exception):
             await writer.wait_closed()
-        except Exception:
-            pass
     return parse_http_response(b"".join(chunks), max_bytes)
 
 
-async def httpx_fallback_fetch(input_url: str, _init: dict | None, _address: str, max_bytes: int = DEFAULT_MAX_BYTES) -> FetchedResponse:
+async def httpx_fallback_fetch(
+    input_url: str,
+    _init: dict | None,
+    _address: str,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+) -> FetchedResponse:
     """httpx 回退抓取：兼容 WAF/Cloudflare 站点（无 DNS pinning，仅用于 IR/财报等低风险页）。"""
     import httpx
 
-    async with httpx.AsyncClient(timeout=20.0, follow_redirects=False) as client:
+    async with httpx.AsyncClient(
+        timeout=20.0, follow_redirects=False
+    ) as client:
         response = await client.get(
             input_url,
             headers={
@@ -267,7 +308,9 @@ async def httpx_fallback_fetch(input_url: str, _init: dict | None, _address: str
         )
         body = response.content
         if len(body) > max_bytes:
-            raise IntelError("RESPONSE_TOO_LARGE", f"响应超过 {max_bytes} 字节")
+            raise IntelError(
+                "RESPONSE_TOO_LARGE", f"响应超过 {max_bytes} 字节"
+            )
         return FetchedResponse(
             status=response.status_code,
             headers={k.lower(): v for k, v in response.headers.items()},
@@ -275,7 +318,9 @@ async def httpx_fallback_fetch(input_url: str, _init: dict | None, _address: str
         )
 
 
-def parse_http_response(raw: bytes, max_bytes: int = DEFAULT_MAX_BYTES) -> FetchedResponse:
+def parse_http_response(
+    raw: bytes, max_bytes: int = DEFAULT_MAX_BYTES
+) -> FetchedResponse:
     separator = raw.find(b"\r\n\r\n")
     if separator < 0:
         raise IntelError("NETWORK_ERROR", "响应头不完整")
@@ -293,7 +338,9 @@ def parse_http_response(raw: bytes, max_bytes: int = DEFAULT_MAX_BYTES) -> Fetch
         body = decode_chunked(body)
     if len(body) > max_bytes:
         raise IntelError("RESPONSE_TOO_LARGE", f"响应超过 {max_bytes} 字节")
-    return FetchedResponse(status=int(status_m.group(1)), headers=headers, body=body)
+    return FetchedResponse(
+        status=int(status_m.group(1)), headers=headers, body=body
+    )
 
 
 def decode_chunked(raw: bytes) -> bytes:
@@ -332,7 +379,9 @@ async def fetch_with_validated_redirects(
             raise IntelError("NETWORK_ERROR", "重定向响应缺少 Location")
         from urllib.parse import urljoin
 
-        current_url, addresses = await resolve_public_url(urljoin(_url_string(current_url), location), resolver)
+        current_url, addresses = await resolve_public_url(
+            urljoin(_url_string(current_url), location), resolver
+        )
     raise IntelError("NETWORK_ERROR", "重定向次数超过限制")
 
 
@@ -351,19 +400,24 @@ async def fetch_document(
     fetcher = fetcher or (lambda u, i, a: pinned_fetch(u, i, a, max_bytes))
     try:
         async with asyncio.timeout(DEFAULT_TIMEOUT_MS / 1000):
-            response, final_url = await fetch_with_validated_redirects(raw_url, fetcher, resolver, max_bytes)
-    except TimeoutError:
-        raise IntelError("NETWORK_ERROR", f"抓取超时: {raw_url}")
+            response, final_url = await fetch_with_validated_redirects(
+                raw_url, fetcher, resolver, max_bytes
+            )
+    except TimeoutError as error:
+        raise IntelError("NETWORK_ERROR", f"抓取超时: {raw_url}") from error
     except IntelError:
         raise
     except Exception as error:
-        raise IntelError("NETWORK_ERROR", f"抓取失败: {error}")
+        raise IntelError("NETWORK_ERROR", f"抓取失败: {error}") from error
     if response.status != 200:
         raise IntelError("NETWORK_ERROR", f"抓取失败: HTTP {response.status}")
     content_type = response.headers.get("content-type", "").lower()
     allowed = r"^(?:text/html|application/xhtml\+xml|text/plain|application/pdf|application/msword|application/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)(?:;|$)"
     if not re.match(allowed, content_type):
-        raise IntelError("UNSUPPORTED_CONTENT", f"不支持的内容类型: {content_type or 'unknown'}")
+        raise IntelError(
+            "UNSUPPORTED_CONTENT",
+            f"不支持的内容类型: {content_type or 'unknown'}",
+        )
     raw_bytes = response.body
     if len(raw_bytes) > max_bytes:
         raise IntelError("RESPONSE_TOO_LARGE", f"响应超过 {max_bytes} 字节")
@@ -377,21 +431,50 @@ async def fetch_document(
         try:
             text = extract_pdf_text(raw_bytes)
         except Exception as error:
-            raise IntelError("NETWORK_ERROR", f"PDF 文本提取失败: {error}")
-        extracted = {"title": Path(urlparse(_url_string(final_url)).path).name, "text": text, "publish_time": None, "publish_time_source": "unknown"}
+            raise IntelError(
+                "NETWORK_ERROR", f"PDF 文本提取失败: {error}"
+            ) from error
+        extracted = {
+            "title": Path(urlparse(_url_string(final_url)).path).name,
+            "text": text,
+            "publish_time": None,
+            "publish_time_source": "unknown",
+        }
     elif is_docx:
         try:
             text = extract_docx_text(raw_bytes)
         except Exception as error:
-            raise IntelError("NETWORK_ERROR", f"Word 文本提取失败: {error}")
-        extracted = {"title": Path(urlparse(_url_string(final_url)).path).name, "text": text, "publish_time": None, "publish_time_source": "unknown"}
+            raise IntelError(
+                "NETWORK_ERROR", f"Word 文本提取失败: {error}"
+            ) from error
+        extracted = {
+            "title": Path(urlparse(_url_string(final_url)).path).name,
+            "text": text,
+            "publish_time": None,
+            "publish_time_source": "unknown",
+        }
     else:
-        extracted = {"title": _url_string(final_url), "text": raw_text.replace("\r\n", "\n").strip(), "publish_time": None, "publish_time_source": "unknown"}
-    outbound_links = extract_outbound_links(raw_text, _url_string(final_url)) if is_html else []
+        extracted = {
+            "title": _url_string(final_url),
+            "text": raw_text.replace("\r\n", "\n").strip(),
+            "publish_time": None,
+            "publish_time_source": "unknown",
+        }
+    outbound_links = (
+        extract_outbound_links(raw_text, _url_string(final_url))
+        if is_html
+        else []
+    )
     if not extracted["publish_time"]:
-        url_match = re.search(r"/(20\d{2})[-/]?(\d{2})[-/]?(\d{2})/", _url_string(final_url))
-        if url_match and is_valid_calendar_date(f"{url_match.group(1)}-{url_match.group(2)}-{url_match.group(3)}"):
-            extracted["publish_time"] = f"{url_match.group(1)}-{url_match.group(2)}-{url_match.group(3)}"
+        url_match = re.search(
+            r"/(20\d{2})[-/]?(\d{2})[-/]?(\d{2})/", _url_string(final_url)
+        )
+        if url_match and is_valid_calendar_date(
+            f"{url_match.group(1)}-{url_match.group(2)}-{url_match.group(3)}"
+        ):
+            extracted["publish_time"] = (
+                f"{url_match.group(1)}-{url_match.group(2)}-{url_match.group(3)}"
+            )
             extracted["publish_time_source"] = "unknown"
     canonical_url = canonicalize_url(_url_string(final_url))
     raw_hash = sha256(raw_bytes)
@@ -400,7 +483,11 @@ async def fetch_document(
     if (cwd / "data/intel" / document_path).exists():
         existing = IntelDocument.model_validate(read_json(cwd, document_path))
         verify_document_integrity(cwd, existing)
-        return existing, f"<untrusted_web_content>\n{extracted['text']}\n</untrusted_web_content>", outbound_links
+        return (
+            existing,
+            f"<untrusted_web_content>\n{extracted['text']}\n</untrusted_web_content>",
+            outbound_links,
+        )
     raw_path = f"data/raw/{document_id}.raw"
     text_path = f"data/raw/{document_id}.txt"
     write_file_atomic(cwd, raw_path, raw_bytes)
@@ -425,10 +512,14 @@ async def fetch_document(
         injection_warnings=injection_warnings(extracted["text"]),
     )
     write_json_atomic(cwd, document_path, document.model_dump())
-    return document, f"<untrusted_web_content>\n{extracted['text']}\n</untrusted_web_content>", outbound_links
+    return (
+        document,
+        f"<untrusted_web_content>\n{extracted['text']}\n</untrusted_web_content>",
+        outbound_links,
+    )
 
 
 def _now() -> str:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()

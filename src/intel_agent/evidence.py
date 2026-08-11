@@ -6,13 +6,25 @@ from pathlib import Path
 
 from .fact import load_fact
 from .models import EvidenceSupport, IntelDocument, IntelError, utc_now
-from .storage import intel_path, list_json, read_json, sha256, verify_document_integrity, write_json_atomic, workspace_path
+from .storage import (
+    intel_path,
+    list_json,
+    read_json,
+    sha256,
+    verify_document_integrity,
+    workspace_path,
+    write_json_atomic,
+)
 
 
 def load_document(cwd: Path, document_id: str) -> IntelDocument:
-    document = IntelDocument.model_validate(read_json(cwd, f"documents/{document_id}.json"))
+    document = IntelDocument.model_validate(
+        read_json(cwd, f"documents/{document_id}.json")
+    )
     if document.id != document_id:
-        raise IntelError("STORAGE_CORRUPT", f"文档文件名与记录 ID 不匹配: {document_id}")
+        raise IntelError(
+            "STORAGE_CORRUPT", f"文档文件名与记录 ID 不匹配: {document_id}"
+        )
     return document
 
 
@@ -20,21 +32,41 @@ def normalize_quote(value: str) -> str:
     return value.replace("\r\n", "\n").replace("\r", "\n").strip()
 
 
-def _evidence_id(fact_id: str, document_id: str, relation: str, line_start: int, line_end: int, quote: str) -> str:
+def _evidence_id(
+    fact_id: str,
+    document_id: str,
+    relation: str,
+    line_start: int,
+    line_end: int,
+    quote: str,
+) -> str:
     return f"ev-{sha256(f'{fact_id}\n{document_id}\n{relation}\n{line_start}-{line_end}\n{quote}')[:16]}"
 
 
-def locate_quote(cwd: Path, document: IntelDocument, quote: str) -> tuple[int, int]:
-    text = workspace_path(cwd, document.text_path).read_text(encoding="utf-8").replace("\r\n", "\n")
+def locate_quote(
+    cwd: Path, document: IntelDocument, quote: str
+) -> tuple[int, int]:
+    text = (
+        workspace_path(cwd, document.text_path)
+        .read_text(encoding="utf-8")
+        .replace("\r\n", "\n")
+    )
     offset = text.find(quote)
     if offset < 0:
-        raise IntelError("QUOTE_NOT_FOUND", f"引文不在文档正文中: {document.id}")
+        raise IntelError(
+            "QUOTE_NOT_FOUND", f"引文不在文档正文中: {document.id}"
+        )
     line_start = text[:offset].count("\n") + 1
     return line_start, line_start + quote.count("\n")
 
 
 def verify_evidence(cwd: Path, evidence: EvidenceSupport) -> EvidenceSupport:
-    if not evidence.id or not evidence.task_id or not evidence.fact_id or not evidence.document_id:
+    if (
+        not evidence.id
+        or not evidence.task_id
+        or not evidence.fact_id
+        or not evidence.document_id
+    ):
         raise IntelError("STORAGE_CORRUPT", "证据记录不匹配")
     if evidence.relation not in ("supports", "contradicts"):
         raise IntelError("STORAGE_CORRUPT", "证据记录不匹配")
@@ -46,7 +78,9 @@ def verify_evidence(cwd: Path, evidence: EvidenceSupport) -> EvidenceSupport:
         line_start, line_end = locate_quote(cwd, document, quote)
     except IntelError as error:
         if error.code == "QUOTE_NOT_FOUND":
-            raise IntelError("STORAGE_CORRUPT", f"证据记录不匹配: {evidence.id}")
+            raise IntelError(
+                "STORAGE_CORRUPT", f"证据记录不匹配: {evidence.id}"
+            ) from error
         raise
     if (
         not quote
@@ -54,16 +88,31 @@ def verify_evidence(cwd: Path, evidence: EvidenceSupport) -> EvidenceSupport:
         or evidence.quote != quote
         or evidence.line_start != line_start
         or evidence.line_end != line_end
-        or evidence.id != _evidence_id(evidence.fact_id, evidence.document_id, evidence.relation, line_start, line_end, quote)
+        or evidence.id
+        != _evidence_id(
+            evidence.fact_id,
+            evidence.document_id,
+            evidence.relation,
+            line_start,
+            line_end,
+            quote,
+        )
     ):
         raise IntelError("STORAGE_CORRUPT", f"证据记录不匹配: {evidence.id}")
     return evidence
 
 
 def load_evidence(cwd: Path, evidence_id: str) -> EvidenceSupport:
-    evidence = verify_evidence(cwd, EvidenceSupport.model_validate(read_json(cwd, f"evidence/{evidence_id}.json")))
+    evidence = verify_evidence(
+        cwd,
+        EvidenceSupport.model_validate(
+            read_json(cwd, f"evidence/{evidence_id}.json")
+        ),
+    )
     if evidence.id != evidence_id:
-        raise IntelError("STORAGE_CORRUPT", f"证据文件名与记录 ID 不匹配: {evidence_id}")
+        raise IntelError(
+            "STORAGE_CORRUPT", f"证据文件名与记录 ID 不匹配: {evidence_id}"
+        )
     return evidence
 
 
@@ -77,7 +126,11 @@ def list_evidence_for_task(cwd: Path, task_id: str) -> list[EvidenceSupport]:
 
 def list_evidence_for_fact(cwd: Path, fact_id: str) -> list[EvidenceSupport]:
     fact = load_fact(cwd, fact_id)
-    return [e for e in list_evidence_for_task(cwd, fact.task_id) if e.fact_id == fact.id]
+    return [
+        e
+        for e in list_evidence_for_task(cwd, fact.task_id)
+        if e.fact_id == fact.id
+    ]
 
 
 def save_evidence(
@@ -97,7 +150,9 @@ def save_evidence(
     document = load_document(cwd, document_id)
     verify_document_integrity(cwd, document)
     line_start, line_end = locate_quote(cwd, document, quote)
-    id_ = _evidence_id(fact.id, document.id, relation, line_start, line_end, quote)
+    id_ = _evidence_id(
+        fact.id, document.id, relation, line_start, line_end, quote
+    )
     if intel_path(cwd, f"evidence/{id_}.json").exists():
         return load_evidence(cwd, id_)
     evidence = EvidenceSupport(

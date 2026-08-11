@@ -34,7 +34,9 @@ def verify_conflict(cwd: Path, conflict: EvidenceConflict) -> EvidenceConflict:
     fact = load_fact(cwd, conflict.fact_id)
     fact_evidence = list_evidence_for_fact(cwd, fact.id)
     evidence_ids = {e.id for e in fact_evidence}
-    conflict_evidence = [e for e in fact_evidence if e.id in conflict.evidence_ids]
+    conflict_evidence = [
+        e for e in fact_evidence if e.id in conflict.evidence_ids
+    ]
     if (
         conflict.task_id != fact.task_id
         or len(conflict.evidence_ids) < 2
@@ -46,12 +48,19 @@ def verify_conflict(cwd: Path, conflict: EvidenceConflict) -> EvidenceConflict:
     return conflict
 
 
-def load_conflicts(cwd: Path, task_id: str | None = None) -> list[EvidenceConflict]:
-    items = [verify_conflict(cwd, EvidenceConflict.model_validate(item)) for item in _load_store(cwd)["items"]]
+def load_conflicts(
+    cwd: Path, task_id: str | None = None
+) -> list[EvidenceConflict]:
+    items = [
+        verify_conflict(cwd, EvidenceConflict.model_validate(item))
+        for item in _load_store(cwd)["items"]
+    ]
     return [i for i in items if i.task_id == task_id] if task_id else items
 
 
-def save_conflict(cwd: Path, fact_id: str, evidence_ids: list[str]) -> EvidenceConflict:
+def save_conflict(
+    cwd: Path, fact_id: str, evidence_ids: list[str]
+) -> EvidenceConflict:
     fact = load_fact(cwd, fact_id)
     evidence_ids = list(dict.fromkeys(evidence_ids))
     if len(evidence_ids) < 2:
@@ -62,8 +71,13 @@ def save_conflict(cwd: Path, fact_id: str, evidence_ids: list[str]) -> EvidenceC
         raise IntelError("INVALID_INPUT", "矛盾证据不存在或不属于同一事实")
     relations = {e.relation for e in evidence if e is not None}
     if "supports" not in relations or "contradicts" not in relations:
-        raise IntelError("INVALID_INPUT", "矛盾证据必须同时包含 supports 和 contradicts")
-    if not any(e is not None and e.relation == "supports" and is_full_support(cwd, e) for e in evidence):
+        raise IntelError(
+            "INVALID_INPUT", "矛盾证据必须同时包含 supports 和 contradicts"
+        )
+    if not any(
+        e is not None and e.relation == "supports" and is_full_support(cwd, e)
+        for e in evidence
+    ):
         raise IntelError("INVALID_INPUT", "矛盾的支持侧必须通过完整语义审核")
     now = utc_now()
     conflict = EvidenceConflict(
@@ -76,11 +90,20 @@ def save_conflict(cwd: Path, fact_id: str, evidence_ids: list[str]) -> EvidenceC
         created_at=now,
         updated_at=now,
     )
-    write_json_atomic(cwd, "conflicts.json", {"items": [c.model_dump() for c in load_conflicts(cwd)] + [conflict.model_dump()]})
+    write_json_atomic(
+        cwd,
+        "conflicts.json",
+        {
+            "items": [c.model_dump() for c in load_conflicts(cwd)]
+            + [conflict.model_dump()]
+        },
+    )
     return conflict
 
 
-def resolve_conflict(cwd: Path, conflict_id: str, note: str) -> EvidenceConflict:
+def resolve_conflict(
+    cwd: Path, conflict_id: str, note: str
+) -> EvidenceConflict:
     if not note.strip():
         raise IntelError("INVALID_INPUT", "消解矛盾必须提供依据")
     items = load_conflicts(cwd)
@@ -88,11 +111,20 @@ def resolve_conflict(cwd: Path, conflict_id: str, note: str) -> EvidenceConflict
     if not conflict:
         raise IntelError("NOT_FOUND", f"矛盾不存在: {conflict_id}")
     updated = conflict.model_copy(
-        update={"resolution": "resolved", "note": note.strip(), "updated_at": utc_now()}
+        update={
+            "resolution": "resolved",
+            "note": note.strip(),
+            "updated_at": utc_now(),
+        }
     )
     write_json_atomic(
         cwd,
         "conflicts.json",
-        {"items": [updated.model_dump() if i.id == conflict.id else i.model_dump() for i in items]},
+        {
+            "items": [
+                updated.model_dump() if i.id == conflict.id else i.model_dump()
+                for i in items
+            ]
+        },
     )
     return updated

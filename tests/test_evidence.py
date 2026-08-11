@@ -32,7 +32,9 @@ def test_supersede_fact(cwd):
     compound = save_fact(cwd, task.id, q.id, "测试主题现状是 A 且进展为 B")
     atomic1 = save_fact(cwd, task.id, q.id, "测试主题现状是 A")
     atomic2 = save_fact(cwd, task.id, q.id, "测试主题进展为 B")
-    superseded = supersede_fact(cwd, compound.id, [atomic1.id, atomic2.id], "复合事实拆分为原子事实")
+    superseded = supersede_fact(
+        cwd, compound.id, [atomic1.id, atomic2.id], "复合事实拆分为原子事实"
+    )
     assert superseded.status == "superseded"
     assert superseded.superseded_by == [atomic1.id, atomic2.id]
     # 循环检测
@@ -53,14 +55,20 @@ def test_supersede_requires_same_task_question(cwd):
 def test_evidence_save_locates_quote(cwd):
     task = new_task(cwd)
     q = task.questions[0]
-    doc = make_document(cwd, "第一行内容\n关于测试主题的关键句子在此。\n第三行")
+    doc = make_document(
+        cwd, "第一行内容\n关于测试主题的关键句子在此。\n第三行"
+    )
     fact = save_fact(cwd, task.id, q.id, "测试主题的关键句子存在")
-    evidence = save_evidence(cwd, fact.id, doc.id, "supports", "关于测试主题的关键句子在此。")
+    evidence = save_evidence(
+        cwd, fact.id, doc.id, "supports", "关于测试主题的关键句子在此。"
+    )
     assert evidence.line_start == 2
     assert evidence.line_end == 2
     assert evidence.id.startswith("ev-")
     # 幂等
-    evidence2 = save_evidence(cwd, fact.id, doc.id, "supports", "关于测试主题的关键句子在此。")
+    evidence2 = save_evidence(
+        cwd, fact.id, doc.id, "supports", "关于测试主题的关键句子在此。"
+    )
     assert evidence2.id == evidence.id
     assert len(list_evidence_for_fact(cwd, fact.id)) == 1
 

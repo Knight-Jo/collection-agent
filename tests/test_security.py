@@ -3,7 +3,11 @@
 import pytest
 
 from intel_agent.models import IntelError
-from intel_agent.security import is_public_address, resolve_public_url, source_group_of
+from intel_agent.security import (
+    is_public_address,
+    resolve_public_url,
+    source_group_of,
+)
 
 
 def test_public_address_blocklist():
@@ -45,7 +49,9 @@ async def test_resolve_public_url_blocks_private_resolution():
         return ["10.0.0.5"]
 
     with pytest.raises(IntelError) as e:
-        await resolve_public_url("https://evil.example.com/", resolver=fake_resolver)
+        await resolve_public_url(
+            "https://evil.example.com/", resolver=fake_resolver
+        )
     assert e.value.code == "UNSAFE_URL"
 
 
@@ -54,7 +60,9 @@ async def test_resolve_public_url_accepts_public():
     async def fake_resolver(hostname):
         return ["93.184.216.34"]
 
-    url, addresses = await resolve_public_url("https://example.com/a?b=1", resolver=fake_resolver)
+    url, addresses = await resolve_public_url(
+        "https://example.com/a?b=1", resolver=fake_resolver
+    )
     assert addresses == ["93.184.216.34"]
 
 

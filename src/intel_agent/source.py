@@ -8,7 +8,9 @@ from urllib.parse import urlparse
 
 from .models import SourceType
 
-DomainKind = Literal["government", "news", "encyclopedia", "social", "official", "other"]
+DomainKind = Literal[
+    "government", "news", "encyclopedia", "social", "official", "other"
+]
 
 NEWS_DOMAINS = {
     "news.cn",
@@ -35,7 +37,10 @@ def classify_domain(hostname_or_url: str) -> DomainKind:
         return "encyclopedia"
     if re.search(r"(^|\.)(zhihu|weibo|reddit|youtube)\.com$", host):
         return "social"
-    if any(host == domain or host.endswith(f".{domain}") for domain in NEWS_DOMAINS):
+    if any(
+        host == domain or host.endswith(f".{domain}")
+        for domain in NEWS_DOMAINS
+    ):
         return "news"
     return "other"
 
@@ -53,7 +58,9 @@ def domain_kind_label(kind: DomainKind) -> str:
 
 def source_type_for_domain(hostname: str) -> SourceType:
     kind = classify_domain(hostname)
-    if re.search(r"(?:\.edu(?:\.[a-z]{2})?|\.ac\.[a-z]{2})$", hostname.lower()):
+    if re.search(
+        r"(?:\.edu(?:\.[a-z]{2})?|\.ac\.[a-z]{2})$", hostname.lower()
+    ):
         return "academic"
     if kind in ("government", "news", "encyclopedia", "social"):
         return kind

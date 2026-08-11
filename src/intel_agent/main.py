@@ -14,21 +14,39 @@ import sys
 from pathlib import Path
 
 from .agent import build_agent
-from .config import Settings, load_config
+from .config import load_config
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="OSINT collection agent (pydantic-ai port)")
+    parser = argparse.ArgumentParser(
+        description="OSINT collection agent (pydantic-ai port)"
+    )
     parser.add_argument("--topic", required=True, help="情报收集主题")
-    parser.add_argument("--questions", nargs="+", required=True, help="2-6 个关键问题")
+    parser.add_argument(
+        "--questions", nargs="+", required=True, help="2-6 个关键问题"
+    )
     parser.add_argument("--config", default=None, help="config.yaml 路径")
-    parser.add_argument("--cwd", default=".", help="工作目录（data/intel 等相对此目录）")
-    parser.add_argument("--min-sources", type=int, default=2, help="每个问题最少独立来源组")
-    parser.add_argument("--min-quality", type=int, default=1, help="每个问题最少高质量来源组")
-    parser.add_argument("--recency", type=int, default=90, help="时效窗口（天）")
-    parser.add_argument("--require-recency", action="store_true", help="强制时效要求")
-    parser.add_argument("--max-turns", type=int, default=40, help="agent 最大工具轮次")
-    parser.add_argument("--trace", default=None, help="保存完整消息轨迹到 JSONL 文件")
+    parser.add_argument(
+        "--cwd", default=".", help="工作目录（data/intel 等相对此目录）"
+    )
+    parser.add_argument(
+        "--min-sources", type=int, default=2, help="每个问题最少独立来源组"
+    )
+    parser.add_argument(
+        "--min-quality", type=int, default=1, help="每个问题最少高质量来源组"
+    )
+    parser.add_argument(
+        "--recency", type=int, default=90, help="时效窗口（天）"
+    )
+    parser.add_argument(
+        "--require-recency", action="store_true", help="强制时效要求"
+    )
+    parser.add_argument(
+        "--max-turns", type=int, default=40, help="agent 最大工具轮次"
+    )
+    parser.add_argument(
+        "--trace", default=None, help="保存完整消息轨迹到 JSONL 文件"
+    )
     return parser
 
 
@@ -40,7 +58,10 @@ def _msg_to_json(value):
         except Exception:
             pass
     if hasattr(value, "__dataclass_fields__"):
-        return {k: _msg_to_json(getattr(value, k)) for k in value.__dataclass_fields__}
+        return {
+            k: _msg_to_json(getattr(value, k))
+            for k in value.__dataclass_fields__
+        }
     if isinstance(value, dict):
         return {k: _msg_to_json(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
@@ -56,24 +77,49 @@ def _write_trace(path: str, messages) -> None:
         for part in msg.parts:
             kind = type(part).__name__
             if kind == "ToolCallPart":
-                events.append({"type": "tool_call", "tool": part.tool_name, "args": part.args})
+                events.append(
+                    {
+                        "type": "tool_call",
+                        "tool": part.tool_name,
+                        "args": part.args,
+                    }
+                )
             elif kind == "ToolReturnPart":
-                events.append({"type": "tool_result", "tool": part.tool_name, "tool_call_id": part.tool_call_id})
+                events.append(
+                    {
+                        "type": "tool_result",
+                        "tool": part.tool_name,
+                        "tool_call_id": part.tool_call_id,
+                    }
+                )
             elif kind == "ModelRequestPart":
-                events.append({"type": "model_request", "kind": type(part).__name__})
+                events.append(
+                    {"type": "model_request", "kind": type(part).__name__}
+                )
     raw = [_msg_to_json(msg) for msg in messages]
-    (Path(path)).write_text(json.dumps({"events": events, "messages": raw}, ensure_ascii=False, indent=2), encoding="utf-8")
+    (Path(path)).write_text(
+        json.dumps(
+            {"events": events, "messages": raw}, ensure_ascii=False, indent=2
+        ),
+        encoding="utf-8",
+    )
 
 
 async def _run(args: argparse.Namespace) -> int:
     settings = load_config(args.config)
     if not settings.model_api_key():
-        print("错误: 缺少模型 API key，请设置环境变量 " + settings.model.api_key_env, file=sys.stderr)
+        print(
+            "错误: 缺少模型 API key，请设置环境变量 "
+            + settings.model.api_key_env,
+            file=sys.stderr,
+        )
         return 1
     agent = build_agent(settings)
     deps = agent.init_deps(Path(args.cwd), settings)
     questions = "；".join(args.questions)
-    recency_required = "（强制）" if args.require_recency else "（非强制，仅统计缺口不阻断）"
+    recency_required = (
+        "（强制）" if args.require_recency else "（非强制，仅统计缺口不阻断）"
+    )
     prompt = (
         f"请围绕主题「{args.topic}」执行公开来源情报收集与研判。\n"
         f"【关键问题·必须原样使用】调用 intel_plan 时必须原样使用下列问题，不得替换、增删或改写：\n"
@@ -116,7 +162,9 @@ async def _run(args: argparse.Namespace) -> int:
         _write_trace(args.trace, result.all_messages())
     print(result.output)
     usage = result.usage
-    print(f"\n[usage] requests={usage.requests} total_tokens={usage.total_tokens}")
+    print(
+        f"\n[usage] requests={usage.requests} total_tokens={usage.total_tokens}"
+    )
     return 0
 
 
