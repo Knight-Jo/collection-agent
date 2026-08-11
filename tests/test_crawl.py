@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
@@ -847,3 +848,77 @@ async def test_retry_reports_later_security_error_not_stale_response(cwd):
 
     assert snapshot.entries[0].status == "failed"
     assert "UNSAFE_URL" in (snapshot.entries[0].error or "")
+
+
+@pytest.mark.asyncio
+async def test_crawl_persists_http_terminal_state_and_emits_events(cwd):
+    task = new_task(cwd)
+    events = []
+
+    async def fetcher(_url, _init, _address):
+        return FetchedResponse(status=404, body=b"missing")
+
+    async def on_event(event):
+        events.append(event)
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/missing"],
+        config=CrawlConfig(obey_robots=False, per_host_delay_seconds=0),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+        on_event=on_event,
+    )
+
+    saved = load_crawl(cwd, task.id)
+    assert snapshot.status == saved.status == "complete"
+    assert saved.entries[0].status == "skipped_http"
+    assert events[0].type == "crawl.started"
+    assert events[-1].type == "crawl.completed"
+    resource_event = next(
+        event for event in events if event.type == "crawl.resource"
+    )
+    assert resource_event.data["resource"]["status"] == "skipped_http"
+
+
+@pytest.mark.asyncio
+async def test_crawl_cancellation_during_extraction_persists_resumable_entry(
+    cwd, monkeypatch
+):
+    task = new_task(cwd)
+    extraction_started = threading.Event()
+
+    async def fetcher(_url, _init, _address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/plain"},
+            body=b"extract me",
+        )
+
+    def extracting(_raw, _mime_type, _url, *, cancellation_event, **_kwargs):
+        extraction_started.set()
+        cancellation_event.wait()
+        return ExtractionResult(status="complete", text="not archived")
+
+    monkeypatch.setattr(crawl_module, "extract_resource", extracting)
+    running = asyncio.create_task(
+        crawl_collect(
+            cwd,
+            task.id,
+            ["https://example.com/extract"],
+            config=CrawlConfig(obey_robots=False, per_host_delay_seconds=0),
+            fetcher=fetcher,
+            resolver=_public_resolver,
+        )
+    )
+    await asyncio.wait_for(
+        asyncio.to_thread(extraction_started.wait), timeout=1
+    )
+    running.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await running
+
+    saved = load_crawl(cwd, task.id)
+    assert saved.status == "paused"
+    assert saved.entries[0].status == "queued"

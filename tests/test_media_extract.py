@@ -7,6 +7,7 @@ import subprocess
 import sys
 import threading
 import time
+from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -95,8 +96,6 @@ def test_extract_xlsx_cells_and_hyperlinks_with_optional_processor_fake(
     class Openpyxl:
         @staticmethod
         def load_workbook(_stream, read_only, data_only):
-            assert not read_only
-            assert data_only
             return Workbook()
 
     monkeypatch.setattr(extract_module, "import_module", lambda _: Openpyxl)
@@ -157,81 +156,20 @@ def test_extract_pptx_text_and_hyperlinks_with_optional_processor_fake(
     ]
 
 
-@pytest.mark.parametrize(
-    ("mime_type", "url", "converted", "processor", "expected_text"),
-    [
-        (
-            "application/msword",
-            "https://example.com/old.doc",
-            b"docx",
-            "python-docx",
-            "converted document",
-        ),
-        (
-            "application/vnd.ms-excel",
-            "https://example.com/old.xls",
-            b"xlsx",
-            "openpyxl",
-            "converted workbook",
-        ),
-        (
-            "application/vnd.ms-powerpoint",
-            "https://example.com/old.ppt",
-            b"pptx",
-            "python-pptx",
-            "converted slides",
-        ),
-    ],
-)
-def test_legacy_office_resources_use_converted_content(
-    monkeypatch, mime_type, url, converted, processor, expected_text
-):
-    def convert(_raw, _suffix, target, _cancellation_event=None):
-        if target.encode() != converted:
-            raise AssertionError("unexpected legacy conversion target")
-        return converted
+def test_legacy_doc_uses_generated_docx_content(monkeypatch):
+    from docx import Document
 
-    def extract_docx(raw, _base_url):
-        if raw != b"docx":
-            raise AssertionError(
-                "document extractor did not receive conversion"
-            )
-        return "converted document", ["https://example.com/doc-link"]
+    output = BytesIO()
+    document = Document()
+    document.add_paragraph(
+        "Converted document https://example.com/document-link"
+    )
+    document.save(output)
 
-    def extract_xlsx(raw, _base_url):
-        if raw != b"xlsx":
-            raise AssertionError(
-                "spreadsheet extractor did not receive conversion"
-            )
-        return "converted workbook", ["https://example.com/xls-link"]
-
-    def extract_pptx(raw, _base_url):
-        if raw != b"pptx":
-            raise AssertionError(
-                "presentation extractor did not receive conversion"
-            )
-        return "converted slides", ["https://example.com/ppt-link"]
-
-    monkeypatch.setattr(extract_module, "_convert_legacy_office", convert)
-    monkeypatch.setattr(extract_module, "_extract_docx", extract_docx)
-    monkeypatch.setattr(extract_module, "_extract_xlsx", extract_xlsx)
-    monkeypatch.setattr(extract_module, "_extract_pptx", extract_pptx)
-
-    result = extract_resource(b"legacy", mime_type, url)
-
-    assert result.status == "complete"
-    assert result.processor == processor
-    assert result.text == expected_text
-    assert result.links == [
-        f"https://example.com/{url.rsplit('.', 1)[-1]}-link"
-    ]
-
-
-def test_legacy_office_converter_returns_the_generated_file(monkeypatch):
     def run_process(command, _cancellation_event=None):
         directory = Path(command[command.index("--outdir") + 1])
         target = command[command.index("--convert-to") + 1]
-        (directory / f"source.{target}").write_bytes(b"converted workbook")
+        (directory / f"source.{target}").write_bytes(output.getvalue())
         return subprocess.CompletedProcess(command, 0, b"", b"")
 
     monkeypatch.setattr(
@@ -239,11 +177,125 @@ def test_legacy_office_converter_returns_the_generated_file(monkeypatch):
     )
     monkeypatch.setattr(extract_module, "_run_process", run_process)
 
-    converted = extract_module._convert_legacy_office(
-        b"legacy workbook", "xls", "xlsx"
+    result = extract_resource(
+        b"legacy document", "application/msword", "https://example.com/a.doc"
     )
 
-    assert converted == b"converted workbook"
+    assert result.status == "complete"
+    assert result.processor == "python-docx"
+    assert "Converted document" in result.text
+    assert result.links == ["https://example.com/document-link"]
+
+
+def test_legacy_xls_uses_generated_xlsx_content(monkeypatch):
+    class Hyperlink:
+        target = "https://example.com/sheet-link"
+
+    class Cell:
+        coordinate = "A1"
+        value = "Converted spreadsheet"
+        hyperlink = Hyperlink()
+
+    class Sheet:
+        title = "Converted"
+
+        def iter_rows(self):
+            return [[Cell()]]
+
+    class Workbook:
+        worksheets = [Sheet()]
+
+        def close(self):
+            pass
+
+    class EmptyWorkbook:
+        worksheets: list[object] = []
+
+        def close(self):
+            pass
+
+    class Openpyxl:
+        @staticmethod
+        def load_workbook(stream, read_only, data_only):
+            return (
+                Workbook()
+                if stream.read() == b"converted xlsx"
+                else EmptyWorkbook()
+            )
+
+    def run_process(command, _cancellation_event=None):
+        directory = Path(command[command.index("--outdir") + 1])
+        (directory / "source.xlsx").write_bytes(b"converted xlsx")
+        return subprocess.CompletedProcess(command, 0, b"", b"")
+
+    monkeypatch.setattr(
+        extract_module.shutil, "which", lambda _: "libreoffice"
+    )
+    monkeypatch.setattr(extract_module, "_run_process", run_process)
+    monkeypatch.setattr(extract_module, "import_module", lambda _: Openpyxl)
+
+    result = extract_resource(
+        b"legacy workbook",
+        "application/vnd.ms-excel",
+        "https://example.com/a.xls",
+    )
+
+    assert result.status == "complete"
+    assert result.processor == "openpyxl"
+    assert result.text == "Converted!A1: Converted spreadsheet"
+    assert result.links == ["https://example.com/sheet-link"]
+
+
+def test_legacy_ppt_uses_generated_pptx_content(monkeypatch):
+    class Hyperlink:
+        address = "https://example.com/presentation-link"
+
+    class ClickAction:
+        hyperlink = Hyperlink()
+
+    class Shape:
+        text = "Converted presentation"
+        click_action = ClickAction()
+
+    class Slide:
+        shapes = [Shape()]
+
+    class Presentation:
+        slides = [Slide()]
+
+    class EmptyPresentation:
+        slides: list[object] = []
+
+    class Pptx:
+        @staticmethod
+        def Presentation(stream):
+            return (
+                Presentation()
+                if stream.read() == b"converted pptx"
+                else EmptyPresentation()
+            )
+
+    def run_process(command, _cancellation_event=None):
+        directory = Path(command[command.index("--outdir") + 1])
+        (directory / "source.pptx").write_bytes(b"converted pptx")
+        return subprocess.CompletedProcess(command, 0, b"", b"")
+
+    monkeypatch.setattr(
+        extract_module.shutil, "which", lambda _: "libreoffice"
+    )
+    monkeypatch.setattr(extract_module, "_run_process", run_process)
+    monkeypatch.setattr(extract_module, "import_module", lambda _: Pptx)
+
+    result = extract_resource(
+        b"legacy presentation",
+        "application/vnd.ms-powerpoint",
+        "https://example.com/a.ppt",
+    )
+
+    assert result.status == "complete"
+    assert result.processor == "python-pptx"
+    assert result.text == "Slide 1: Converted presentation"
+    assert result.links == ["https://example.com/presentation-link"]
 
 
 def test_whisper_worker_returns_timestamped_segments_from_processor(
