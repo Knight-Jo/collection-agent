@@ -315,6 +315,14 @@ def _timestamp(seconds: float) -> str:
     return f"{hours:02}:{minutes:02}:{whole_seconds:02}.{milliseconds:03}"
 
 
+def _is_tesseract_not_found(error: Exception) -> bool:
+    error_type = type(error)
+    return (
+        error_type.__name__ == "TesseractNotFoundError"
+        and error_type.__module__.split(".", 1)[0] == "pytesseract"
+    )
+
+
 def extract_resource(
     raw: bytes,
     mime_type: str,
@@ -415,9 +423,13 @@ def extract_resource(
     except (
         ImportError,
         FileNotFoundError,
-        OSError,
         subprocess.SubprocessError,
     ) as error:
         return ExtractionResult(status="unavailable", error=str(error))
     except Exception as error:
-        return ExtractionResult(status="failed", error=str(error))
+        return ExtractionResult(
+            status=(
+                "unavailable" if _is_tesseract_not_found(error) else "failed"
+            ),
+            error=str(error),
+        )

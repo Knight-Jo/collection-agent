@@ -19,6 +19,7 @@ from .extract import (
 )
 from .fetch import (
     DEFAULT_TIMEOUT_MS,
+    REDIRECT_STATUSES,
     USER_AGENT,
     FetchedResponse,
     FetchLike,
@@ -236,10 +237,13 @@ def _archive_resource(
             extraction_status == "complete"
             and document.extraction_status != "complete"
         ):
-            write_file_atomic(cwd, document.text_path, text)
+            text_hash = sha256(text)
+            text_path = f"data/raw/{document_id}.{text_hash[:16]}.txt"
+            write_file_atomic(cwd, text_path, text)
             document = document.model_copy(
                 update={
-                    "text_sha256": sha256(text),
+                    "text_path": text_path,
+                    "text_sha256": text_hash,
                     "extraction_status": "complete",
                 }
             )
@@ -384,6 +388,12 @@ class _CrawlRunner:
             await self.rate_limit(hostname)
             response = await self.fetcher(url, request_init, address)
             await self._account_download(entry, len(response.body))
+            if (
+                response.status in REDIRECT_STATUSES
+                and self.snapshot.downloaded_bytes
+                >= self.config.max_total_bytes
+            ):
+                raise IntelError("CRAWL_LIMIT", "crawl byte limit reached")
         return response
 
     async def fetch(self, entry: CrawlEntry) -> list[str]:

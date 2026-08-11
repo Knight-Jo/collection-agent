@@ -59,8 +59,14 @@ def test_missing_optional_processor_marks_extraction_unavailable(monkeypatch):
 def test_missing_tesseract_executable_marks_extraction_unavailable(
     monkeypatch,
 ):
+    missing_error = type(
+        "TesseractNotFoundError",
+        (OSError,),
+        {"__module__": "pytesseract.pytesseract"},
+    )
+
     def unavailable(raw, languages):
-        raise OSError("tesseract executable was not found")
+        raise missing_error("tesseract executable was not found")
 
     monkeypatch.setattr("intel_agent.extract._ocr_image", unavailable)
     result = extract_resource(
@@ -68,6 +74,18 @@ def test_missing_tesseract_executable_marks_extraction_unavailable(
     )
     assert result.status == "unavailable"
     assert "tesseract" in (result.error or "")
+
+
+def test_malformed_image_oserror_marks_extraction_failed(monkeypatch):
+    def malformed(raw, languages):
+        raise OSError("cannot identify image file")
+
+    monkeypatch.setattr("intel_agent.extract._ocr_image", malformed)
+    result = extract_resource(
+        b"malformed", "image/png", "https://example.com/photo.png"
+    )
+    assert result.status == "failed"
+    assert "cannot identify" in (result.error or "")
 
 
 @pytest.mark.parametrize(

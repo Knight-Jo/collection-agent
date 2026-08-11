@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 import pytest
 
+import intel_agent.crawl as crawl_module
 from intel_agent.config import CrawlConfig
 from intel_agent.crawl import crawl_collect, create_crawl, enqueue_url
 from intel_agent.evidence import load_document
@@ -21,6 +22,7 @@ from intel_agent.storage import (
     load_crawl,
     read_json_object,
     save_crawl,
+    verify_document_integrity,
     write_json_atomic,
 )
 from intel_agent.task import load_task
@@ -456,6 +458,67 @@ async def test_crawl_counts_redirect_response_bodies(cwd):
 
 
 @pytest.mark.asyncio
+async def test_exact_total_cap_stops_before_next_redirect_hop(cwd):
+    task = new_task(cwd)
+    fetched: list[str] = []
+
+    async def fetcher(url, init, address):
+        fetched.append(url)
+        if url.endswith("/start"):
+            return FetchedResponse(
+                status=302,
+                headers={"location": "/must-not-fetch"},
+                body=b"full",
+            )
+        raise AssertionError("redirect hop exceeded the crawl byte cap")
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/start"],
+        config=CrawlConfig(
+            max_total_bytes=4,
+            obey_robots=False,
+            per_host_delay_seconds=0,
+        ),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+    )
+
+    assert fetched == ["https://example.com/start"]
+    assert snapshot.entries[0].status == "skipped_limit"
+    assert snapshot.downloaded_bytes == 4
+
+
+@pytest.mark.asyncio
+async def test_final_response_can_complete_at_exact_total_cap(cwd):
+    task = new_task(cwd)
+
+    async def fetcher(url, init, address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/plain"},
+            body=b"full",
+        )
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/final"],
+        config=CrawlConfig(
+            max_total_bytes=4,
+            obey_robots=False,
+            per_host_delay_seconds=0,
+        ),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+    )
+
+    assert snapshot.entries[0].status == "complete"
+    assert snapshot.downloaded_bytes == 4
+
+
+@pytest.mark.asyncio
 async def test_crawl_counts_body_from_streaming_size_rejection(cwd):
     task = new_task(cwd)
 
@@ -545,6 +608,79 @@ async def test_crawl_preserves_original_when_processor_is_unavailable(
     assert entry.document_id
     document = load_document(cwd, entry.document_id)
     assert (cwd / document.raw_path).read_bytes() == b"original image bytes"
+
+
+@pytest.mark.asyncio
+async def test_reprocessing_metadata_failure_preserves_prior_document(
+    cwd, monkeypatch
+):
+    first_task = new_task(cwd)
+
+    async def fetcher(url, init, address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "image/png"},
+            body=b"same original",
+        )
+
+    monkeypatch.setattr(
+        crawl_module,
+        "extract_resource",
+        lambda *args, **kwargs: ExtractionResult(
+            status="unavailable", error="processor missing"
+        ),
+    )
+    first = await crawl_collect(
+        cwd,
+        first_task.id,
+        ["https://example.com/reprocess.png"],
+        config=CrawlConfig(obey_robots=False, per_host_delay_seconds=0),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+    )
+    document_id = first.entries[0].document_id
+    assert document_id
+    prior = load_document(cwd, document_id)
+    assert prior.extraction_status == "unavailable"
+    prior_text = (cwd / prior.text_path).read_bytes()
+
+    monkeypatch.setattr(
+        crawl_module,
+        "extract_resource",
+        lambda *args, **kwargs: ExtractionResult(
+            status="complete", text="new extracted text"
+        ),
+    )
+    real_write_json = crawl_module.write_json_atomic
+
+    def fail_document_metadata(cwd_arg, path, value):
+        if path == f"documents/{document_id}.json":
+            raise OSError("metadata write failed")
+        return real_write_json(cwd_arg, path, value)
+
+    monkeypatch.setattr(
+        crawl_module, "write_json_atomic", fail_document_metadata
+    )
+    second_task = new_task(cwd)
+
+    with pytest.raises(OSError, match="metadata write failed"):
+        await crawl_collect(
+            cwd,
+            second_task.id,
+            ["https://example.com/reprocess.png"],
+            config=CrawlConfig(
+                cache_ttl_hours=0,
+                obey_robots=False,
+                per_host_delay_seconds=0,
+            ),
+            fetcher=fetcher,
+            resolver=_public_resolver,
+        )
+
+    recovered = load_document(cwd, document_id)
+    verify_document_integrity(cwd, recovered)
+    assert recovered.extraction_status == "unavailable"
+    assert (cwd / recovered.text_path).read_bytes() == prior_text
 
 
 @pytest.mark.asyncio
