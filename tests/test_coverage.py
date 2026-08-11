@@ -99,7 +99,9 @@ def test_coverage_fingerprint_changes(cwd):
     s1 = eval_coverage(cwd, task.id)
     s2 = eval_coverage(cwd, task.id)
     assert s1.fingerprint == s2.fingerprint
-    assert latest_coverage(cwd, task.id).id == s2.id
+    latest = latest_coverage(cwd, task.id)
+    assert latest is not None
+    assert latest.id == s2.id
 
 
 def test_coverage_recency_gap(cwd):

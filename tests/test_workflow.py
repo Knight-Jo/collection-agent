@@ -130,6 +130,7 @@ def test_done_rejected_after_output_tampering(cwd):
     task = _full_pipeline(cwd)
     # 篡改产物文件 → done 被拒
     binding = load_task(cwd, task.id).outputs.package
+    assert binding is not None
     path = cwd / binding.path
     path.write_text(
         path.read_text(encoding="utf-8") + "\n# tampered", encoding="utf-8"

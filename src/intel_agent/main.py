@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 
-from .agent import build_agent
+from .agent import build_agent, build_deps
 from .config import load_config
 
 
@@ -115,7 +115,7 @@ async def _run(args: argparse.Namespace) -> int:
         )
         return 1
     agent = build_agent(settings)
-    deps = agent.init_deps(Path(args.cwd), settings)
+    deps = build_deps(Path(args.cwd), settings)
     questions = "；".join(args.questions)
     recency_required = (
         "（强制）" if args.require_recency else "（非强制，仅统计缺口不阻断）"

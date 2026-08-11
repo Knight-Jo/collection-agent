@@ -60,6 +60,13 @@ def read_json(cwd: Path, path: str) -> dict | list:
         raise IntelError("STORAGE_CORRUPT", f"JSON 损坏: {path}") from error
 
 
+def read_json_object(cwd: Path, path: str) -> dict:
+    value = read_json(cwd, path)
+    if not isinstance(value, dict):
+        raise IntelError("STORAGE_CORRUPT", f"JSON 对象格式错误: {path}")
+    return value
+
+
 def write_json_atomic(cwd: Path, path: str, value: object) -> None:
     ensure_intel_dirs(cwd)
     full = intel_path(cwd, path)
@@ -94,7 +101,7 @@ def list_json(cwd: Path, directory: str) -> list[dict]:
     if not full.exists():
         return []
     return [
-        read_json(cwd, f"{directory}/{name}")
+        read_json_object(cwd, f"{directory}/{name}")
         for name in sorted(os.listdir(full))
         if name.endswith(".json")
     ]

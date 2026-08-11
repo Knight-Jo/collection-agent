@@ -13,6 +13,7 @@ mamba activate collection-agent-pydantic
 UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv sync --extra dev
 UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff format .
 UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff check .
+UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright
 UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest
 UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv build
 ```
@@ -24,6 +25,8 @@ Copy `config.example.yaml` to `config.yaml` before running `python -m intel_agen
 Follow PEP 8 with four-space indentation, `snake_case` functions and modules, `PascalCase` classes, and `UPPER_SNAKE_CASE` constants. Prefer type annotations, small single-purpose functions, `pathlib.Path`, and descriptive names. Group imports as standard library, third-party, then local.
 
 Ruff is the required formatter and linter. Configuration in `pyproject.toml` targets Python 3.12, uses a 79-character line length, and enables `E`, `W`, `F`, `I`, `UP`, `B`, and `SIM`. Run `ruff format --check .` and `ruff check .` before committing. Do not bypass rules with `noqa` unless the exception is narrow and documented.
+
+Pyright runs in `basic` mode across `src/`, `scripts/`, and `tests/`. Run `pyright` before committing; fix errors instead of weakening project-wide checks.
 
 ## Comments & Documentation
 

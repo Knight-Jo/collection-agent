@@ -188,7 +188,7 @@ def extract_pdf_text(raw_bytes: bytes) -> str:
 
     document = fitz.open(stream=raw_bytes, filetype="pdf")
     try:
-        pages = [page.get_text("text") for page in document]
+        pages = [str(page.get_text("text")) for page in document]
     finally:
         document.close()
     text = "\n".join(pages)
@@ -202,10 +202,12 @@ def extract_docx_text(raw_bytes: bytes) -> str:
     from docx import Document
 
     document = Document(BytesIO(raw_bytes))
-    parts = [p.text for p in document.paragraphs if p.text.strip()]
+    parts = [str(p.text) for p in document.paragraphs if str(p.text).strip()]
     for table in document.tables:
         for row in table.rows:
-            cells = [c.text.strip() for c in row.cells if c.text.strip()]
+            cells = [
+                str(c.text).strip() for c in row.cells if str(c.text).strip()
+            ]
             if cells:
                 parts.append(" | ".join(cells))
     return "\n".join(parts)

@@ -84,7 +84,7 @@ async def test_audit_rejects_invalid_verdict(cwd):
     async def bad_judge(fact_obj, evidence):
         return [
             {
-                "evidence_id": e.id,
+                "evidence_id": evidence[0].id,
                 "verdict": "maybe",
                 "reason": "x",
                 "unsupported_parts": [],

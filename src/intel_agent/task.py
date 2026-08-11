@@ -9,6 +9,7 @@ from .models import (
     CoverageHistory,
     CoverageSnapshot,
     IntelError,
+    IntelQuestion,
     IntelTask,
     SufficiencyCriteria,
     TaskOutputBinding,
@@ -19,6 +20,7 @@ from .models import (
 from .storage import (
     intel_path,
     read_json,
+    read_json_object,
     sha256,
     workspace_path,
     write_json_atomic,
@@ -58,7 +60,7 @@ def create_task(
         topic=topic,
         stage="collect",
         questions=[
-            {"id": new_id("q"), "text": text} for text in question_texts
+            IntelQuestion(id=new_id("q"), text=text) for text in question_texts
         ],
         criteria=criteria,
         created_at=now,
@@ -71,7 +73,7 @@ def create_task(
 
 def load_task(cwd: Path, task_id: str | None = None) -> IntelTask:
     if task_id is None:
-        task_id = read_json(cwd, ACTIVE_TASK_FILE)["task_id"]
+        task_id = read_json_object(cwd, ACTIVE_TASK_FILE)["task_id"]
     return IntelTask.model_validate(read_json(cwd, f"tasks/{task_id}.json"))
 
 
@@ -199,20 +201,22 @@ def _verify_current_outputs(cwd: Path, task: IntelTask) -> None:
     coverage = history.snapshots[-1] if history.snapshots else None
     if coverage is None:
         raise IntelError("INVALID_STAGE_TRANSITION", "缺少最新覆盖快照")
-    for kind in ("package", "assessment"):
-        output = task.outputs.model_dump()[kind]
+    for kind, output in (
+        ("package", task.outputs.package),
+        ("assessment", task.outputs.assessment),
+    ):
         if (
             output is None
-            or output["coverage_id"] != coverage.id
-            or output["coverage_fingerprint"] != coverage.fingerprint
+            or output.coverage_id != coverage.id
+            or output.coverage_fingerprint != coverage.fingerprint
         ):
             raise IntelError(
                 "INVALID_STAGE_TRANSITION", f"{kind} 未绑定最新覆盖快照"
             )
-        full_path = workspace_path(cwd, output["path"])
+        full_path = workspace_path(cwd, output.path)
         if (
             not full_path.exists()
-            or sha256(full_path.read_bytes()) != output["content_sha256"]
+            or sha256(full_path.read_bytes()) != output.content_sha256
         ):
             raise IntelError(
                 "INVALID_STAGE_TRANSITION", f"{kind} 产物缺失或已被修改"
@@ -241,7 +245,7 @@ def set_task_stage(cwd: Path, task_id: str, stage: TaskStage) -> IntelTask:
             )
     if stage == "done":
         store = (
-            read_json(cwd, "challenges.json")
+            read_json_object(cwd, "challenges.json")
             if intel_path(cwd, "challenges.json").exists()
             else {"items": []}
         )
@@ -282,7 +286,7 @@ def summarize_task(cwd: Path, task_id: str | None = None) -> dict:
     if task.stage == "challenge" and task.challenge_round >= 2:
         challenges_path = intel_path(cwd, "challenges.json")
         if challenges_path.exists():
-            store = read_json(cwd, "challenges.json")
+            store = read_json_object(cwd, "challenges.json")
             latest = next(
                 (
                     r

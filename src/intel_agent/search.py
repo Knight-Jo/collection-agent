@@ -351,7 +351,7 @@ async def web_search(
             if results and results[0].engine not in engines_used:
                 engines_used.append(results[0].engine)
 
-        engines: list[asyncio.Task] = []
+        engines: list[asyncio.Task[list[SearchResult]]] = []
         if searxng_url:
             engines.append(
                 asyncio.create_task(
@@ -371,7 +371,7 @@ async def web_search(
         ]
         done = await asyncio.gather(*engines, return_exceptions=True)
         for result in done:
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 continue
             collect(result)
 
@@ -403,7 +403,7 @@ async def web_search(
                 else []
             )
             for result in boosts:
-                if isinstance(result, Exception):
+                if isinstance(result, BaseException):
                     continue
                 collect(
                     [

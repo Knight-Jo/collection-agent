@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 from .evidence import list_evidence_for_fact, load_evidence
@@ -30,6 +31,7 @@ def review_id(fact_id: str, evidence_id: str) -> str:
 
 
 VALID_VERDICTS = {"full", "partial", "irrelevant", "contradicts"}
+Judge = Callable[[Fact, list[EvidenceSupport]], Awaitable[list[dict]]]
 
 
 def validate_verdict(result: dict) -> dict:
@@ -154,12 +156,12 @@ def validate_batch(
 async def audit_task_evidence(
     cwd: Path,
     task_id: str,
-    judge: object,
+    judge: Judge | None,
     judge_provider: str,
     judge_model: str,
 ) -> dict:
     task = load_task(cwd, task_id)
-    if not judge_provider.strip() or not judge_model.strip():
+    if judge is None or not judge_provider.strip() or not judge_model.strip():
         raise IntelError("SEMANTIC_AUDIT_FAILED", "语义审核缺少 judge 信息")
     batches: list[tuple[Fact, list[EvidenceSupport]]] = []
     cached = 0

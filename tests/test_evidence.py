@@ -5,7 +5,7 @@ import pytest
 from intel_agent.evidence import list_evidence_for_fact, save_evidence
 from intel_agent.fact import load_fact, save_fact, supersede_fact
 from intel_agent.models import IntelError
-from intel_agent.storage import read_json
+from intel_agent.storage import read_json_object
 from tests.conftest import make_document, new_task
 
 
@@ -100,7 +100,7 @@ def test_fact_metadata_corruption_detected(cwd):
     task = new_task(cwd)
     q = task.questions[0]
     fact = save_fact(cwd, task.id, q.id, "某事实")
-    data = read_json(cwd, f"facts/{fact.id}.json")
+    data = read_json_object(cwd, f"facts/{fact.id}.json")
     data["statement"] = "被篡改的陈述"
     from intel_agent.storage import write_json_atomic
 

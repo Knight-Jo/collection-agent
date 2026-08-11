@@ -144,6 +144,7 @@ def generate_assessment(
             )
     if errors:
         return {"ok": False, "errors": errors}
+    assert coverage is not None
 
     lines = [
         f"# 研判报告：{task.topic}",

@@ -58,7 +58,7 @@ def is_public_address(address: str) -> bool:
 async def default_resolver(hostname: str) -> list[str]:
     try:
         return sorted(
-            {entry[4][0] for entry in socket.getaddrinfo(hostname, None)}
+            {str(entry[4][0]) for entry in socket.getaddrinfo(hostname, None)}
         )
     except socket.gaierror:
         return []

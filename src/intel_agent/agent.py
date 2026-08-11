@@ -16,7 +16,7 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from .assess import generate_assessment
-from .audit import audit_task_evidence
+from .audit import Judge, audit_task_evidence
 from .challenge import confirm_challenge, start_challenge
 from .config import ModelConfig, Settings
 from .conflicts import resolve_conflict, save_conflict
@@ -178,7 +178,7 @@ class AgentDeps:
     cwd: Path
     settings: Settings
     http: httpx.AsyncClient = field(default_factory=httpx.AsyncClient)
-    judge: object | None = None
+    judge: Judge | None = None
     judge_provider: str = ""
     judge_model: str = ""
     previous_call: dict | None = None
@@ -327,12 +327,6 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         system_prompt=SYSTEM_PROMPT,
         deps_type=AgentDeps,
         name="intel-agent",
-    )
-    judge_cfg = settings.audit_model or settings.model
-    judge = (
-        JudgeAgent(judge_cfg, settings.audit_api_key())
-        if settings.audit_api_key()
-        else None
     )
 
     @agent.tool(name="web_search")
@@ -661,15 +655,19 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             set_task_stage(ctx.deps.cwd, task_id, stage)
         return summarize_task(ctx.deps.cwd, task_id)
 
-    def init_deps(cwd: Path, settings: Settings | None = None) -> AgentDeps:
-        settings = settings or Settings()
-        ensure_intel_dirs(cwd)
-        deps = AgentDeps(cwd=cwd, settings=settings)
-        if judge is not None:
-            deps.judge = judge
-            deps.judge_provider = judge.provider_name
-            deps.judge_model = judge.model_name
-        return deps
-
-    agent.init_deps = init_deps  # type: ignore[attr-defined]
     return agent
+
+
+def build_deps(cwd: Path, settings: Settings | None = None) -> AgentDeps:
+    settings = settings or Settings()
+    ensure_intel_dirs(cwd)
+    deps = AgentDeps(cwd=cwd, settings=settings)
+    if settings.audit_api_key():
+        judge = JudgeAgent(
+            settings.audit_model or settings.model,
+            settings.audit_api_key(),
+        )
+        deps.judge = judge
+        deps.judge_provider = judge.provider_name
+        deps.judge_model = judge.model_name
+    return deps
