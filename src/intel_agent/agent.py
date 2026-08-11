@@ -1,4 +1,4 @@
-"""Pydantic AI agent: 15 tools + system prompt (port of index.ts + AGENTS.md).
+"""Pydantic AI collection agent and its evidence workflow tools.
 
 Port differences from the TypeScript original: tools are plain decorated
 functions on a pydantic-ai Agent (vs. pi.registerTool); budget/duplicate
@@ -29,7 +29,9 @@ from .challenge import confirm_challenge, start_challenge
 from .config import ModelConfig, Settings
 from .conflicts import resolve_conflict, save_conflict
 from .coverage import eval_coverage
-from .evidence import list_evidence_for_task, save_evidence
+from .crawl import crawl_collect as run_crawl_collect
+from .crawl import create_crawl
+from .evidence import list_evidence_for_task, load_document, save_evidence
 from .fact import load_fact, save_fact, supersede_fact
 from .fetch import DEFAULT_MAX_BYTES, fetch_document
 from .models import (
@@ -41,10 +43,15 @@ from .models import (
 )
 from .package import generate_package
 from .search import build_query_variants, is_broad_query, web_search
-from .storage import ensure_intel_dirs
+from .storage import (
+    ensure_intel_dirs,
+    verify_document_integrity,
+    workspace_path,
+)
 from .task import (
     FETCH_ATTEMPT_LIMIT,
     create_task,
+    load_task,
     record_evidence_progress,
     record_fetch_attempt,
     record_search_attempt,
@@ -72,6 +79,7 @@ SYSTEM_PROMPT = """\
 11. 红队复审最多两轮；不得用复审前已有证据冒充新增证据。
 12. 自最近一次新增 evidence 起最多执行 6 次 `web_fetch`；收到 `COLLECTION_BUDGET_EXHAUSTED` 后不得继续猜测 URL，必须从已抓取文档存证、运行审核/覆盖评估，或接受缺口停止。
 13. 每个任务最多执行 6 次 `web_search`。收到 `SEARCH_BUDGET_EXHAUSTED` 后不得继续换词搜索，必须使用已有候选来源或接受检索缺口。
+14. 深度抓取任务中，`web_search` 只负责播种；必须调用 `crawl_collect` 清空可执行队列，并用 `document_read` 读取完整提取的归档正文后才能评估覆盖。
 
 ## 工作流
 
@@ -327,6 +335,55 @@ def _archived_urls(cwd: Path) -> set[str]:
     return urls
 
 
+def _seed_active_crawl(cwd: Path, settings: Settings, result: dict) -> None:
+    try:
+        task = load_task(cwd)
+    except IntelError as error:
+        if error.code == "NOT_FOUND":
+            return
+        raise
+    if not task.deep_crawl:
+        return
+    urls = [
+        str(item["url"])
+        for item in result.get("results", [])
+        if isinstance(item, dict) and item.get("url")
+    ]
+    if urls:
+        create_crawl(cwd, task.id, urls, settings.crawl)
+
+
+def _read_document_lines(
+    cwd: Path, document_id: str, start_line: int, end_line: int
+) -> dict:
+    document = load_document(cwd, document_id)
+    verify_document_integrity(cwd, document)
+    if document.extraction_status != "complete":
+        raise IntelError(
+            "EXTRACTION_UNAVAILABLE",
+            f"文档正文提取未成功: {document.id}",
+        )
+    lines = (
+        workspace_path(cwd, document.text_path)
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    if not 1 <= start_line <= end_line <= len(lines):
+        raise IntelError(
+            "INVALID_INPUT",
+            f"行号范围必须满足 1 <= start_line <= end_line <= {len(lines)}",
+        )
+    return {
+        "document_id": document.id,
+        "start_line": start_line,
+        "end_line": end_line,
+        "content": "\n".join(
+            f"{number}: {lines[number - 1]}"
+            for number in range(start_line, end_line + 1)
+        ),
+    }
+
+
 def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
     settings = settings or Settings()
     api_key = settings.model_api_key()
@@ -383,6 +440,7 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             if time_range
             else {"category": category, "language": language},
         )
+        _seed_active_crawl(ctx.deps.cwd, ctx.deps.settings, result)
         # 标记已归档 URL：防止模型反复抓取同一批候选，倒逼换词/翻页
         archived = _archived_urls(ctx.deps.cwd)
         for item in result.get("results", []):
@@ -400,6 +458,36 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             else "优先抓取 already_archived=false 的结果。"
         )
         return result
+
+    @agent.tool(name="crawl_collect")
+    async def crawl_collect_tool(
+        ctx: RunContext[AgentDeps], task_id: str
+    ) -> dict:
+        """运行或恢复任务的深度抓取队列；不消耗逐页 web_fetch 预算。"""
+        return await _guarded(lambda: _crawl_collect(ctx, task_id))
+
+    async def _crawl_collect(ctx, task_id) -> dict:
+        task = load_task(ctx.deps.cwd, task_id)
+        if not task.deep_crawl:
+            raise IntelError("INVALID_INPUT", "该任务未启用深度抓取")
+        snapshot = await run_crawl_collect(
+            ctx.deps.cwd, task.id, config=ctx.deps.settings.crawl
+        )
+        return snapshot.model_dump()
+
+    @agent.tool(name="document_read")
+    def document_read_tool(
+        ctx: RunContext[AgentDeps],
+        document_id: str,
+        start_line: int,
+        end_line: int,
+    ) -> dict:
+        """按 1-based 行号读取已校验且完整提取的归档正文。"""
+        return _guarded_sync(
+            lambda: _read_document_lines(
+                ctx.deps.cwd, document_id, start_line, end_line
+            )
+        )
 
     @agent.tool(name="web_fetch")
     async def web_fetch_tool(
@@ -625,14 +713,21 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         topic: str,
         questions: list[str],
         criteria: SufficiencyCriteria,
+        deep_crawl: bool = False,
     ) -> dict:
         """创建情报任务、稳定的问题 ID、充分性标准和检索词建议。每次调用创建新任务。"""
         return _guarded_sync(
-            lambda: _intel_plan(ctx, topic, questions, criteria)
+            lambda: _intel_plan(ctx, topic, questions, criteria, deep_crawl)
         )
 
-    def _intel_plan(ctx, topic, questions, criteria) -> dict:
-        task = create_task(ctx.deps.cwd, topic, questions, criteria)
+    def _intel_plan(ctx, topic, questions, criteria, deep_crawl) -> dict:
+        task = create_task(
+            ctx.deps.cwd,
+            topic,
+            questions,
+            criteria,
+            deep_crawl=deep_crawl,
+        )
         return {
             "task": task.model_dump(),
             "query_plan": [

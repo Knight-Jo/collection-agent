@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import mimetypes
+import threading
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -565,14 +566,24 @@ class _CrawlRunner:
                 entry.updated_at = utc_now()
                 await self.persist()
                 return []
-            extracted = await asyncio.to_thread(
-                extract_resource,
-                response.body,
-                mime_type,
-                final_url_string,
-                ocr_languages=self.config.ocr_languages,
-                whisper_model=self.config.whisper_model,
+            cancellation_event = threading.Event()
+            extraction = asyncio.create_task(
+                asyncio.to_thread(
+                    extract_resource,
+                    response.body,
+                    mime_type,
+                    final_url_string,
+                    ocr_languages=self.config.ocr_languages,
+                    whisper_model=self.config.whisper_model,
+                    cancellation_event=cancellation_event,
+                )
             )
+            try:
+                extracted = await asyncio.shield(extraction)
+            except asyncio.CancelledError:
+                cancellation_event.set()
+                await extraction
+                raise
             document = _archive_resource(
                 self.cwd,
                 entry.canonical_url,
@@ -640,33 +651,42 @@ async def crawl_collect(
         robots_allowed,
         sleep,
     )
-    while queued := [
-        entry for entry in snapshot.entries if entry.status == "queued"
-    ]:
-        batch = sorted(
-            queued, key=lambda item: (item.priority, item.created_at)
-        )[: config.concurrency]
-        link_groups = await asyncio.gather(
-            *(runner.fetch(entry) for entry in batch)
-        )
-        _deduplicate_entries(snapshot)
-        for parent, links in zip(batch, link_groups, strict=True):
-            for link in links:
-                source_priority = (
-                    1
-                    if (urlparse(link).hostname or "").endswith(
-                        (".gov", ".gov.cn")
+    try:
+        while queued := [
+            entry for entry in snapshot.entries if entry.status == "queued"
+        ]:
+            batch = sorted(
+                queued, key=lambda item: (item.priority, item.created_at)
+            )[: config.concurrency]
+            link_groups = await asyncio.gather(
+                *(runner.fetch(entry) for entry in batch)
+            )
+            _deduplicate_entries(snapshot)
+            for parent, links in zip(batch, link_groups, strict=True):
+                for link in links:
+                    source_priority = (
+                        1
+                        if (urlparse(link).hostname or "").endswith(
+                            (".gov", ".gov.cn")
+                        )
+                        else 0
                     )
-                    else 0
-                )
-                enqueue_url(
-                    snapshot,
-                    link,
-                    parent_url=parent.canonical_url,
-                    depth=parent.depth + 1,
-                    source_priority=source_priority,
-                )
+                    enqueue_url(
+                        snapshot,
+                        link,
+                        parent_url=parent.canonical_url,
+                        depth=parent.depth + 1,
+                        source_priority=source_priority,
+                    )
+            await runner.persist()
+    except asyncio.CancelledError:
+        for entry in snapshot.entries:
+            if entry.status == "fetching":
+                entry.status = "queued"
+                entry.updated_at = utc_now()
+        snapshot.status = "paused"
         await runner.persist()
+        raise
     snapshot.status = "complete"
     await runner.persist()
     return snapshot

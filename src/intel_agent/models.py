@@ -127,6 +127,7 @@ class IntelTask(BaseModel):
     stage: TaskStage
     questions: list[IntelQuestion]
     criteria: SufficiencyCriteria
+    deep_crawl: bool = False
     collection: CollectionState = Field(default_factory=CollectionState)
     outputs: TaskOutputs = Field(default_factory=TaskOutputs)
     challenge_round: int = 0

@@ -28,6 +28,7 @@ class TaskRunSpec(BaseModel):
     topic: str
     questions: list[str]
     criteria: SufficiencyCriteria
+    deep_crawl: bool | None = None
 
     @field_validator("topic")
     @classmethod
@@ -67,6 +68,12 @@ def build_task_prompt(spec: TaskRunSpec) -> str:
         if criteria.require_recency
         else "（非强制，仅统计缺口不阻断）"
     )
+    deep_crawl_instruction = (
+        "web_search 会把候选 URL 加入任务抓取队列；完成检索后调用 crawl_collect(task_id)，"
+        "再读取文档、保存证据并评估覆盖。\n"
+        if spec.deep_crawl
+        else "使用逐页 web_fetch 收集文档。\n"
+    )
     return (
         f"请围绕主题「{spec.topic}」执行公开来源情报收集与研判。\n"
         f"【关键问题·必须原样使用】调用 intel_plan 时必须原样使用下列问题，不得替换、增删或改写：\n"
@@ -74,6 +81,8 @@ def build_task_prompt(spec: TaskRunSpec) -> str:
         f"【充分性标准·必须照此设置】min_independent_sources={criteria.min_independent_sources}，"
         f"min_high_quality_sources={criteria.min_high_quality_sources}，recency_days={criteria.recency_days}，"
         f"require_recency={str(criteria.require_recency).lower()}（{recency_required}）。\n"
+        f"【深度抓取】调用 intel_plan 时必须设置 deep_crawl={str(bool(spec.deep_crawl)).lower()}。"
+        f"{deep_crawl_instruction}"
         f"【检索纪律】先按问题逐一 web_search（每问题至少一次），优先官方/政府/主流新闻/学术来源；"
         f"每问题定向抓取 2-3 篇不同来源组的文档；同一问题至少 2 个独立来源组才可能达到 covered。\n"
         f"【检索多样性·重要】避免反复抓取同一批结果：web_search 返回的 already_archived=true 表示"
@@ -109,10 +118,19 @@ async def run_agent_task(
     cancellation_token: CancellationToken | None = None,
 ) -> AgentRunResult[str]:
     """Run one task and forward each native Pydantic AI event."""
+    resolved_spec = spec.model_copy(
+        update={
+            "deep_crawl": (
+                settings.crawl.enabled_by_default
+                if spec.deep_crawl is None
+                else spec.deep_crawl
+            )
+        }
+    )
     agent = build_agent(settings)
     deps = build_deps(cwd, settings)
     async with agent.run_stream_events(
-        build_task_prompt(spec),
+        build_task_prompt(resolved_spec),
         deps=deps,
         usage_limits=UsageLimits(request_limit=settings.budgets.request_limit),
         cancellation_token=cancellation_token,

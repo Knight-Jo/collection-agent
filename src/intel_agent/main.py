@@ -43,6 +43,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--require-recency", action="store_true", help="强制时效要求"
     )
     parser.add_argument(
+        "--deep-crawl",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="启用深度抓取（省略时使用配置默认值）",
+    )
+    parser.add_argument(
         "--max-turns", type=int, default=40, help="agent 最大工具轮次"
     )
     parser.add_argument(
@@ -124,6 +130,7 @@ async def _run(args: argparse.Namespace) -> int:
             recency_days=args.recency,
             require_recency=args.require_recency,
         ),
+        deep_crawl=args.deep_crawl,
     )
     result = await run_agent_task(Path(args.cwd), settings, spec)
     if args.trace:

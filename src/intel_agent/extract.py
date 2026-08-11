@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
+import threading
 from html.parser import HTMLParser
 from importlib import import_module
 from io import BytesIO
@@ -152,15 +155,82 @@ def _number_lines(text: str) -> str:
     )
 
 
-def _ocr_image(raw: bytes, languages: str) -> str:
-    pytesseract = import_module("pytesseract")
-    image_module = import_module("PIL.Image")
-
-    with image_module.open(BytesIO(raw)) as image:
-        return str(pytesseract.image_to_string(image, lang=languages))
+class _ExtractionCancelled(Exception):
+    pass
 
 
-def _extract_pdf(raw: bytes, languages: str) -> tuple[str, list[str], str]:
+def _terminate_process(process: subprocess.Popen[bytes]) -> None:
+    if process.poll() is not None:
+        return
+    if os.name == "posix":
+        os.killpg(process.pid, signal.SIGTERM)
+    else:
+        process.terminate()
+    try:
+        process.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        if os.name == "posix":
+            os.killpg(process.pid, signal.SIGKILL)
+        else:
+            process.kill()
+        process.wait()
+
+
+def _run_process(
+    command: list[str], cancellation_event: threading.Event | None = None
+) -> subprocess.CompletedProcess[bytes]:
+    """Run one owned child process and terminate it when extraction stops."""
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=os.name == "posix",
+    )
+    while True:
+        if cancellation_event is not None and cancellation_event.is_set():
+            _terminate_process(process)
+            raise _ExtractionCancelled("extraction cancelled")
+        try:
+            stdout, stderr = process.communicate(timeout=0.05)
+            break
+        except subprocess.TimeoutExpired:
+            continue
+    completed = subprocess.CompletedProcess(
+        command, process.returncode, stdout, stderr
+    )
+    if completed.returncode:
+        raise subprocess.CalledProcessError(
+            completed.returncode,
+            command,
+            output=stdout,
+            stderr=stderr,
+        )
+    return completed
+
+
+def _ocr_image(
+    raw: bytes,
+    languages: str,
+    cancellation_event: threading.Event | None = None,
+) -> str:
+    executable = shutil.which("tesseract")
+    if not executable:
+        raise FileNotFoundError("tesseract")
+    with tempfile.TemporaryDirectory() as directory:
+        source = Path(directory) / "source.img"
+        source.write_bytes(raw)
+        result = _run_process(
+            [executable, str(source), "stdout", "-l", languages],
+            cancellation_event,
+        )
+        return result.stdout.decode("utf-8", errors="replace")
+
+
+def _extract_pdf(
+    raw: bytes,
+    languages: str,
+    cancellation_event: threading.Event | None = None,
+) -> tuple[str, list[str], str]:
     import fitz
 
     document = fitz.open(stream=raw, filetype="pdf")
@@ -179,7 +249,12 @@ def _extract_pdf(raw: bytes, languages: str) -> tuple[str, list[str], str]:
         pages = []
         for page in document:
             pixmap = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
-            pages.append(_ocr_image(pixmap.tobytes("png"), languages))
+            image = pixmap.tobytes("png")
+            pages.append(
+                _ocr_image(image, languages)
+                if cancellation_event is None
+                else _ocr_image(image, languages, cancellation_event)
+            )
         return _number_lines("\n".join(pages)), links, "tesseract"
     finally:
         document.close()
@@ -240,14 +315,19 @@ def _extract_pptx(raw: bytes, base_url: str) -> tuple[str, list[str]]:
     return text, links + _text_links(text, base_url)
 
 
-def _convert_legacy_office(raw: bytes, suffix: str, target: str) -> bytes:
+def _convert_legacy_office(
+    raw: bytes,
+    suffix: str,
+    target: str,
+    cancellation_event: threading.Event | None = None,
+) -> bytes:
     executable = shutil.which("libreoffice")
     if not executable:
         raise FileNotFoundError("libreoffice")
     with tempfile.TemporaryDirectory() as directory:
         source = Path(directory) / f"source.{suffix}"
         source.write_bytes(raw)
-        subprocess.run(
+        _run_process(
             [
                 executable,
                 "--headless",
@@ -257,8 +337,7 @@ def _convert_legacy_office(raw: bytes, suffix: str, target: str) -> bytes:
                 directory,
                 str(source),
             ],
-            check=True,
-            capture_output=True,
+            cancellation_event,
         )
         output = Path(directory) / f"source.{target}"
         if not output.exists():
@@ -267,7 +346,10 @@ def _convert_legacy_office(raw: bytes, suffix: str, target: str) -> bytes:
 
 
 def _transcribe_media(
-    raw: bytes, suffix: str, model_name: str
+    raw: bytes,
+    suffix: str,
+    model_name: str,
+    cancellation_event: threading.Event | None = None,
 ) -> list[tuple[float, float, str]]:
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
@@ -278,7 +360,7 @@ def _transcribe_media(
         source = Path(directory) / f"source{suffix or '.bin'}"
         audio = Path(directory) / "audio.wav"
         source.write_bytes(raw)
-        subprocess.run(
+        _run_process(
             [
                 ffmpeg,
                 "-loglevel",
@@ -292,8 +374,7 @@ def _transcribe_media(
                 "16000",
                 str(audio),
             ],
-            check=True,
-            capture_output=True,
+            cancellation_event,
         )
         segments, _ = whisper_model_class(model_name).transcribe(str(audio))
         return [
@@ -330,6 +411,7 @@ def extract_resource(
     *,
     ocr_languages: str = "chi_sim+eng",
     whisper_model: str = "small",
+    cancellation_event: threading.Event | None = None,
 ) -> ExtractionResult:
     """Extract supported content without making optional processors mandatory."""
     mime = mime_type.split(";", 1)[0].strip().lower()
@@ -358,19 +440,27 @@ def extract_resource(
                 processor="html",
             )
         if mime == "application/pdf" or suffix == ".pdf":
-            text, links, processor = _extract_pdf(raw, ocr_languages)
+            text, links, processor = _extract_pdf(
+                raw, ocr_languages, cancellation_event
+            )
             return ExtractionResult(
                 status="complete", text=text, links=links, processor=processor
             )
         office_type = _OFFICE_MIMES.get(mime) or suffix.lstrip(".")
         if office_type == "doc":
-            raw = _convert_legacy_office(raw, "doc", "docx")
+            raw = _convert_legacy_office(
+                raw, "doc", "docx", cancellation_event
+            )
             office_type = "docx"
         elif office_type == "xls":
-            raw = _convert_legacy_office(raw, "xls", "xlsx")
+            raw = _convert_legacy_office(
+                raw, "xls", "xlsx", cancellation_event
+            )
             office_type = "xlsx"
         elif office_type == "ppt":
-            raw = _convert_legacy_office(raw, "ppt", "pptx")
+            raw = _convert_legacy_office(
+                raw, "ppt", "pptx", cancellation_event
+            )
             office_type = "pptx"
         if office_type == "docx":
             text, links = _extract_docx(raw, url)
@@ -398,14 +488,24 @@ def extract_resource(
         ):
             return ExtractionResult(
                 status="complete",
-                text=_number_lines(_ocr_image(raw, ocr_languages)),
+                text=_number_lines(
+                    _ocr_image(raw, ocr_languages)
+                    if cancellation_event is None
+                    else _ocr_image(raw, ocr_languages, cancellation_event)
+                ),
                 processor="tesseract",
             )
         if mime in _AUDIO_MIMES | _VIDEO_MIMES or (
             mime in _GENERIC_MIMES
             and suffix in _AUDIO_SUFFIXES | _VIDEO_SUFFIXES
         ):
-            segments = _transcribe_media(raw, suffix, whisper_model)
+            segments = (
+                _transcribe_media(raw, suffix, whisper_model)
+                if cancellation_event is None
+                else _transcribe_media(
+                    raw, suffix, whisper_model, cancellation_event
+                )
+            )
             text = "\n".join(
                 f"[{_timestamp(start)} --> {_timestamp(end)}] {segment}"
                 for start, end, segment in segments

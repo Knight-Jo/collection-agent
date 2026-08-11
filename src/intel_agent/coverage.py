@@ -27,7 +27,7 @@ from .storage import (
     verify_document_integrity,
     write_json_atomic,
 )
-from .task import load_task
+from .task import load_task, require_crawl_complete
 
 HIGH_QUALITY: set[SourceType] = {"official", "government", "news", "academic"}
 
@@ -218,6 +218,7 @@ def eval_coverage(
 ) -> CoverageSnapshot:
     now = now or datetime.now(UTC)
     task = load_task(cwd, task_id)
+    require_crawl_complete(cwd, task)
     conflicts = load_conflicts(cwd, task.id)
     per_question = [
         _evaluate_question(cwd, task.id, q.id, conflicts, now)

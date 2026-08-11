@@ -19,6 +19,7 @@ from .models import (
 )
 from .storage import (
     intel_path,
+    load_crawl,
     read_json,
     read_json_object,
     sha256,
@@ -40,6 +41,7 @@ def create_task(
     topic: str,
     questions: list[str],
     criteria: SufficiencyCriteria | dict,
+    deep_crawl: bool = False,
 ) -> IntelTask:
     """Create a task with stable question IDs and persist it as the active task."""
     if isinstance(criteria, dict):
@@ -67,6 +69,7 @@ def create_task(
             IntelQuestion(id=new_id("q"), text=text) for text in question_texts
         ],
         criteria=criteria,
+        deep_crawl=deep_crawl,
         created_at=now,
         updated_at=now,
     )
@@ -83,6 +86,24 @@ def load_task(cwd: Path, task_id: str | None = None) -> IntelTask:
 
 def save_task(cwd: Path, task: IntelTask) -> None:
     write_json_atomic(cwd, f"tasks/{task.id}.json", task.model_dump())
+
+
+def require_crawl_complete(cwd: Path, task: IntelTask) -> None:
+    """Reject workflow assessment while a deep-crawl frontier is executable."""
+    if not task.deep_crawl:
+        return
+    try:
+        crawl = load_crawl(cwd, task.id)
+    except IntelError as error:
+        if error.code != "NOT_FOUND":
+            raise
+        raise IntelError(
+            "CRAWL_INCOMPLETE", "深度抓取尚未开始，不能评估覆盖"
+        ) from error
+    if any(entry.status in {"queued", "fetching"} for entry in crawl.entries):
+        raise IntelError(
+            "CRAWL_INCOMPLETE", "深度抓取仍有待处理 URL，不能评估覆盖"
+        )
 
 
 def record_fetch_attempt(cwd: Path, task_id: str | None = None) -> dict:
@@ -238,6 +259,7 @@ def set_task_stage(cwd: Path, task_id: str, stage: TaskStage) -> IntelTask:
             "INVALID_STAGE_TRANSITION", f"非法阶段转换: {task.stage} → {stage}"
         )
     if stage == "assess":
+        require_crawl_complete(cwd, task)
         coverage_path = f"coverage/{task.id}.json"
         if not intel_path(cwd, coverage_path).exists():
             raise IntelError(

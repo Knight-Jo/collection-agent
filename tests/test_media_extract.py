@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+import os
+import sys
+import threading
+import time
+
 import pytest
 
+import intel_agent.extract as extract_module
 from intel_agent.extract import extract_resource, is_rejected_resource
 
 
@@ -113,3 +119,44 @@ def test_rejects_unlisted_media_formats(mime_type, url):
 )
 def test_rejects_archives_scripts_and_executables(mime_type, url):
     assert is_rejected_resource(mime_type, url)
+
+
+def test_owned_subprocess_terminates_when_extraction_is_cancelled(tmp_path):
+    run_process = getattr(extract_module, "_run_process", None)
+    assert callable(run_process)
+    pid_path = tmp_path / "child.pid"
+    cancelled = threading.Event()
+    outcome: list[BaseException] = []
+
+    def run() -> None:
+        try:
+            run_process(
+                [
+                    sys.executable,
+                    "-c",
+                    (
+                        "import os,time,pathlib;"
+                        f"pathlib.Path({str(pid_path)!r}).write_text(str(os.getpid()));"
+                        "time.sleep(30)"
+                    ),
+                ],
+                cancelled,
+            )
+        except BaseException as error:
+            outcome.append(error)
+
+    worker = threading.Thread(target=run)
+    worker.start()
+    deadline = time.monotonic() + 2
+    while not pid_path.exists() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert pid_path.exists()
+    pid = int(pid_path.read_text())
+
+    cancelled.set()
+    worker.join(timeout=2)
+
+    assert not worker.is_alive()
+    assert outcome
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
