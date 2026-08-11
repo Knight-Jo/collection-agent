@@ -20,12 +20,20 @@ function eventLabel(event: RunEvent) {
     const labels = toolLabels[String(event.data.tool_name)] ?? ["正在执行研究步骤", "研究步骤已完成"];
     return event.type === "tool.started" ? labels[0] : labels[1];
   }
+  if (event.type === "crawl.progress") {
+    const counts = event.data.counts as Record<string, number> | undefined;
+    const completed = (counts?.complete ?? 0) + (counts?.reused ?? 0);
+    return `深度抓取进度：已完成 ${completed}，待处理 ${counts?.queued ?? 0}`;
+  }
   return {
     "run.started": "研究任务已启动",
     "task.updated": "任务状态已更新",
     "run.completed": "研究任务已完成",
     "run.cancelled": "研究任务已停止",
     "run.failed": "研究任务执行失败",
+    "crawl.started": "正在开始深度抓取",
+    "crawl.resource": "已发现抓取资源",
+    "crawl.completed": "深度抓取已完成",
   }[event.type] ?? "研究进度已更新";
 }
 
@@ -35,10 +43,10 @@ export function RunTimeline({ events }: { events: RunEvent[] }) {
     <ol className="timeline" aria-label="实时进度">
       {events.map((event) => {
         const failed = event.type === "run.failed" || event.type === "run.cancelled";
-        const running = event.type === "tool.started" || event.type === "run.started";
+        const running = ["tool.started", "run.started", "crawl.started", "crawl.progress"].includes(event.type);
         const Icon = failed ? XCircle : running ? CircleEllipsis : CheckCircle2;
         return (
-          <li key={event.id}>
+          <li key={event.id} data-state={failed ? "failed" : running ? "running" : "completed"}>
             <Icon size={18} />
             <div><strong>{eventLabel(event)}</strong><time>{new Date(event.timestamp).toLocaleTimeString("zh-CN")}</time></div>
           </li>

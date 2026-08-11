@@ -1,14 +1,20 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { ArrowRight, Plus, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { api } from "../api";
 import type { Run, RunInput } from "../types";
 
 export function NewTaskPage({ createRun }: { createRun: (input: RunInput) => Promise<Run> | Run | void }) {
   const navigate = useNavigate();
   const [topic, setTopic] = useState("");
   const [questions, setQuestions] = useState(["", ""]);
+  const [deepCrawl, setDeepCrawl] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    api.system().then((system) => setDeepCrawl(system.crawl.default_enabled)).catch(() => undefined);
+  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -21,6 +27,7 @@ export function NewTaskPage({ createRun }: { createRun: (input: RunInput) => Pro
       const run = await createRun({
         topic: topic.trim(),
         questions: cleanQuestions,
+        deep_crawl: deepCrawl,
         criteria: {
           min_independent_sources: 2,
           min_high_quality_sources: 1,
@@ -54,6 +61,7 @@ export function NewTaskPage({ createRun }: { createRun: (input: RunInput) => Pro
           ))}
           {questions.length < 6 && <button className="text-button" type="button" onClick={() => setQuestions((items) => [...items, ""])}><Plus size={17} />添加问题</button>}
         </fieldset>
+        <label className="crawl-toggle"><input type="checkbox" aria-label="启用深度抓取" checked={deepCrawl} onChange={(event) => setDeepCrawl(event.target.checked)} />启用深度抓取<span>递归抓取可访问的关联页面和附件。</span></label>
         {error && <p className="form-error" role="alert">{error}</p>}
         <div className="form-footer"><p>默认要求每项事实至少有 2 个独立来源，其中 1 个为高质量来源。</p><button className="primary-button" disabled={submitting}>{submitting ? "正在创建…" : "开始研究"}<ArrowRight size={18} /></button></div>
       </form>

@@ -11,6 +11,7 @@ export interface Criteria {
 export interface RunInput {
   topic: string;
   questions: string[];
+  deep_crawl: boolean;
   criteria: Criteria;
 }
 
@@ -46,6 +47,21 @@ export interface SystemStatus {
   model: { name: string; configured: boolean };
   audit: { name: string; configured: boolean };
   search: { name: string; configured: boolean };
+  crawl: { default_enabled: boolean };
+  processors: { tesseract: boolean; ffmpeg: boolean; whisper: boolean; libreoffice: boolean };
+}
+
+export interface CrawlResource {
+  canonical_url: string;
+  source_chain: string[];
+  depth: number;
+  status: "queued" | "fetching" | "complete" | "reused" | "skipped_robots" | "skipped_http" | "skipped_limit" | "skipped_unsupported" | "failed";
+  mime_type: string | null;
+  size: number | null;
+  downloaded_bytes: number;
+  document_id: string | null;
+  extraction: { status: "pending" | "complete" | "unavailable" | "failed" | "skipped"; processor: string | null; text_path: string | null; error: string | null };
+  error: string | null;
 }
 
 export interface Evidence {
@@ -101,6 +117,7 @@ export interface TaskDetail {
     status: string;
     points: Array<{ id: string; challenge: string; status: string }>;
   }>;
+  resources: CrawlResource[];
 }
 
 export interface Artifact {

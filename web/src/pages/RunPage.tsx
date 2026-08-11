@@ -14,7 +14,7 @@ export function RunPage() {
     let active = true;
     api.run(runId).then((value) => active && setRun(value)).catch((cause) => setError(cause.message));
     const source = new EventSource(`/api/runs/${runId}/events`);
-    const types = ["run.started", "tool.started", "tool.completed", "task.updated", "run.completed", "run.cancelled", "run.failed"];
+    const types = ["run.started", "tool.started", "tool.completed", "task.updated", "crawl.started", "crawl.progress", "crawl.resource", "crawl.completed", "run.completed", "run.cancelled", "run.failed"];
     types.forEach((type) => source.addEventListener(type, (event) => {
       const message = event as MessageEvent;
       const next = { id: Number(message.lastEventId), type, timestamp: new Date().toISOString(), data: JSON.parse(message.data) };
