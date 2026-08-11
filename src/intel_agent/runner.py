@@ -128,7 +128,7 @@ async def run_agent_task(
         }
     )
     agent = build_agent(settings)
-    deps = build_deps(cwd, settings)
+    deps = build_deps(cwd, settings, deep_crawl=bool(resolved_spec.deep_crawl))
     async with agent.run_stream_events(
         build_task_prompt(resolved_spec),
         deps=deps,

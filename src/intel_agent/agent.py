@@ -193,6 +193,7 @@ Resolution = Annotated[
 class AgentDeps:
     cwd: Path
     settings: Settings
+    deep_crawl: bool = False
     http: httpx.AsyncClient = field(default_factory=httpx.AsyncClient)
     judge: Judge | None = None
     judge_provider: str = ""
@@ -377,10 +378,15 @@ def _read_document_lines(
         "document_id": document.id,
         "start_line": start_line,
         "end_line": end_line,
-        "content": "\n".join(
-            f"{number}: {lines[number - 1]}"
-            for number in range(start_line, end_line + 1)
+        "content": (
+            "<untrusted_web_content>\n"
+            + "\n".join(
+                f"{number}: {lines[number - 1]}"
+                for number in range(start_line, end_line + 1)
+            )
+            + "\n</untrusted_web_content>"
         ),
+        "injection_warnings": document.injection_warnings,
     }
 
 
@@ -717,16 +723,16 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
     ) -> dict:
         """创建情报任务、稳定的问题 ID、充分性标准和检索词建议。每次调用创建新任务。"""
         return _guarded_sync(
-            lambda: _intel_plan(ctx, topic, questions, criteria, deep_crawl)
+            lambda: _intel_plan(ctx, topic, questions, criteria)
         )
 
-    def _intel_plan(ctx, topic, questions, criteria, deep_crawl) -> dict:
+    def _intel_plan(ctx, topic, questions, criteria) -> dict:
         task = create_task(
             ctx.deps.cwd,
             topic,
             questions,
             criteria,
-            deep_crawl=deep_crawl,
+            deep_crawl=ctx.deps.deep_crawl,
         )
         return {
             "task": task.model_dump(),
@@ -761,10 +767,15 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
     return agent
 
 
-def build_deps(cwd: Path, settings: Settings | None = None) -> AgentDeps:
+def build_deps(
+    cwd: Path,
+    settings: Settings | None = None,
+    *,
+    deep_crawl: bool = False,
+) -> AgentDeps:
     settings = settings or Settings()
     ensure_intel_dirs(cwd)
-    deps = AgentDeps(cwd=cwd, settings=settings)
+    deps = AgentDeps(cwd=cwd, settings=settings, deep_crawl=deep_crawl)
     if settings.audit_api_key():
         judge = JudgeAgent(
             settings.audit_model or settings.model,

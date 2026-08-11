@@ -94,7 +94,8 @@ async def test_run_agent_task_streams_events(monkeypatch, cwd):
         "intel_agent.runner.build_agent", lambda _s: FakeAgent()
     )
     monkeypatch.setattr(
-        "intel_agent.runner.build_deps", lambda _cwd, _settings: "deps"
+        "intel_agent.runner.build_deps",
+        lambda _cwd, _settings, *, deep_crawl: "deps",
     )
 
     async def on_event(event: object) -> None:
