@@ -13,6 +13,7 @@ from __future__ import annotations
 import inspect
 import json
 import re
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Literal
@@ -42,7 +43,12 @@ from .models import (
     TaskStage,
 )
 from .package import generate_package
-from .search import build_query_variants, is_broad_query, web_search
+from .search import (
+    build_query_variants,
+    is_broad_query,
+    tokenize_query,
+    web_search,
+)
 from .storage import (
     ensure_intel_dirs,
     verify_document_integrity,
@@ -58,6 +64,11 @@ from .task import (
     set_task_stage,
     summarize_task,
 )
+
+_DOCUMENT_READ_MAX_LINES = 200
+_DOCUMENT_READ_MAX_BYTES = 16 * 1024
+_UNTRUSTED_OPEN = "<untrusted_web_content>\n"
+_UNTRUSTED_CLOSE = "\n</untrusted_web_content>"
 
 SYSTEM_PROMPT = """\
 # Intelligence Collection Agent
@@ -346,13 +357,37 @@ def _seed_active_crawl(cwd: Path, settings: Settings, result: dict) -> None:
         raise
     if not task.deep_crawl:
         return
-    urls = [
-        str(item["url"])
+    items = [
+        item
         for item in result.get("results", [])
         if isinstance(item, dict) and item.get("url")
     ]
+    urls = [str(item["url"]) for item in items]
     if urls:
-        create_crawl(cwd, task.id, urls, settings.crawl)
+        terms = tokenize_query(
+            " ".join(
+                [task.topic, *(question.text for question in task.questions)]
+            )
+        )
+        relevance: dict[str, float] = {}
+        for item, url in zip(items, urls, strict=True):
+            scores: list[float] = []
+            for key in ("relevance", "score", "hits"):
+                with suppress(TypeError, ValueError):
+                    scores.append(float(item.get(key, 0)))
+            text = " ".join(
+                str(item.get(key, "")) for key in ("title", "snippet", "url")
+            ).casefold()
+            relevance[url] = max(scores, default=0) + sum(
+                1 for term in terms if term.casefold() in text
+            )
+        create_crawl(
+            cwd,
+            task.id,
+            urls,
+            settings.crawl,
+            seed_relevance=relevance,
+        )
 
 
 def _read_document_lines(
@@ -375,18 +410,30 @@ def _read_document_lines(
             "INVALID_INPUT",
             f"行号范围必须满足 1 <= start_line <= end_line <= {len(lines)}",
         )
+    numbered_lines: list[str] = []
+    capped_end = min(end_line, start_line + _DOCUMENT_READ_MAX_LINES - 1)
+    for number in range(start_line, capped_end + 1):
+        candidate = numbered_lines + [f"{number}: {lines[number - 1]}"]
+        content = _UNTRUSTED_OPEN + "\n".join(candidate) + _UNTRUSTED_CLOSE
+        if len(content.encode("utf-8")) > _DOCUMENT_READ_MAX_BYTES:
+            break
+        numbered_lines = candidate
+    if not numbered_lines:
+        raise IntelError(
+            "INVALID_INPUT",
+            f"第 {start_line} 行超过单次读取字节上限",
+        )
+    actual_end = start_line + len(numbered_lines) - 1
+    has_more = actual_end < len(lines)
     return {
         "document_id": document.id,
         "start_line": start_line,
-        "end_line": end_line,
-        "content": (
-            "<untrusted_web_content>\n"
-            + "\n".join(
-                f"{number}: {lines[number - 1]}"
-                for number in range(start_line, end_line + 1)
-            )
-            + "\n</untrusted_web_content>"
-        ),
+        "end_line": actual_end,
+        "has_more": has_more,
+        "next_start_line": actual_end + 1 if has_more else None,
+        "content": _UNTRUSTED_OPEN
+        + "\n".join(numbered_lines)
+        + _UNTRUSTED_CLOSE,
         "injection_warnings": document.injection_warnings,
     }
 

@@ -215,6 +215,90 @@ async def test_web_search_seeds_only_enabled_active_task(monkeypatch, cwd):
 
 
 @pytest.mark.asyncio
+async def test_web_search_preserves_result_relevance_in_seed_priority(
+    monkeypatch, cwd
+):
+    task = create_task(
+        cwd,
+        "测试主题",
+        ["测试主题现状", "测试主题进展"],
+        DEFAULT_CRITERIA,
+        deep_crawl=True,
+    )
+
+    async def fake_search(*_args, **_kwargs):
+        return {
+            "results": [
+                {
+                    "url": "https://example.com/low",
+                    "title": "unrelated",
+                    "score": 0.1,
+                },
+                {
+                    "url": "https://example.com/high",
+                    "title": "测试主题进展",
+                    "score": 0.9,
+                },
+            ],
+            "engineUsed": "fake",
+        }
+
+    monkeypatch.setattr(agent_module, "web_search", fake_search)
+
+    await _tool(build_agent(Settings()), "web_search")(
+        _context(cwd), "具体 查询", 5, "general", "zh-CN", None
+    )
+
+    crawl = load_crawl(cwd, task.id)
+    entries = {entry.canonical_url: entry for entry in crawl.entries}
+    assert (
+        entries["https://example.com/high"].relevance
+        > entries["https://example.com/low"].relevance
+    )
+    assert (
+        entries["https://example.com/high"].priority
+        < entries["https://example.com/low"].priority
+    )
+
+
+@pytest.mark.asyncio
+async def test_web_search_does_not_seed_disabled_active_task(monkeypatch, cwd):
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+        deep_crawl=False,
+    )
+
+    async def fake_search(*_args, **_kwargs):
+        return {
+            "results": [{"url": "https://example.com/a", "title": "A"}],
+            "engineUsed": "fake",
+        }
+
+    monkeypatch.setattr(agent_module, "web_search", fake_search)
+
+    await _tool(build_agent(Settings()), "web_search")(
+        _context(cwd), "具体 查询", 5, "general", "zh-CN", None
+    )
+
+    with pytest.raises(IntelError) as error:
+        load_crawl(cwd, task.id)
+    assert error.value.code == "NOT_FOUND"
+
+
+def test_search_seeding_is_a_noop_without_an_active_task(cwd):
+    agent_module._seed_active_crawl(
+        cwd,
+        Settings(),
+        {"results": [{"url": "https://example.com/a"}]},
+    )
+
+    assert list((cwd / "data/intel/crawls").glob("*.json")) == []
+
+
+@pytest.mark.asyncio
 async def test_agent_crawl_collect_rejects_disabled_task(monkeypatch, cwd):
     task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
     called = False
@@ -244,6 +328,8 @@ def test_document_read_returns_bounded_numbered_verified_lines(cwd):
         "document_id": document.id,
         "start_line": 2,
         "end_line": 3,
+        "has_more": False,
+        "next_start_line": None,
         "content": (
             "<untrusted_web_content>\n"
             "2: second\n3: third\n"
@@ -260,6 +346,36 @@ def test_document_read_returns_bounded_numbered_verified_lines(cwd):
     (cwd / document.text_path).write_text("tampered", encoding="utf-8")
     tampered = tool(_context(cwd), document.id, 1, 1)
     assert tampered["error"]["code"] == "DOCUMENT_TAMPERED"
+
+
+def test_document_read_caps_each_call_at_200_lines(cwd):
+    document = make_document(
+        cwd, "\n".join(f"line {number}" for number in range(1, 251))
+    )
+
+    result = _tool(build_agent(Settings()), "document_read")(
+        _context(cwd), document.id, 1, 250
+    )
+
+    assert result["start_line"] == 1
+    assert result["end_line"] == 200
+    assert result["has_more"] is True
+    assert result["next_start_line"] == 201
+    assert "200: line 200" in result["content"]
+    assert "201: line 201" not in result["content"]
+
+
+def test_document_read_caps_each_call_at_16_kib_of_utf8(cwd):
+    document = make_document(cwd, "\n".join(["界" * 100] * 100))
+
+    result = _tool(build_agent(Settings()), "document_read")(
+        _context(cwd), document.id, 1, 100
+    )
+
+    assert len(result["content"].encode("utf-8")) <= 16_384
+    assert result["end_line"] < 100
+    assert result["has_more"] is True
+    assert result["next_start_line"] == result["end_line"] + 1
 
 
 def test_document_read_requires_complete_extraction(cwd):

@@ -7,6 +7,7 @@ import mimetypes
 import threading
 from collections import Counter
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -15,14 +16,13 @@ from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
 
 from .config import CrawlConfig
+from .extract import extract_resource_process as extract_resource
 from .extract import (
-    extract_resource,
     is_rejected_resource,
     is_supported_resource,
 )
 from .fetch import (
     DEFAULT_TIMEOUT_MS,
-    REDIRECT_STATUSES,
     USER_AGENT,
     FetchedResponse,
     FetchLike,
@@ -40,6 +40,7 @@ from .models import (
     IntelError,
     utc_now,
 )
+from .search import tokenize_query
 from .security import AddressResolver, source_group_of
 from .source import source_type_for_domain
 from .storage import (
@@ -53,8 +54,10 @@ from .storage import (
     write_file_atomic,
     write_json_atomic,
 )
+from .task import load_task
 
 RobotsAllowed = Callable[[str], Awaitable[bool]]
+RobotsFetch = Callable[[CrawlEntry, str], Awaitable[FetchedResponse]]
 Sleep = Callable[[float], Awaitable[None]]
 CrawlEventType = Literal[
     "crawl.started",
@@ -145,10 +148,38 @@ def enqueue_url(
 ) -> bool:
     """Add one canonical URL if it fits this task's hard frontier limits."""
     config = CrawlConfig.model_validate(snapshot.config)
-    if depth > config.max_depth or len(snapshot.entries) >= config.max_urls:
+    if depth > config.max_depth:
         return False
     canonical = canonicalize_url(raw_url)
-    if any(entry.canonical_url == canonical for entry in snapshot.entries):
+    existing = next(
+        (
+            entry
+            for entry in snapshot.entries
+            if entry.canonical_url == canonical
+        ),
+        None,
+    )
+    if existing is not None:
+        if existing.status == "queued" and relevance > existing.relevance:
+            if attachment is None:
+                attachment = Path(urlparse(canonical).path).suffix.lower() in (
+                    _ATTACHMENT_SUFFIXES
+                )
+            now = utc_now()
+            existing.relevance = relevance
+            existing.priority = min(
+                existing.priority,
+                _priority(
+                    existing.depth,
+                    relevance,
+                    source_priority,
+                    bool(attachment),
+                ),
+            )
+            existing.updated_at = now
+            snapshot.updated_at = now
+        return False
+    if len(snapshot.entries) >= config.max_urls:
         return False
     if attachment is None:
         attachment = Path(urlparse(canonical).path).suffix.lower() in (
@@ -160,6 +191,7 @@ def enqueue_url(
             canonical_url=canonical,
             parent_url=(canonicalize_url(parent_url) if parent_url else None),
             depth=depth,
+            relevance=relevance,
             priority=_priority(
                 depth, relevance, source_priority, bool(attachment)
             ),
@@ -176,6 +208,8 @@ def create_crawl(
     task_id: str,
     seeds: list[str],
     config: CrawlConfig,
+    *,
+    seed_relevance: dict[str, float] | None = None,
 ) -> CrawlSnapshot:
     """Create or resume one task's persisted crawl frontier."""
     try:
@@ -196,7 +230,13 @@ def create_crawl(
             updated_at=now,
         )
     for seed in seeds:
-        enqueue_url(snapshot, seed, parent_url=None, depth=0)
+        enqueue_url(
+            snapshot,
+            seed,
+            parent_url=None,
+            depth=0,
+            relevance=(seed_relevance or {}).get(seed, 0),
+        )
     save_crawl(cwd, snapshot)
     return snapshot
 
@@ -245,6 +285,7 @@ def _copy_cache(entry: CrawlEntry, cached: CrawlEntry) -> None:
     entry.validators = cached.validators.model_copy(deep=True)
     entry.extraction = cached.extraction.model_copy(deep=True)
     entry.outbound_links = list(cached.outbound_links)
+    entry.outbound_relevance = dict(cached.outbound_relevance)
     entry.updated_at = utc_now()
 
 
@@ -324,34 +365,27 @@ def _archive_resource(
 
 
 class _RobotsPolicy:
-    def __init__(
-        self,
-        fetcher: FetchLike,
-        resolver: AddressResolver | None,
-        max_bytes: int,
-    ):
-        self.fetcher = fetcher
-        self.resolver = resolver
-        self.max_bytes = max_bytes
+    def __init__(self, fetch: RobotsFetch):
+        self.fetch = fetch
         self.parsers: dict[str, RobotFileParser | None] = {}
         self.locks: dict[str, asyncio.Lock] = {}
 
-    async def allowed(self, url: str) -> bool:
+    async def allowed(self, entry: CrawlEntry, url: str) -> bool:
         parsed = urlparse(url)
         origin = f"{parsed.scheme}://{parsed.netloc}"
         async with self.locks.setdefault(origin, asyncio.Lock()):
             if origin not in self.parsers:
-                self.parsers[origin] = await self._load(origin)
+                self.parsers[origin] = await self._load(entry, origin)
         parser = self.parsers[origin]
         return True if parser is None else parser.can_fetch(USER_AGENT, url)
 
-    async def _load(self, origin: str) -> RobotFileParser | None:
+    async def _load(
+        self, entry: CrawlEntry, origin: str
+    ) -> RobotFileParser | None:
         robots_url = f"{origin}/robots.txt"
         try:
-            response, _ = await fetch_with_validated_redirects(
-                robots_url, self.fetcher, self.resolver, self.max_bytes
-            )
-        except (IntelError, TimeoutError):
+            response = await self.fetch(entry, robots_url)
+        except (IntelError, OSError, TimeoutError):
             return None
         parser = RobotFileParser(robots_url)
         if response.status == 200:
@@ -373,9 +407,10 @@ class _CrawlRunner:
         config: CrawlConfig,
         fetcher: FetchLike,
         resolver: AddressResolver | None,
-        robots_allowed: RobotsAllowed,
+        robots_allowed: RobotsAllowed | None,
         sleep: Sleep,
         on_event: CrawlEventCallback | None,
+        relevance_terms: list[str],
     ):
         self.cwd = cwd
         self.snapshot = snapshot
@@ -383,13 +418,22 @@ class _CrawlRunner:
         self.fetcher = fetcher
         self.resolver = resolver
         self.robots_allowed = robots_allowed
+        self.robots_policy = (
+            None
+            if robots_allowed is not None
+            else _RobotsPolicy(self._fetch_robots)
+        )
         self.sleep = sleep
         self.on_event = on_event
+        self.relevance_terms = relevance_terms
         self.global_semaphore = asyncio.Semaphore(config.concurrency)
+        self.io_semaphore = asyncio.Semaphore(config.concurrency)
         self.host_semaphores: dict[str, asyncio.Semaphore] = {}
         self.host_locks: dict[str, asyncio.Lock] = {}
         self.host_last_start: dict[str, float] = {}
         self.persist_lock = asyncio.Lock()
+        # ponytail: global byte lock serializes downloads; reserve ranges if
+        # throughput matters.
         self.byte_lock = asyncio.Lock()
         self.resource_statuses = {
             id(entry): entry.status for entry in snapshot.entries
@@ -436,41 +480,131 @@ class _CrawlRunner:
                 await self.sleep(delay)
             self.host_last_start[hostname] = loop.time()
 
-    async def _account_download(
-        self, entry: CrawlEntry, downloaded_bytes: int
-    ) -> None:
-        async with self.byte_lock:
-            entry.downloaded_bytes += downloaded_bytes
-            self.snapshot.downloaded_bytes += downloaded_bytes
-            exceeded = (
-                self.snapshot.downloaded_bytes > self.config.max_total_bytes
-            )
-        await self.persist()
-        if exceeded:
-            raise IntelError("CRAWL_LIMIT", "crawl byte limit reached")
-
     async def _fetch_hop(
         self,
         entry: CrawlEntry,
         url: str,
         request_init: dict | None,
         address: str,
+        *,
+        body_limit: int | None = None,
     ) -> FetchedResponse:
         hostname = urlparse(url).hostname or ""
         host_semaphore = self.host_semaphores.setdefault(
             hostname, asyncio.Semaphore(self.config.per_host_concurrency)
         )
-        async with host_semaphore:
+        async with self.io_semaphore, host_semaphore:
             await self.rate_limit(hostname)
-            response = await self.fetcher(url, request_init, address)
-            await self._account_download(entry, len(response.body))
-            if (
-                response.status in REDIRECT_STATUSES
-                and self.snapshot.downloaded_bytes
-                >= self.config.max_total_bytes
-            ):
-                raise IntelError("CRAWL_LIMIT", "crawl byte limit reached")
+            async with self.byte_lock:
+                remaining = (
+                    self.config.max_total_bytes
+                    - self.snapshot.downloaded_bytes
+                )
+                if remaining <= 0:
+                    raise IntelError("CRAWL_LIMIT", "crawl byte limit reached")
+                attachment_limit = min(
+                    remaining,
+                    body_limit or self.config.max_attachment_bytes,
+                )
+                html_limit = min(attachment_limit, self.config.max_html_bytes)
+                bounded_init = {
+                    **(request_init or {}),
+                    "_max_body_bytes": attachment_limit,
+                    "_max_html_bytes": html_limit,
+                }
+                try:
+                    response = await self.fetcher(url, bounded_init, address)
+                except IntelError as error:
+                    downloaded = min(
+                        max(0, error.downloaded_bytes), attachment_limit
+                    )
+                    if downloaded:
+                        entry.downloaded_bytes += downloaded
+                        self.snapshot.downloaded_bytes += downloaded
+                        await self.persist()
+                    raise
+                mime_type = response.headers.get("content-type", "").split(
+                    ";", 1
+                )[0]
+                response_limit = (
+                    html_limit
+                    if mime_type in {"text/html", "application/xhtml+xml"}
+                    else attachment_limit
+                )
+                downloaded = min(len(response.body), response_limit)
+                if downloaded:
+                    entry.downloaded_bytes += downloaded
+                    self.snapshot.downloaded_bytes += downloaded
+                    await self.persist()
+                if len(response.body) > response_limit:
+                    raise IntelError(
+                        "RESPONSE_TOO_LARGE",
+                        f"response exceeded {response_limit} bytes",
+                    )
         return response
+
+    async def _fetch_robots(
+        self, entry: CrawlEntry, robots_url: str
+    ) -> FetchedResponse:
+        last_error: Exception | None = None
+        response: FetchedResponse | None = None
+        for attempt in range(self.config.retries + 1):
+            try:
+                async with asyncio.timeout(DEFAULT_TIMEOUT_MS / 1000):
+                    response, _ = await fetch_with_validated_redirects(
+                        robots_url,
+                        lambda url, init, address: self._fetch_hop(
+                            entry,
+                            url,
+                            init,
+                            address,
+                            body_limit=self.config.max_html_bytes,
+                        ),
+                        self.resolver,
+                        self.config.max_html_bytes,
+                    )
+                if response.status != 429 and response.status < 500:
+                    return response
+                last_error = None
+                if attempt < self.config.retries:
+                    retry_after = response.headers.get("retry-after", "0")
+                    try:
+                        await self.sleep(max(0, float(retry_after)))
+                    except ValueError:
+                        await self.sleep(0)
+            except (IntelError, OSError, TimeoutError) as error:
+                last_error = error
+                if isinstance(error, IntelError) and error.code in {
+                    "CRAWL_LIMIT",
+                    "RESPONSE_TOO_LARGE",
+                    "UNSAFE_URL",
+                }:
+                    raise
+                if attempt < self.config.retries:
+                    await self.sleep(0)
+        if response is not None:
+            return response
+        if last_error is not None:
+            raise last_error
+        raise IntelError("NETWORK_ERROR", "robots.txt fetch failed")
+
+    async def _ensure_robots(self, entry: CrawlEntry, url: str) -> None:
+        if not self.config.obey_robots:
+            return
+        allowed = (
+            await self.robots_allowed(url)
+            if self.robots_allowed is not None
+            else await self._default_robots_allowed(entry, url)
+        )
+        if not allowed:
+            raise IntelError("ROBOTS_DISALLOWED", "blocked by robots.txt")
+
+    async def _default_robots_allowed(
+        self, entry: CrawlEntry, url: str
+    ) -> bool:
+        if self.robots_policy is None:
+            raise RuntimeError("default robots policy is unavailable")
+        return await self.robots_policy.allowed(entry, url)
 
     async def fetch(self, entry: CrawlEntry) -> list[str]:
         if self.snapshot.downloaded_bytes >= self.config.max_total_bytes:
@@ -479,11 +613,13 @@ class _CrawlRunner:
             entry.updated_at = utc_now()
             await self.persist()
             return []
-        if self.config.obey_robots and not await self.robots_allowed(
-            entry.canonical_url
-        ):
+        try:
+            await self._ensure_robots(entry, entry.canonical_url)
+        except IntelError as error:
+            if error.code != "ROBOTS_DISALLOWED":
+                raise
             entry.status = "skipped_robots"
-            entry.error = "blocked by robots.txt"
+            entry.error = str(error)
             entry.updated_at = utc_now()
             await self.persist()
             return []
@@ -528,6 +664,9 @@ class _CrawlRunner:
                             self.resolver,
                             self.config.max_attachment_bytes,
                             {"headers": headers},
+                            before_fetch=lambda url: self._ensure_robots(
+                                entry, url
+                            ),
                         )
                     if response.status not in {429} and response.status < 500:
                         break
@@ -548,27 +687,27 @@ class _CrawlRunner:
                             await self.sleep(0)
                 except (TimeoutError, OSError, IntelError) as error:
                     last_error = error
-                    if (
-                        isinstance(error, IntelError)
-                        and error.downloaded_bytes
-                    ):
-                        try:
-                            await self._account_download(
-                                entry, error.downloaded_bytes
-                            )
-                        except IntelError as limit_error:
-                            last_error = limit_error
                     if isinstance(
                         last_error, IntelError
                     ) and last_error.code in {
                         "CRAWL_LIMIT",
                         "RESPONSE_TOO_LARGE",
+                        "ROBOTS_DISALLOWED",
                         "UNSAFE_URL",
                     }:
                         break
                     if attempt < self.config.retries:
                         await self.sleep(0)
             if response is None:
+                if (
+                    isinstance(last_error, IntelError)
+                    and last_error.code == "ROBOTS_DISALLOWED"
+                ):
+                    entry.status = "skipped_robots"
+                    entry.error = str(last_error)
+                    entry.updated_at = utc_now()
+                    await self.persist()
+                    return []
                 if isinstance(last_error, IntelError) and last_error.code in {
                     "CRAWL_LIMIT",
                     "RESPONSE_TOO_LARGE",
@@ -650,6 +789,7 @@ class _CrawlRunner:
                     final_url_string,
                     ocr_languages=self.config.ocr_languages,
                     whisper_model=self.config.whisper_model,
+                    relevance_terms=self.relevance_terms,
                     cancellation_event=cancellation_event,
                 )
             )
@@ -657,7 +797,8 @@ class _CrawlRunner:
                 extracted = await asyncio.shield(extraction)
             except asyncio.CancelledError:
                 cancellation_event.set()
-                await extraction
+                with suppress(Exception):
+                    await extraction
                 raise
             document = _archive_resource(
                 self.cwd,
@@ -680,6 +821,7 @@ class _CrawlRunner:
                 error=extracted.error,
             )
             entry.outbound_links = list(extracted.links)
+            entry.outbound_relevance = dict(extracted.link_relevance)
             entry.updated_at = utc_now()
             await self.persist()
             return extracted.links
@@ -709,15 +851,35 @@ async def crawl_collect(
                 raise
             config = CrawlConfig()
     snapshot = create_crawl(cwd, task_id, seeds, config)
-    fetcher = fetcher or (
-        lambda url, init, address: pinned_fetch(
-            url, init, address, config.max_attachment_bytes
+    try:
+        task = load_task(cwd, task_id)
+        relevance_terms = tokenize_query(
+            " ".join(
+                [task.topic, *(question.text for question in task.questions)]
+            )
         )
-    )
-    if robots_allowed is None:
-        robots_allowed = _RobotsPolicy(
-            fetcher, resolver, config.max_html_bytes
-        ).allowed
+    except IntelError as error:
+        if error.code != "NOT_FOUND":
+            raise
+        relevance_terms = []
+    if fetcher is None:
+
+        async def default_fetcher(
+            url: str, init: dict | None, address: str
+        ) -> FetchedResponse:
+            limits = init or {}
+            return await pinned_fetch(
+                url,
+                init,
+                address,
+                int(
+                    limits.get("_max_body_bytes", config.max_attachment_bytes)
+                ),
+                int(limits.get("_max_html_bytes", config.max_html_bytes)),
+            )
+
+        fetcher = default_fetcher
+
     runner = _CrawlRunner(
         cwd,
         snapshot,
@@ -727,6 +889,7 @@ async def crawl_collect(
         robots_allowed,
         sleep,
         on_event,
+        relevance_terms,
     )
     if on_event is not None:
         await on_event(
@@ -757,6 +920,7 @@ async def crawl_collect(
                         link,
                         parent_url=parent.canonical_url,
                         depth=parent.depth + 1,
+                        relevance=parent.outbound_relevance.get(link, 0),
                         source_priority=source_priority,
                     )
             await runner.persist()

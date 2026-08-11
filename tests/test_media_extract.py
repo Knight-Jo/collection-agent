@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import os
+import signal
 import subprocess
 import sys
 import threading
 import time
+import zipfile
 from io import BytesIO
 from pathlib import Path
 
@@ -40,6 +42,247 @@ def test_extract_html_text_links_and_plain_text():
         b"name,value\na,1\n", "text/csv", "https://example.com/a.csv"
     )
     assert plain.text == "name,value\na,1"
+
+
+def test_pdf_relative_links_resolve_against_document_url(monkeypatch):
+    class Page:
+        def get_text(self, _kind):
+            return "enough useful document text to avoid OCR"
+
+        def get_links(self):
+            return [{"uri": "../appendix.pdf"}]
+
+    class Document:
+        def __iter__(self):
+            return iter([Page()])
+
+        def __len__(self):
+            return 1
+
+        def close(self):
+            pass
+
+    class Fitz:
+        @staticmethod
+        def open(**_kwargs):
+            return Document()
+
+    monkeypatch.setitem(sys.modules, "fitz", Fitz)
+
+    result = extract_resource(
+        b"pdf",
+        "application/pdf",
+        "https://example.com/reports/annual.pdf",
+    )
+
+    assert result.status == "complete"
+    assert result.links == ["https://example.com/appendix.pdf"]
+
+
+def test_ooxml_member_count_is_rejected_before_expansion():
+    raw = BytesIO()
+    with zipfile.ZipFile(raw, "w", zipfile.ZIP_DEFLATED) as archive:
+        for number in range(1_025):
+            archive.writestr(f"member-{number}.xml", b"x")
+
+    result = extract_resource(
+        raw.getvalue(),
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "https://example.com/report.docx",
+    )
+
+    assert result.status == "failed"
+    assert "OOXML member limit" in (result.error or "")
+
+
+def test_ooxml_expanded_size_is_rejected_before_expansion():
+    raw = BytesIO()
+    with zipfile.ZipFile(raw, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("large.xml", b"0" * (32 * 1024 * 1024 + 1))
+
+    result = extract_resource(
+        raw.getvalue(),
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "https://example.com/report.docx",
+    )
+
+    assert result.status == "failed"
+    assert "OOXML expanded byte limit" in (result.error or "")
+
+
+def test_pdf_page_count_is_rejected_before_page_work():
+    import fitz
+
+    document = fitz.open()
+    for _ in range(201):
+        document.new_page()
+    raw = document.tobytes()
+    document.close()
+
+    result = extract_resource(
+        raw, "application/pdf", "https://example.com/large.pdf"
+    )
+
+    assert result.status == "failed"
+    assert "PDF page limit" in (result.error or "")
+
+
+def test_pdf_raster_page_pixels_are_bounded_before_rendering():
+    import fitz
+
+    document = fitz.open()
+    document.new_page(width=3_000, height=3_000)
+    raw = document.tobytes()
+    document.close()
+
+    result = extract_resource(
+        raw, "application/pdf", "https://example.com/huge-page.pdf"
+    )
+
+    assert result.status == "failed"
+    assert "PDF raster pixel limit" in (result.error or "")
+
+
+def test_image_pixels_are_bounded_before_ocr():
+    import struct
+    import zlib
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return (
+            struct.pack(">I", len(data))
+            + kind
+            + data
+            + struct.pack(">I", zlib.crc32(kind + data))
+        )
+
+    raw = (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", 7_000, 7_000, 8, 2, 0, 0, 0))
+        + chunk(b"IEND", b"")
+    )
+
+    result = extract_resource(raw, "image/png", "https://example.com/huge.png")
+
+    assert result.status == "failed"
+    assert "image pixel limit" in (result.error or "")
+
+
+def test_heavy_extraction_timeout_terminates_its_worker(monkeypatch):
+    process_state = {"alive": True, "terminated": False}
+
+    class Results:
+        def get(self, timeout):
+            raise extract_module.queue.Empty
+
+        def close(self):
+            pass
+
+        def cancel_join_thread(self):
+            pass
+
+    class Process:
+        exitcode = None
+        pid = None
+
+        def __init__(self, **_kwargs):
+            pass
+
+        def start(self):
+            pass
+
+        def is_alive(self):
+            return process_state["alive"]
+
+        def join(self, timeout=None):
+            pass
+
+        def terminate(self):
+            process_state.update(alive=False, terminated=True)
+
+        def kill(self):
+            process_state.update(alive=False, terminated=True)
+
+    class Context:
+        def Queue(self):
+            return Results()
+
+        def Process(self, **kwargs):
+            return Process(**kwargs)
+
+    monkeypatch.setattr(
+        extract_module.multiprocessing, "get_context", lambda _: Context()
+    )
+    monkeypatch.setattr(extract_module, "_EXTRACTION_TIMEOUT_SECONDS", 0)
+    result = extract_module.extract_resource_process(
+        b"pdf", "application/pdf", "https://example.com/report.pdf"
+    )
+
+    assert result.status == "failed"
+    assert result.error == "extraction timed out"
+    assert process_state["terminated"] is True
+
+
+def test_heavy_extraction_cancellation_terminates_parser_children(
+    tmp_path, monkeypatch
+):
+    executable = tmp_path / "tesseract"
+    pid_path = tmp_path / "parser.pid"
+    executable.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os\n"
+        "from pathlib import Path\n"
+        "import time\n"
+        "Path(os.environ['INTEL_AGENT_TEST_PID_PATH']).write_text("
+        "str(os.getpid()))\n"
+        "time.sleep(30)\n",
+        encoding="utf-8",
+    )
+    executable.chmod(0o755)
+    monkeypatch.setenv("INTEL_AGENT_TEST_PID_PATH", str(pid_path))
+    monkeypatch.setenv("PATH", f"{tmp_path}:{os.environ['PATH']}")
+    cancellation = threading.Event()
+    outcome: list[BaseException] = []
+
+    def run() -> None:
+        try:
+            extract_module.extract_resource_process(
+                b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+                b"\x00\x00\x00\x01\x00\x00\x00\x01",
+                "image/png",
+                "https://example.com/image.png",
+                cancellation_event=cancellation,
+            )
+        except BaseException as error:
+            outcome.append(error)
+
+    worker = threading.Thread(target=run)
+    worker.start()
+    deadline = time.monotonic() + 5
+    while not pid_path.exists() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert pid_path.exists()
+    pid = int(pid_path.read_text(encoding="utf-8"))
+
+    def parser_is_alive() -> bool:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        return True
+
+    try:
+        cancellation.set()
+        worker.join(timeout=5)
+        deadline = time.monotonic() + 2
+        while parser_is_alive() and time.monotonic() < deadline:
+            time.sleep(0.01)
+
+        assert not worker.is_alive()
+        assert outcome
+        assert not parser_is_alive()
+    finally:
+        if parser_is_alive():
+            os.kill(pid, signal.SIGKILL)
 
 
 def test_ocr_text_has_line_numbers(monkeypatch):
@@ -115,6 +358,57 @@ def test_extract_xlsx_cells_and_hyperlinks_with_optional_processor_fake(
     ]
 
 
+def test_xlsx_sheet_count_is_bounded(monkeypatch):
+    class Workbook:
+        worksheets = [object()] * 101
+
+        def close(self):
+            pass
+
+    class Openpyxl:
+        @staticmethod
+        def load_workbook(_stream, read_only, data_only):
+            return Workbook()
+
+    monkeypatch.setattr(extract_module, "import_module", lambda _: Openpyxl)
+
+    result = extract_resource(
+        b"workbook", "application/octet-stream", "https://example.com/a.xlsx"
+    )
+
+    assert result.status == "failed"
+    assert "spreadsheet sheet limit" in (result.error or "")
+
+
+def test_xlsx_declared_cell_work_is_bounded(monkeypatch):
+    class Sheet:
+        max_row = 501
+        max_column = 501
+
+        def iter_rows(self):
+            raise AssertionError("oversized sheet must not be iterated")
+
+    class Workbook:
+        worksheets = [Sheet()]
+
+        def close(self):
+            pass
+
+    class Openpyxl:
+        @staticmethod
+        def load_workbook(_stream, read_only, data_only):
+            return Workbook()
+
+    monkeypatch.setattr(extract_module, "import_module", lambda _: Openpyxl)
+
+    result = extract_resource(
+        b"workbook", "application/octet-stream", "https://example.com/a.xlsx"
+    )
+
+    assert result.status == "failed"
+    assert "spreadsheet cell limit" in (result.error or "")
+
+
 def test_extract_pptx_text_and_hyperlinks_with_optional_processor_fake(
     monkeypatch,
 ):
@@ -154,6 +448,27 @@ def test_extract_pptx_text_and_hyperlinks_with_optional_processor_fake(
         "https://example.com/slide-link",
         "https://example.com/in-text",
     ]
+
+
+def test_pptx_slide_count_is_bounded(monkeypatch):
+    class Presentation:
+        slides = [object()] * 501
+
+    class Pptx:
+        @staticmethod
+        def Presentation(_stream):
+            return Presentation()
+
+    monkeypatch.setattr(extract_module, "import_module", lambda _: Pptx)
+
+    result = extract_resource(
+        b"presentation",
+        "application/octet-stream",
+        "https://example.com/a.pptx",
+    )
+
+    assert result.status == "failed"
+    assert "presentation slide limit" in (result.error or "")
 
 
 def test_legacy_doc_uses_generated_docx_content(monkeypatch):
@@ -482,33 +797,15 @@ def test_large_whisper_result_completes_without_queue_deadlock(monkeypatch):
     )
 
 
-def test_missing_optional_processor_marks_extraction_unavailable(monkeypatch):
+def test_missing_tesseract_executable_marks_extraction_unavailable(
+    monkeypatch,
+):
     def unavailable(raw, languages):
-        raise ModuleNotFoundError("pytesseract")
+        raise FileNotFoundError("tesseract")
 
     monkeypatch.setattr("intel_agent.extract._ocr_image", unavailable)
     result = extract_resource(
         b"original", "image/jpeg", "https://example.com/photo.jpg"
-    )
-    assert result.status == "unavailable"
-    assert "pytesseract" in (result.error or "")
-
-
-def test_missing_tesseract_executable_marks_extraction_unavailable(
-    monkeypatch,
-):
-    missing_error = type(
-        "TesseractNotFoundError",
-        (OSError,),
-        {"__module__": "pytesseract.pytesseract"},
-    )
-
-    def unavailable(raw, languages):
-        raise missing_error("tesseract executable was not found")
-
-    monkeypatch.setattr("intel_agent.extract._ocr_image", unavailable)
-    result = extract_resource(
-        b"original", "image/png", "https://example.com/photo.png"
     )
     assert result.status == "unavailable"
     assert "tesseract" in (result.error or "")

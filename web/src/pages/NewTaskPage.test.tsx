@@ -75,7 +75,7 @@ it("uses the system crawl default and submits the chosen crawl setting", async (
   );
 });
 
-it("keeps the form usable with deep crawl off when the system request fails", async () => {
+it("preserves the backend crawl default when the system request fails", async () => {
   vi.spyOn(api, "system").mockRejectedValue(new Error("offline"));
   const user = userEvent.setup();
   const createRun = vi.fn();
@@ -92,7 +92,7 @@ it("keeps the form usable with deep crawl off when the system request fails", as
   await user.click(screen.getByRole("button", { name: "开始研究" }));
 
   expect(createRun).toHaveBeenCalledWith(
-    expect.objectContaining({ deep_crawl: false }),
+    expect.objectContaining({ deep_crawl: null }),
   );
 });
 

@@ -98,9 +98,7 @@ def create_app(
                 default_enabled=settings.crawl.enabled_by_default
             ),
             processors=ProcessorStatus(
-                tesseract=bool(
-                    which("tesseract") and find_spec("pytesseract")
-                ),
+                tesseract=which("tesseract") is not None,
                 ffmpeg=which("ffmpeg") is not None,
                 whisper=find_spec("faster_whisper") is not None,
                 libreoffice=which("libreoffice") is not None,

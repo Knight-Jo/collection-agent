@@ -2,16 +2,79 @@
 
 import pytest
 
+import intel_agent.fetch as fetch_module
 from intel_agent.fetch import (
     FetchedResponse,
     fetch_document,
     parse_http_response,
+    pinned_fetch,
 )
 from intel_agent.models import IntelError
 
 
 async def _public_resolver(hostname):
     return ["93.184.216.34"]
+
+
+class _StreamingReader:
+    def __init__(self, content_type: str, body: bytes):
+        self.header = (
+            f"HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\n\r\n"
+        ).encode("ascii")
+        self.body = body
+        self.offset = 0
+        self.downloaded_body_bytes = 0
+
+    async def readuntil(self, _separator: bytes) -> bytes:
+        return self.header
+
+    async def read(self, size: int) -> bytes:
+        chunk = self.body[self.offset : self.offset + size]
+        self.offset += len(chunk)
+        self.downloaded_body_bytes += len(chunk)
+        return chunk
+
+    def at_eof(self) -> bool:
+        return self.offset >= len(self.body)
+
+
+class _Writer:
+    def write(self, _value: bytes) -> None:
+        pass
+
+    async def drain(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+    async def wait_closed(self) -> None:
+        pass
+
+
+@pytest.mark.asyncio
+async def test_pinned_fetch_stops_html_stream_at_mime_aware_cap(monkeypatch):
+    reader = _StreamingReader("text/html", b"0123456789")
+
+    async def open_connection(*_args, **_kwargs):
+        return reader, _Writer()
+
+    monkeypatch.setattr(
+        fetch_module.asyncio, "open_connection", open_connection
+    )
+
+    with pytest.raises(IntelError) as error:
+        await pinned_fetch(
+            "http://example.com/",
+            None,
+            "93.184.216.34",
+            max_bytes=10,
+            max_html_bytes=4,
+        )
+
+    assert error.value.code == "RESPONSE_TOO_LARGE"
+    assert error.value.downloaded_bytes == reader.downloaded_body_bytes
+    assert reader.downloaded_body_bytes == 4
 
 
 @pytest.mark.asyncio

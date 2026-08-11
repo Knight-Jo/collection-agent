@@ -9,11 +9,15 @@ export function NewTaskPage({ createRun }: { createRun: (input: RunInput) => Pro
   const [topic, setTopic] = useState("");
   const [questions, setQuestions] = useState(["", ""]);
   const [deepCrawl, setDeepCrawl] = useState<boolean | null>(null);
+  const [systemReady, setSystemReady] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    api.system().then((system) => setDeepCrawl((choice) => choice ?? system.crawl.default_enabled)).catch(() => setDeepCrawl((choice) => choice ?? false));
+    api.system()
+      .then((system) => setDeepCrawl((choice) => choice ?? system.crawl.default_enabled))
+      .catch(() => undefined)
+      .finally(() => setSystemReady(true));
   }, []);
 
   async function submit(event: FormEvent) {
@@ -21,7 +25,7 @@ export function NewTaskPage({ createRun }: { createRun: (input: RunInput) => Pro
     const cleanQuestions = questions.map((item) => item.trim()).filter(Boolean);
     if (!topic.trim()) return setError("请输入研究主题");
     if (cleanQuestions.length < 2) return setError("请至少填写两个关键问题");
-    if (deepCrawl === null) return;
+    if (!systemReady) return;
     setSubmitting(true);
     setError("");
     try {
@@ -64,7 +68,7 @@ export function NewTaskPage({ createRun }: { createRun: (input: RunInput) => Pro
         </fieldset>
         <label className="crawl-toggle"><input type="checkbox" aria-label="启用深度抓取" checked={deepCrawl ?? false} onChange={(event) => setDeepCrawl(event.target.checked)} />启用深度抓取<span>递归抓取可访问的关联页面和附件。</span></label>
         {error && <p className="form-error" role="alert">{error}</p>}
-        <div className="form-footer"><p>默认要求每项事实至少有 2 个独立来源，其中 1 个为高质量来源。</p><button className="primary-button" disabled={submitting || deepCrawl === null}>{submitting ? "正在创建…" : "开始研究"}<ArrowRight size={18} /></button></div>
+        <div className="form-footer"><p>默认要求每项事实至少有 2 个独立来源，其中 1 个为高质量来源。</p><button className="primary-button" disabled={submitting || !systemReady}>{submitting ? "正在创建…" : "开始研究"}<ArrowRight size={18} /></button></div>
       </form>
     </main>
   );

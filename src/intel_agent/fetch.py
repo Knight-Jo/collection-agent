@@ -51,6 +51,7 @@ class FetchedResponse:
 
 
 FetchLike = Callable[[str, dict | None, str], Awaitable[FetchedResponse]]
+BeforeFetch = Callable[[str], Awaitable[None]]
 
 
 def canonicalize_url(raw: str) -> str:
@@ -113,6 +114,7 @@ async def pinned_fetch(
     init: dict | None,
     address: str,
     max_bytes: int = DEFAULT_MAX_BYTES,
+    max_html_bytes: int | None = None,
 ) -> FetchedResponse:
     """DNS-pinned TCP/TLS fetch: connect to the validated public IP while
     keeping the original hostname for TLS SNI."""
@@ -146,31 +148,131 @@ async def pinned_fetch(
         )
         writer.write(request.encode("latin-1"))
         await writer.drain()
-        chunks: list[bytes] = []
-        size = 0
-        while True:
-            chunk = await reader.read(65_536)
-            if not chunk:
-                break
-            size += len(chunk)
-            chunks.append(chunk)
-            if size > max_bytes + 65_536:
-                raw_response = b"".join(chunks)
-                separator = raw_response.find(b"\r\n\r\n")
-                raise IntelError(
-                    "RESPONSE_TOO_LARGE",
-                    f"响应超过 {max_bytes} 字节",
-                    downloaded_bytes=(
-                        len(raw_response) - separator - 4
-                        if separator >= 0
-                        else 0
-                    ),
-                )
+        try:
+            raw_head = await reader.readuntil(b"\r\n\r\n")
+        except (
+            asyncio.IncompleteReadError,
+            asyncio.LimitOverrunError,
+        ) as error:
+            raise IntelError("NETWORK_ERROR", "响应头不完整") from error
+        status, headers = _parse_http_head(raw_head)
+        content_type = headers.get("content-type", "").lower()
+        body_limit = max_bytes
+        if max_html_bytes is not None and re.match(
+            r"^(?:text/html|application/xhtml\+xml)(?:;|$)", content_type
+        ):
+            body_limit = min(body_limit, max_html_bytes)
+        body = await _read_response_body(reader, headers, body_limit)
     finally:
         writer.close()
         with suppress(Exception):
             await writer.wait_closed()
-    return parse_http_response(b"".join(chunks), max_bytes)
+    return FetchedResponse(status=status, headers=headers, body=body)
+
+
+def _parse_http_head(raw: bytes) -> tuple[int, dict[str, str]]:
+    if not raw.endswith(b"\r\n\r\n"):
+        raise IntelError("NETWORK_ERROR", "响应头不完整")
+    lines = raw[:-4].decode("latin-1").split("\r\n")
+    status_match = re.match(r"^HTTP/\d\.\d (\d{3})", lines[0])
+    if not status_match:
+        raise IntelError("NETWORK_ERROR", "响应状态无效")
+    headers: dict[str, str] = {}
+    for line in lines[1:]:
+        if ":" in line:
+            key, value = line.split(":", 1)
+            headers[key.strip().lower()] = value.strip()
+    return int(status_match.group(1)), headers
+
+
+async def _read_exact_body(reader, size: int, downloaded: int = 0) -> bytes:
+    chunks: list[bytes] = []
+    remaining = size
+    while remaining:
+        chunk = await reader.read(min(65_536, remaining))
+        if not chunk:
+            raise IntelError(
+                "NETWORK_ERROR",
+                "响应正文不完整",
+                downloaded_bytes=downloaded + size - remaining,
+            )
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+async def _read_chunked_body(reader, max_bytes: int) -> bytes:
+    chunks: list[bytes] = []
+    downloaded = 0
+    while True:
+        try:
+            size_line = await reader.readuntil(b"\r\n")
+            size = int(size_line[:-2].split(b";", 1)[0], 16)
+        except (ValueError, asyncio.IncompleteReadError) as error:
+            raise IntelError(
+                "NETWORK_ERROR",
+                "分块响应不完整",
+                downloaded_bytes=downloaded,
+            ) from error
+        if size == 0:
+            await _read_exact_body(reader, 2, downloaded)
+            return b"".join(chunks)
+        remaining = max_bytes - downloaded
+        if size > remaining:
+            if remaining:
+                await _read_exact_body(reader, remaining, downloaded)
+                downloaded += remaining
+            raise IntelError(
+                "RESPONSE_TOO_LARGE",
+                f"响应超过 {max_bytes} 字节",
+                downloaded_bytes=downloaded,
+            )
+        chunk = await _read_exact_body(reader, size, downloaded)
+        terminator = await _read_exact_body(reader, 2, downloaded + size)
+        if terminator != b"\r\n":
+            raise IntelError(
+                "NETWORK_ERROR",
+                "分块响应不完整",
+                downloaded_bytes=downloaded + size,
+            )
+        chunks.append(chunk)
+        downloaded += size
+
+
+async def _read_response_body(
+    reader, headers: dict[str, str], max_bytes: int
+) -> bytes:
+    if re.search(r"chunked", headers.get("transfer-encoding", ""), re.I):
+        return await _read_chunked_body(reader, max_bytes)
+    content_length = headers.get("content-length")
+    if content_length is not None:
+        try:
+            size = int(content_length)
+        except ValueError as error:
+            raise IntelError("NETWORK_ERROR", "Content-Length 无效") from error
+        if size < 0:
+            raise IntelError("NETWORK_ERROR", "Content-Length 无效")
+        if size > max_bytes:
+            raise IntelError(
+                "RESPONSE_TOO_LARGE",
+                f"响应超过 {max_bytes} 字节",
+            )
+        return await _read_exact_body(reader, size)
+    chunks: list[bytes] = []
+    downloaded = 0
+    while downloaded < max_bytes:
+        chunk = await reader.read(min(65_536, max_bytes - downloaded))
+        if not chunk:
+            return b"".join(chunks)
+        chunks.append(chunk)
+        downloaded += len(chunk)
+    if reader.at_eof():
+        return b"".join(chunks)
+    raise IntelError(
+        "RESPONSE_TOO_LARGE",
+        f"响应超过 {max_bytes} 字节",
+        downloaded_bytes=downloaded,
+    )
 
 
 async def httpx_fallback_fetch(
@@ -213,15 +315,7 @@ def parse_http_response(
     separator = raw.find(b"\r\n\r\n")
     if separator < 0:
         raise IntelError("NETWORK_ERROR", "响应头不完整")
-    lines = raw[:separator].decode("latin-1").split("\r\n")
-    status_m = re.match(r"^HTTP/\d\.\d (\d{3})", lines[0])
-    if not status_m:
-        raise IntelError("NETWORK_ERROR", "响应状态无效")
-    headers: dict[str, str] = {}
-    for line in lines[1:]:
-        if ":" in line:
-            key, value = line.split(":", 1)
-            headers[key.strip().lower()] = value.strip()
+    status, headers = _parse_http_head(raw[: separator + 4])
     body = raw[separator + 4 :]
     downloaded_body_bytes = len(body)
     if re.search(r"chunked", headers.get("transfer-encoding", ""), re.I):
@@ -232,9 +326,7 @@ def parse_http_response(
             f"响应超过 {max_bytes} 字节",
             downloaded_bytes=downloaded_body_bytes,
         )
-    return FetchedResponse(
-        status=int(status_m.group(1)), headers=headers, body=body
-    )
+    return FetchedResponse(status=status, headers=headers, body=body)
 
 
 def decode_chunked(raw: bytes) -> bytes:
@@ -261,6 +353,7 @@ async def fetch_with_validated_redirects(
     resolver: AddressResolver | None,
     max_bytes: int,
     request_init: dict | None = None,
+    before_fetch: BeforeFetch | None = None,
 ) -> tuple[FetchedResponse, object]:
     """Fetch following redirects, re-validating every hop as a public URL.
 
@@ -270,8 +363,11 @@ async def fetch_with_validated_redirects(
     """
     current_url, addresses = await resolve_public_url(raw_url, resolver)
     for redirects in range(MAX_REDIRECTS + 1):
+        current_url_string = _url_string(current_url)
+        if before_fetch is not None:
+            await before_fetch(current_url_string)
         response = await fetcher(
-            _url_string(current_url),
+            current_url_string,
             request_init if redirects == 0 else None,
             addresses[0],
         )

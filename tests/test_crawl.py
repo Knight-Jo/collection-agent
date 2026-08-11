@@ -112,6 +112,27 @@ def test_frontier_deduplicates_cycles_depth_and_url_limit(cwd):
     )
 
 
+def test_duplicate_queued_url_keeps_higher_relevance_at_frontier_limit(cwd):
+    snapshot = create_crawl(
+        cwd,
+        "task-priority-update",
+        ["https://example.com/a"],
+        CrawlConfig(max_urls=1),
+    )
+    original_priority = snapshot.entries[0].priority
+
+    assert not enqueue_url(
+        snapshot,
+        "https://EXAMPLE.com:443/a/?utm_source=search",
+        parent_url=None,
+        depth=0,
+        relevance=3,
+    )
+
+    assert snapshot.entries[0].relevance == 3
+    assert snapshot.entries[0].priority < original_priority
+
+
 def test_crawl_snapshot_round_trips_for_resume(cwd):
     snapshot = create_crawl(
         cwd,
@@ -138,6 +159,7 @@ async def test_crawl_retries_and_enforces_byte_limit(cwd):
     async def fetcher(url, init, address):
         nonlocal calls
         calls += 1
+        body_limit = init["_max_body_bytes"]
         if calls == 1:
             return FetchedResponse(status=500, body=b"fail")
         if calls == 2:
@@ -146,10 +168,10 @@ async def test_crawl_retries_and_enforces_byte_limit(cwd):
                 headers={"retry-after": "0"},
                 body=b"busy",
             )
-        return FetchedResponse(
-            status=200,
-            headers={"content-type": "text/plain", "etag": '"v1"'},
-            body=b"12345",
+        raise IntelError(
+            "RESPONSE_TOO_LARGE",
+            "response exceeded limit",
+            downloaded_bytes=body_limit,
         )
 
     snapshot = await crawl_collect(
@@ -165,8 +187,8 @@ async def test_crawl_retries_and_enforces_byte_limit(cwd):
     assert calls == 3
     assert entry.attempts == 3
     assert entry.status == "skipped_limit"
-    assert entry.downloaded_bytes == 13
-    assert snapshot.downloaded_bytes == 13
+    assert entry.downloaded_bytes == 10
+    assert snapshot.downloaded_bytes == 10
     assert (
         load_task(cwd, task.id).collection.fetch_attempts_since_evidence == 0
     )
@@ -361,6 +383,55 @@ async def test_crawl_obeys_robots_and_keeps_low_relevance_links_queued(cwd):
 
 
 @pytest.mark.asyncio
+async def test_anchor_keyword_relevance_prioritizes_links_without_dropping_low(
+    cwd,
+):
+    task = new_task(cwd)
+    fetched: list[str] = []
+
+    async def fetcher(url, init, address):
+        fetched.append(url)
+        body = (
+            b'<html><a href="/low">contact</a>'
+            b'<a href="/high">\xe6\xb5\x8b\xe8\xaf\x95\xe4\xb8\xbb\xe9\xa2\x98\xe8\xbf\x9b\xe5\xb1\x95</a></html>'
+            if url.endswith("/root")
+            else b"child"
+        )
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=body,
+        )
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/root"],
+        config=CrawlConfig(
+            max_depth=1,
+            concurrency=1,
+            obey_robots=False,
+            per_host_delay_seconds=0,
+        ),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+    )
+
+    assert fetched == [
+        "https://example.com/root",
+        "https://example.com/high",
+        "https://example.com/low",
+    ]
+    children = {
+        entry.canonical_url: entry
+        for entry in snapshot.entries
+        if entry.depth == 1
+    }
+    assert children["https://example.com/high"].relevance > 0
+    assert children["https://example.com/low"].status == "complete"
+
+
+@pytest.mark.asyncio
 async def test_default_robots_policy_uses_crawler_user_agent(cwd):
     task = new_task(cwd)
     fetched: list[str] = []
@@ -392,6 +463,129 @@ async def test_default_robots_policy_uses_crawler_user_agent(cwd):
 
     assert fetched == ["https://example.com/robots.txt"]
     assert snapshot.entries[0].status == "skipped_robots"
+
+
+@pytest.mark.asyncio
+async def test_redirect_destination_is_checked_against_its_robots_policy(cwd):
+    task = new_task(cwd)
+    fetched: list[str] = []
+
+    async def fetcher(url, init, address):
+        fetched.append(url)
+        if url == "https://one.example/robots.txt":
+            return FetchedResponse(status=200, body=b"User-agent: *\nAllow: /")
+        if url == "https://one.example/start":
+            return FetchedResponse(
+                status=302,
+                headers={"location": "https://two.example/private"},
+                body=b"hop",
+            )
+        if url == "https://two.example/robots.txt":
+            return FetchedResponse(
+                status=200, body=b"User-agent: *\nDisallow: /private"
+            )
+        raise AssertionError(f"robots-blocked redirect was fetched: {url}")
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://one.example/start"],
+        config=CrawlConfig(per_host_delay_seconds=0),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+    )
+
+    assert fetched == [
+        "https://one.example/robots.txt",
+        "https://one.example/start",
+        "https://two.example/robots.txt",
+    ]
+    assert snapshot.entries[0].status == "skipped_robots"
+    assert snapshot.downloaded_bytes == sum(
+        len(body)
+        for body in (
+            b"User-agent: *\nAllow: /",
+            b"hop",
+            b"User-agent: *\nDisallow: /private",
+        )
+    )
+
+
+@pytest.mark.asyncio
+async def test_robots_fetch_uses_retries_rate_limit_and_byte_accounting(cwd):
+    task = new_task(cwd)
+    robots_calls = 0
+    delays: list[float] = []
+
+    async def fetcher(url, init, address):
+        nonlocal robots_calls
+        if url.endswith("/robots.txt"):
+            robots_calls += 1
+            if robots_calls == 1:
+                return FetchedResponse(status=500, body=b"retry")
+            return FetchedResponse(status=200, body=b"User-agent: *\nAllow: /")
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/plain"},
+            body=b"resource",
+        )
+
+    async def fake_sleep(delay: float):
+        delays.append(delay)
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/resource"],
+        config=CrawlConfig(retries=1, per_host_delay_seconds=1),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+        sleep=fake_sleep,
+    )
+
+    assert robots_calls == 2
+    assert any(delay > 0 for delay in delays)
+    assert snapshot.downloaded_bytes == sum(
+        len(body)
+        for body in (b"retry", b"User-agent: *\nAllow: /", b"resource")
+    )
+    assert snapshot.entries[0].status == "complete"
+
+
+@pytest.mark.asyncio
+async def test_robots_fetch_is_bounded_by_crawl_timeout(cwd, monkeypatch):
+    task = new_task(cwd)
+    monkeypatch.setattr(crawl_module, "DEFAULT_TIMEOUT_MS", 10)
+    monkeypatch.setattr(
+        crawl_module,
+        "extract_resource",
+        lambda *_args, **_kwargs: ExtractionResult(
+            status="complete", text="resource"
+        ),
+    )
+
+    async def fetcher(url, init, address):
+        if url.endswith("/robots.txt"):
+            await asyncio.Future()
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/plain"},
+            body=b"resource",
+        )
+
+    snapshot = await asyncio.wait_for(
+        crawl_collect(
+            cwd,
+            task.id,
+            ["https://example.com/resource"],
+            config=CrawlConfig(retries=0, per_host_delay_seconds=0),
+            fetcher=fetcher,
+            resolver=_public_resolver,
+        ),
+        timeout=0.25,
+    )
+
+    assert snapshot.entries[0].status == "complete"
 
 
 @pytest.mark.asyncio
@@ -547,14 +741,15 @@ async def test_crawl_counts_body_from_streaming_size_rejection(cwd):
 
 
 @pytest.mark.asyncio
-async def test_crawl_counts_oversized_returned_resource(cwd):
+async def test_crawl_stops_attachment_download_at_its_hard_cap(cwd):
     task = new_task(cwd)
 
     async def fetcher(url, init, address):
-        return FetchedResponse(
-            status=200,
-            headers={"content-type": "text/plain"},
-            body=b"large",
+        assert init["_max_body_bytes"] == 3
+        raise IntelError(
+            "RESPONSE_TOO_LARGE",
+            "response exceeded limit",
+            downloaded_bytes=3,
         )
 
     snapshot = await crawl_collect(
@@ -571,8 +766,81 @@ async def test_crawl_counts_oversized_returned_resource(cwd):
     )
 
     assert snapshot.entries[0].status == "skipped_limit"
-    assert snapshot.entries[0].downloaded_bytes == 5
-    assert snapshot.downloaded_bytes == 5
+    assert snapshot.entries[0].downloaded_bytes == 3
+    assert snapshot.downloaded_bytes == 3
+
+
+@pytest.mark.asyncio
+async def test_crawl_stops_html_download_at_its_smaller_hard_cap(cwd):
+    task = new_task(cwd)
+
+    async def fetcher(url, init, address):
+        assert init["_max_body_bytes"] == 10
+        assert init["_max_html_bytes"] == 3
+        raise IntelError(
+            "RESPONSE_TOO_LARGE",
+            "response exceeded limit",
+            downloaded_bytes=3,
+        )
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/large.html"],
+        config=CrawlConfig(
+            max_total_bytes=10,
+            max_html_bytes=3,
+            max_attachment_bytes=10,
+            obey_robots=False,
+            per_host_delay_seconds=0,
+        ),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+    )
+
+    assert snapshot.entries[0].status == "skipped_limit"
+    assert snapshot.entries[0].downloaded_bytes == 3
+    assert snapshot.downloaded_bytes == 3
+
+
+@pytest.mark.asyncio
+async def test_concurrent_downloads_reserve_the_remaining_global_allowance(
+    cwd,
+):
+    task = new_task(cwd)
+    granted_budgets: list[int] = []
+
+    async def fetcher(url, init, address):
+        budget = init["_max_body_bytes"]
+        granted_budgets.append(budget)
+        await asyncio.sleep(0)
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/plain"},
+            body=b"x" * budget,
+        )
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://one.example/a.txt", "https://two.example/b.txt"],
+        config=CrawlConfig(
+            max_total_bytes=10,
+            max_attachment_bytes=10,
+            concurrency=2,
+            obey_robots=False,
+            per_host_delay_seconds=0,
+        ),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+    )
+
+    assert sum(granted_budgets) == 10
+    assert snapshot.downloaded_bytes == 10
+    assert {entry.status for entry in snapshot.entries} == {
+        "complete",
+        "skipped_limit",
+    }
 
 
 @pytest.mark.asyncio
@@ -591,7 +859,7 @@ async def test_crawl_preserves_original_when_processor_is_unavailable(
     monkeypatch.setattr(
         "intel_agent.crawl.extract_resource",
         lambda *args, **kwargs: ExtractionResult(
-            status="unavailable", error="pytesseract missing"
+            status="unavailable", error="tesseract missing"
         ),
     )
     snapshot = await crawl_collect(
@@ -899,7 +1167,7 @@ async def test_crawl_cancellation_during_extraction_persists_resumable_entry(
     def extracting(_raw, _mime_type, _url, *, cancellation_event, **_kwargs):
         extraction_started.set()
         cancellation_event.wait()
-        return ExtractionResult(status="complete", text="not archived")
+        raise RuntimeError("worker stopped after cancellation")
 
     monkeypatch.setattr(crawl_module, "extract_resource", extracting)
     running = asyncio.create_task(

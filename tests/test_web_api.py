@@ -49,9 +49,7 @@ def test_system_reports_crawl_default_and_processor_availability(
     )
     monkeypatch.setattr(
         "intel_agent.web.app.find_spec",
-        lambda module: (
-            object() if module in {"pytesseract", "faster_whisper"} else None
-        ),
+        lambda module: object() if module == "faster_whisper" else None,
     )
     settings = Settings.model_validate(
         {"crawl": {"enabled_by_default": False}}

@@ -6,13 +6,14 @@
 
 ## 特性
 
-- **15 个工具** 完整复刻原项目：`intel_plan` / `web_search` / `web_fetch` / `fact_save` / `fact_supersede` / `evidence_save` / `evidence_audit` / `evidence_conflict_create|resolve` / `coverage_eval` / `generate_package` / `intel_assess` / `intel_challenge_start|confirm` / `intel_status`
+- **17 个工具**：除检索、事实、证据、审核、覆盖和研判工具外，提供 `crawl_collect` 运行持久化抓取队列、`document_read` 分页读取已校验正文
 - **可信证据链**：所有关系用稳定 ID（fact/evidence/doc 为 SHA-256 派生 ID），引文逐字定位行号，文档原文与正文双重 SHA-256 完整性校验
 - **语义审计**：独立的隔离 LLM 法官逐条判定引文是否完整蕴含事实（full/partial/irrelevant/contradicts），只有 `full` 才计入覆盖；审核结果不可重复抽样
 - **安全边界**：DNS-pinned 抓取（SSRF 防护、私有地址拦截、重定向逐跳校验）、网页内容标记为不可信数据、注入检测
 - **预算与门控**：搜索 6 次 / 抓取 6 次（自上次新证据起）预算持久化；阶段状态机 `collect → assess → challenge → done` 相邻推进，产物绑定覆盖快照哈希
 - **红队复审**：最多两轮挑战，`addressed` 必须引用本轮新增且已 full 审核的证据
-- **多文档类型**：HTML / PDF（pymupdf）/ Word .docx（python-docx）全文提取
+- **深度抓取**：搜索结果播种持久化优先队列；逐跳执行 SSRF、DNS pinning、robots、速率、并发和字节限制，支持中断后恢复
+- **多文档类型**：HTML、PDF、Office、文本/CSV、图片、音视频；原件始终按 SHA-256 归档，处理器缺失时正文标记为不可用
 - **来源扩展**：抓取结果返回 `outbound_links` 可继续展开（不消耗搜索预算）；已知权威来源（金融/IR/政策）可直接抓取
 
 ## 快速开始
@@ -25,11 +26,20 @@ export DEEPSEEK_API_KEY=<your-key>
 # 复制配置并按需修改（SearXNG 地址、模型、预算、已知来源）
 cp config.example.yaml config.yaml
 
+# 开发依赖；需要 Office/图片/音视频提取时同时安装 media extra
+UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv sync --extra dev --extra media
+
 # 运行情报收集任务
 python -m intel_agent --topic "低空经济" \
   --questions "2026年低空经济投资与融资趋势" "亿航智能商业化进展与订单情况" \
-  --config config.yaml --min-sources 2 --min-quality 1 --recency 120
+  --config config.yaml --min-sources 2 --min-quality 1 --recency 120 \
+  --deep-crawl
 ```
+
+`--deep-crawl` 强制启用，`--no-deep-crawl` 强制关闭；两者都省略时使用
+`crawl.enabled_by_default`。媒体处理还需要系统可执行文件：Tesseract（并安装
+`chi_sim`/`eng` 语言数据）、FFmpeg 和 LibreOffice。音视频转写使用 media extra
+中的 `faster-whisper`；缺少任一可选处理器不会丢弃已下载原件。
 
 ### Web 工作台
 
@@ -46,7 +56,7 @@ intel-agent-web --config config.yaml
 默认访问 `http://127.0.0.1:6780`。监听地址和端口通过 `config.yaml` 的 `web.host`、`web.port` 配置；`--host` 与 `--port` 可用于临时覆盖。开发时分别运行后端和 `cd web && bun run dev`；Vite 会将 `/api` 转发到本地后端。
 
 运行结束后产物位于：
-- `data/intel/` — 任务/事实/证据/审核/覆盖等状态（JSON，原子写入）
+- `data/intel/` — 任务/抓取队列/事实/证据/审核/覆盖等状态（JSON，原子写入）
 - `data/raw/` — 文档原文（.raw）与提取正文（.txt）
 - `output/` — 证据包与研判报告（Markdown）
 
@@ -58,7 +68,16 @@ intel-agent-web --config config.yaml
 | `audit_model` | 语义审核独立模型（默认同主模型） |
 | `search.searxng_url` | 本地 SearXNG 地址；`null` 则只用 Bing/Baidu 直连 |
 | `budgets` | 搜索/抓取/模型请求预算（request_limit 默认 200） |
-| `fetch.enable_httpx_fallback` | pinned 抓取失败时回退 httpx（兼容 WAF/Cloudflare 站点） |
+| `fetch.enable_httpx_fallback` | 单次 `web_fetch` 的 pinned 抓取失败时回退 httpx（兼容 WAF/Cloudflare 站点）；递归 crawler 始终仅使用 pinned fetch |
+| `crawl.enabled_by_default` | 新任务省略开关时是否默认深度抓取（默认 `true`；旧任务仍为 `false`） |
+| `crawl.max_depth` / `crawl.max_urls` | 递归深度与任务 URL 上限（默认 2 / 200） |
+| `crawl.max_total_bytes` | 整个任务的下载硬上限（默认 1 GiB，失败响应也计数） |
+| `crawl.max_html_bytes` / `crawl.max_attachment_bytes` | 单响应 HTML / 附件硬上限（默认 5 MiB / 50 MiB） |
+| `crawl.concurrency` / `crawl.per_host_concurrency` | 全局 / 单主机并发（默认 4 / 1） |
+| `crawl.per_host_delay_seconds` | 同主机请求起始间隔（默认 1 秒） |
+| `crawl.cache_ttl_hours` / `crawl.retries` | 跨任务缓存时长 / 429、5xx、超时重试次数（默认 24 / 2） |
+| `crawl.obey_robots` | 是否逐跳遵守 robots.txt（默认 `true`） |
+| `crawl.ocr_languages` / `crawl.whisper_model` | Tesseract 语言与 faster-whisper 模型（默认 `chi_sim+eng` / `small`） |
 | `web.host` / `web.port` | Web 工作台监听地址与端口（默认 `0.0.0.0:6780`） |
 | `sources` | 金融/IR/政策已知权威来源清单（intel_plan 按问题关键词建议） |
 
@@ -74,6 +93,8 @@ src/intel_agent/
 ├── search.py       # SearXNG + Bing + Baidu 并行搜索与结果聚合
 ├── search_queries.py # 查询词分析、去重与变体生成
 ├── fetch.py        # DNS-pinned 抓取、HTTP 解析、注入检测与文档归档
+├── crawl.py        # 持久化优先队列、robots、限速、缓存和资源归档
+├── extract.py      # PDF/Office/图片/音视频安全提取与处理器边界
 ├── document_extract.py # HTML/PDF/Word 文本、日期与外链提取
 ├── fact.py         # 事实 CRUD + supersede（无环替换链）
 ├── evidence.py     # 证据 CRUD + 引文行号定位

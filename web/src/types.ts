@@ -11,7 +11,7 @@ export interface Criteria {
 export interface RunInput {
   topic: string;
   questions: string[];
-  deep_crawl: boolean;
+  deep_crawl: boolean | null;
   criteria: Criteria;
 }
 

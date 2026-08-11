@@ -43,6 +43,7 @@ class ExtractionResult(BaseModel):
     status: Literal["complete", "unavailable", "failed", "skipped"]
     text: str = ""
     links: list[str] = Field(default_factory=list)
+    link_relevance: dict[str, float] = Field(default_factory=dict)
     processor: str | None = None
     error: str | None = None
 
@@ -51,6 +52,7 @@ class CrawlEntry(BaseModel):
     canonical_url: str
     parent_url: str | None = None
     depth: int = Field(ge=0)
+    relevance: float = 0
     priority: float
     status: Literal[
         "queued",
@@ -72,6 +74,7 @@ class CrawlEntry(BaseModel):
     extraction: ExtractionState = Field(default_factory=ExtractionState)
     validators: CrawlValidators = Field(default_factory=CrawlValidators)
     outbound_links: list[str] = Field(default_factory=list)
+    outbound_relevance: dict[str, float] = Field(default_factory=dict)
     created_at: str
     updated_at: str
 

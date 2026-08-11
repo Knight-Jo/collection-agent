@@ -24,7 +24,6 @@ dev = [
 ]
 media = [
     "Pillow",
-    "pytesseract",
     "openpyxl",
     "python-pptx",
     "faster-whisper",

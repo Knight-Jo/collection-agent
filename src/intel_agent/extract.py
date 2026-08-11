@@ -11,6 +11,8 @@ import signal
 import subprocess
 import tempfile
 import threading
+import time
+import zipfile
 from html.parser import HTMLParser
 from importlib import import_module
 from io import BytesIO
@@ -83,6 +85,17 @@ _OFFICE_MIMES = {
     "application/vnd.ms-powerpoint": "ppt",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
 }
+_MAX_OOXML_MEMBERS = 1_024
+_MAX_OOXML_EXPANDED_BYTES = 32 * 1024 * 1024
+_MAX_PDF_PAGES = 200
+_MAX_PDF_PAGE_PIXELS = 25_000_000
+_MAX_PDF_RASTER_PIXELS = 100_000_000
+_MAX_SPREADSHEET_SHEETS = 100
+_MAX_SPREADSHEET_CELLS = 250_000
+_MAX_PRESENTATION_SLIDES = 500
+_MAX_IMAGE_PIXELS = 40_000_000
+_EXTRACTION_TIMEOUT_SECONDS = 60
+_RESOURCE_WORKER_ACTIVE = False
 
 
 class _LinkParser(HTMLParser):
@@ -90,6 +103,9 @@ class _LinkParser(HTMLParser):
         super().__init__()
         self.base_url = base_url
         self.links: list[str] = []
+        self.context: dict[str, str] = {}
+        self._anchor_url: str | None = None
+        self._anchor_text: list[str] = []
 
     def handle_starttag(
         self, tag: str, attrs: list[tuple[str, str | None]]
@@ -98,16 +114,39 @@ class _LinkParser(HTMLParser):
             return
         href = dict(attrs).get("href")
         if href:
-            _append_link(self.links, href, self.base_url)
+            self._anchor_url = _append_link(self.links, href, self.base_url)
+            self._anchor_text = []
+
+    def handle_data(self, data: str) -> None:
+        if self._anchor_url is not None:
+            self._anchor_text.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() != "a" or self._anchor_url is None:
+            return
+        self.context[self._anchor_url] = " ".join(
+            " ".join(self._anchor_text).split()
+        )
+        self._anchor_url = None
+        self._anchor_text = []
 
 
-def _append_link(links: list[str], raw: str, base_url: str) -> None:
+def _append_link(links: list[str], raw: str, base_url: str) -> str | None:
     url = urljoin(base_url, raw.strip())
     parsed = urlparse(url)
     if parsed.scheme in ("http", "https") and parsed.hostname:
         url = parsed._replace(fragment="").geturl()
         if url not in links:
             links.append(url)
+        return url
+    return None
+
+
+def _link_relevance(text: str, terms: list[str] | None) -> float:
+    normalized = text.casefold()
+    return float(
+        sum(1 for term in terms or [] if term.casefold() in normalized)
+    )
 
 
 def _text_links(text: str, base_url: str) -> list[str]:
@@ -166,17 +205,50 @@ class _ProcessorUnavailable(Exception):
     pass
 
 
+class _ExtractionLimitExceeded(Exception):
+    pass
+
+
+def _preflight_ooxml(raw: bytes) -> None:
+    stream = BytesIO(raw)
+    if not zipfile.is_zipfile(stream):
+        return
+    stream.seek(0)
+    with zipfile.ZipFile(stream) as archive:
+        members = archive.infolist()
+        if len(members) > _MAX_OOXML_MEMBERS:
+            raise _ExtractionLimitExceeded("OOXML member limit exceeded")
+        if sum(member.file_size for member in members) > (
+            _MAX_OOXML_EXPANDED_BYTES
+        ):
+            raise _ExtractionLimitExceeded(
+                "OOXML expanded byte limit exceeded"
+            )
+
+
+def _validate_image_pixels(raw: bytes) -> None:
+    if raw.startswith(b"\x89PNG\r\n\x1a\n") and raw[12:16] == b"IHDR":
+        width = int.from_bytes(raw[16:20], "big")
+        height = int.from_bytes(raw[20:24], "big")
+    else:
+        image_module = import_module("PIL.Image")
+        with image_module.open(BytesIO(raw)) as image:
+            width, height = image.size
+    if width * height > _MAX_IMAGE_PIXELS:
+        raise _ExtractionLimitExceeded("image pixel limit exceeded")
+
+
 def _terminate_process(process: subprocess.Popen[bytes]) -> None:
     if process.poll() is not None:
         return
-    if os.name == "posix":
+    if os.name == "posix" and not _RESOURCE_WORKER_ACTIVE:
         os.killpg(process.pid, signal.SIGTERM)
     else:
         process.terminate()
     try:
         process.wait(timeout=1)
     except subprocess.TimeoutExpired:
-        if os.name == "posix":
+        if os.name == "posix" and not _RESOURCE_WORKER_ACTIVE:
             os.killpg(process.pid, signal.SIGKILL)
         else:
             process.kill()
@@ -191,7 +263,7 @@ def _run_process(
         command,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        start_new_session=os.name == "posix",
+        start_new_session=os.name == "posix" and not _RESOURCE_WORKER_ACTIVE,
     )
     while True:
         if cancellation_event is not None and cancellation_event.is_set():
@@ -220,6 +292,7 @@ def _ocr_image(
     languages: str,
     cancellation_event: threading.Event | None = None,
 ) -> str:
+    _validate_image_pixels(raw)
     executable = shutil.which("tesseract")
     if not executable:
         raise FileNotFoundError("tesseract")
@@ -236,25 +309,45 @@ def _ocr_image(
 def _extract_pdf(
     raw: bytes,
     languages: str,
+    base_url: str,
     cancellation_event: threading.Event | None = None,
 ) -> tuple[str, list[str], str]:
     import fitz
 
     document = fitz.open(stream=raw, filetype="pdf")
     try:
+        if len(document) > _MAX_PDF_PAGES:
+            raise _ExtractionLimitExceeded("PDF page limit exceeded")
         text = "\n".join(str(page.get_text("text")) for page in document)
         links: list[str] = []
         for page in document:
             for link in page.get_links():
                 if uri := link.get("uri"):
-                    _append_link(links, str(uri), "")
+                    _append_link(links, str(uri), base_url)
         normalized = "\n".join(
             line.strip() for line in text.splitlines() if line.strip()
         )
         if len(re.sub(r"\s", "", normalized)) >= 20:
-            return normalized, links + _text_links(normalized, ""), "pymupdf"
+            return (
+                normalized,
+                links + _text_links(normalized, base_url),
+                "pymupdf",
+            )
         pages = []
+        raster_pixels = 0
         for page in document:
+            page_pixels = round(page.rect.width * 2) * round(
+                page.rect.height * 2
+            )
+            if page_pixels > _MAX_PDF_PAGE_PIXELS:
+                raise _ExtractionLimitExceeded(
+                    "PDF raster pixel limit exceeded"
+                )
+            raster_pixels += page_pixels
+            if raster_pixels > _MAX_PDF_RASTER_PIXELS:
+                raise _ExtractionLimitExceeded(
+                    "PDF raster pixel limit exceeded"
+                )
             pixmap = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
             image = pixmap.tobytes("png")
             pages.append(
@@ -290,9 +383,24 @@ def _extract_xlsx(raw: bytes, base_url: str) -> tuple[str, list[str]]:
     lines: list[str] = []
     links: list[str] = []
     try:
+        if len(workbook.worksheets) > _MAX_SPREADSHEET_SHEETS:
+            raise _ExtractionLimitExceeded("spreadsheet sheet limit exceeded")
+        declared_cells = sum(
+            int(getattr(sheet, "max_row", 0) or 0)
+            * int(getattr(sheet, "max_column", 0) or 0)
+            for sheet in workbook.worksheets
+        )
+        if declared_cells > _MAX_SPREADSHEET_CELLS:
+            raise _ExtractionLimitExceeded("spreadsheet cell limit exceeded")
+        visited_cells = 0
         for sheet in workbook.worksheets:
             for row in sheet.iter_rows():
                 for cell in row:
+                    visited_cells += 1
+                    if visited_cells > _MAX_SPREADSHEET_CELLS:
+                        raise _ExtractionLimitExceeded(
+                            "spreadsheet cell limit exceeded"
+                        )
                     if cell.value is not None:
                         lines.append(
                             f"{sheet.title}!{cell.coordinate}: {cell.value}"
@@ -309,6 +417,8 @@ def _extract_pptx(raw: bytes, base_url: str) -> tuple[str, list[str]]:
     presentation_class = import_module("pptx").Presentation
 
     presentation = presentation_class(BytesIO(raw))
+    if len(presentation.slides) > _MAX_PRESENTATION_SLIDES:
+        raise _ExtractionLimitExceeded("presentation slide limit exceeded")
     lines: list[str] = []
     links: list[str] = []
     for slide_number, slide in enumerate(presentation.slides, 1):
@@ -480,14 +590,6 @@ def _timestamp(seconds: float) -> str:
     return f"{hours:02}:{minutes:02}:{whole_seconds:02}.{milliseconds:03}"
 
 
-def _is_tesseract_not_found(error: Exception) -> bool:
-    error_type = type(error)
-    return (
-        error_type.__name__ == "TesseractNotFoundError"
-        and error_type.__module__.split(".", 1)[0] == "pytesseract"
-    )
-
-
 def extract_resource(
     raw: bytes,
     mime_type: str,
@@ -495,6 +597,7 @@ def extract_resource(
     *,
     ocr_languages: str = "chi_sim+eng",
     whisper_model: str = "small",
+    relevance_terms: list[str] | None = None,
     cancellation_event: threading.Event | None = None,
 ) -> ExtractionResult:
     """Extract supported content without making optional processors mandatory."""
@@ -521,11 +624,18 @@ def extract_resource(
                 status="complete",
                 text=extracted["text"],
                 links=parser.links,
+                link_relevance={
+                    link: _link_relevance(
+                        f"{link} {parser.context.get(link, '')}",
+                        relevance_terms,
+                    )
+                    for link in parser.links
+                },
                 processor="html",
             )
         if mime == "application/pdf" or suffix == ".pdf":
             text, links, processor = _extract_pdf(
-                raw, ocr_languages, cancellation_event
+                raw, ocr_languages, url, cancellation_event
             )
             return ExtractionResult(
                 status="complete", text=text, links=links, processor=processor
@@ -546,6 +656,8 @@ def extract_resource(
                 raw, "ppt", "pptx", cancellation_event
             )
             office_type = "pptx"
+        if office_type in {"docx", "xlsx", "pptx"}:
+            _preflight_ooxml(raw)
         if office_type == "docx":
             text, links = _extract_docx(raw, url)
             return ExtractionResult(
@@ -612,9 +724,141 @@ def extract_resource(
     ) as error:
         return ExtractionResult(status="unavailable", error=str(error))
     except Exception as error:
-        return ExtractionResult(
-            status=(
-                "unavailable" if _is_tesseract_not_found(error) else "failed"
-            ),
-            error=str(error),
+        return ExtractionResult(status="failed", error=str(error))
+
+
+def _resource_worker(
+    raw: bytes,
+    mime_type: str,
+    url: str,
+    ocr_languages: str,
+    whisper_model: str,
+    relevance_terms: list[str] | None,
+    results: Any,
+) -> None:
+    global _RESOURCE_WORKER_ACTIVE
+    if os.name == "posix":
+        os.setsid()
+    _RESOURCE_WORKER_ACTIVE = True
+    try:
+        result = extract_resource(
+            raw,
+            mime_type,
+            url,
+            ocr_languages=ocr_languages,
+            whisper_model=whisper_model,
+            relevance_terms=relevance_terms,
         )
+        results.put(result.model_dump())
+    except Exception as error:
+        results.put(
+            ExtractionResult(status="failed", error=str(error)).model_dump()
+        )
+
+
+def _terminate_extraction_worker(process: Any) -> None:
+    if not process.is_alive():
+        process.join()
+        return
+    if os.name == "posix" and process.pid is not None:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            process.terminate()
+    else:
+        process.terminate()
+    process.join(timeout=1)
+    if process.is_alive():
+        if os.name == "posix" and process.pid is not None:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                process.kill()
+        else:
+            process.kill()
+        process.join()
+
+
+def extract_resource_process(
+    raw: bytes,
+    mime_type: str,
+    url: str,
+    *,
+    ocr_languages: str = "chi_sim+eng",
+    whisper_model: str = "small",
+    relevance_terms: list[str] | None = None,
+    cancellation_event: threading.Event | None = None,
+) -> ExtractionResult:
+    """Run document parsers in a worker that can be killed or timed out."""
+    mime = mime_type.split(";", 1)[0].strip().lower()
+    suffix = Path(urlparse(url).path).suffix.lower()
+    if not (
+        mime == "application/pdf"
+        or mime in _OFFICE_MIMES
+        or mime in _IMAGE_MIMES
+        or suffix
+        in _IMAGE_SUFFIXES
+        | {".doc", ".docx", ".pdf", ".ppt", ".pptx", ".xls", ".xlsx"}
+    ):
+        return extract_resource(
+            raw,
+            mime_type,
+            url,
+            ocr_languages=ocr_languages,
+            whisper_model=whisper_model,
+            relevance_terms=relevance_terms,
+            cancellation_event=cancellation_event,
+        )
+    context = multiprocessing.get_context("spawn")
+    results = context.Queue()
+    process = context.Process(
+        target=_resource_worker,
+        args=(
+            raw,
+            mime_type,
+            url,
+            ocr_languages,
+            whisper_model,
+            relevance_terms,
+            results,
+        ),
+    )
+    process.start()
+    deadline = time.monotonic() + _EXTRACTION_TIMEOUT_SECONDS
+    payload: object | None = None
+    try:
+        while payload is None:
+            if cancellation_event is not None and cancellation_event.is_set():
+                raise _ExtractionCancelled("extraction cancelled")
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return ExtractionResult(
+                    status="failed", error="extraction timed out"
+                )
+            try:
+                payload = results.get(timeout=min(0.05, remaining))
+            except queue.Empty:
+                if not process.is_alive():
+                    try:
+                        payload = results.get(timeout=0.1)
+                    except queue.Empty:
+                        return ExtractionResult(
+                            status="failed",
+                            error=(
+                                "extraction worker exited with code "
+                                f"{process.exitcode}"
+                            ),
+                        )
+        while process.is_alive():
+            if cancellation_event is not None and cancellation_event.is_set():
+                raise _ExtractionCancelled("extraction cancelled")
+            if time.monotonic() >= deadline:
+                return ExtractionResult(
+                    status="failed", error="extraction timed out"
+                )
+            process.join(timeout=0.05)
+    finally:
+        _terminate_extraction_worker(process)
+        results.close()
+        results.cancel_join_thread()
+    return ExtractionResult.model_validate(payload)
