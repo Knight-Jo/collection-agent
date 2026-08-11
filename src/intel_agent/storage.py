@@ -36,6 +36,13 @@ def ensure_intel_dirs(cwd: Path) -> None:
 
 
 def _safe_path(root: Path, path: str | Path) -> Path:
+    """Resolve a path and reject any traversal outside `root`.
+
+    The check is done on the fully-resolved path (symlinks included) so that
+    `../escape` or a symlink pointing outside the workspace cannot smuggle
+    reads/writes past the data boundary. This is the single guard every
+    storage entry point relies on.
+    """
     full = (root / path).resolve()
     if full != root.resolve() and root.resolve() not in full.parents:
         raise IntelError("INVALID_INPUT", f"路径越界: {path}")
@@ -68,6 +75,9 @@ def read_json_object(cwd: Path, path: str) -> dict:
 
 
 def write_json_atomic(cwd: Path, path: str, value: object) -> None:
+    # tmp -> os.replace guarantees the target is either the full new content or
+    # the unchanged old content; a crash mid-write can never leave a truncated
+    # record that would later fail (or worse, pass) integrity checks.
     ensure_intel_dirs(cwd)
     full = intel_path(cwd, path)
     full.parent.mkdir(parents=True, exist_ok=True)
@@ -108,6 +118,14 @@ def list_json(cwd: Path, directory: str) -> list[dict]:
 
 
 def verify_document_integrity(cwd: Path, document: IntelDocument) -> None:
+    """Re-derive every piece of a document record to prove it was not tampered.
+
+    Files on disk must match the recorded SHA-256s (content tamper), the
+    document ID must be reproducible from canonical_url + raw hash (metadata
+    tamper), and source_group/source_type must still derive from the final URL
+    (classification tamper). Any mismatch means the record or its files were
+    modified outside the fetch pipeline.
+    """
     raw_path = workspace_path(cwd, document.raw_path)
     text_path = workspace_path(cwd, document.text_path)
     if not raw_path.exists() or not text_path.exists():

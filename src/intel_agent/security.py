@@ -12,6 +12,14 @@ from .models import IntelError
 
 AddressResolver = Callable[[str], Awaitable[list[str]]]
 
+# SSRF blocklist: every range below maps to a specific attack vector that the
+# fetch layer must never reach, regardless of DNS tricks or redirect chains:
+#   IPv4: loopback (127/8), RFC 1918 private (10/8, 172.16/12, 192.168/16),
+#         CGNAT (100.64/10), link-local (169.254/16), multicast (224/4),
+#         reserved/future (240/4), documentation ranges (192.0.2/24, 198.51.100/24,
+#         203.0.113/24), benchmark (198.18/15), "this network" (192.0.0/24).
+#   IPv6: unspecified (::/128), loopback (::1/128), ULA (fc00::/7),
+#         link-local (fe80::/10), multicast (ff00::/8), documentation (2001:db8::/32).
 BLOCKED_NETWORKS = [
     ipaddress.ip_network(net)
     for net in [
@@ -67,6 +75,14 @@ async def default_resolver(hostname: str) -> list[str]:
 async def resolve_public_url(
     raw: str, resolver: AddressResolver | None = None
 ) -> tuple[object, list[str]]:
+    """Validate a URL is safe to fetch and resolve it to public addresses.
+
+    Five sequential gates, each closing one SSRF vector: scheme whitelist
+    (no file:// or other schemes), embedded credentials (leakage via URL),
+    loopback/local hostnames (local service access), DNS resolution, and a
+    final public-address-only check (DNS rebinding — the address that will be
+    connected to must itself be public, not just the hostname).
+    """
     resolver = resolver or default_resolver
     try:
         from urllib.parse import urlsplit

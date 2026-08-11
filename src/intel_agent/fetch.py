@@ -50,6 +50,9 @@ FetchLike = Callable[[str, dict | None, str], Awaitable[FetchedResponse]]
 
 
 def canonicalize_url(raw: str) -> str:
+    # Tracking params (utm_*/spm/from/source) produce distinct URLs for the
+    # same content; stripping and sorting them gives one canonical form so
+    # dedup and content-addressed IDs are stable across sessions.
     parsed = urlparse(raw)
     from urllib.parse import parse_qsl, urlencode
 
@@ -64,6 +67,14 @@ def canonicalize_url(raw: str) -> str:
 
 
 def injection_warnings(text: str) -> list[str]:
+    """Flag lines that look like prompt-injection attempts.
+
+    Fetched content is later shown to the LLM inside <untrusted_web_content>;
+    malicious pages try to hijack the agent with instruction-like text. The
+    patterns are heuristic (Chinese/English variants of "ignore instructions"
+    / "run commands" / "use tools") — false positives are acceptable, false
+    negatives are not eliminated, so this is an alert, not a sanitizer.
+    """
     patterns = [
         re.compile(r"忽略(?:此前|之前|以上).{0,12}指令", re.I),
         re.compile(r"(?:执行|运行).{0,8}(?:命令|代码)", re.I),
@@ -205,6 +216,12 @@ async def fetch_with_validated_redirects(
     resolver: AddressResolver | None,
     max_bytes: int,
 ) -> tuple[FetchedResponse, object]:
+    """Fetch following redirects, re-validating every hop as a public URL.
+
+    A redirect target is attacker-controlled: without re-running
+    resolve_public_url on each Location, a safe-looking first hop could land
+    on an internal IP (SSRF via redirect). MAX_REDIRECTS bounds loop chains.
+    """
     current_url, addresses = await resolve_public_url(raw_url, resolver)
     for redirects in range(MAX_REDIRECTS + 1):
         response = await fetcher(_url_string(current_url), None, addresses[0])
