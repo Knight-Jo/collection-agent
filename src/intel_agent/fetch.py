@@ -50,6 +50,11 @@ class FetchedResponse:
     body: bytes = b""
 
 
+@dataclass
+class BodyProgress:
+    downloaded_bytes: int = 0
+
+
 FetchLike = Callable[[str, dict | None, str], Awaitable[FetchedResponse]]
 BeforeFetch = Callable[[str], Awaitable[None]]
 
@@ -115,6 +120,7 @@ async def pinned_fetch(
     address: str,
     max_bytes: int = DEFAULT_MAX_BYTES,
     max_html_bytes: int | None = None,
+    body_progress: BodyProgress | None = None,
 ) -> FetchedResponse:
     """DNS-pinned TCP/TLS fetch: connect to the validated public IP while
     keeping the original hostname for TLS SNI."""
@@ -172,7 +178,9 @@ async def pinned_fetch(
             or (generic_content and html_path)
         ):
             body_limit = min(body_limit, max_html_bytes)
-        body = await _read_response_body(reader, headers, body_limit)
+        body = await _read_response_body(
+            reader, headers, body_limit, body_progress
+        )
     finally:
         writer.close()
         with suppress(Exception):
@@ -195,7 +203,12 @@ def _parse_http_head(raw: bytes) -> tuple[int, dict[str, str]]:
     return int(status_match.group(1)), headers
 
 
-async def _read_exact_body(reader, size: int, downloaded: int = 0) -> bytes:
+async def _read_exact_body(
+    reader,
+    size: int,
+    downloaded: int = 0,
+    body_progress: BodyProgress | None = None,
+) -> bytes:
     chunks: list[bytes] = []
     remaining = size
     while remaining:
@@ -218,10 +231,25 @@ async def _read_exact_body(reader, size: int, downloaded: int = 0) -> bytes:
             )
         chunks.append(chunk)
         remaining -= len(chunk)
+        if body_progress is not None:
+            body_progress.downloaded_bytes += len(chunk)
     return b"".join(chunks)
 
 
-async def _read_chunked_body(reader, max_bytes: int) -> bytes:
+async def _read_framing(reader, size: int, downloaded: int) -> bytes:
+    try:
+        return await _read_exact_body(reader, size)
+    except IntelError as error:
+        raise IntelError(
+            error.code,
+            str(error),
+            downloaded_bytes=downloaded,
+        ) from error
+
+
+async def _read_chunked_body(
+    reader, max_bytes: int, body_progress: BodyProgress | None = None
+) -> bytes:
     chunks: list[bytes] = []
     downloaded = 0
     while True:
@@ -241,20 +269,22 @@ async def _read_chunked_body(reader, max_bytes: int) -> bytes:
                 downloaded_bytes=downloaded,
             ) from error
         if size == 0:
-            await _read_exact_body(reader, 2, downloaded)
+            await _read_framing(reader, 2, downloaded)
             return b"".join(chunks)
         remaining = max_bytes - downloaded
         if size > remaining:
             if remaining:
-                await _read_exact_body(reader, remaining, downloaded)
+                await _read_exact_body(
+                    reader, remaining, downloaded, body_progress
+                )
                 downloaded += remaining
             raise IntelError(
                 "RESPONSE_TOO_LARGE",
                 f"响应超过 {max_bytes} 字节",
                 downloaded_bytes=downloaded,
             )
-        chunk = await _read_exact_body(reader, size, downloaded)
-        terminator = await _read_exact_body(reader, 2, downloaded + size)
+        chunk = await _read_exact_body(reader, size, downloaded, body_progress)
+        terminator = await _read_framing(reader, 2, downloaded + size)
         if terminator != b"\r\n":
             raise IntelError(
                 "NETWORK_ERROR",
@@ -266,10 +296,13 @@ async def _read_chunked_body(reader, max_bytes: int) -> bytes:
 
 
 async def _read_response_body(
-    reader, headers: dict[str, str], max_bytes: int
+    reader,
+    headers: dict[str, str],
+    max_bytes: int,
+    body_progress: BodyProgress | None = None,
 ) -> bytes:
     if re.search(r"chunked", headers.get("transfer-encoding", ""), re.I):
-        return await _read_chunked_body(reader, max_bytes)
+        return await _read_chunked_body(reader, max_bytes, body_progress)
     content_length = headers.get("content-length")
     if content_length is not None:
         try:
@@ -283,7 +316,9 @@ async def _read_response_body(
                 "RESPONSE_TOO_LARGE",
                 f"响应超过 {max_bytes} 字节",
             )
-        return await _read_exact_body(reader, size)
+        return await _read_exact_body(
+            reader, size, body_progress=body_progress
+        )
     chunks: list[bytes] = []
     downloaded = 0
     while downloaded < max_bytes:
@@ -300,6 +335,8 @@ async def _read_response_body(
             return b"".join(chunks)
         chunks.append(chunk)
         downloaded += len(chunk)
+        if body_progress is not None:
+            body_progress.downloaded_bytes += len(chunk)
     try:
         extra = await reader.read(1)
     except (TimeoutError, OSError, asyncio.IncompleteReadError) as error:
@@ -311,6 +348,8 @@ async def _read_response_body(
         ) from error
     if not extra:
         return b"".join(chunks)
+    if body_progress is not None:
+        body_progress.downloaded_bytes += len(extra)
     raise IntelError(
         "RESPONSE_TOO_LARGE",
         f"响应超过 {max_bytes} 字节",

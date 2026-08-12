@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import pytest
 
 import intel_agent.crawl as crawl_module
+import intel_agent.fetch as fetch_module
 from intel_agent.config import CrawlConfig
 from intel_agent.crawl import crawl_collect, create_crawl, enqueue_url
 from intel_agent.evidence import load_document
@@ -324,7 +325,12 @@ async def test_crawl_accounts_partial_failed_reads_across_retry(cwd, failure):
         nonlocal calls
         calls += 1
         if calls == 1:
-            await _read_response_body(Reader(), {}, init["_max_body_bytes"])
+            await _read_response_body(
+                Reader(),
+                {},
+                init["_max_body_bytes"],
+                init["_body_progress"],
+            )
             raise AssertionError("partial read should fail")
         assert init["_max_body_bytes"] == 2
         raise IntelError(
@@ -351,6 +357,129 @@ async def test_crawl_accounts_partial_failed_reads_across_retry(cwd, failure):
     assert snapshot.downloaded_bytes == 5
     assert snapshot.entries[0].downloaded_bytes == 5
     assert snapshot.entries[0].status == "skipped_limit"
+
+
+class _PinnedBodyReader:
+    def __init__(
+        self,
+        body: bytes,
+        *,
+        started: asyncio.Event | None = None,
+        block_after_body: bool = False,
+    ):
+        self.body = body
+        self.started = started
+        self.block_after_body = block_after_body
+        self.sent = False
+
+    async def readuntil(self, _separator):
+        return b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n"
+
+    async def read(self, _size):
+        if not self.sent:
+            self.sent = True
+            if self.started is not None:
+                self.started.set()
+            return self.body
+        if self.block_after_body:
+            await asyncio.Future()
+        return b""
+
+
+class _PinnedWriter:
+    def write(self, _value):
+        pass
+
+    async def drain(self):
+        pass
+
+    def close(self):
+        pass
+
+    async def wait_closed(self):
+        pass
+
+
+@pytest.mark.asyncio
+async def test_real_deadline_accounts_partial_read_before_retry(
+    cwd, monkeypatch
+):
+    task = new_task(cwd)
+    started = asyncio.Event()
+    readers = iter(
+        [
+            _PinnedBodyReader(b"abc", started=started, block_after_body=True),
+            _PinnedBodyReader(b"xy"),
+        ]
+    )
+    monkeypatch.setattr(crawl_module, "DEFAULT_TIMEOUT_MS", 10)
+
+    async def open_connection(*_args, **_kwargs):
+        return next(readers), _PinnedWriter()
+
+    monkeypatch.setattr(
+        fetch_module.asyncio, "open_connection", open_connection
+    )
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["http://example.com/deadline"],
+        config=CrawlConfig(
+            retries=1,
+            max_total_bytes=5,
+            obey_robots=False,
+            per_host_delay_seconds=0,
+        ),
+        resolver=_public_resolver,
+    )
+
+    assert started.is_set()
+    assert snapshot.downloaded_bytes == 5
+    assert snapshot.entries[0].downloaded_bytes == 5
+    assert snapshot.entries[0].status == "complete"
+
+
+@pytest.mark.asyncio
+async def test_explicit_cancellation_persists_partial_read_and_pauses(cwd):
+    task = new_task(cwd)
+    started = asyncio.Event()
+    reader = _PinnedBodyReader(b"abc", started=started, block_after_body=True)
+
+    async def open_connection(*_args, **_kwargs):
+        return reader, _PinnedWriter()
+
+    original_open_connection = fetch_module.asyncio.open_connection
+    fetch_module.asyncio.open_connection = open_connection
+
+    try:
+        running = asyncio.create_task(
+            crawl_collect(
+                cwd,
+                task.id,
+                ["http://example.com/cancel"],
+                config=CrawlConfig(
+                    retries=0,
+                    max_total_bytes=5,
+                    obey_robots=False,
+                    per_host_delay_seconds=0,
+                ),
+                resolver=_public_resolver,
+            )
+        )
+        await asyncio.wait_for(started.wait(), timeout=1)
+        running.cancel()
+
+        with pytest.raises(asyncio.CancelledError):
+            await running
+    finally:
+        fetch_module.asyncio.open_connection = original_open_connection
+
+    saved = load_crawl(cwd, task.id)
+    assert saved.status == "paused"
+    assert saved.downloaded_bytes == 3
+    assert saved.entries[0].downloaded_bytes == 3
+    assert saved.entries[0].status == "queued"
 
 
 @pytest.mark.asyncio

@@ -119,6 +119,21 @@ async def test_chunked_size_line_failure_preserves_prior_download(failure):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure", [TimeoutError(), OSError("reset")])
+async def test_chunk_terminator_failure_excludes_framing_bytes(failure):
+    reader = _ScriptedReader(
+        [b"abc", b"\r", failure],
+        lines=[b"3\r\n"],
+    )
+
+    with pytest.raises(IntelError) as error:
+        await _read_chunked_body(reader, 10)
+
+    assert error.value.code == "NETWORK_ERROR"
+    assert error.value.downloaded_bytes == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [TimeoutError(), OSError("reset")])
 async def test_unknown_length_partial_read_reports_downloaded_bytes(failure):
     reader = _ScriptedReader([b"abc", failure])
 

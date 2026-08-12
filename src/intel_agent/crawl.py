@@ -24,6 +24,7 @@ from .extract import (
 from .fetch import (
     DEFAULT_TIMEOUT_MS,
     USER_AGENT,
+    BodyProgress,
     FetchedResponse,
     FetchLike,
     canonicalize_url,
@@ -519,11 +520,27 @@ class _CrawlRunner:
                     "_max_body_bytes": attachment_limit,
                     "_max_html_bytes": html_limit,
                 }
+                body_progress = BodyProgress()
+                bounded_init["_body_progress"] = body_progress
                 try:
                     response = await self.fetcher(url, bounded_init, address)
+                except asyncio.CancelledError:
+                    downloaded = min(
+                        body_progress.downloaded_bytes, attachment_limit
+                    )
+                    if downloaded:
+                        entry.downloaded_bytes += downloaded
+                        self.snapshot.downloaded_bytes += downloaded
+                        await asyncio.shield(self.persist())
+                    raise
                 except IntelError as error:
                     downloaded = min(
-                        max(0, error.downloaded_bytes), attachment_limit
+                        max(
+                            body_progress.downloaded_bytes,
+                            error.downloaded_bytes,
+                            0,
+                        ),
+                        attachment_limit,
                     )
                     if downloaded:
                         entry.downloaded_bytes += downloaded
@@ -883,6 +900,7 @@ async def crawl_collect(
                     limits.get("_max_body_bytes", config.max_attachment_bytes)
                 ),
                 int(limits.get("_max_html_bytes", config.max_html_bytes)),
+                limits.get("_body_progress"),
             )
 
         fetcher = default_fetcher
