@@ -1,0 +1,19 @@
+{
+  "id": "doc-9127f389a77794eb",
+  "requested_url": "http://big5.www.gov.cn/gate/big5/www.gov.cn",
+  "final_url": "http://big5.www.gov.cn/gate/big5/www.gov.cn/",
+  "canonical_url": "http://big5.www.gov.cn/gate/big5/www.gov.cn",
+  "title": "www.gov.cn",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-12T08:19:59.999839+00:00",
+  "source_type": "government",
+  "source_group": "www.gov.cn",
+  "raw_path": "data/raw/doc-9127f389a77794eb.raw",
+  "raw_sha256": "27c7bbce5d6de7234407b5a3b7d222f1e2dbf82735004de2f668fce4a89e203b",
+  "text_path": "data/raw/doc-9127f389a77794eb.txt",
+  "text_sha256": "aebe2c08dbe4ff4a4160568149e30f3418dfbf19e7cee6d84da6bea3f27bff64",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}

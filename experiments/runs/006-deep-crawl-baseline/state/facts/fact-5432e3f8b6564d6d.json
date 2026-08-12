@@ -1,0 +1,11 @@
+{
+  "id": "fact-5432e3f8b6564d6d",
+  "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+  "question_id": "q-bd12be7e-ab49-4b47-87cb-7ee5d5cae90c",
+  "statement": "亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。",
+  "status": "active",
+  "superseded_by": [],
+  "supersession_reason": "",
+  "created_at": "2026-08-12T08:23:18.499030+00:00",
+  "updated_at": "2026-08-12T08:23:18.499045+00:00"
+}

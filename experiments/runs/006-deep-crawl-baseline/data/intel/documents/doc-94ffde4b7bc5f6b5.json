@@ -1,0 +1,19 @@
+{
+  "id": "doc-94ffde4b7bc5f6b5",
+  "requested_url": "http://www.court.gov.cn/",
+  "final_url": "https://www.court.gov.cn/index.html",
+  "canonical_url": "https://www.court.gov.cn/index.html",
+  "title": "index.html",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-12T08:20:17.881470+00:00",
+  "source_type": "government",
+  "source_group": "court.gov.cn",
+  "raw_path": "data/raw/doc-94ffde4b7bc5f6b5.raw",
+  "raw_sha256": "f7656b1172718e154d1588ca94ddf42d4c0d10bbbf885e2f7d1c6d92ac94fe88",
+  "text_path": "data/raw/doc-94ffde4b7bc5f6b5.txt",
+  "text_sha256": "50aa14fbbadba3e9b984eafdd1d64f5aa9ce7fc94f06b3ac9e47d54e33404fdf",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}

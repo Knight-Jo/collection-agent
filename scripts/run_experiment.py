@@ -70,6 +70,7 @@ def main() -> int:
         help="前 N 个工具轮次后中止（调试用，0=完整运行）",
     )
     parser.add_argument("--config", default=None, help="config.yaml 路径")
+    parser.add_argument("--deep-crawl", action="store_true", help="启用深度抓取（BFS 爬虫）")
     args = parser.parse_args()
     if not 2 <= len(args.questions) <= 6:
         print("错误: questions 数量必须为 2-6 个", file=sys.stderr)
@@ -98,6 +99,7 @@ def main() -> int:
         },
         "max_turns": args.max_turns,
         "dry_after_turns": args.dry or None,
+        "deep_crawl": args.deep_crawl,
         "config": args.config,
     }
     (run_dir / "manifest.json").write_text(

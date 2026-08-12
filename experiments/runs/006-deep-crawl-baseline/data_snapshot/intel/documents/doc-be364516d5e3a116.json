@@ -1,0 +1,19 @@
+{
+  "id": "doc-be364516d5e3a116",
+  "requested_url": "https://www.gov.cn/yaowen/liebiao/202502/content_7004451.htm",
+  "final_url": "https://www.gov.cn/yaowen/liebiao/202502/content_7004451.htm",
+  "canonical_url": "https://www.gov.cn/yaowen/liebiao/202502/content_7004451.htm",
+  "title": "“低空经济”发展一年间__中国政府网",
+  "content_type": "text/html",
+  "publish_time": "2025-02-19",
+  "publish_time_source": "meta",
+  "collected_at": "2026-08-12T08:19:00.322465+00:00",
+  "source_type": "government",
+  "source_group": "www.gov.cn",
+  "raw_path": "data/raw/doc-be364516d5e3a116.raw",
+  "raw_sha256": "e1c3a6a757bfd6929f2fe3e085336d207834cf16370bdbc4a4aee1e5bbf60978",
+  "text_path": "data/raw/doc-be364516d5e3a116.txt",
+  "text_sha256": "65af425aa9e9729a826081926fc66b46a6d00ac9b0e41527f40ec564a271930a",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}

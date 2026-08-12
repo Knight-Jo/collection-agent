@@ -1,0 +1,19 @@
+{
+  "id": "doc-2252e18ab2922b99",
+  "requested_url": "https://www.caixin.com/search/searchresult.jsp?keyword=低空经济+融资",
+  "final_url": "https://www.caixin.com?keyword=%E4%BD%8E%E7%A9%BA%E7%BB%8F%E6%B5%8E+%E8%9E%8D%E8%B5%84",
+  "canonical_url": "https://www.caixin.com/?keyword=%E4%BD%8E%E7%A9%BA%E7%BB%8F%E6%B5%8E+%E8%9E%8D%E8%B5%84",
+  "title": "财新网",
+  "content_type": "text/html",
+  "publish_time": "2026-08-10",
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-12T08:22:27.189119+00:00",
+  "source_type": "news",
+  "source_group": "caixin.com",
+  "raw_path": "data/raw/doc-2252e18ab2922b99.raw",
+  "raw_sha256": "12c86abbe49f5b3bc102dfcff5acde84d41e755c5b12b8545c63690819cb3a43",
+  "text_path": "data/raw/doc-2252e18ab2922b99.txt",
+  "text_sha256": "ecea8d0bc4571f584b41797275d36684b49af9fc21ff661eea68dc538a18702e",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}

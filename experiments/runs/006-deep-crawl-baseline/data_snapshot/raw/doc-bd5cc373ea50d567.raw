@@ -1,0 +1,113 @@
+﻿
+<html>
+<head><script id="allmobilize" charset="utf-8" src="http://ysp.www.gov.cn/013582404bd78ad3c016b8fffefe6a9a/allmobilize.min.js"></script><meta http-equiv="Cache-Control" content="no-siteapp" /><link rel="alternate" media="handheld" href="#"/>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta content="width=device-width, initial-scale=0.1, maximum-scale=2.0, user-scalable=0" name="viewport">
+<meta content="yes" name="apple-mobile-web-app-capable">
+<meta content="black" name="apple-mobile-web-app-status-bar-style">
+<meta content="telephone=no" name="format-detection">
+<link href="http://www.gov.cn/govweb/xhtml/favicon.ico" rel="shortcut icon" type="image/x-icon">
+<title>国务院客户端_中国政府网</title>
+<meta name="others" content="页面生成时间 2016-06-08 16:12:05" />
+<meta name="keywords" content="">
+<meta name="description" content="国务院客户端">
+<meta name="lanmu" content="国务院客户端">
+<meta name="filepath" content="/public/yidongkehuduan.htm">
+<META name="catalog" content="c1943">
+<META name="filetype" content="0">
+<META name="publishedtype" content="1">
+<META name="pagetype" content="2">
+<link rel="stylesheet" type="text/css" href="css/base.css">
+<link rel="stylesheet" type="text/css" href="css/common.css">
+<link rel="stylesheet" type="text/css" href="css/cnmobileDowload.css">
+</head>
+
+<body>
+<div class="main">
+  <div class="logo"><a href="http://www.gov.cn" target="_blank"></a></div>
+  <!-- <div class="butn butniPhone">
+ 
+<a href="https://itunes.apple.com/cn/app/id1077644533" target="_blank"></a>
+
+  </div>
+  <div class="butn butnAndroid">
+ 
+<a href="https://app.www.gov.cn/govdata/StateCouncil_v5.10.1.apk"></a>
+
+</div> -->
+  <!-- <div class="mobileText">国务院客户端是国务院发布政务信息和提供在线服务的新媒体平台，由国务院办公厅主办，中国政府网运行中心负责运行维护。</div> -->
+  <!-- <div class="slide" id="box">
+  <div>
+    <ul>
+ 
+        <li>
+<img src="images/cnn1.jpg"  width="218" height="386">        </li>
+        <li>
+<img src="images/cnn2.jpg"  width="218" height="386">        </li>
+
+    </ul>
+  </div>
+</div> -->
+</div>
+<div style="display:none">
+<script type="text/javascript">document.write(unescape("%3Cscript src='http://stat.www.gov.cn/webdig.js?z=1' type='text/javascript'%3E%3C/script%3E"));</script>
+<script type="text/javascript">wd_paramtracker("_wdxid=000000000000000000000000000000000000000000")</script>
+</div>
+<script type="text/javascript">
+(function() {
+    var N = 100;
+    var P = 0.7;
+    var R = N * P;
+    var X = Math.floor(Math.random() * N);
+    if (R >= X) {
+        _atrk_opts = {
+            atrk_acct: "noGfn1aMp4107i",
+            domain: "www.gov.cn",
+            dynamic: true
+        }; 
+        (function() {
+            var as = document.createElement("script");
+            as.type = "text/javascript";
+            as.async = true;
+            as.src = "https://d31qbv1cthcecs.cloudfront.net/atrk.js";
+            var s = document.getElementsByTagName("script")[0];
+            var ns = document.createElement("noscript");
+            var img = document.createElement("img");
+            img.src ="https://d5nxst8fruw4z.cloudfront.net/atrk.gif?account=noGfn1aMp4107i";
+            img.style="display:none";
+            img.height = 1;
+            img.width = 1;
+            img.alt = "";
+            s.parentNode.insertBefore(as, s);
+            s.parentNode.insertBefore(ns, s);
+            var nso = document.getElementsByTagName("noscript")[0];
+            nso.appendChild(img);
+        })();
+    }
+})();
+</script>
+</body>
+</html>
+<script type="text/javascript" src="js/jquery-1.8.3.min.js"></script>
+<script type="text/javascript">
+$(function(){
+	var liheight=$('.slide ul li img').width();
+	$(".slide ul>li:first").clone().appendTo(".slide ul"); // 复制当前点击的节点，并将它追加到<ul>元素
+	var num=0;
+	function autoplay(){
+		if(num<$('.slide ul>li').length){
+			num++;
+			$('.slide ul').animate({left:-liheight*num},200);
+			if(num==2){
+				$('.slide ul').animate({left:0},0);
+				num=0;
+			}
+		}
+	//console.debug(num,$('.slide ul>li').length);
+		
+	}//制作定时函数
+	var mytime=setInterval(autoplay,3500)//定时启动
+	
+})
+</script>

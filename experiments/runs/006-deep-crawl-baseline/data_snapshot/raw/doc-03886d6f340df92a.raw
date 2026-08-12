@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+
+<title>2026年中国低空经济产业大数据分析：市场规模扩大 投融资活跃（图）</title>
+    <meta name="description" content="低空经济是国家大力发展的战略性新兴支柱产业，也是各地抢抓的行业风口。连续两年写入政府工作报告并纳入“十五五”规划纲要及建议，在政策红利不断释放之下，中国低空经济产业发展全面驶入快车道。">
+    <meta name="keywords" content="低空经济">
+
+<link href="https://file.seccw.com/Public/Wap/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://file.seccw.com/Public/Wap/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+<link href="https://file.seccw.com/Public/Wap/css/reset.css?20224" rel="stylesheet">
+<link href="https://file.seccw.com/Public/Wap/css/swiper.min.css" rel="stylesheet">
+<script type="text/javascript" src="https://file.seccw.com/Public/Wap/js/jquery.js"></script>
+<script src="https://file.seccw.com/Public/Wap/js/swiper.min.js"></script>
+<script type="text/javascript">
+(function(){
+    var ThinkPHP = window.Think = {
+        "DOMIN"  : "",//域名
+        "ROOT"   : "", //当前网站地址
+        "APP"    : "/index.php", //当前项目地址
+        "PUBLIC" : "/Public", //项目公共目录地址
+        "CONTROLLER" : "Wap/Document", 
+        "DEEP"   : "/", //PATHINFO分割符
+        "MODEL"  : ["1", "", "html"],
+        "VAR"    : ["m", "c", "a"]
+    }
+})();
+var CSS_PATH='https://file.seccw.com/Public/Wap/css',JS_PATH='https://file.seccw.com/Public/Wap/js',STATIC_PATH='/Public/Static',IMG_PATH='https://file.seccw.com/Public/Wap/img';
+</script>
+
+</head>
+<body>
+    <style type="text/css">
+.navbar-toggle{
+    border-color: #999;
+    margin: 0 !important;
+}
+.navbar-toggle .icon-bar{
+    background-color: #999;
+}
+.login_a a{
+    display: inline-block;
+}
+.top_nav_list{
+    width: 100%;
+    margin-top: 10px;
+}
+.top_nav_list li{
+    padding: 5px;
+}
+body{
+    padding-top: 80px !important;
+}
+.fixed_top{
+    position: fixed;
+    left: 0;
+    padding: 15px;
+    right: 0;
+    top: 0;
+    z-index: 9999;
+    background-color: #fff;
+}
+</style>   
+
+    <style>
+      .item75th {
+     
+        justify-content: center;
+        align-items: center;
+    
+      }
+      .imgitem75th {
+        width: 100%;
+      }
+      .imgitem75th img {
+        width: 100%;
+        display: block;
+      }
+    </style>
+
+
+ 
+    <script>
+      // 等待DOM加载完毕
+      document.addEventListener("DOMContentLoaded", function () {
+        const img = document.getElementById("responsiveImg75th");
+ 
+        // 图片加载完成后设置高度
+        img.onload = function () {
+          setImgSize(img);
+        };
+ 
+        // 窗口大小变化时更新图片大小
+        window.addEventListener("resize", function () {
+          setImgSize(img);
+        });
+ 
+        function setImgSize(img) {
+          // 设置图片宽度为屏幕宽度
+          img.style.width = window.innerWidth + "px";
+          // 计算并设置图片高度以保持宽高比
+          img.style.height =
+            (img.naturalHeight / img.naturalWidth) * window.innerWidth + "px";
+        }
+      });
+    </script>
+<!--
+节日头部广告
+   <div class="item75th">
+      <div class="imgitem75th">
+        <img   id="responsiveImg75th"   src="https://res.seccw.com/image/75th.jpg"    />
+      </div>
+    </div>
+ 
+-->
+
+
+
+
+<div class="container" style="padding-top:25px">
+    <div class="fixed_top">
+
+
+
+
+        <div class="row">
+            <div class="col-xs-9"><a href="/"><img src="https://file.seccw.com/Uploads/image/2026-04-02/1775123124000742d.png" alt=""></a></div>
+            <div class="col-xs-3">
+                <button type="button" class="navbar-toggle collapsed" id="sidenav-toggle">
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+            </div>
+        </div>
+        <div class="list_box">
+           <ul class="list-inline top_nav no_mt top_nav_list">
+                <li><a href="https://www.seccw.com/index.php/Document/index/category/1.html">行业资讯</a></li>
+                <li><a href="https://www.seccw.com/index.php/SCompany/lists/type/1.html">品牌企业</a></li>
+                <li><a href="https://www.seccw.com/index.php/Goods/index.html">产品中心</a></li>
+                <li><a href="https://www.seccw.com/index.php/ChamberWindow/detail/id/25.html">商会概况</a></li>
+            </ul> 
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-xs-12 col-md-12 bg_fff pt12">
+            <form method="GET" action="https://www.seccw.com/index.php/Index/search.html"  id="submit">
+                <div class="form-group has-feedback sousuo_1 input-group">
+                    <div class="input-group-btn">
+                        <button class="btn dropdown-toggle" data-toggle="dropdown"><span id="type_txt">资讯</span> <span class="caret"></span></button>
+                        <ul class="dropdown-menu" id="myDropdown">
+                          <li data-id="0"><a href="#">资讯</a></li>
+                          <li data-id="1"><a href="#">产品</a></li>
+                        </ul>
+                    </div>
+                    <input type="hidden" id="table_type" name="t" value="">
+                    <input type="search" class="form-control" name="k" value="" placeholder="请输入你想查询的关键词">
+                    <span class="form-control-feedback"  onclick="$('#submit').submit()" style="z-index:123 ;pointer-events: all;"><img src="https://file.seccw.com/Public/Wap/img/icon.png" alt="..." width="18px"></span>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<nav class="sidenav" data-sidenav data-sidenav-toggle="#sidenav-toggle">
+    <ul class="sidenav-menu">
+                                <li>
+                            <a href="https://www.seccw.com/index.php/Index/index.html" >
+                                <span class="sidenav-link-title">首页</span>
+                                <span class="sidenav-dropdown-icon show" data-sidenav-dropdown-icon></span>
+                            </a>
+                        </li><li>
+                            <a href="javascript:;" data-sidenav-dropdown-toggle>
+                            <span class="sidenav-link-title">政府政策</span>
+                            <span class="sidenav-dropdown-icon show" data-sidenav-dropdown-icon>
+                            </span>
+                            <span class="sidenav-dropdown-icon" data-sidenav-dropdown-icon>
+                            </span>
+                            </a>
+                            <ul class="sidenav-dropdown" data-sidenav-dropdown>
+                                <li><a href="https://www.seccw.com/Document/lists/category/40.html">最新政策</a></li><li><a href="http://www.seccw.com/Document/lists/category/19.html">通知公告</a></li><li><a href="http://www.seccw.com/Document/lists/category/18.html">申报技巧</a></li><li><a href="https://www.seccw.com/index.php/Document/lists/category/17.html">政策解读</a></li>                            </ul>
+                        </li>
+                    <li>
+                            <a href="javascript:;" data-sidenav-dropdown-toggle>
+                            <span class="sidenav-link-title">行业资讯</span>
+                            <span class="sidenav-dropdown-icon show" data-sidenav-dropdown-icon>
+                            </span>
+                            <span class="sidenav-dropdown-icon" data-sidenav-dropdown-icon>
+                            </span>
+                            </a>
+                            <ul class="sidenav-dropdown" data-sidenav-dropdown>
+                                <li><a href="http://www.seccw.com/Document/index/category/1.html">行业动态</a></li><li><a href="http://www.seccw.com/Document/lists/category/57.html">产业观察</a></li><li><a href="http://www.seccw.com/Document/lists/category/4.html">企业动态</a></li><li><a href="http://www.seccw.com/Document/lists/category/6.html">行业报告</a></li><li><a href="https://www.seccw.com/index.php/Document/lists/category/66.html">国际市场</a></li><li><a href="http://www.seccw.com/Document/lists/category/54.html">视频动态</a></li><li><a href="http://www.seccw.com/Document/lists/category/5.html">行业智库</a></li><li><a href="https://www.seccw.com/index.php/Show/lists/category/21.html">展会列表</a></li><li><a href="http://www.seccw.com/Document/lists/category/55.html">展会报道</a></li>                            </ul>
+                        </li>
+                                            <li>
+                            <a href="https://www.seccw.com/index.php/Goods/index.html" >
+                                <span class="sidenav-link-title">产品中心</span>
+                                <span class="sidenav-dropdown-icon show" data-sidenav-dropdown-icon></span>
+                            </a>
+                        </li>                        <li>
+                            <a href="https://www.seccw.com/SCompany/lists/type/1/p/1.html" >
+                                <span class="sidenav-link-title">品牌企业</span>
+                                <span class="sidenav-dropdown-icon show" data-sidenav-dropdown-icon></span>
+                            </a>
+                        </li>                        <li>
+                            <a href="https://esg.seccw.com" >
+                                <span class="sidenav-link-title">双碳服务</span>
+                                <span class="sidenav-dropdown-icon show" data-sidenav-dropdown-icon></span>
+                            </a>
+                        </li><li>
+                            <a href="javascript:;" data-sidenav-dropdown-toggle>
+                            <span class="sidenav-link-title">产业空间</span>
+                            <span class="sidenav-dropdown-icon show" data-sidenav-dropdown-icon>
+                            </span>
+                            <span class="sidenav-dropdown-icon" data-sidenav-dropdown-icon>
+                            </span>
+                            </a>
+                            <ul class="sidenav-dropdown" data-sidenav-dropdown>
+                                <li><a href="https://www.seccw.com/index.php/Business/index/category/30.html">投资指引</a></li><li><a href="https://www.seccw.com/index.php/Property/lists/category/31.html">产业园区</a></li><li><a href="https://www.seccw.com/index.php/Property/lists/category/56.html">电子市场</a></li>                            </ul>
+                        </li>
+                                            <li>
+                            <a href="http://www.seccw.com/Apply/index/p/1.html" >
+                                <span class="sidenav-link-title">供需发布</span>
+                                <span class="sidenav-dropdown-icon show" data-sidenav-dropdown-icon></span>
+                            </a>
+                        </li><li>
+                            <a href="javascript:;" data-sidenav-dropdown-toggle>
+                            <span class="sidenav-link-title">商会之窗</span>
+                            <span class="sidenav-dropdown-icon show" data-sidenav-dropdown-icon>
+                            </span>
+                            <span class="sidenav-dropdown-icon" data-sidenav-dropdown-icon>
+                            </span>
+                            </a>
+                            <ul class="sidenav-dropdown" data-sidenav-dropdown>
+                                <li><a href="https://www.seccw.com/index.php/ChamberWindow/detail/id/25.html">商会概况</a></li><li><a href="https://www.seccw.com/index.php/ChamberWindow/detail/id/26.html">商会章程</a></li><li><a href="https://www.seccw.com/index.php/ChamberWindow/detail/id/27.html">商会架构</a></li><li><a href="https://www.seccw.com/index.php/ChamberWindow/detail/id/1352.html">产业智库</a></li><li><a href="https://www.seccw.com/index.php/ChamberWindow/lists/category/29.html">分支机构</a></li><li><a href="http://www.seccw.com/ChamberWindow/menber_list/">会员列表</a></li><li><a href="https://www.seccw.com/index.php/Document/lists/category/53.html">行业精英</a></li><li><a href="https://www.seccw.com/index.php/Document/lists/category/16.html">商会动态</a></li><li><a href="https://www.seccw.com/index.php/Document/lists/category/33.html">工作报告</a></li><li><a href="http://www.seccw.com/Document/lists/category/24.html">社会公益</a></li><li><a href="https://www.seccw.com/index.php/Document/lists/category/23.html">党风建设</a></li><li><a href="http://www.seccw.com/Document/lists/category/59.html">工联会</a></li><li><a href="http://www.seccw.com/Document/lists/category/61.html">商会会刊</a></li><li><a href="https://www.seccw.com/ChamberWindow/join">加入商会</a></li><li><a href="https://www.seccw.com/index.php/ChamberWindow/detail/id/28.html">联系我们</a></li>                            </ul>
+                        </li>
+                            <li class="login_a">
+                            <a href="https://wap.seccw.com/index.php/User/login.html">登录</a> |
+                <a href="https://wap.seccw.com/index.php/User/reg.html">注册</a>
+                    </li>
+   </ul>
+</nav>
+<script type="text/javascript">
+$('#myDropdown li').click(function(event) {
+    $('#table_type').val($(this).data('id'));
+    $('#type_txt').text($(this).text());
+});
+</script>
+    
+
+
+<style type="text/css">
+.info_list li{
+    width: 48%;
+}
+</style>
+    <div class="container">
+        <div class="row">
+            <div class="col-xs-12 col-md-12 bg_fff ix_ds_bt">
+                <a class="pull-left" href="https://wap.seccw.com/index.php/Document/lists/category/6.html"><i class="fa fa-angle-left fa-2x"></i></a>
+                <h3 class="text-center">2026年中国低空经济产业大数据分析：市场规模扩大 投融资活跃（图）</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row detail_content">
+            <div class="col-xs-12 col-md-12 bg_fff mt1 ix_ds_nr">
+                <h3 class="text-center"><strong>2026年中国低空经济产业大数据分析：市场规模扩大 投融资活跃（图）</strong></h3>
+                <ul class="list-inline text-muted info_list">
+                    <li class="text-left">2026-04-03</li>
+                    <li class="text-right"><i class="fa fa-eye"></i>&nbsp;2362</li>
+                </ul>
+                <p class="i_keywords">
+                            关键词：
+                                                            <a href="https://www.seccw.com/index.php/Index/search/k/%E4%BD%8E%E7%A9%BA%E7%BB%8F%E6%B5%8E.html">低空经济</a>
+                                                    </p>                <!-- <p class="text-center"><img src="https://file.seccw.com/Uploads/image/2026-04-03/1775199772000dc38.png" alt="..." width="100%"></p> -->
+                <div id="frame_content"><p style="line-height: 2em; text-indent: 2em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">中商情报网讯：</span><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">低空经济</span><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">是国家大力发展的战略性新兴支柱产业，也是各地抢抓的行业风口。连续两年写入政府工作报告并纳入“十五五”规划纲要及建议，在政策红利不断释放之下，中国低空经济产业发展全面驶入快车道。</span></p><p></p><h3 style="line-height: 2em; text-indent: 0em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; color: rgb(0, 112, 192); font-size: 20px;">低空经济“十五五”战略</span></h3><p style="line-height: 2em; text-indent: 2em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">《中共中央关于制定国民经济和社会发展第十五个五年规划的建议》明确提出，实施产业创新工程，一体推进创新设施建设、技术研究开发、产品迭代升级，加快低空经济等战略性新兴产业集群发展。据不完全统计，已有29个省（区、市）将“低空经济”有关内容写入地方“十五五”规划建议。“十五五”规划建议对低空经济的明确部署，为这一产业锚定了清晰的发展方向。</span></p><p><img alt="" src="http://image1.askci.com/images/2026/03/06/c9c70faba1124f189bcc9539929047d1_184.png" style="border: 0px none; margin: 0px auto 14px; max-height: 100%; max-width: 100%; padding-top: 12px; display: block;"/></p><p style="line-height: 2em; text-indent: 2em; text-align: center;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">资料来源：中商产业研究院整理</span></p><h3 style="line-height: 2em; text-indent: 0em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; color: rgb(0, 112, 192); font-size: 20px;">低空经济市场规模</span></h3><p style="line-height: 2em; text-indent: 2em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">低空经济作为</span><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">新质生产力</span><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">的典型代表，正通过“技术-场景-产业”的良性循环，推动经济高质量发展。中商产业研究院发布的《2025-2030年中国低空经济行业市场深度研究及发展前景投资预测分析报告》显示，2025年中国低空经济市场规模已达1.5万亿元，中商产业研究院分析师预测，2030年中国低空经济市场规模将达到2万亿元。</span></p><p><img alt="" src="http://image1.askci.com/images/2026/04/03/d9b22917842e4dc09e127811e1ba44a1_19.png" style="border: 0px none; margin: 0px auto 14px; max-height: 100%; max-width: 100%; padding-top: 12px; display: block;"/></p><p style="line-height: 2em; text-indent: 2em; text-align: center;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">数据来源：中国</span><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">民航</span><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">局、中商产业研究院整理</span></p><h3 style="line-height: 2em; text-indent: 0em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; color: rgb(0, 112, 192); font-size: 20px;">低空经济投融资</span></h3><p style="line-height: 2em; text-indent: 2em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">近三年，资本市场低空经济相关领域融资活跃，融资事件累计380起。其中，2023年中国低空经济相关领域融资事件63次，2024年发生融资事件数量161次，增长155.6%，2025年发生融资事件156次，下降3.1%。</span></p><p><img alt="" src="http://image1.askci.com/images/2026/03/20/6ba285cac02549ddb598810a838bca6b_12.png" style="border: 0px none; margin: 0px auto 14px; max-height: 100%; max-width: 100%; padding-top: 12px; display: block;"/></p><p style="line-height: 2em; text-indent: 2em; text-align: center;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">数据来源：中商产业研究院整理</span></p><p style="line-height: 2em; text-indent: 2em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">2025年除1月、4月、10月外，其他月份低空经济相关领域融资事件均超10起。其中，9月、12月低空经济相关领域融资事件最多为17起。</span></p><p><img alt="" src="http://image1.askci.com/images/2026/03/20/d732856839274d49aa63ffb5df66bbf5_14.png" style="border: 0px none; margin: 0px auto 14px; max-height: 100%; max-width: 100%; padding-top: 12px; display: block;"/></p><p style="line-height: 2em; text-indent: 2em; text-align: center;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">数据来源：中商产业研究院整理</span></p><p style="line-height: 2em; text-indent: 2em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">2025年低空飞行器制造领域是持续受到资本市场青睐，融资事件118起，占比75.6%。其次是低空运营服务和低空基础设施，融资事件分别为21起、17起，占比分别为13.5%、10.9%。</span></p><p><img alt="" src="http://image1.askci.com/images/2026/03/20/cea21b7c135349a2bcda90f40416eaf7_19.png" style="border: 0px none; margin: 0px auto 14px; max-height: 100%; max-width: 100%; padding-top: 12px; display: block;"/></p><p style="line-height: 2em; text-indent: 2em; text-align: center;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">数据来源：中商产业研究院整理</span></p><p style="line-height: 2em; text-indent: 2em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">低空飞行器制造领域，整机制造领域融资事件数量最多，占比70.3%，动力系统融资事件占比11.0%，关键零件领域融资事件占比9.8%，飞控系统、机载系统占比均为6.8%、6.8%。</span></p><p><img alt="" src="http://image1.askci.com/images/2026/03/20/e28c4c6d58444d2d8418f2e3c79ea676_22.png" style="border: 0px none; margin: 0px auto 14px; max-height: 100%; max-width: 100%; padding-top: 12px; display: block;"/></p><p style="line-height: 2em; text-indent: 2em; text-align: center;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">数据来源：中商产业研究院整理</span></p><h3 style="line-height: 2em; text-indent: 0em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 20px; color: rgb(0, 112, 192);">低空经济企业规模</span></h3><p style="line-height: 2em; text-indent: 2em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">企查查数据显示，2025年全年，我国累计注册近5万家低空经济相关企业，相比2024年同期增加139.1%；其中华东地区2025年相关企业注册量最多，占比27.1%；截至4月1日，2026年我国已注册9193家低空经济相关企业。存量方面，近十年，我国低空经济相关企业存量逐年增加，截至2026年4月1日，我国现存17万家低空经济相关企业。</span></p><h3 style="line-height: 2em; text-indent: 2em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">1.2026年已注册超9000家低空经济相关企业</span></h3><p style="line-height: 2em; text-indent: 2em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">近十年，我国低空经济相关企业注册量基本逐年增加，2025年全年，我国低空经济相关企业注册量同比激增139.1%至4.93万家，创注册量及增速双新高。截至4月1日，2026年我国已注册9193家低空经济相关企业。</span></p><p><img alt="" src="http://image1.askci.com/images/2026/04/03/253e01405b6240ac9e4b936394155d52_14.png" style="border: 0px none; margin: 0px auto 14px; max-height: 100%; max-width: 100%; padding-top: 12px; display: block;"/></p><p style="line-height: 2em; text-indent: 2em; text-align: center;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">数据来源：企查查、中商产业研究院整理</span></p><h3 style="line-height: 2em; text-indent: 2em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">2.去年新注册企业中，华东地区最多，占比27%</span></h3><p style="line-height: 2em; text-indent: 2em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">2025年新注册的近5万家低空经济相关企业中，位于华东地区的相关企业最多，占比27.1%，其次是华南地区，占比22.3%，西北、东北地区相对较少，分占7.1%、4.7%。</span></p><p><img alt="" src="http://image1.askci.com/images/2026/04/03/ac8692000b7244a58c6b2a9ec9e57317_14.png" style="border: 0px none; margin: 0px auto 14px; max-height: 100%; max-width: 100%; padding-top: 12px; display: block;"/></p><p style="line-height: 2em; text-indent: 2em; text-align: center;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">数据来源：企查查、中商产业研究院整理</span></p><h3 style="line-height: 2em; text-indent: 2em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">3.从企业存量来看：我国现存17万家低空经济相关企业</span></h3><p style="line-height: 2em; text-indent: 2em;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">近十年，我国低空经济相关企业存量逐年增加，2023年相关企业存量正式突破10万家，达10.7万家；2025年我国低空经济相关企业存量增速加快，年底在业存续16.2万家低空经济相关企业。截至2026年4月1日，我国现存17.0万家低空经济相关企业。</span></p><p><img alt="" src="http://image1.askci.com/images/2026/04/03/b9d64640862d4c988d8ac1de412cee20_23.png" style="border: 0px none; margin: 0px auto 14px; max-height: 100%; max-width: 100%; padding-top: 12px; display: block;"/></p><p style="line-height: 2em; text-indent: 2em; text-align: center;"><span style="font-family: 微软雅黑, &quot;Microsoft YaHei&quot;; font-size: 16px;">数据来源：企查查、中商产业研究院整理</span></p><p><br/></p></div>
+                <p>
+                    <span>来源：中商产业研究院</span>
+
+                </p>
+            </div>
+        </div>
+    </div>
+
+
+<script type="text/javascript">
+$(function(){
+    var d_width=$(window).width()-30;
+    $('#frame_content iframe,video').each(function(index, el) {
+        var o_w=parseInt($(this).attr('width'));
+        var o_h=parseInt($(this).attr('height'));
+        console.log(o_w)
+        console.log(o_h)
+        $(this).attr({width:d_width,height:d_width/o_w*o_h})
+    });
+})
+</script>
+
+    <style type="text/css">
+.index_bottom_menu li{
+    width: 16.66%;
+}
+.footer_nav a{
+    min-width:23%;
+}
+</style>
+<footer class="fotterBox">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <!-- <div class="text-center"><img style="height: 30px" src="https://file.seccw.com/Uploads/Picture/config/2019-12-10/5def65e94a69b.png" alt="" srcset=""></div> -->
+                <div class="footer_nav text-center">
+                    <a href="https://www.seccw.com/index.php/ChamberWindow/detail/id/25.html">商会概况</a>
+                    <a href="https://www.seccw.com/index.php/Document/lists/category/16.html">商会动态</a>
+                    <a href="https://www.seccw.com/index.php/ChamberWindow/detail/id/9119.html">加入商会</a>
+                    <a href="https://www.seccw.com/index.php/ChamberWindow/detail/id/28.html">联系我们</a>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="b">
+                <div style="padding: 0 15px;">
+                        <p>周一至周日    9：00 - 17：00  0755-8367 7342</p>
+                        <p>深圳市龙华区民塘路328号数字创新中心A座37楼</p>
+                    </div>
+                <div class="col-xs-4">
+                    <p style="text-align: center;margin-top: 5px;">
+                        <img src="https://file.seccw.com/Public/Wap/img/qrcode.jpg" width="80" />
+                    </p>
+                </div>
+                <div class="col-xs-8">
+                    <div>
+                        <p>深圳电子商会版权所有©2005-2026</p>
+                        <p><a target="_blank" href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=44030402002122">
+                            粤公网安备 44030402002122号</a> </p>
+                        <p><a target="_blank" href="http://www.miitbeian.gov.cn/">粤ICP备05064344</a><script type="text/javascript">document.write(unescape("%3Cspan id='cnzz_stat_icon_1279012258'%3E%3C/span%3E%3Cscript src='https://s9.cnzz.com/z_stat.php%3Fid%3D1279012258%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</footer>
+<!-- <div class="container">
+    <div class="row">
+        <div class="fixed-bottom navbar-fixed-bottom">
+            <ul class="index_bottom_menu">
+                <li><a href="https://wap.seccw.com/index.php/Index/index.html"><i><img src="https://file.seccw.com/Public/Wap/img/icons_di2_1.png" alt="..." width="24px"></i><br />资讯</a></li>
+                <li><a href="https://wap.seccw.com/index.php/Index/index/pid/2.html"><i><img src="https://file.seccw.com/Public/Wap/img/icons_di2_1.png" alt="..." width="24px"></i><br />政策</a></li>
+                <li><a href="https://wap.seccw.com/index.php/ChamberWindow/detail/id/25.html"><i><img src="https://file.seccw.com/Public/Wap/img/icons_di2_1.png" alt="..." width="24px"></i><br />商会</a></li>
+                <li><a href="https://wap.seccw.com/index.php/Show/lists/category/21.html"><i><img src="https://file.seccw.com/Public/Wap/img/icons_di3_1.png" alt="..." width="24px"></i><br />活动</a></li>
+                <li><a href="https://wap.seccw.com/index.php/SCompany/lists/type/1.html"><i><img src="https://file.seccw.com/Public/Wap/img/icons_di3_1.png" alt="..." width="24px"></i><br />服务</a></li>
+                <li><a href="https://wap.seccw.com/index.php/User/index.html"><i><img src="https://file.seccw.com/Public/Wap/img/icons_di4_1.png" alt="..." width="24px"></i><br />我的</a></li>
+            </ul>
+        </div>
+    </div>
+</div> -->
+<script src="/Public/Static/js/think.js"></script>
+<script type="text/javascript" src="https://file.seccw.com/Public/Wap/js/bootstrap.min.js"></script>
+<script src="https://file.seccw.com/Public/Wap/js/layer/layer.js"></script>
+<script src="https://file.seccw.com/Public/Wap/js/common.js?t=42432"></script>
+ <script type="text/javascript">
+var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?452c24bb3c6b5e2ebce6034c2ac21902";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+// (function (W, D) {
+//     W.ai_sdkurl = '//sdk.gemelai.com';
+//     W.ai_key = '86291cf3d9d7523bdea8364424635b8b5671';
+//     W.ai_prefix = 'SECC';
+//     W.ai_hasjy = true;
+//     var s = D.createElement('script');
+//     s.charset = 'utf-8';
+//     s.src = W.ai_sdkurl+'/sdk/aiassistant/ai.js';
+//     D.getElementsByTagName('body')[0].appendChild(s);
+// })(window, document);
+    </script>
+<div id="digital-human-container"></div>
+<script src="https://static.sumeruai.com/avatar-sdk/digital-human-sdk.js"></script>
+<script>
+  const config = {
+    avatarsId: "1444105888792576", // 数字人ID（必填）
+    urlRequest: "https://sumi.sumeruai.com", // API基础URL（必填）
+    WEBSOCKET_URL: "wss://sumi.sumeruai.com/web/websocket", // WebSocket
+    containerId: document.getElementById('digital-human-container'), // 容器元素
+    decoderWorkerUrl: "/Public/ai/decoderWorker.js", // 解码器Worker URL
+    rendererWorkerUrl: "/Public/ai/rendererWorker.js", // 渲染器Worker URL
+    // 可选配置
+    isRouteJump: false, // 是否直接跳转链接（false时通过回调处理）
+    // 回调函数
+    onSuccess: (message, code, data) => {
+      console.log('成功:', message, code, data);
+    },
+    onError: (message, code) => {
+      console.error('错误:', message, code);
+    },
+    onLinkShow: (message, code, data) => {
+      console.log('链接显示:', message, code, data);
+    },
+    onStateChange: (message, code) => {
+      console.log('状态变化:', message, code);
+    },
+    onJumpLink: (message, code, url) => {
+      console.log('跳转链接:', message, code, url);
+      // 自定义跳转逻辑
+      window.location.href = url;
+    }
+};
+// 初始化SDK
+const sdk = new DigitalHumanSDK(config);
+sdk.init();
+</script>
+
+<div style="display: none;"><script type="text/javascript">document.write(unescape("%3Cspan id='cnzz_stat_icon_1279012258'%3E%3C/span%3E%3Cscript src='https://s9.cnzz.com/z_stat.php%3Fid%3D1279012258%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script></div>
+<script type="text/javascript">
+    
+        $(function () {
+            $('.detail_content img').attr({
+        'width':'',
+        'height':''
+    }).css({'max-width':'100%'});
+           
+        });
+    </script>
+    <!--百度统计代码开始-->
+<script>
+var _hmt = _hmt || [];
+(function() {
+    
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?dbf15d2c5e27322f9dcb4715a9f1dd7c";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+</script>
+<script type="text/javascript" src="//api.tongjiniao.com/c?_=666695949054386176" async></script>
+<!--百度统计代码结束-->
+</body>
+</html>

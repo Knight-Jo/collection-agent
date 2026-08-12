@@ -1,0 +1,159 @@
+{
+  "items": [
+    {
+      "id": "challenge-4b473846-ba14-477e-a27a-88b5236d5853",
+      "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+      "round": 1,
+      "status": "confirmed",
+      "evidence_ids_before": [
+        "ev-01d33dab9d8c496a",
+        "ev-07c2f9283c4eb48b",
+        "ev-154413c01225e9c2",
+        "ev-2a9e914028a9e153",
+        "ev-2eebac39beece0d2",
+        "ev-4401d65f730d30e1",
+        "ev-57860577c53cdbbf",
+        "ev-5e5735677dad774d",
+        "ev-5e6f0be47f9e177e",
+        "ev-61e64bbcf7a8a0ee",
+        "ev-63be44e56a8eec61",
+        "ev-6604fb512488d0a7",
+        "ev-66966a9e5d8960ee",
+        "ev-68948fed4dcb4a6e",
+        "ev-6ac5406feaaf9e9f",
+        "ev-7b278f30c839e320",
+        "ev-7c13ac5f51986e60",
+        "ev-96e7ea9af54043cc",
+        "ev-ab275845f42d8cd1",
+        "ev-b4afb2e65d14e145",
+        "ev-be883e4bf11d0e8e",
+        "ev-c25fd94f238fecf0",
+        "ev-c4a331076f46e31c",
+        "ev-c8ba0428ca03328d",
+        "ev-caeb42da25126c5c",
+        "ev-d394343841b4959a",
+        "ev-d4b8eea42ea29417",
+        "ev-d4f32fb0346e2c4e",
+        "ev-d75fd6d03e32fa0b",
+        "ev-d84f5100ff4f7d33",
+        "ev-e431d96eb8cfa4b0",
+        "ev-e4383f6a34265cf3",
+        "ev-e4bbacd7aa9cebfb",
+        "ev-f5785166057721b6",
+        "ev-fbc26a1216ddfc8b"
+      ],
+      "points": [
+        {
+          "id": "cp-r1-ba0037b4",
+          "question_ids": [
+            "q-82cba3ce-4606-4838-804f-c000993b70fb"
+          ],
+          "category": "source_independence",
+          "challenge": "Q1所有事实（政策写入报告、约30省、2025市场规模、融资事件数）均只锚定单一独立来源组（gov.cn 或 seccw），无任何事实达到 covered（≥2独立来源组）。基于单来源得出的政策与市场趋势结论，其可复核性如何保证？",
+          "gap_action": "为关键事实补充至少一个独立的交叉验证来源，或接受并披露单来源局限。",
+          "status": "dismissed",
+          "reason": "Q1整体已具备两个独立来源组（gov.cn官方口径 + seccw/中商产业研究院行业报告），各事实经语义审核至少有一条完整支持；进一步为每个原子事实补充第二独立来源需依赖搜索交叉验证，而搜索预算已耗尽（6/6），无法继续。此单来源局限已在研判中作为‘reported’注明归因，接受为可审查缺口。",
+          "new_evidence_ids": []
+        },
+        {
+          "id": "cp-r1-f7785177",
+          "question_ids": [
+            "q-82cba3ce-4606-4838-804f-c000993b70fb"
+          ],
+          "category": "data_consistency",
+          "challenge": "研判将2025年中国低空经济市场规模同时引用了两个显著冲突的数字：gov.cn引述机构预测8591.7亿元，中商产业研究院称已达1.5万亿元。该口径冲突是否会在结论层面造成误导？是否需要消解或明确优选？",
+          "gap_action": "登记并尝试消解该矛盾，或在最终研判中明确两口径并存并说明无法择一的理由。",
+          "status": "dismissed",
+          "reason": "该市场规模口径冲突已被作为高置信度推断核心内容明确披露（gov.cn引机构预测8591.7亿元 vs 中商称已达成1.5万亿元），并对两数字分别归因、提示不可混用。两数字反映不同机构/统计口径，无更权威口径可据以择一，故不强行消解，选择透明披露并存，这符合‘登记并披露未消解矛盾’的处理要求。",
+          "new_evidence_ids": []
+        },
+        {
+          "id": "cp-r1-40ad9648",
+          "question_ids": [
+            "q-bd12be7e-ab49-4b47-87cb-7ee5d5cae90c"
+          ],
+          "category": "self_reporting_bias",
+          "challenge": "Q2亿航的运营与订单事实（9万架次、文成30+270架、广州合肥试运营、香港沙盒）几乎全部来自公司自身的官网/新闻稿，存在自我报告偏差；仅哈萨克斯坦首飞有独立第三方（stockanalysis/GlobeNewswire）旁证。其商业化进展结论是否因单来源而不可靠？",
+          "gap_action": "补充独立第三方对亿航订单/交付的印证，或明确将结论限定为公司自称口径。",
+          "status": "addressed",
+          "reason": "本轮新增独立第三方来源对亿航哈萨克斯坦载人首飞进行旁证：亿航官网(ehang.com, ev-1ff0cfb107116bbe)与StockAnalysis/GlobeNewswire(stockanalysis.com, ev-2d07948aa54fa9d2)两个独立来源组均经完整审核支持同一事实 fact-842c2514ee56ca43，使其达到双独立来源，证明亿航的商业化宣称可通过独立第三方核验。其余运营/订单事实（9万架次、文成订单、广州合肥试运营、香港沙盒）在研判中已明确标注为公司官网自称口径。",
+          "new_evidence_ids": [
+            "ev-1ff0cfb107116bbe",
+            "ev-2d07948aa54fa9d2"
+          ]
+        }
+      ],
+      "accepted_partial_questions": [],
+      "converged": false,
+      "created_at": "2026-08-12T08:29:53.061402+00:00",
+      "confirmed_at": "2026-08-12T08:34:57.839647+00:00"
+    },
+    {
+      "id": "challenge-208420d6-c296-4466-a7c5-d04a6ae5e2da",
+      "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+      "round": 2,
+      "status": "confirmed",
+      "evidence_ids_before": [
+        "ev-01d33dab9d8c496a",
+        "ev-07c2f9283c4eb48b",
+        "ev-154413c01225e9c2",
+        "ev-16a1f5de06470e49",
+        "ev-1b888d9555db24b8",
+        "ev-1ff0cfb107116bbe",
+        "ev-2a9e914028a9e153",
+        "ev-2d07948aa54fa9d2",
+        "ev-2eebac39beece0d2",
+        "ev-4401d65f730d30e1",
+        "ev-57860577c53cdbbf",
+        "ev-5e5735677dad774d",
+        "ev-5e6f0be47f9e177e",
+        "ev-61e64bbcf7a8a0ee",
+        "ev-63be44e56a8eec61",
+        "ev-6604fb512488d0a7",
+        "ev-66966a9e5d8960ee",
+        "ev-68948fed4dcb4a6e",
+        "ev-6ac5406feaaf9e9f",
+        "ev-7b278f30c839e320",
+        "ev-7c13ac5f51986e60",
+        "ev-96e7ea9af54043cc",
+        "ev-ab275845f42d8cd1",
+        "ev-b4afb2e65d14e145",
+        "ev-be883e4bf11d0e8e",
+        "ev-c25fd94f238fecf0",
+        "ev-c4a331076f46e31c",
+        "ev-c8ba0428ca03328d",
+        "ev-caeb42da25126c5c",
+        "ev-d394343841b4959a",
+        "ev-d4b8eea42ea29417",
+        "ev-d4f32fb0346e2c4e",
+        "ev-d75fd6d03e32fa0b",
+        "ev-d84f5100ff4f7d33",
+        "ev-e431d96eb8cfa4b0",
+        "ev-e4383f6a34265cf3",
+        "ev-e461b8b503cc289a",
+        "ev-e4bbacd7aa9cebfb",
+        "ev-f5785166057721b6",
+        "ev-fbc26a1216ddfc8b"
+      ],
+      "points": [
+        {
+          "id": "cp-r2-877beba4",
+          "question_ids": [
+            "q-82cba3ce-4606-4838-804f-c000993b70fb",
+            "q-bd12be7e-ab49-4b47-87cb-7ee5d5cae90c"
+          ],
+          "category": "coverage_sufficiency",
+          "challenge": "最终覆盖为 insufficient（gap_score 29），两问题均未达到 covered，除哈萨克斯坦一事实外所有事实仅单一独立来源组。在 search 已耗尽、fetch 预算近乎用尽的情况下，是否应接受该覆盖状态并在最终报告中如实披露缺口（尤其 Q2 亿航运营/订单多为公司自称口径）？",
+          "gap_action": "若确认无法进一步补证，则在最终研判与报告中明确披露单来源/覆盖不足局限。",
+          "status": "dismissed",
+          "reason": "接受覆盖不足并如实披露。搜索预算已耗尽（6/6），直接抓取独立权威源（GlobeNewswire、TipRanks、SEC 均返回网络错误/403，caixin 搜索页与 thepaper/cls 搜索为 JS 动态空页）无法进一步获取第二独立来源组；唯一新增的哈萨克斯坦事实已通过独立第三方 StockAnalysis/GlobeNewswire 达到双独立来源。故两问题保持 partial/insufficient 是可接受的最终状态：Q1 在问题层面已有 gov.cn（官方）与 seccw/中商（行业报告）两个来源组，Q2 亿航运营/订单事实已明确归因为公司自称口径并逐条标注 attribution；2025市场规模口径冲突亦已作为高置信度推断披露。上述局限将在最终报告中向用户明示。",
+          "new_evidence_ids": []
+        }
+      ],
+      "accepted_partial_questions": [],
+      "converged": false,
+      "created_at": "2026-08-12T08:37:57.766924+00:00",
+      "confirmed_at": "2026-08-12T08:38:18.552304+00:00"
+    }
+  ]
+}

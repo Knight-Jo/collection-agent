@@ -1,0 +1,14 @@
+{
+  "id": "fact-a5d82bda5444f2da",
+  "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+  "question_id": "q-82cba3ce-4606-4838-804f-c000993b70fb",
+  "statement": "2024年「低空经济」写入政府工作报告,2025年政策端、产业端同频共振,全国约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。",
+  "status": "superseded",
+  "superseded_by": [
+    "fact-c7682e33dec95873",
+    "fact-fb65f92533b6378e"
+  ],
+  "supersession_reason": "复合事实被审核为 partial：拆分为两个原子可独立核验的事实，分别对应「写入政府工作报告」和「约30省份出台政策」。",
+  "created_at": "2026-08-12T08:19:07.409548+00:00",
+  "updated_at": "2026-08-12T08:22:48.980975+00:00"
+}

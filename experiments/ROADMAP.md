@@ -11,6 +11,7 @@
 | 003 | search-diversity | 卡死循环（150 事件） | gap_score 20→13；Q2=gap；死循环；`str.replace` bug | ✅ |
 | 004 | link-expansion-pdf | 2 轮挑战未收敛但**干净终态**（16 min, exit=0） | **首个 covered fact + 首个 addressed 点**；来源扩展/PDF/纪律生效；订单数据仍缺 | ✅ |
 | 005 | financial-sources | 挑战 confirm 9 连败（ID 抄错），未收敛终态（31 min, exit=0） | **财务数据破冰**（Q1/FY2025/指引）；IR httpx 回退生效；**发现 P0: 长 UUID 抄错死锁** | ✅ |
+| 006 | deep-crawl-baseline | 2 轮挑战未收敛但干净终态（21 min, exit=0, 114 req） | **深爬引擎首跑**：34 文档/40 证据；**P0 容错 ID 实跑验证通过**；订单数据（文成 270 架）+ 融资统计 + 投行评级全部命中；暴露链接农场污染与交叉验证缺失 | ✅ |
 
 ## 改进清单（按优先级）
 
@@ -28,7 +29,10 @@
 ### 待办（006+）
 - [x] **P1** IR 抓取超时: httpx 回退（005 生效，ir.ehang.com 成功）
 - [x] **P1** 金融/IR 定向来源: suggested_direct_sources + caixin/cls/eastmoney 提示词（005 生效）
-- [x] **P0** 长 UUID 抄错死锁: 短 ID + tolerant_id 容错匹配 + 错误信息列有效 ID（005 修复，待 006 验证）
+- [x] **P0** 长 UUID 抄错死锁: 短 ID + tolerant_id 容错匹配（**006 实跑验证：2/2 confirm 一次成功**）
+- [ ] **P1** 爬虫 URL 质量过滤: nav/index/404/镜像页黑名单 + 正文长度启发式
+- [ ] **P1** 交叉验证提示词: 单源事实先 document_read 扫已归档语料再搜索
+- [ ] **P2** 新闻时效优先: news 种子标记 time_range / 优先 2026 链接
 - [ ] **P2** 单源财务数据交叉验证渠道（stockanalysis 页内链接展开）
 - [ ] **P3** 验证码页检测（百度安全验证类页面拒绝归档）
 - [ ] **P3** contradicts 证据处理流程验证（005 首次出现）

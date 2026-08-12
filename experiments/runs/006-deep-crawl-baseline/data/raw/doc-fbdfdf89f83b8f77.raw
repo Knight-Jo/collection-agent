@@ -1,0 +1,2986 @@
+<!DOCTYPE html
+	PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="renderer" content="webkit|ie-comp|ie-stand" />
+
+	<link href="./images/trs_pc_public.css" rel="stylesheet" type="text/css" />
+	<link href="./images/trs_pc_index.css" rel="stylesheet" type="text/css" />
+	<link rel="stylesheet" type="text/css" href="./images/trs_mobile_public.css" media="screen and (max-width:767px) and (orientation:portrait)" />
+	<link rel="stylesheet" type="text/css" href="./images/trs_mobile_index.css" media="screen and (max-width:767px) and (orientation:portrait)" />
+
+	<!--[if lt IE 9]>
+<script type="text/javascript" src="./images/trs_respond.min.js"></script>
+<![endif]-->
+	<script type="text/javascript" src="./images/jquery-1.7.2.min.js"></script>
+	<script src="./images/trs_h5.js"></script>
+	<script src="./images/trs_resize.js"></script>
+ <link href="./images/favicon.ico" rel="shortcut icon" type="image/x-icon" />
+	<title>中国政协网</title>
+<link href="./images/favicon.ico" rel="shortcut icon" type="image/x-icon">
+
+<style>
+.zhengxie17370_con04{width:540px}
+zhengxie17370_ind02 .l .pic_list li img {width:98%}
+.zhengxie17370_ind01 .slideShow .pic_box .cover {
+    height: auto!important;
+    background-size: cover !important;
+    background-repeat: repeat;
+  }
+  .zhengxie17370_ind01 .slideShow .pic_box .cover .text_list li {
+    padding: 9px 0 9px 1em;
+    line-height: 22px;
+    text-indent: 0;
+    box-sizing: border-box;
+  }
+/*.zhengxie17370_ind01 .slideShow .pic_box .cover {
+    
+    width: 100%;
+    position: absolute;
+    bottom: 0;
+    background: url(./images/zhengxie17370_cover.png) repeat-x;
+    z-index: 99;
+}*/
+.bg_top_owner{background-image:url();background-position:50% 0; background-repeat:no-repeat;}
+.lt86 .banner{ background-color:transparent; height:380px;}
+#page_body{width: 1160px;background: #fff;margin: 0 auto;}
+media="screen and (max-width: 767px) and (orientation: portrait)" {
+    #page_body {
+        width: 100%;
+        padding: 0 10px;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+}
+.md{border:0px;background-color:transparent;position: relative;}
+.md .md_hd{height:36px; font-weight:normal; border-bottom:1px solid #6690b2;margin: 0;padding: 0;background: transparent;line-height: 21px;}
+.md .md_hd .mh_title{height:36px;color:#015293;font-family:"微软雅黑";font-size:21px;font-weight:bold;padding:0 0 0 9px;margin: 0;}
+.md .md_hd .mh_title a{color: #015293;}
+.md .md_hd .mh_title a:hover{text-decoration: none;}
+/*.md .md_hd .mh_title i{color:#015293;display:inline-block;}
+.md .md_hd .mh_option{font-family:"微软雅黑";color:#ffffff;font-size:14px;}
+.md .md_hd .mh_option a{color:#ffffff;}*/
+.md .md_bd{background:transparent; border:none;padding: 0;}
+
+.column_wrapper{width: 1100px;margin: 0 auto;}
+
+.col_w650{width: 650px;float: left;overflow: hidden;}
+.col_w420{width: 420px;float: right;overflow: hidden;}
+
+.col_w350_1{width: 350px;float: left;margin-right: 25px;overflow: hidden;}
+.col_w350_2{width: 350px;float: left;overflow: hidden;}
+
+.col_w530_1{width: 530px;float: left;overflow: hidden;}
+.col_w530_2{width: 530px;float: right;overflow: hidden;}
+
+.col_w725{float: left;width: 725px;}
+.col_w350{float: right;width: 350px;}
+
+
+
+.zhengxie17370_ind01{width: 100%;font-family: "微软雅黑";font-weight: normal;}
+.zhengxie17370_ind01 .slideShow{width: 100%;height: 366px;}
+.zhengxie17370_ind01 .slideShow .pic_box{width: 100%;height: 100%;overflow: hidden;position: relative;}
+.zhengxie17370_ind01 .slideShow .pic_box .pic_list{width: 100%;height:100%;position: relative;left: 0;}
+.zhengxie17370_ind01 .slideShow .pic_box .pic_list li{width: 650px;height: 366px;float: left;position: absolute;left: 0;}
+.zhengxie17370_ind01 .slideShow .pic_box .cover{height: 40px;width: 100%;position: absolute;bottom: 0;background: url(http://www.cppcc.gov.cn/photoAlbum/templet/common/DEPA1512120485012874/style/img/zhengxie17370_cover.png) repeat-x;z-index: 99;}
+
+
+.zhengxie17370_ind07 .text_box p a{padding:0 50px; display:inline-block}
+
+.zhengxie17370_con03 .text_list.time li a{ width:34px !important; letter-spacing:.5px !important; margin-right: 3px !important; margin-left: 1px !important; text-overflow: inherit; height:24px !important}
+
+
+</style>
+
+
+</head>
+
+
+<body>
+
+
+	<!-- topBar -->
+	 <style>
+.bg_top_h_tile {
+    background-image: url('./images/zhengxie17370_bg1.jpg');
+    background-position: 50% 0;
+    background-repeat: repeat-y;
+    width: 100%;
+}
+ .sea_pic{background: url(http://www.cppcc.gov.cn/photoAlbum/templet/common/DEPA1512120485012874/style/img/zhengxie17370_icon.png) no-repeat;
+width: 14px;    height: 14px;    position: absolute;    top: 57px;    right: 8px;    display: inline-block;}
+/* @media screen and (max-width: 700px)  {
+#page_body{
+    width:100%;
+    padding:0 10px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.zhengxie17370_ind07{
+    width:100%;
+}
+.zhengxie17370_ind07 .text_box h1{
+    padding:20px;
+    box-sizing: border-box;
+}
+.zhengxie17370_ind07 .text_box h1 a{
+    font-size:52px;
+}
+.zhengxie17370_ind07 .text_box p{
+    line-height:72px;
+    padding:10px;
+    box-sizing: border-box;
+    Letter-spacing: 1px;
+}
+.zhengxie17370_ind07 .text_box p a{
+    font-size:3em;
+    font-family: '微软雅黑';
+    padding:0;
+}
+.zhengxie17370_ind07 .text_box .line{
+    background:#fff;
+}
+
+
+.column_wrapper {
+    width:100%;
+}
+.col_w650{
+    width:100%;
+    float:initial;
+    margin-bottom:10px;
+}
+.col_w420{
+    width:100%;
+    float:initial;
+}
+.zhengxie17370_ind01 .slideShow{
+    height:410px;
+}
+.zhengxie17370_ind01 .slideShow .pic_box .pic_list li{
+    width:100%;
+    height:100%;
+}
+.zhengxie17370_ind01 .slideShow .pic_box .pic_list li img{
+    width:100%;
+    height:auto;
+}
+.zhengxie17370_ind01 .slideShow .pic_box .cover{
+    
+}
+.zhengxie17370_ind01 .slideShow .pic_box .cover .text_list li{
+    width:100%;
+    line-height:70px;
+    box-sizing: border-box;
+    padding:0 10px;
+}
+.zhengxie17370_ind01 .slideShow .pic_box .cover .text_list li a{
+    font-size:34px;
+}
+.zhengxie17370_ind01 .slideShow .pic_box .point{
+    position: absolute;
+    right: 20px;
+    bottom: 20px;
+    z-index: 100;
+}
+.zhengxie17370_ind01 .slideShow .pic_box .point .point_list li{
+    width:16px;
+    height:16px;
+    margin:0 10px;
+}
+.md .md_hd{
+    height:70px;
+    overflow: initial;
+}
+.md .md_hd .mh_title{
+    height:70px;
+    line-height:70px;
+    font-size:3em;
+    padding:0 0 0 20px;
+}
+.zhengxie17370_con01{
+    height:auto;
+}
+.zhengxie17370_con01 .text_box{
+    padding:10px 10px 0 10px;
+}
+.zhengxie17370_con01 .text_box .text_list li{
+    padding:0 20px 30px 20px;
+    box-sizing: border-box;
+    background:none;
+}
+.zhengxie17370_con01 .text_box .text_list li a{
+    font-size:34px !important;
+}
+.zhengxie17370_ind02 .r{
+    width:100%;
+}
+.zhengxie17370_ind02 .r .pic_list{
+    width:100%;
+}
+.zhengxie17370_ind02 .r .pic_list{
+    width:800px;
+}
+.zhengxie17370_ind02 .r .pic_list li{
+    width:360px;
+    height:140px !important;
+    line-height:140px !important;
+    margin-bottom:20px;
+    margin-right:10px;
+    border-radius: 15px;
+}
+.zhengxie17370_ind02 .r .pic_list li a{
+    font-size:3em;
+}
+.col_w350_1{
+    width:100%;
+}
+
+.zhengxie17370_con02 .text_list .list{
+    padding:20px 0;
+}
+.zhengxie17370_con02 .text_list .list li{
+    padding:0 20px 40px 20px;
+    box-sizing: border-box;
+    background:none;
+    height:auto;
+    line-height: 60px;
+    overflow: initial;
+    white-space: initial;
+    text-overflow: initial;
+}
+.zhengxie17370_con02 .text_list .list li a{
+    font-size:3em;
+}
+
+.col_w350_2{
+    width:100%;
+    float:initial;
+}
+.zhengxie17370_con03 .nav{
+    height:initial;
+    line-height:initial;
+    float:initial;
+}
+.zhengxie17370_con03 .nav .list{
+    box-sizing: border-box;
+    padding: 10px;
+    font-size:3em;
+}
+.zhengxie17370_con03 .nav .list span{
+    width:28%;
+    text-align: center;
+    padding:15px 10px;
+}
+.zhengxie17370_con03 .nav .list a{
+    font-size:2.6em;
+}
+.zhengxie17370_con03 .nav .list span.cur{
+    background: url(./images/zhengxie17370_nav_bg.png) no-repeat 50% bottom;
+    background-size:80% auto;
+}
+.zhengxie17370_con03 .text_list{
+    width:100%;
+    float:initial;
+    box-sizing: border-box;
+}
+
+.zhengxie17370_con03 .text_list .list li{
+    line-height: 72px;
+    min-height: 72px;
+    background:none;
+    box-sizing: border-box;
+}
+.zhengxie17370_con03 .text_list .list li a{
+    font-size:3em;
+    width:100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    height:auto;
+}
+
+.col_w530_1{
+    width:100%;
+    float:initial;
+}
+.col_w530_2{
+    width:100%;
+    float:initial;
+}
+.md .md_hd .mh_option{
+    font-size:3em;
+    padding-top:24px;
+}
+.zhengxie17370_con04{
+    width:100%;
+}
+.zhengxie17370_con04 .pic_box .pic_list li{
+    width:100%;
+    height:auto;
+}
+.zhengxie17370_con04 .pic_box .pic_list li .pic{
+    width:100%;
+    height:auto;
+}
+.zhengxie17370_con04 .pic_box .pic_list li p{
+    background:none;
+    text-align: center;
+    font-size:3em;
+    height:auto;
+    line-height:70px;
+}
+
+.zhengxie17370_ind03{
+    width:100%;
+}
+.zhengxie17370_con05 .pic_txt .list li{
+    width:100%;
+}
+.zhengxie17370_con05 .pic_txt .list li .pic{
+    width:100%;
+    height:auto;
+}
+.zhengxie17370_con05 .pic_txt .list li p{
+    width:100%;
+    font-size:3em;
+    line-height:70px;
+    height:auto;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.zhengxie17370_ind04 .ind_w350_1{
+    width:100%;
+    float:initial;
+    margin:0;
+}
+.zhengxie17370_ind04 .ind_w350_2{
+    width:100%;
+    float:initial;
+    margin:0;
+}
+.col_w725{
+    float:initial;
+    width:100%;
+}
+.col_w350{
+    display:none;
+}
+.zhengxie17370_ind06{
+    width:100%;
+    display:none;
+}
+ 
+} */
+
+.search input {
+    border: 1px solid #015293;
+    width: 163px;
+    height: 24px;
+    padding: 0 28px 0 7px;
+    font-family: "宋体";
+    font-size: 12px;
+    line-height: 24px; margin-top:31px
+}
+</style>
+<!-- topBar -->
+	<div class='nav_message'>
+		<div class='topnav'>
+			<div class='colnav'>
+				<a onclick='SetHome(this,window.location)' target='_self' style='cursor:pointer;'
+					aria-fontsize='normal'>设为首页</a>
+				<span>|</span><a href='http://www.cppcc.gov.cn/zxww/2019/08/23/ARTI1566521170008218.shtml'
+					target='_blank' aria-fontsize='normal'>履职平台下载</a>
+				<span>|</span><a href='http://mail.cppcc.gov.cn/' target='_blank' aria-fontsize='normal'>邮箱登录</a>
+				<span>|</span><!--<a href="javascript:void(0)" onclick="top.aria.start()">网站无障碍</a>--><a href="javascript:void(0)" onclick="top.aria.start()" for="wza" tabindex="0" aria-labelconfig="true" aria-fontsize="normal">网站无障碍</a>
+				<span>|</span><a href='http://en.cppcc.gov.cn/' target='_blank' style='color:red'
+					aria-fontsize='normal'>English</a>
+			</div>
+             <script defer async type="text/javascript" src="//gov.govwza.cn/dist/aria.js?appid=71cf90fe0cdef8d89dffdec2377a2380" charset="utf-8"></script>
+		</div>
+		<div class='nav_h'></div>
+	</div>
+	<!-- end topBar -->
+
+
+
+	<div class="bg_top_h_tile">
+		<div class="bg_top_owner">
+			<div class="bg_bottom_h_tile">
+				<div class="bg_bottom_owner">
+					<!-- 页主体 -->
+					<div id="page_body">
+
+
+						<div class='zhengxie17370_ind08 '>
+							<div class='con'>
+								<div class='search'>
+									<p class='sea_top mhide'>
+										<span  class=''>中国政协网</span>www.cppcc.gov.cn
+									</p>
+                                                       <form class="search-form" action="/was5/web/search" method="get" name="form1" id="form1" target='_blank'>
+                                                                  <input type="text" placeholder='请输入搜索内容' name="searchword" id="searchword" onKeyDown="return checkInput();" />
+                                                                  <input type='hidden' name='channelid' value='206066' />
+                                                                  <input type='hidden' name='outlinepage' value='5' />
+                                                                  <input type='hidden' name='perpage' value='20' />
+                                                        </form>
+                                                       <span onClick="dosearch()" class="sea_pic"> </span>
+
+
+<script>
+                         function searchOnsubmit() {  
+                            if(frm.searchword.value==''){
+                                 alert('请输入检索关键字！');
+
+                                 frm.searchword.focus();
+                                 return false; 
+                         }} 
+                         function search() {
+                            if(frm.searchword.value=='') { 
+                                 alert('请输入检索关键字！'); 
+                                 frm.searchword.focus(); 
+                                 return false;
+                            }
+                                 frm.submit(); 
+                         } 
+
+// 点击搜索按钮执行提交
+function dosearch(){
+    let keyword = document.getElementById("searchword").value.trim();
+    // 非空校验
+    if(keyword === ''){
+        alert("请输入搜索内容！");
+        return false;
+    }
+    // 提交表单
+    document.getElementById("form1").submit();
+}
+
+// 回车触发搜索
+function checkInput(){
+    if(event.keyCode === 13){
+        dosearch();
+        return false;
+    }
+    return true;
+}
+
+// 搜索词回填（搜索后保留输入内容）
+function getUrlParam(name){
+    let reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)");
+    let res = window.location.search.substr(1).match(reg);
+    return res ? decodeURIComponent(res[2]) : '';
+}
+window.onload = function(){
+    let word = getUrlParam("searchword");
+    document.getElementById("searchword").value = word;
+}
+</script>
+
+
+
+								</div>
+							</div>
+							<div class='clear'></div>
+						</div>
+
+
+
+						<div class="headnav pchide">
+							<ul>
+								<li><a href="http://www.cppcc.gov.cn/zxld/">政协领导</a></li>
+								<li><a href="http://www.cppcc.gov.cn/zxxw/">政协新闻</a></li>
+								<li><a href="http://www.cppcc.gov.cn/zxgk/">政协概况</a></li>
+								<li><a href="http://www.cppcc.gov.cn/jgzc/">机构组成</a></li>
+								<li><a href="http://www.cppcc.gov.cn/zxld/zxzx/hyhd/">会议活动</a></li>
+								<li><a href="http://www.cppcc.gov.cn/zxgz/">政协工作</a></li>
+								<li><a href="http://www.cppcc.gov.cn/wylz/">委员履职</a></li>
+								<li><a href="http://www.cppcc.gov.cn/dptt/">党派团体</a></li>
+								<li><a href="http://www.cppcc.gov.cn/jgjs/">机关建设</a></li>
+							</ul>
+						</div>
+
+
+						<div class='zhengxie17370_ind09 mhide' aria-label='导航区,当前为网页顶部主导航区，有政协领导、政协新闻和政协概况等栏目'
+							aria-regiontype='2'>
+							<div class='nav_bar'>
+								<ul class='nav_list' style='width:1100px' aria-cols='3' aria-wapcols='2'>
+
+									<li style='padding-left:0px'>
+										<a class='nav_a' href='http://www.cppcc.gov.cn/zxld/'
+											target='_blank'>政协领导</a>
+										<div class='drop' style='height: 150px; padding-top: 10px; display: none;'>
+											<p><span style='padding-left:18px'>主　席</span>
+
+ <a
+													href='http://www.cppcc.gov.cn/zxld/zxzx/'
+													target='_blank'>王沪宁</a>
+
+</p>
+
+
+<p>
+<span style='padding-left:18px'>副主席</span>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/stf/" target="_blank" tabindex="0">石泰峰</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/hch/" target="_blank" tabindex="0">胡春华</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/syy/" target="_blank" tabindex="0">沈跃跃</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/wy/" target="_blank" tabindex="0">王　勇</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/zq/" target="_blank" tabindex="0">周　强</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/pblgllj/" target="_blank" tabindex="0">帕巴拉·格列朗杰</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/hhh/" target="_blank" tabindex="0">何厚铧</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/lzy/" target="_blank" tabindex="0">梁振英</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/bte/" target="_blank" tabindex="0">巴特尔</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/sh/" target="_blank" tabindex="0">苏　辉</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/sh_17585/" target="_blank" style="padding-left:74px;" tabindex="0">邵　鸿</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/gyl/" target="_blank" tabindex="0">高云龙</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/cw/" target="_blank" tabindex="0">陈　武</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/mh/" target="_blank" tabindex="0">穆　虹</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/xh/" target="_blank" tabindex="0">咸　辉</a>
+<a href="http://www.cppcc.gov.cn/zxld/msz/wdf/" target="_blank" tabindex="0">王东峰</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/jxz/" target="_blank" style="margin-left:-2px;" tabindex="0">姜信治</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/jzj/" target="_blank" tabindex="0">蒋作君</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/hbx/" target="_blank" tabindex="0">何报翔</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/wgq/" target="_blank" tabindex="0">王光谦</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/qby/" target="_blank" tabindex="0">秦博勇</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/zyx/" target="_blank" style="padding-left:74px;" tabindex="0">朱永新</a>
+<a href="http://www.cppcc.gov.cn/zxld/fzx/yz/" target="_blank" tabindex="0">杨　震</a> 
+</p>
+
+ 
+											<p><span style='padding-left:18px'>秘书长</span>
+
+<a href="./zxld/msz/wdf/" target="_blank">王东峰（兼）</a>
+
+</p>
+											<div class='drop_icon' style='left: 62px;'></div>
+										</div>
+									</li>
+
+									<li style='padding-left:0px'><a class='nav_a'
+											href='http://www.cppcc.gov.cn/zxxw/'
+											target='_blank'>政协新闻</a>
+										<div class='drop' style='height: 100px; display: none;'>
+											<p>
+											<a href='http://www.cppcc.gov.cn/zxxw/yw/' target='_blank'>要闻</a>
+                                            <a href='http://www.cppcc.gov.cn/zxxw/qwfb/' target='_blank'>权威发布</a>        
+                                            <a href='http://www.cppcc.gov.cn/zxxw/qwfb/tzgg/' target='_blank'>通知公告</a>
+                                            <a href='http://www.cppcc.gov.cn/zxxw/qwfb/rsrm/' target='_blank'>人事任免</a>
+                                            <a href='http://www.cppcc.gov.cn/zxxw/qwfb/ldjh/' target='_blank'>领导讲话</a>
+
+
+
+</p>
+											<div class='drop_icon' style='left: 182px;'></div>
+										</div>
+									</li>
+
+									<li style='padding-left:0px'><a class='nav_a'
+											href='http://www.cppcc.gov.cn/zxgk/'
+											target='_blank'>政协概况</a>
+										<div class='drop' style='height: 100px; display: none;'>
+											<p>
+
+<a href='http://www.cppcc.gov.cn/zxgk/gzzd/' target='_blank'>规章制度</a>
+
+<a href='http://www.cppcc.gov.cn/zxgk/zswd/' target='_blank'>知识问答</a>
+
+<a href='http://www.cppcc.gov.cn/zxgk/zxwx/' target='_blank'>政协文献</a>
+
+<a href='http://www.cppcc.gov.cn/zxgk/wszl/' target='_blank'>文史资料</a>
+
+<a href='http://www.cppcc.gov.cn/zxgk/zxdsj/' target='_blank'>政协大事记</a>
+
+</p>
+											<div class='drop_icon' style='left: 302px;'></div>
+										</div>
+									</li>
+
+									<li style='padding-left:0px'><a class='nav_a'
+											href='http://www.cppcc.gov.cn/jgzc/'
+											target='_blank'>机构组成</a>
+										<div class='drop' style='height: 100px; display: none;'>
+										<p setedaria="true" tabindex="0">                                        
+                                        <a href='http://www.cppcc.gov.cn/jgzc/ssjqgzxcwwymd/' target="_blank" tabindex="0">十四届全国政协常务委员名单</a>
+                                        <a href='http://www.cppcc.gov.cn/jgzc/ssjqgzxwymd/' target="_blank" style="margin-left: 105px;" tabindex="0">十四届全国政协委员名单</a>
+                                        <a href='http://www.cppcc.gov.cn/jgzc/ljqgzxzcrymd/' target="_blank" style="margin-left: 163px;" tabindex="0">历届全国政协组成人员名单</a>
+                                        <br>
+                                        <a href='http://www.cppcc.gov.cn/jgzc/bgt/' target="_blank" tabindex="0">办公厅</a>
+                                        <a href='http://www.cppcc.gov.cn/jgzc/tawyh/' style="margin-left:105px" target="_blank" tabindex="0">提案委员会</a>
+                                        <a href='http://www.cppcc.gov.cn/jgzc/jjwyh/' style="margin-left: 68px;" target="_blank" tabindex="0">经济委员会</a>
+                                        <a href='http://www.cppcc.gov.cn/jgzc/nyhncwyh/' style="margin-left: 75px;" target="_blank" tabindex="0">农业和农村委员会</a>
+                                        <a href='http://www.cppcc.gov.cn/jgzc/rkzyhjwyh/' style="margin-left:23px" target="_blank" tabindex="0">人口资源环境委员会</a>
+                                        <a href='http://www.cppcc.gov.cn/jgzc/jkwtwyh/' target="_blank" tabindex="0">教科卫体委员会</a>
+                                        <a href='http://www.cppcc.gov.cn/jgzc/shhfzwyh/' target="_blank" tabindex="0">社会和法制委员会</a>
+                                        <a href='http://www.cppcc.gov.cn/jgzc/mzhzjwyh/' target="_blank" tabindex="0">民族和宗教委员会</a>
+                                        <a href='http://www.cppcc.gov.cn/jgzc/gatqwyh/' target="_blank" tabindex="0">港澳台侨委员会</a>
+                                        <a href='http://www.cppcc.gov.cn/jgzc/wswyh/' style="margin:0 42px" target="_blank" tabindex="0">外事委员会</a>
+                                        <a href='http://www.cppcc.gov.cn/jgzc/whwshxxwyh/' style="padding-left:32px" target="_blank" tabindex="0">文化文史和学习委员会</a>
+                                        
+                                        
+                                        
+                                        
+                                        </p>
+											<div class='drop_icon' style='left: 422px;'></div>
+										</div>
+
+									</li>
+									<li style='padding-left:0px'><a class='nav_a'
+											href='http://www.cppcc.gov.cn/hyhd/'
+											target='_blank'>会议活动</a>
+										<div class='drop' style='display: none; height: 100px;'>
+																						<p>
+
+<a href='http://www.cppcc.gov.cn/hyhd/qthy/'
+													target='_blank'>全体会议</a>
+
+<a href='http://www.cppcc.gov.cn/hyhd/cwhhy/'
+													target='_blank'>常委会会议</a>
+
+<a href='http://www.cppcc.gov.cn/hyhd/zxhy/'
+													target='_blank'>主席会议</a>
+
+<a href='http://www.cppcc.gov.cn/hyhd/ztxsh/'
+													target='_blank'>专题协商会</a>
+
+<a href='http://www.cppcc.gov.cn/hyhd/szxszth/'
+													target='_blank'>双周协商座谈会</a>
+
+<a href='http://www.cppcc.gov.cn/hyhd/wlyzycxsh/'
+													target='_blank'>网络议政远程协商会</a>
+
+<a href='http://www.cppcc.gov.cn/hyhd/qthd/'
+													target='_blank'>其他活动</a>
+
+</p>
+											<div class='drop_icon' style='left: 542px;'></div>
+										</div>
+									</li>
+
+									<li style='padding-left:0px'><a class='nav_a'
+											href='http://www.cppcc.gov.cn/zxgz/'
+											target='_blank'>政协工作</a>
+										<div class='drop' style='display: none; height: 100px;'>
+																					<p>
+
+<a href='http://www.cppcc.gov.cn/zxgz/zwhgz/'
+													target='_blank'>专委会工作</a>
+
+<a href='http://www.cppcc.gov.cn/zxgz/scdy/'
+													target='_blank'>视察调研</a>
+
+<a href='http://www.cppcc.gov.cn/zxgz/sqmy/'
+													target='_blank'>社情民意</a>
+
+<a href='http://www.cppcc.gov.cn/zxgz/dwjw/'
+													target='_blank'>对外交往</a>
+
+<a href='http://www.cppcc.gov.cn/zxgz/zgty/'
+													target='_blank'>祖国统一</a>
+
+<a href='http://www.cppcc.gov.cn/zxgz/shjk/'
+													target='_blank'>书画京昆</a>
+
+</p>
+											<div class='drop_icon' style='left: 662px;'></div>
+										</div>
+									</li>
+
+									<li style='padding-left:0px'><a class='nav_a'
+											href='http://www.cppcc.gov.cn/wylz/'
+											target='_blank'>委员履职</a>
+										<div class='drop' style='height: 100px; display: none;'>
+																						<p>
+
+<a href='http://www.cppcc.gov.cn/wylz/wyjy/'
+													target='_blank'>委员建言</a>
+
+<a href='http://www.cppcc.gov.cn/wylz/wyjt/'
+													target='_blank'>委员讲堂</a>
+
+<a href='http://www.cppcc.gov.cn/wylz/wyfc/'
+													target='_blank'>委员风采</a>
+
+</p>
+											<div class='drop_icon' style='left: 782px;'></div>
+										</div>
+									</li>
+
+									<li style='padding-left:0px'><a class='nav_a'
+											href='http://www.cppcc.gov.cn/dptt/'
+											target='_blank'>党派团体</a>
+										<div class='drop' style='display: none; height: 100px;'>
+																						<p>
+
+<a href='http://www.cppcc.gov.cn/dptt/dpgz/'
+													target='_blank'>党派工作</a>
+
+<a href='http://www.cppcc.gov.cn/dptt/jcdt/'
+													target='_blank'>基层动态</a>
+
+</p>
+											<div class='drop_icon' style='left: 902px;'></div>
+										</div>
+									</li>
+
+									<li style='padding-left:0px'><a class='nav_a'
+											href='http://www.cppcc.gov.cn/jgjs/'
+											target='_blank'>机关建设</a>
+										<!--<div class='drop' style='display: none; height: 100px;'>
+																					<p>
+
+<a href='http://vpn.cppcc.gov.cn/por/login_psw.csp'
+													target='_blank'>办公平台</a>
+
+</p>
+											<div class='drop_icon' style='left: 1022px;'></div>
+										</div> -->
+									</li>
+
+								</ul>
+							</div>
+						</div>
+						<!--<div class='vspace' style='height:30px;'></div>-->
+<script src='https://auth.mangren.com/boots/cppcc.gov.cn/esdToolsInit.js' charset='UTF-8'></script>
+<script>
+		$(function () {
+			var oCon03aELMT1512531797743259 = $("#ELMT1512531797743259 .nav .list span");
+			var oCon03listELMT1512531797743259 = $("#ELMT1512531797743259 .text_con .text_list .list");
+			$(oCon03aELMT1512531797743259).on("mouseover", function () {
+				var index = $(this).index();
+				var conlist = oCon03listELMT1512531797743259.eq(index).find('li').length;
+				if (conlist != 0) {
+					$(this).addClass("cur").siblings().removeClass("cur");
+					$(this).parents(".nav").siblings(".text_con").find(".text_list").eq(index).addClass("show").siblings().removeClass("show");
+				}
+			})
+		})
+		</script>
+<div class="vspace" style="height:30px;"></div>
+
+						<div class="zhengxie17370_ind07">
+							<div class="text_box">
+                                                            
+								<h1><a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202608/t20260810_906281.html"
+										target="_blank" class="skipAutoFix">总书记的人民情怀 | “努力提升粮食能源资源安全保障能力”</a></h1>
+                                                                                                                    
+								<div class="line"></div>                                                                
+                                                           
+								<p>
+                                                                       
+									<a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202608/t20260810_906281.html"
+										target="_blank"
+										aria-fontsize="normal">习近平总书记深刻把握时与势、洞察危与机，鲜明提出“要坚持高质量发展和高水平安全相互促进，努力提升粮食能源资源安全保障能力”</a>
+                                      
+
+								</p>
+                                                                                       
+							</div>
+						</div>
+						<div class="vspace" style="height:30px;"></div>
+						<div class="ELMT1512381350514444">
+							<div class="column_wrapper ">
+								<div class="col_w650 skipAutoFix ">
+
+									<div id="SUBD1512381350516446" class="skipAutoFix ">
+
+										<div class="zhengxie17370_ind01 skipAutoFix ">
+											<div class="slideShow skipAutoFix ">
+												<div class="pic_box skipAutoFix ">
+													<ul class="pic_list skipAutoFix ">
+                                                        
+														<li  class="skipAutoFix ">
+                                                        <a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202607/t20260728_906020.html" target="_blank" class="skipAutoFix ">
+                                                        <img src="./sylbxw/202607/W020260728550713196066.jpg" width="100%" height="100%" alt="习近平同斯洛伐克总统佩列格里尼会谈" class="skipAutoFix" />
+                                                        </a>
+                                                        </li>
+                                                        
+                                                        
+														<li style="display:none;" class="skipAutoFix ">
+                                                        <a href="./zxxw/yw/tpyw/202607/t20260717_898240.html" target="_blank" class="skipAutoFix ">
+                                                        <img src="./zxxw/yw/tpyw/202607/W020260717611250673611.jpg" width="100%" height="100%" alt="习近平出席2026世界人工智能大会暨人工智能全球治理高级别会..." class="skipAutoFix" />
+                                                        </a>
+                                                        </li>
+                                                        
+														<li style="display:none;" class="skipAutoFix ">
+                                                        <a href="./zxxw/yw/tpyw/202607/t20260720_898871.html" target="_blank" class="skipAutoFix ">
+                                                        <img src="./zxxw/yw/tpyw/202607/W020260720579742052519.jpg" width="100%" height="100%" alt="习近平会见联合国秘书长古特雷斯" class="skipAutoFix" />
+                                                        </a>
+                                                        </li>
+                                                        
+														<li style="display:none;" class="skipAutoFix ">
+                                                        <a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202608/t20260803_906129.html" target="_blank" class="skipAutoFix ">
+                                                        <img src="./sylbxw/202608/W020260803522745013147.png" width="100%" height="100%" alt="全国政协召开双周协商座谈会 围绕深入实施“人工智能﹢”行动..." class="skipAutoFix" />
+                                                        </a>
+                                                        </li>
+                                                        
+														<li style="display:none;" class="skipAutoFix ">
+                                                        <a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202607/t20260729_906025.html" target="_blank" class="skipAutoFix ">
+                                                        <img src="./sylbxw/202607/W020260729613031206719.jpg" width="100%" height="100%" alt="全国政协召开“加快农业农村现代化”专题协商会 王沪宁出席并..." class="skipAutoFix" />
+                                                        </a>
+                                                        </li>
+                                                        
+														<li style="display:none;" class="skipAutoFix ">
+                                                        <a href="./zxxw/yw/tpyw/202607/t20260724_905891.html" target="_blank" class="skipAutoFix ">
+                                                        <img src="./zxxw/yw/tpyw/202607/W020260724353239860548.JPG" width="100%" height="100%" alt="王沪宁会见捷克众议长冈村富夫" class="skipAutoFix" />
+                                                        </a>
+                                                        </li>
+                                                        
+                                                     </ul>
+													<div class="cover skipAutoFix ">
+														<ul class="text_list skipAutoFix ">
+                                                                                   
+															<li class="skipAutoFix cur">
+                                                            <a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202607/t20260728_906020.html" target="_blank" class="skipAutoFix ">
+                                                            习近平同斯洛伐克总统佩列格里尼会谈
+                                                            </a>
+															</li>                                                          
+                                                          
+                                                                                    
+															<li class="skipAutoFix">
+                                                            <a href="./zxxw/yw/tpyw/202607/t20260717_898240.html" target="_blank" class="skipAutoFix ">
+                                                            习近平出席2026世界人工智能大会暨人工智能全球治理高级别会议开幕式并发表主旨讲话
+                                                            </a>
+															</li>                                                          
+                                                                                    
+															<li class="skipAutoFix">
+                                                            <a href="./zxxw/yw/tpyw/202607/t20260720_898871.html" target="_blank" class="skipAutoFix ">
+                                                            习近平会见联合国秘书长古特雷斯
+                                                            </a>
+															</li>                                                          
+                                                                                    
+															<li class="skipAutoFix">
+                                                            <a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202608/t20260803_906129.html" target="_blank" class="skipAutoFix ">
+                                                            全国政协召开双周协商座谈会 围绕深入实施“人工智能﹢”行动协商议政 王沪宁主持
+                                                            </a>
+															</li>                                                          
+                                                                                    
+															<li class="skipAutoFix">
+                                                            <a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202607/t20260729_906025.html" target="_blank" class="skipAutoFix ">
+                                                            全国政协召开“加快农业农村现代化”专题协商会 王沪宁出席并讲话
+                                                            </a>
+															</li>                                                          
+                                                                                    
+															<li class="skipAutoFix">
+                                                            <a href="./zxxw/yw/tpyw/202607/t20260724_905891.html" target="_blank" class="skipAutoFix ">
+                                                            王沪宁会见捷克众议长冈村富夫
+                                                            </a>
+															</li>                                                          
+                                                          
+														</ul>
+													</div>
+													<div class="point  skipAutoFix">
+														<ul class="point_list skipAutoFix ">
+                                                                                     
+															<li class="skipAutoFix cur "></li>
+                                                           	
+                                                                                     
+															<li class="skipAutoFix"></li>
+                                                                                     
+															<li class="skipAutoFix"></li>
+                                                                                     
+															<li class="skipAutoFix"></li>
+                                                                                     
+															<li class="skipAutoFix"></li>
+                                                                                     
+															<li class="skipAutoFix"></li>
+                                                           						
+
+														</ul>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+								</div>
+								<div class="col_w420 ">
+
+									<div id="SUBD1512381350516447" class="">
+										<div class="md ">
+											<div class="md_hdc "><b class=""></b></div>
+											<div class="md_hd ">
+												<span class="mh_title ">
+													<a href='./zxxw/yw/'
+														target="_blank" class="">
+														要闻
+													</a>
+												</span>
+
+											</div>
+
+											<div class="md_bd " id="SUBD1512381652100456">
+												<div class="zhengxie17370_con01 ">
+													<div class="text_box ">
+														<ul class="text_list for_sy">
+                                                                                        
+															<li class="" style="margin-top:10px;">
+                                                            <a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202608/t20260803_906129.html" target="_blank" style="font-size: 17px;" class="">
+                                                            全国政协召开双周协商座谈会 围绕深入实施“人工智能﹢”行动协商议政 王沪宁主持</a>
+                                                            </li>
+                                                                                        
+															<li class="" style="margin-top:10px;">
+                                                            <a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202607/t20260729_906025.html" target="_blank" style="font-size: 17px;" class="">
+                                                            全国政协召开“加快农业农村现代化”专题协商会 王沪宁出席并讲话</a>
+                                                            </li>
+                                                                                        
+															<li class="" style="margin-top:10px;">
+                                                            <a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202607/t20260729_906033.html" target="_blank" style="font-size: 17px;" class="">
+                                                            石泰峰在机关党建工作经验交流座谈会上强调 深入学习贯彻习近平党建思想 不断开创机关党建工作新局面</a>
+                                                            </li>
+                                                                                        
+															<li class="" style="margin-top:10px;">
+                                                            <a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202608/t20260803_906145.html" target="_blank" style="font-size: 17px;" class="">
+                                                            全国政协习近平新时代中国特色社会主义思想学习座谈小组第八组召开2026年第三季度学习座谈会 穆虹主持 蒋作君出席</a>
+                                                            </li>
+                                                                                        
+															<li class="" style="margin-top:10px;">
+                                                            <a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202607/t20260731_906103.html" target="_blank" style="font-size: 17px;" class="">
+                                                            围绕“加强慢性病综合防控” 杨震率全国政协调研组赴四川开展重点提案督办调研</a>
+                                                            </li>
+                                                           
+
+														</ul>
+													</div>
+
+													<div class="clear "></div>
+												</div>
+											</div>
+
+										</div>
+									</div>
+
+								</div>
+							</div>
+						</div>
+						<div id="SUBD1512440615364523" class="column_wrapper ">
+							<div class="vspace " style="height:30px;"></div>
+							<div class="zhengxie17370_ind02">
+								<div class="l mhide">
+                                 <ul class="pic_list" style="height: 70px;">
+                                 
+                                   <li style="width: 276px; margin-right: 2px;padding-bottom: 2px; position: relative;">
+                                   
+                                   <a href="http://www.cppcc.gov.cn/zxww/ershida/home/index.shtml" target="_blank" style="position: absolute;">
+                                   <img src="./syldzt/202606/W020260609365697453741_ORIGIN.jpg" />
+                                   </a>
+                                   
+                                   
+                                   <a href="http://www.cppcc.gov.cn/zxww/ershida/home/index.shtml" target="_blank" style="position: absolute; display: none;">
+                                   <img src="./syldzt/202606/W020260609366683208491_ORIGIN.jpg" />
+                                   </a>
+                                   
+                                   </li>
+			
+			                       <li style="width: 276px; margin-right: 2px;padding-bottom: 2px; position: relative;">
+                                   
+                                   <a href="http://www.cppcc.gov.cn/hyhd/qthy/14j4cdhzt/index.html" target="_blank" style="position: absolute;">
+                                   <img src="./syldzt/202606/W020260609372049951560_ORIGIN.jpg" />
+                                   </a>
+                                   
+                                                   
+                                   <a href="http://www.cppcc.gov.cn/hyhd/qthy/14j4cdhzt/xwzx/index.html" target="_blank" style="position: absolute; display: none;">
+                                   <img src="./syldzt/202606/W020260609371560246613_ORIGIN.jpg" />
+                                   </a>
+                                   
+                                   </li>
+                                   
+                                   <li style="width: 276px; margin-right: 2px;padding-bottom: 2px; position: relative;">
+                                   
+                                   <a href="http://www.cppcc.gov.cn/zxww/qzrmzxcl75zn/home/index.shtml" target="_blank" style="position: absolute;">
+                                   <img src="./syldzt/202606/W020260609370813980905_ORIGIN.jpg" />
+                                   </a>
+                                   
+                                   </li>
+                                   
+                                   <li style="width: 276px; margin-right: 2px;padding-bottom: 2px; position: relative;">
+                                   
+                                   <a href="http://www.cppcc.gov.cn/zgzxztzl/xxgc20j4zqh/index.html" target="_blank" style="position: absolute;">
+                                   <img src="./syldzt/202606/W020260609370222670004_ORIGIN.jpg" />
+                                   </a>
+                                   
+                                   </li>
+                                   
+                                   <li style="width: 276px; margin-right: 2px;padding-bottom: 2px; position: relative;">
+                                   
+                                   <a href="http://www.cppcc.gov.cn/hyhd/cwhhy/14jcwh17c/" target="_blank" style="position: absolute;">
+                                   <img src="./syldzt/202606/W020260717364864214655.jpg" />
+                                   </a>
+                                   
+                                   </li>
+                                   
+                                   <li style="width: 276px; margin-right: 2px;padding-bottom: 2px; position: relative;">
+                                   
+                                   <img src="./syldzt/202606/W020260609367586147946_ORIGIN.jpg" />
+                                   
+                                   </li>
+                                   </ul>                                
+									
+								</div>
+								<div class="r ">
+									<ul class="pic_list " aria-cols="4" aria-wapcols="2">
+
+										<li class="cur " style="height: 71px;line-height: 71px;"><a
+												href="http://www.cppcc.gov.cn/zxww/2019/08/23/ARTI1566521170008218.shtml"
+												target="_blank" class="">履职平台</a></li>
+
+										<li class="cur_1 " style="height: 71px;line-height: 71px;"><a
+												href="http://www.cppcc.gov.cn/zxww/2019/08/23/ARTI1566521170008218.shtml"
+												target="_blank" class="">读书平台</a></li>
+
+										<li class="cur_1 " style="height: 71px;line-height: 71px;"><a
+												href="http://tyrz.vpn.cppcc.gov.cn:18080/cppcc-supportplatform/chooseSystem.html"
+												target="_blank" class="">机关业务</a></li>
+
+										<li class="cur " style="height: 71px;line-height: 71px;"><a
+												href="./zxxw/qwfb/tzgg/"
+												target="_blank" class="">通知公告</a></li>
+
+									</ul>
+								</div>
+								<div class="clear "></div>
+							</div>
+
+
+							<script class="">
+								$('.zhengxie17370_ind02 .l .pic_list li').each(function () {
+									var outer = this;
+									setInterval(function () {
+										if ($(outer).find('a:visible').siblings().length > 0) {
+											$(outer).find('a:visible').fadeOut().siblings().fadeIn();
+										}
+									}, 5000);
+								});
+							</script>
+						</div>
+						<div class="vspace" style="height:30px;"></div>
+						<div class="column_wrapper ">
+
+							<div id="SUBD1512442362970577" class="col_w350_1 ">
+								<div class="md ">
+									<div class="md_hdc "><b class=""></b></div>
+									<div class="md_hd ">
+										<span class="mh_title ">
+											<a href="./zxxw/qwfb/"
+												target="_blank" class="">
+												权威发布
+											</a>
+										</span>
+
+									</div>
+
+									<div class="md_bd " id="SUBD1512442794032611">
+										<div class="zhengxie17370_con02 ">
+											<div class="text_list ">
+												<ul class="list aaa">
+                                                                                                     
+													<li class=""><a
+															href="./zxxw/qwfb/tzgg/202607/t20260723_905874.html"
+															target="_blank" title="政协全国委员会办公厅2025年度部门决算"
+															class="">政协全国委员会办公厅2025年度部门决算</a></li>
+                                                                                                        
+													<li class=""><a
+															href="./zxxw/qwfb/tzgg/202607/t20260707_888881.html"
+															target="_blank" title="第十八次常委会会议参会情况反馈表"
+															class="">第十八次常委会会议参会情况反馈表</a></li>
+                                                                                                        
+													<li class=""><a
+															href="./zxww/2026/06/12/ARTI1781234055619211.shtml"
+															target="_blank" title="政协第十四届全国委员会常务委员会第十八次会议专题分组报名..."
+															class="">政协第十四届全国委员会常务委员会第十八次会议专题分组报名...</a></li>
+                                                                                                        
+													<li class=""><a
+															href="./zxww/2026/05/27/ARTI1779867940255317.shtml"
+															target="_blank" title="第十七次常委会会议参会情况反馈表（地方政协、港澳中联办）"
+															class="">第十七次常委会会议参会情况反馈表（地方政协、港澳中联办）</a></li>
+                                                                                                        
+													<li class=""><a
+															href="./zxww/2026/05/07/ARTI1778147482119288.shtml"
+															target="_blank" title="全国政协办公厅2026年度拟录用公务员公示公告"
+															class="">全国政协办公厅2026年度拟录用公务员公示公告</a></li>
+                                                                                                        
+													<li class=""><a
+															href="./zxww/2026/04/14/ARTI1776136950227190.shtml"
+															target="_blank" title="第十七次常委会会议参会情况反馈表"
+															class="">第十七次常委会会议参会情况反馈表</a></li>
+                                                                                                        
+													<li class=""><a
+															href="./zxww/2026/03/26/ARTI1774495876382482.shtml"
+															target="_blank" title="政协全国委员会办公厅2026年部门预算"
+															class="">政协全国委员会办公厅2026年部门预算</a></li>
+                                                                                                        
+													<li class=""><a
+															href="./zxww/2026/03/23/ARTI1774254509123365.shtml"
+															target="_blank" title="全国政协办公厅2026年度考试录用公务员递补面试公告"
+															class="">全国政协办公厅2026年度考试录用公务员递补面试公告</a></li>
+                                                                                                                                        
+												
+												</ul>
+											</div>
+											<div class="clear "></div>
+										</div>
+
+									</div>
+
+								</div>
+							</div>
+
+
+							<div id="SUBD1512442362970578" class="col_w350_1 ">
+								<div class="md ">
+									<div class="md_hdc "><b class=""></b></div>
+									<div class="md_hd ">
+										<span class="mh_title ">
+											<a href="./zxgz/zwhgz/"
+												target="_blank" class="">
+												专委会工作
+											</a>
+										</span>
+
+									</div>
+
+									<div class="md_bd " id="SUBD1512442833036617">
+										<div class="zhengxie17370_con02 ">
+
+											<div class="text_list ">
+												<ul class="list ">
+                                                                                                           
+													<li class=""><a
+															href="http://www.cppcc.gov.cn/jgzc/whwshxxwyh/gzdtwh/202608/t20260810_906305.html"
+															target="_blank" title="全国政协文化文史和学习委员会赴江西开展委员履职“服务为民..."
+															class="">全国政协文化文史和学习委员会赴江西开展委员履职“服务为民...</a></li>
+                                                                                                              
+													<li class=""><a
+															href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202607/t20260731_906106.html"
+															target="_blank" title="围绕“实施医疗卫生强基工程” 全国政协党外委员考察团赴青海..."
+															class="">围绕“实施医疗卫生强基工程” 全国政协党外委员考察团赴青海...</a></li>
+                                                                                                              
+													<li class=""><a
+															href="./zxxw/yw/tpyw/202607/t20260724_905902.html"
+															target="_blank" title="全国政协召开“推进专门学校建设，强化未成年人违法犯罪预防..."
+															class="">全国政协召开“推进专门学校建设，强化未成年人违法犯罪预防...</a></li>
+                                                                                                              
+													<li class=""><a
+															href="./jgzc/mzhzjwyh/gzdtmz/202607/t20260721_900933.html"
+															target="_blank" title="全国政协民族和宗教委员会赴河北开展委员履职“服务为民”活动"
+															class="">全国政协民族和宗教委员会赴河北开展委员履职“服务为民”活动</a></li>
+                                                                                                              
+													<li class=""><a
+															href="./zxxw/yw/tpyw/202607/t20260717_898232.html"
+															target="_blank" title="围绕“落实健康优先发展战略，助推健康中国建设” 全国政协召..."
+															class="">围绕“落实健康优先发展战略，助推健康中国建设” 全国政协召...</a></li>
+                                                                                                              
+													<li class=""><a
+															href="./zxxw/yw/tpyw/202607/t20260717_898229.html"
+															target="_blank" title="围绕“推进实施新一轮千亿斤粮食产能提升行动” 胡春华率全国..."
+															class="">围绕“推进实施新一轮千亿斤粮食产能提升行动” 胡春华率全国...</a></li>
+                                                                                                              
+													<li class=""><a
+															href="./jgzc/shhfzwyh/gzdtsh/202607/t20260707_888827.html"
+															target="_blank" title="围绕“推进专门学校建设，强化未成年人违法犯罪预防和治理” ..."
+															class="">围绕“推进专门学校建设，强化未成年人违法犯罪预防和治理” ...</a></li>
+                                                                                                              
+													<li class=""><a
+															href="./zxxw/yw/tpyw/202607/t20260707_888761.html"
+															target="_blank" title="围绕“深化港澳与内地企业交流互鉴” 咸辉率全国政协调研组赴..."
+															class="">围绕“深化港澳与内地企业交流互鉴” 咸辉率全国政协调研组赴...</a></li>
+                                                                                                                  
+													
+												</ul>
+											</div>
+											<div class="clear "></div>
+										</div>
+									</div>
+
+								</div>
+							</div>
+
+
+							<div id="SUBD1512442362970579" class="col_w350_2 ">
+								<div class="md ">
+									<div class="md_hdc "><b class=""></b></div>
+									<div class="md_hd ">
+										<span class="mh_title ">
+											<a href="./zxgz/"
+												target="_blank" class="">
+												经常性工作
+											</a>
+										</span>
+
+									</div>
+
+									<div class="md_bd " id="SUBD1512442903873620">
+										<div class="zhengxie17370_con03 " id="ELMT1512531797743259">
+											<div class="nav ">
+												<div class="list ">
+
+													<span class="cur "><a
+															href="./zxgz/scdy/"
+															target="_blank" class="">视察调研</a></span>
+
+													|<span><a
+															href="./zxgz/sqmy/"
+															target="_blank" class="">社情民意</a></span>
+
+													|<span><a
+															href="./zxgz/dwjw/"
+															target="_blank" class="">对外交往</a></span>
+
+													|<span><a
+															href="./zxgz/shjk/"
+															target="_blank" class="">书画京昆</a></span>
+
+												</div>
+											</div>
+											<div class="text_con ">
+												<div class="text_list show ">
+													<ul class="list ">
+                                                                                                                               
+														<li style="white-space:pre-wrap" class=""><a
+																href="./zxgz/scdy/bgzs/202608/t20260812_906387.html"
+																target="_blank" title="为迷途的孩子点亮回家的路——全国政协“推进专门学校建设，..."
+																class="">为迷途的孩子点亮回家的路——全国政协“推进专门学校建设，...</a></li>
+                                                                                                                                
+														<li style="white-space:pre-wrap" class=""><a
+																href="./zxgz/scdy/bgzs/202608/t20260807_906273.html"
+																target="_blank" title="聚力卫生强基 守护高原安康——全国政协党外委员考察团赴青海..."
+																class="">聚力卫生强基 守护高原安康——全国政协党外委员考察团赴青海...</a></li>
+                                                                                                                                
+														<li style="white-space:pre-wrap" class=""><a
+																href="./zxgz/scdy/bgzs/202608/t20260804_906205.html"
+																target="_blank" title="以高水平产业协作赋能区域协调发展——全国政协经济委员会“..."
+																class="">以高水平产业协作赋能区域协调发展——全国政协经济委员会“...</a></li>
+                                                                                                                                
+														<li style="white-space:pre-wrap" class=""><a
+																href="./zxgz/scdy/bgzs/202608/t20260803_906183.html"
+																target="_blank" title="产业向新 逐绿前行——全国政协“推动能源绿色低碳转型”重点..."
+																class="">产业向新 逐绿前行——全国政协“推动能源绿色低碳转型”重点...</a></li>
+                                                                                                                                
+														<li style="white-space:pre-wrap" class=""><a
+																href="./zxgz/scdy/bgzs/202607/t20260731_906116.html"
+																target="_blank" title="深化港澳与内地企业交流合作 助力民营企业高质量发展——全国..."
+																class="">深化港澳与内地企业交流合作 助力民营企业高质量发展——全国...</a></li>
+                                                                                                                                
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202607/t20260731_906106.html"
+																target="_blank" title="围绕“实施医疗卫生强基工程” 全国政协党外委员考察团赴青海..."
+																class="">围绕“实施医疗卫生强基工程” 全国政协党外委员考察团赴青海...</a></li>
+                                                                                                                                
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202607/t20260731_906103.html"
+																target="_blank" title="围绕“加强慢性病综合防控” 杨震率全国政协调研组赴四川开展..."
+																class="">围绕“加强慢性病综合防控” 杨震率全国政协调研组赴四川开展...</a></li>
+                                                                                                                 
+														
+													</ul>
+												</div>
+												<div class="text_list " aria-label="视窗区,社情民意,按esc退出弹出浮层"
+													aria-regiontype="1" aria-owns="[id=&#39;aria6msidfgwgf0&#39;]"
+													aria-expandshowmethod="hover" id="ariapdgtmvixesg"
+													aria-autoowns="true" aria-popup="true">
+													<ul class="list ">
+                                                                                                                   
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2025/11/26/ARTI1764122201172122.shtml"
+																target="_blank" title="全国政协办公厅召开2025年反映社情民意信息工作座谈会 王东峰..."
+																class="">全国政协办公厅召开2025年反映社情民意信息工作座谈会 王东峰...</a></li>
+                                                                                                                    
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2025/01/09/ARTI1736409044124532.shtml"
+																target="_blank" title="为促进民族团结宗教和睦汇聚力量——基层少数民族界宗教界全..."
+																class="">为促进民族团结宗教和睦汇聚力量——基层少数民族界宗教界全...</a></li>
+                                                                                                                    
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2024/12/17/ARTI1734405195579284.shtml"
+																target="_blank" title="基层少数民族界宗教界全国政协委员反映社情民意座谈会在京举行"
+																class="">基层少数民族界宗教界全国政协委员反映社情民意座谈会在京举行</a></li>
+                                                                                                                    
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2024/12/02/ARTI1733104665548155.shtml"
+																target="_blank" title="全国政协办公厅召开2024年反映社情民意信息工作座谈会 王东峰..."
+																class="">全国政协办公厅召开2024年反映社情民意信息工作座谈会 王东峰...</a></li>
+                                                                                                                    
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2024/05/29/ARTI1716952521982423.shtml"
+																target="_blank" title="以高质量反映社情民意信息工作助力经济社会高质量发展"
+																class="">以高质量反映社情民意信息工作助力经济社会高质量发展</a></li>
+                                                                                                                    
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2023/08/01/ARTI1690854142918163.shtml"
+																target="_blank" title="王东峰：在全国政协办公厅反映社情民意信息工作座谈会上的讲话"
+																class="">王东峰：在全国政协办公厅反映社情民意信息工作座谈会上的讲话</a></li>
+                                                                                                                    
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2023/07/27/ARTI1690421622764110.shtml"
+																target="_blank" title="全国政协办公厅召开反映社情民意信息工作座谈会"
+																class="">全国政协办公厅召开反映社情民意信息工作座谈会</a></li>
+                                                                                                                 
+														
+													</ul>
+												</div>
+												<div class="text_list " aria-label="视窗区,对外交往,按esc退出弹出浮层"
+													aria-regiontype="1" aria-owns="[id=&#39;ariaktpzaccsy00&#39;]"
+													aria-expandshowmethod="hover" id="ariaib4uootrj8g"
+													aria-autoowns="true" aria-popup="true">
+													<ul class="list ">
+                                                                                                                                          
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2026/06/12/ARTI1781251960967246.shtml"
+																target="_blank" title="咸辉率全国政协代表团访问泰国" aria-showtitle="true"
+																class="">咸辉率全国政协代表团访问泰国</a></li>
+                                                                                                                                          
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2026/06/10/ARTI1781076251704222.shtml"
+																target="_blank" title="咸辉率全国政协代表团访问越南" aria-showtitle="true"
+																class="">咸辉率全国政协代表团访问越南</a></li>
+                                                                                                                                          
+														<li style="white-space:pre-wrap" class=""><a
+																href="./zxww/2026/06/02/ARTI1780366688482124.shtml"
+																target="_blank" title="全国政协外事委员会主任何平会见泰国客人" aria-showtitle="true"
+																class="">全国政协外事委员会主任何平会见泰国客人</a></li>
+                                                                                                                                          
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2026/05/07/ARTI1778118505215106.shtml"
+																target="_blank" title="王沪宁会见孟加拉国外交部长卡利勒" aria-showtitle="true"
+																class="">王沪宁会见孟加拉国外交部长卡利勒</a></li>
+                                                                                                                                          
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2026/04/10/ARTI1775787069111139.shtml"
+																target="_blank" title="习近平主席特使姜信治将出席缅甸总统就职仪式" aria-showtitle="true"
+																class="">习近平主席特使姜信治将出席缅甸总统就职仪式</a></li>
+                                                                                                                                          
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2026/04/10/ARTI1775786989503134.shtml"
+																target="_blank" title="咸辉会见泰国公主诗琳通" aria-showtitle="true"
+																class="">咸辉会见泰国公主诗琳通</a></li>
+                                                                                                                                          
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2026/03/30/ARTI1774836517767158.shtml"
+																target="_blank" title="姜信治会见坦桑尼亚革命党代表团" aria-showtitle="true"
+																class="">姜信治会见坦桑尼亚革命党代表团</a></li>
+                                                                                                                    
+													
+													</ul>
+												</div>
+												<div class="text_list " aria-label="视窗区,书画京昆,按esc退出弹出浮层"
+													aria-regiontype="1" aria-owns="[id=&#39;aria6kmiytp4snw&#39;]"
+													aria-expandshowmethod="hover" id="ariam1ftu6nefxc"
+													aria-autoowns="true" aria-popup="true">
+													<ul class="list ">
+                                                                                                              
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2026/06/15/ARTI1781488002855131.shtml"
+																target="_blank" title="全国政协京昆室举办戏曲艺术讲座 姜信治出席"
+																class="">全国政协京昆室举办戏曲艺术讲座 姜信治出席</a></li>
+                                                                                                                      
+														<li style="white-space:pre-wrap" class=""><a
+																href="./zxww/2026/06/02/ARTI1780366788152129.shtml"
+																target="_blank" title="围绕“初心铸伟业 浩气壮山河” 全国政协书画室采风组赴安徽采风"
+																class="">围绕“初心铸伟业 浩气壮山河” 全国政协书画室采风组赴安徽采风</a></li>
+                                                                                                                      
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2025/11/21/ARTI1763688573613134.shtml"
+																target="_blank" title="全国政协书画室工作座谈会在京召开 王东峰出席并讲话"
+																class="">全国政协书画室工作座谈会在京召开 王东峰出席并讲话</a></li>
+                                                                                                                      
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2025/07/28/ARTI1753671534433464.shtml"
+																target="_blank" title="全国政协书画室采风调研组赴宁夏、新疆采风调研"
+																class="">全国政协书画室采风调研组赴宁夏、新疆采风调研</a></li>
+                                                                                                                      
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2025/07/13/ARTI1752379222141147.shtml"
+																target="_blank" title="全国政协书画室举办书画艺术讲座 咸辉王东峰秦博勇出席"
+																class="">全国政协书画室举办书画艺术讲座 咸辉王东峰秦博勇出席</a></li>
+                                                                                                                      
+														<li style="white-space:pre-wrap" class=""><a
+																href="./zxww/2025/07/01/ARTI1751335586430253.shtml"
+																target="_blank" title="全国政协京昆室举办戏曲艺术讲座"
+																class="">全国政协京昆室举办戏曲艺术讲座</a></li>
+                                                                                                                      
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2025/05/26/ARTI1748223482147240.shtml"
+																target="_blank" title="全国政协书画室采风调研组赴浙江采风调研"
+																class="">全国政协书画室采风调研组赴浙江采风调研</a></li>
+                                                                                                                    
+														
+													</ul>
+												</div>
+											</div>
+											<div class="clear "></div>
+										</div>
+									</div>
+
+								</div>
+							</div>
+
+						</div>
+						<div class="vspace" style="height:20px;"></div>
+						<div class="column_wrapper ">
+
+							<div id="SUBD1512447168736707" class="col_w530_1 ">
+								<div class="md ">
+									<div class="md_hdc "><b class=""></b></div>
+									<div class="md_hd ">
+										<span class="mh_title ">
+											<a href="./tpbd/"
+												target="_blank" class="">
+												图片
+											</a>
+										</span>
+										<span class="mh_option "><a
+												href="./tpbd/"
+												target="_blank" class="">更多</a></span>
+									</div>
+
+									<div class="md_bd " id="SUBD1512447214938713">
+										<div class="zhengxie17370_con04 ">
+											<div class="pic_box ">
+												<ul class="pic_list ">
+                                                                                                  
+													<li class="">
+														<div class="pic ">
+															<a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202608/t20260803_906129.html"
+																target="_blank" class=""><img src="./tpbd/sytp/202608/W020260803522755988825.png" width="100%" height="100%" class="" /></a>
+
+														</div>
+														<p class="">
+															<a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202608/t20260803_906129.html"
+																target="_blank" class="">全国政协召开双周协商座谈会 围绕深入实施“人工智能﹢”行动协商议政 王沪宁主持</a>
+														</p>
+													</li>
+                                                                                                         
+													<li class="">
+														<div class="pic ">
+															<a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202607/t20260729_906025.html"
+																target="_blank" class=""><img src="./tpbd/sytp/202607/W020260729360538798688.jpg" width="100%" height="100%" class="" /></a>
+
+														</div>
+														<p class="">
+															<a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202607/t20260729_906025.html"
+																target="_blank" class="">全国政协召开“加快农业农村现代化”专题协商会 王沪宁出席并讲话</a>
+														</p>
+													</li>
+                                                                                                         
+													<li class="">
+														<div class="pic ">
+															<a href="./zxxw/yw/tpyw/202607/t20260724_905891.html"
+																target="_blank" class=""><img src="./zxxw/yw/tpyw/202607/W020260724353239860548.JPG" width="100%" height="100%" class="" /></a>
+
+														</div>
+														<p class="">
+															<a href="./zxxw/yw/tpyw/202607/t20260724_905891.html"
+																target="_blank" class="">王沪宁会见捷克众议长冈村富夫</a>
+														</p>
+													</li>
+                                                                                                         
+													<li class="">
+														<div class="pic ">
+															<a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202607/t20260723_905849.html"
+																target="_blank" class=""><img src="./tpbd/sytp/202607/W020260723371008703555.jpg" width="100%" height="100%" class="" /></a>
+
+														</div>
+														<p class="">
+															<a href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202607/t20260723_905849.html"
+																target="_blank" class="">王沪宁在西藏调研</a>
+														</p>
+													</li>
+                                                                                                                     
+												    
+												</ul>
+											</div>
+										</div>
+									</div>
+
+								</div>
+							</div>
+
+
+							<div id="SUBD1512447168736708" class="col_w530_2 ">
+								<div class="md ">
+									<div class="md_hdc "><b class=""></b></div>
+									<div class="md_hd ">
+										<span class="mh_title ">
+											<a href="./spbd/" target="_blank" class="">视频</a>
+										</span>
+										<span class="mh_option "><a href="./spbd/" target="_blank" class="">更多</a></span>
+									</div>
+
+									<div class="md_bd " id="SUBD1512447253729718">
+										<div class="zhengxie17370_con04 ">
+											<div class="pic_box ">
+												<ul class="pic_list ">
+                                                                                                       
+													<li class="">
+														<div class="pic ">
+															<a href="http://www.cppcc.gov.cn/spbd/spgd/202607/t20260730_906089.html"
+																target="_blank" class=""><img src="./spbd/sysp/202607/W020260730568474211635.png" width="100%" height="100%" class="" /></a>
+															<a href="http://www.cppcc.gov.cn/spbd/spgd/202607/t20260730_906089.html"
+																class="plus " target="_blank"></a>
+														</div>
+														<p class="">
+															<a href="http://www.cppcc.gov.cn/spbd/spgd/202607/t20260730_906089.html"
+																target="_blank" class="">全国政协召开“加快农业农村现代化”专题协商会 王沪宁出席并...</a>
+														</p>
+													</li>
+                                                                                                          
+													<li class="">
+														<div class="pic ">
+															<a href="http://www.cppcc.gov.cn/spbd/spgd/202607/t20260724_905925.html"
+																target="_blank" class=""><img src="./spbd/sysp/202607/W020260724521486010373.png" width="100%" height="100%" class="" /></a>
+															<a href="http://www.cppcc.gov.cn/spbd/spgd/202607/t20260724_905925.html"
+																class="plus " target="_blank"></a>
+														</div>
+														<p class="">
+															<a href="http://www.cppcc.gov.cn/spbd/spgd/202607/t20260724_905925.html"
+																target="_blank" class="">王沪宁会见捷克众议长</a>
+														</p>
+													</li>
+                                                                                                          
+													<li class="">
+														<div class="pic ">
+															<a href="http://www.cppcc.gov.cn/spbd/spgd/202607/t20260723_905884.html"
+																target="_blank" class=""><img src="./spbd/sysp/202607/W020260723552535965679.png" width="100%" height="100%" class="" /></a>
+															<a href="http://www.cppcc.gov.cn/spbd/spgd/202607/t20260723_905884.html"
+																class="plus " target="_blank"></a>
+														</div>
+														<p class="">
+															<a href="http://www.cppcc.gov.cn/spbd/spgd/202607/t20260723_905884.html"
+																target="_blank" class="">王沪宁在西藏调研</a>
+														</p>
+													</li>
+                                                                                                          
+													<li class="">
+														<div class="pic ">
+															<a href="./spbd/spgd/202607/t20260720_898922.html"
+																target="_blank" class=""><img src="./spbd/spgd/202607/W020260720640968895701.png" width="100%" height="100%" class="" /></a>
+															<a href="./spbd/spgd/202607/t20260720_898922.html"
+																class="plus " target="_blank"></a>
+														</div>
+														<p class="">
+															<a href="./spbd/spgd/202607/t20260720_898922.html"
+																target="_blank" class="">王沪宁对朝鲜进行正式友好访问</a>
+														</p>
+													</li>
+                                                                                                       
+													
+
+
+												</ul>
+											</div>
+										</div>
+									</div>
+
+								</div>
+							</div>
+
+						</div>
+						<div class="vspace" style="height:30px;"></div>
+						<div class="zhengxie17370_ind03">
+							<div class="column_wrapper ">
+
+								<div id="SUBD1512457665174784" class="col_w350_1 ">
+									<div class="md ">
+										<div class="md_hdc "><b class=""></b></div>
+										<div class="md_hd ">
+											<span class="mh_title ">
+												<a href="./wylz/wyjy/"
+													target="_blank" class="">
+													委员建言
+												</a>
+											</span>
+
+										</div>
+
+
+										<div class="md_bd " id="SUBD1512457795400792">
+
+											<div class="zhengxie17370_con02 ">
+												<div class="text_list ">
+													<ul class="list ">
+                                                                                                           
+														<li class=""><a
+																href="./wylz/wyjy/202608/t20260811_906362.html"
+																target="_blank"
+																title="提案办理有成效丨全国政协委员、希肯国际文化集团董事长安庭..."
+																class="">提案办理有成效丨全国政协委员、希肯国际文化集团董事长安庭...</a>
+														</li>
+                                                                                                               
+														<li class=""><a
+																href="./wylz/wyjy/202608/t20260811_906360.html"
+																target="_blank"
+																title="提案办理有成效丨全国政协委员、北方工业大学副校长李全明：..."
+																class="">提案办理有成效丨全国政协委员、北方工业大学副校长李全明：...</a>
+														</li>
+                                                                                                               
+														<li class=""><a
+																href="./wylz/wyjy/202608/t20260811_906358.html"
+																target="_blank"
+																title="提案办理有成效丨全国政协委员、山东省政协副主席段青英：“A..."
+																class="">提案办理有成效丨全国政协委员、山东省政协副主席段青英：“A...</a>
+														</li>
+                                                                                                               
+														<li class=""><a
+																href="./wylz/wyjy/202608/t20260811_906356.html"
+																target="_blank"
+																title="庄紫祥委员：赓续侨胞家国情怀 汇聚民族复兴合力"
+																class="">庄紫祥委员：赓续侨胞家国情怀 汇聚民族复兴合力</a>
+														</li>
+                                                                                                               
+														<li class=""><a
+																href="./wylz/wyjy/202608/t20260810_906331.html"
+																target="_blank"
+																title="提案摘编・强化基本医疗卫生服务（四）"
+																class="">提案摘编・强化基本医疗卫生服务（四）</a>
+														</li>
+                                                                                                               
+														<li class=""><a
+																href="./wylz/wyjy/202608/t20260810_906316.html"
+																target="_blank"
+																title="提案摘编・强化基本医疗卫生服务（三）"
+																class="">提案摘编・强化基本医疗卫生服务（三）</a>
+														</li>
+                                                                                                                            
+										
+													</ul>
+												</div>
+												<div class="clear "></div>
+											</div>
+
+										</div>
+
+									</div>
+								</div>
+
+
+								<div id="SUBD1512457665174785" class="col_w350_1 ">
+									<div class="md ">
+										<div class="md_hdc "><b class=""></b></div>
+										<div class="md_hd ">
+											<span class="mh_title ">
+												<a href="./wylz/wyjt/"
+													target="_blank" class="">
+													委员讲堂
+												</a>
+											</span>
+
+										</div>
+
+										<div class="md_bd " id="SUBD1512458004544806">
+											<div class="zhengxie17370_con02 ">
+												<div class="text_list ">
+													<ul class="list ">
+                                                                                                                
+														<li class=""><a
+																href="./wylz/wyjt/202607/t20260707_888807.html"
+																target="_blank"
+																title="解码“天眼”结构创新 点亮深空探索之光 ——全国政协“委员..."
+																class="">解码“天眼”结构创新 点亮深空探索之光 ——全国政协“委员...</a>
+														</li>
+                                                                                                                         
+														<li class=""><a
+																href="./zxxw/yw/tpyw/202607/t20260707_888757.html"
+																target="_blank"
+																title="全国政协“委员科学讲堂”以“‘中国天眼’结构创新”为题举..."
+																class="">全国政协“委员科学讲堂”以“‘中国天眼’结构创新”为题举...</a>
+														</li>
+                                                                                                                         
+														<li class=""><a
+																href="./zxxw/yw/tpyw/202607/t20260703_886951.html"
+																target="_blank"
+																title="“桥”见百年奋进 聚力创新图强 ——全国政协“委员科学讲堂..."
+																class="">“桥”见百年奋进 聚力创新图强 ——全国政协“委员科学讲堂...</a>
+														</li>
+                                                                                                                         
+														<li class=""><a
+																href="./zxxw/yw/tpyw/202607/t20260703_886930.html"
+																target="_blank"
+																title="全国政协“委员科学讲堂”以“走近中国桥梁”为题举办科普讲..."
+																class="">全国政协“委员科学讲堂”以“走近中国桥梁”为题举办科普讲...</a>
+														</li>
+                                                                                                                         
+														<li class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2026/06/02/ARTI1780366604274119.shtml"
+																target="_blank"
+																title="全国政协“委员科学讲堂”以“浅谈‘打造智能经济新形态’”..."
+																class="">全国政协“委员科学讲堂”以“浅谈‘打造智能经济新形态’”...</a>
+														</li>
+                                                                                                                         
+														<li class=""><a
+																href="http://www.cppcc.gov.cn/zxww/2026/04/28/ARTI1777340449622109.shtml"
+																target="_blank"
+																title="全国政协“委员科学讲堂”以“筑牢粮食安全根基：种子科技的..."
+																class="">全国政协“委员科学讲堂”以“筑牢粮食安全根基：种子科技的...</a>
+														</li>
+                                                                                                                                
+														
+
+													</ul>
+												</div>
+												<div class="clear "></div>
+											</div>
+
+
+										</div>
+
+									</div>
+								</div>
+
+
+								<div id="SUBD1512457665174786" class="col_w350_2 ">
+									<div class="md ">
+										<div class="md_hdc "><b class=""></b></div>
+										<div class="md_hd ">
+											<span class="mh_title ">
+												<a href="./wylz/wyfc/"
+													target="_blank" class="">
+													委员风采
+												</a>
+											</span>
+
+										</div>
+
+										<div class="md_bd " id="SUBD1512458018706809">
+											<div class="zhengxie17370_con05 ">
+												<div class="pic_txt ">
+													<ul class="list ">
+                                                                                                             
+														<li class="">
+															<div class="pic ">
+																<a href="http://www.cppcc.gov.cn/wylz/wyfc/202608/t20260812_906384.html"
+																	target="_blank" class=""><img src="./wylz/wyfc/sywyfc/202608/W020260812402141727463.jpg" width="100%" height="100%" class="" /></a>
+															</div>
+															<p style="background:#e9f5ff" class="">
+																<a href="http://www.cppcc.gov.cn/wylz/wyfc/202608/t20260812_906384.html"
+																	target="_blank" title="许以万里海波清——记全国政协委员李颖"
+																	class="">许以万里海波清——记全国政协委员李颖</a>
+															</p>
+														</li>
+                                                                                                              
+														<li class="">
+															<div class="pic ">
+																<a href="http://www.cppcc.gov.cn/wylz/wyfc/202607/t20260722_903233.html"
+																	target="_blank" class=""><img src="./wylz/wyfc/sywyfc/202607/W020260722590972640166.jpg" width="100%" height="100%" class="" /></a>
+															</div>
+															<p style="background:#e9f5ff" class="">
+																<a href="http://www.cppcc.gov.cn/wylz/wyfc/202607/t20260722_903233.html"
+																	target="_blank" title="社区“当家人”——记全国政协委员张军萍"
+																	class="">社区“当家人”——记全国政协委员张军萍</a>
+															</p>
+														</li>
+                                                                                                              
+														<li class="">
+															<div class="pic ">
+																<a href="http://www.cppcc.gov.cn/zxww/2026/06/17/ARTI1781684919223294.shtml"
+																	target="_blank" class=""><img src="./wylz/wyfc/sywyfc/202606/W020260623352474258242.jpg" width="100%" height="100%" class="" /></a>
+															</div>
+															<p style="background:#e9f5ff" class="">
+																<a href="http://www.cppcc.gov.cn/zxww/2026/06/17/ARTI1781684919223294.shtml"
+																	target="_blank" title="心牵香江民生 情融湾区家国 ——记全国政协委员管浩鸣"
+																	class="">心牵香江民生 情融湾区家国 ——记全国政协委员管浩鸣</a>
+															</p>
+														</li>
+                                                                                                                    
+														
+
+														
+													</ul>
+												</div>
+											</div>
+										</div>
+
+									</div>
+								</div>
+
+							</div>
+						</div>
+						<div class="vspace" style="height:30px;"></div>
+						<div class="column_wrapper ">
+
+							<div id="SUBD1512443961979649" class="col_w350_1 ">
+								<div class="md ">
+									<div class="md_hdc "><b class=""></b></div>
+									<div class="md_hd ">
+										<span class="mh_title ">
+											<a href="./dptt/"
+												target="_blank" class="">
+												党派团体
+											</a>
+										</span>
+
+									</div>
+
+									<div class="md_bd " id="SUBD1512444001017656">
+										<div class="zhengxie17370_con03 " id="ELMT1513485361970313">
+											<div class="nav ">
+												<div class="list ">
+
+													<span class="cur "><a
+															href="./dptt/dpgz/"
+															target="_blank" class="">党派工作</a></span>
+
+													|<span><a
+															href="./dptt/jcdt/"
+															target="_blank" class="">基层动态</a></span>
+
+												</div>
+											</div>
+											<div class="text_con ">
+												<div class="text_list show ">
+													<ul class="list">
+                                                                                                             
+														<li style="white-space:pre-wrap" class=""><a
+																href="./dptt/dpgz/202608/t20260810_906341.html"
+																target="_blank" title="民进中央在贵州毕节召开理论研讨会——新形势下如何进一步做..."
+																class="">民进中央在贵州毕节召开理论研讨会——新形势下如何进一步做...</a></li>
+                                                                                                              
+														<li style="white-space:pre-wrap" class=""><a
+																href="http://www.cppcc.gov.cn/zxxw/yw/tpyw/202608/t20260803_906150.html"
+																target="_blank" title="何报翔率队赴四川甘孜开展黄河流域生态保护和高质量发展民主..."
+																class="">何报翔率队赴四川甘孜开展黄河流域生态保护和高质量发展民主...</a></li>
+                                                                                                              
+														<li style="white-space:pre-wrap" class=""><a
+																href="./dptt/dpgz/202608/t20260803_906144.html"
+																target="_blank" title="农工党中央在新疆召开“参政为公、实干为民”主题教育调研座谈会"
+																class="">农工党中央在新疆召开“参政为公、实干为民”主题教育调研座谈会</a></li>
+                                                                                                              
+														<li style="white-space:pre-wrap" class=""><a
+																href="./dptt/dpgz/202607/t20260731_906102.html"
+																target="_blank" title="民进中央调研组赴贵州推进“地域﹢领域”组团式帮扶毕节工作..."
+																class="">民进中央调研组赴贵州推进“地域﹢领域”组团式帮扶毕节工作...</a></li>
+                                                                                                              
+														<li style="white-space:pre-wrap" class=""><a
+																href="./dptt/dpgz/202607/t20260730_906079.html"
+																target="_blank" title="民进中央在毕节召开“参政为公、实干为民”主题教育调研座谈..."
+																class="">民进中央在毕节召开“参政为公、实干为民”主题教育调研座谈...</a></li>
+                                                                                                              
+														<li style="white-space:pre-wrap" class=""><a
+																href="./dptt/dpgz/202607/t20260729_906040.html"
+																target="_blank" title="民进2026年社会服务主题年工作中期推进会在毕节举行 蔡达峰出..."
+																class="">民进2026年社会服务主题年工作中期推进会在毕节举行 蔡达峰出...</a></li>
+                                                                                                              
+														<li style="white-space:pre-wrap" class=""><a
+																href="./zxxw/yw/tpyw/202607/t20260720_898893.html"
+																target="_blank" title="围绕“推动西部大开发形成新格局” 杨震率农工党中央调研组赴..."
+																class="">围绕“推动西部大开发形成新格局” 杨震率农工党中央调研组赴...</a></li>
+                                                                                                              
+														
+													</ul>
+												</div>
+												<div class="text_list ">
+													<ul class="list ">
+                                                                                                                
+														<li style="white-space:pre-wrap" class=""><a
+																href="./zxww/2026/05/22/ARTI1779419030128160.shtml"
+																target="_blank"
+																title="借力香港“超级联系人” 畅通民企出海“双循环” ——民建青..."
+																aria-showtitle="true" class="">借力香港“超级联系人” 畅通民企出海“双循环” ——民建青...</a>
+														</li>
+                                                                                                                
+														<li style="white-space:pre-wrap" class=""><a
+																href="./zxww/2026/05/20/ARTI1779247109839216.shtml"
+																target="_blank"
+																title="台盟北京市委会举办2026年“手足原乡行”活动"
+																aria-showtitle="true" class="">台盟北京市委会举办2026年“手足原乡行”活动</a>
+														</li>
+                                                                                                                
+														<li style="white-space:pre-wrap" class=""><a
+																href="./zxww/2026/05/18/ARTI1779087409597339.shtml"
+																target="_blank"
+																title="推进津沽渔业逐绿向新——民盟天津市委会建言渔业绿色低碳发展"
+																aria-showtitle="true" class="">推进津沽渔业逐绿向新——民盟天津市委会建言渔业绿色低碳发展</a>
+														</li>
+                                                                                                                
+														<li style="white-space:pre-wrap" class=""><a
+																href="./zxww/2026/05/18/ARTI1779087025893327.shtml"
+																target="_blank"
+																title="新征程•新实践丨坚守教育初心 彰显民进担当 ——民进湖南省..."
+																aria-showtitle="true" class="">新征程•新实践丨坚守教育初心 彰显民进担当 ——民进湖南省...</a>
+														</li>
+                                                                                                                
+														<li style="white-space:pre-wrap" class=""><a
+																href="./zxww/2026/05/18/ARTI1779072912057222.shtml"
+																target="_blank"
+																title="博爱润心 播种希望——青岛民革携手各界为“星星的孩子”打造..."
+																aria-showtitle="true" class="">博爱润心 播种希望——青岛民革携手各界为“星星的孩子”打造...</a>
+														</li>
+                                                                                                                
+														<li style="white-space:pre-wrap" class=""><a
+																href="./zxww/2026/05/18/ARTI1779072838064219.shtml"
+																target="_blank"
+																title="让科普从“送进去”到“用起来”——民盟南昌市委会持续深耕..."
+																aria-showtitle="true" class="">让科普从“送进去”到“用起来”——民盟南昌市委会持续深耕...</a>
+														</li>
+                                                                                                                
+														<li style="white-space:pre-wrap" class=""><a
+																href="./zxww/2026/05/15/ARTI1778827944926187.shtml"
+																target="_blank"
+																title="新征程•新实践丨汇聚多党合作磅礴合力 赋能开放高地提质升级..."
+																aria-showtitle="true" class="">新征程•新实践丨汇聚多党合作磅礴合力 赋能开放高地提质升级...</a>
+														</li>
+                                                                                                                     
+														
+													</ul>
+												</div>
+												
+											</div>
+											<div class="clear "></div>
+										</div>
+										<script type="text/javascript" class="">
+											var oCon03aELMT1513485361970313 = $("#ELMT1513485361970313 .nav .list span");
+											var oCon03listELMT1513485361970313 = $("#ELMT1513485361970313 .text_con .text_list .list");
+											$(oCon03aELMT1513485361970313).on("mouseover", function () {
+												var index = $(this).index();
+												var conlist = oCon03listELMT1513485361970313.eq(index).find('li').length;
+												if (conlist != 0) {
+													$(this).addClass("cur").siblings().removeClass("cur");
+													$(this).parents(".nav").siblings(".text_con").find(".text_list").eq(index).addClass("show").siblings().removeClass("show");
+												}
+											})
+										</script>
+									</div>
+
+								</div>
+							</div>
+
+
+							<div id="SUBD1512443961979650" class="col_w350_1 ">
+								<div class="md ">
+									<div class="md_hdc "><b class=""></b></div>
+									<div class="md_hd ">
+										<span class="mh_title ">
+											<a href="./dfzx/"
+												target="_blank" class="">
+												地方政协
+											</a>
+										</span>
+
+									</div>
+
+									<div class="md_bd " id="SUBD1512444013777659">
+										<div class="zhengxie17370_con02 ">
+											<div class="text_list ">
+												<ul class="list ">
+                                                                                                     
+													<li class=""><a
+															href="./dfzx/202608/t20260812_906374.html"
+															target="_blank"
+															title=" 树立和践行正确政绩观丨“潜绩”思维厚植营商“沃土”——内..."
+															class=""> 树立和践行正确政绩观丨“潜绩”思维厚植营商“沃土”——内...</a>
+													</li>
+                                                                                                         
+													<li class=""><a
+															href="./dfzx/202608/t20260812_906372.html"
+															target="_blank"
+															title=" 助推高质量发展中的政协智慧丨“共享智造”激活特色产业集群..."
+															class=""> 助推高质量发展中的政协智慧丨“共享智造”激活特色产业集群...</a>
+													</li>
+                                                                                                         
+													<li class=""><a
+															href="./dfzx/202608/t20260812_906370.html"
+															target="_blank"
+															title=" 聚焦・提振消费：形成更高水平更具活力的消费市场"
+															class=""> 聚焦・提振消费：形成更高水平更具活力的消费市场</a>
+													</li>
+                                                                                                         
+													<li class=""><a
+															href="./dfzx/202608/t20260812_906368.html"
+															target="_blank"
+															title=" “省城的专家来了！”——陕西省政协“健康服务下基层”活动..."
+															class=""> “省城的专家来了！”——陕西省政协“健康服务下基层”活动...</a>
+													</li>
+                                                                                                         
+													<li class=""><a
+															href="./dfzx/202608/t20260811_906350.html"
+															target="_blank"
+															title=" 人民政协协商民主的实践与探索丨以实干实绩交出优异答卷——..."
+															class=""> 人民政协协商民主的实践与探索丨以实干实绩交出优异答卷——...</a>
+													</li>
+                                                                                                         
+													<li class=""><a
+															href="./dfzx/202608/t20260811_906348.html"
+															target="_blank"
+															title=" 助推高质量发展中的政协智慧丨履职向“新” 聚势向“高”——..."
+															class=""> 助推高质量发展中的政协智慧丨履职向“新” 聚势向“高”——...</a>
+													</li>
+                                                                                                         
+													<li class=""><a
+															href="./dfzx/202608/t20260811_906346.html"
+															target="_blank"
+															title=" 提案有声丨以前排队浇地，现在只需“手机一点”——河南开封..."
+															class=""> 提案有声丨以前排队浇地，现在只需“手机一点”——河南开封...</a>
+													</li>
+                                                                                                         
+													<li class=""><a
+															href="./dfzx/202608/t20260811_906344.html"
+															target="_blank"
+															title=" 政在协商丨青岛市政协聚焦完善住房公积金政策广集众智 如何深..."
+															class=""> 政在协商丨青岛市政协聚焦完善住房公积金政策广集众智 如何深...</a>
+													</li>
+                                                                                                                         
+												
+
+												</ul>
+											</div>
+											<div class="clear "></div>
+										</div>
+
+									</div>
+
+								</div>
+							</div>
+
+
+							<div id="SUBD1512443961979651" class="col_w350_2 ">
+								<div class="md ">
+									<div class="md_hdc "><b class=""></b></div>
+									<div class="md_hd ">
+										<span class="mh_title ">
+											<a href="./jgjs/"
+												target="_blank" class="">
+												机关建设
+											</a>
+										</span>
+
+									</div>
+
+									<div class="md_bd " id="SUBD1512444029785662">
+										<div class="zhengxie17370_con02 ">
+											<div class="text_list ">
+												<ul class="list ">
+                                                                                                    
+													<li class=""><a
+															href="./jgjs/202607/t20260706_888683.html"
+															target="_blank" title="全国政协第214期地方政协委员（干部） 培训班在北戴河举办"
+															class="">全国政协第214期地方政协委员（干部） 培训班在北戴河举办</a></li>
+                                                                                                   
+													<li class=""><a
+															href="./zxww/2026/06/18/ARTI1781774694847435.shtml"
+															target="_blank" title="全国政协第213期地方政协委员（干部） 培训班在北戴河举办"
+															class="">全国政协第213期地方政协委员（干部） 培训班在北戴河举办</a></li>
+                                                                                                   
+													<li class=""><a
+															href="./zxww/2026/06/15/ARTI1781499046368400.shtml"
+															target="_blank" title="全国政协第212期地方政协委员（干部） 培训班在北戴河举办"
+															class="">全国政协第212期地方政协委员（干部） 培训班在北戴河举办</a></li>
+                                                                                                   
+													<li class=""><a
+															href="./zxww/2026/06/08/ARTI1780902544841466.shtml"
+															target="_blank" title="全国政协第211期地方政协委员（干部） 培训班在北戴河举办"
+															class="">全国政协第211期地方政协委员（干部） 培训班在北戴河举办</a></li>
+                                                                                                   
+													<li class=""><a
+															href="./zxww/2026/05/26/ARTI1779780605835322.shtml"
+															target="_blank" title="全国政协第210期地方政协委员（干部） 培训班在北戴河举办"
+															class="">全国政协第210期地方政协委员（干部） 培训班在北戴河举办</a></li>
+                                                                                                   
+													<li class=""><a
+															href="./zxww/2026/05/18/ARTI1779069470083120.shtml"
+															target="_blank" title="全国政协第209期地方政协委员（干部） 培训班在北戴河举办"
+															class="">全国政协第209期地方政协委员（干部） 培训班在北戴河举办</a></li>
+                                                                                                   
+													<li class=""><a
+															href="./zxww/2026/04/30/ARTI1777542196785339.shtml"
+															target="_blank" title="全国政协第208期地方政协委员（干部） 培训班在北戴河举办"
+															class="">全国政协第208期地方政协委员（干部） 培训班在北戴河举办</a></li>
+                                                                                                   
+													<li class=""><a
+															href="./zxww/2026/04/24/ARTI1777025358658433.shtml"
+															target="_blank" title="全国政协第207期地方政协委员（干部） 培训班在北戴河举办"
+															class="">全国政协第207期地方政协委员（干部） 培训班在北戴河举办</a></li>
+                                                                                                 
+													
+												</ul>
+											</div>
+											<div class="clear "></div>
+										</div>
+
+									</div>
+
+								</div>
+							</div>
+
+						</div>
+						<div class="vspace" style="height:30px;"></div>
+						<div class="column_wrapper ">
+							<div class="col_w725 ">
+								<div class="zhengxie17370_ind04 ">
+
+									<div id="SUBD1512458866642836" class="ind_w350_1 ">
+										<div class="md ">
+											<div class="md_hdc "><b class=""></b></div>
+											<div class="md_hd ">
+												<span class="mh_title ">
+													<a href="./llyj/"
+														target="_blank" class="">
+														理论研究
+													</a>
+												</span>
+
+											</div>
+
+											<div class="md_bd " id="SUBD1512458890652841">
+												<div class="zhengxie17370_con02 ">
+													<div class="text_list ">
+														<ul class="list ">
+                                                                                                                       
+															<li class=""><a
+																	href="./llyj/202608/t20260812_906380.html"
+																	target="_blank" title="加强“四位一体”建设 夯实“有为政协”支撑"
+																	class="">加强“四位一体”建设 夯实“有为政协”支撑</a></li>
+                                                                                                                        
+															<li class=""><a
+																	href="./llyj/202608/t20260812_906378.html"
+																	target="_blank" title="更好发挥“三个作用” 助力“十五五”开好局起好步"
+																	class="">更好发挥“三个作用” 助力“十五五”开好局起好步</a></li>
+                                                                                                                        
+															<li class=""><a
+																	href="./llyj/202608/t20260812_906376.html"
+																	target="_blank" title="把握辩证统一关系 以正确政绩观引领新时代政协履职"
+																	class="">把握辩证统一关系 以正确政绩观引领新时代政协履职</a></li>
+                                                                                                                        
+															<li class=""><a
+																	href="./llyj/202608/t20260810_906321.html"
+																	target="_blank" title="深入学习领会习近平党建思想的科学内涵之十一丨坚持用严明的..."
+																	class="">深入学习领会习近平党建思想的科学内涵之十一丨坚持用严明的...</a></li>
+                                                                                                                        
+															<li class=""><a
+																	href="./llyj/202608/t20260810_906319.html"
+																	target="_blank" title="学习习近平总书记在庆祝中国共产党成立105周年大会上的重要讲..."
+																	class="">学习习近平总书记在庆祝中国共产党成立105周年大会上的重要讲...</a></li>
+                                                                                                                        
+															<li class=""><a
+																	href="./llyj/202608/t20260807_906267.html"
+																	target="_blank" title="中国共产党为什么能的关键密码——深刻领会中国共产党的优秀特质"
+																	class="">中国共产党为什么能的关键密码——深刻领会中国共产党的优秀特质</a></li>
+                                                                                                                        
+															<li class=""><a
+																	href="./llyj/202608/t20260807_906265.html"
+																	target="_blank" title="学习习近平总书记在庆祝中国共产党成立105周年大会上的重要讲..."
+																	class="">学习习近平总书记在庆祝中国共产党成立105周年大会上的重要讲...</a></li>
+                                                                                                                        
+															<li class=""><a
+																	href="./llyj/202608/t20260806_906250.html"
+																	target="_blank" title="深入学习领会习近平党建思想的科学内涵之十丨坚持推进作风建..."
+																	class="">深入学习领会习近平党建思想的科学内涵之十丨坚持推进作风建...</a></li>
+                                                                                                                      
+															
+
+														</ul>
+													</div>
+													<div class="clear "></div>
+												</div>
+
+											</div>
+
+										</div>
+									</div>
+
+
+									<div id="SUBD1512458866642837" class="ind_w350_2 ">
+										<div class="md ">
+											<div class="md_hdc "><b class=""></b></div>
+											<div class="md_hd ">
+												<span class="mh_title ">
+													<a href="./zxgk/"
+														target="_blank" class="">
+														政协概况
+													</a>
+												</span>
+
+											</div>
+
+											<div class="md_bd " id="SUBD1512458915708844">
+												<div class="zhengxie17370_con03 " id="ELMT1525334510126974">
+													<div class="nav ">
+														<div class="list ">
+
+															<span class="cur "><a
+																	href="./zxgk/gzzd/"
+																	target="_blank" class="">规章制度</a></span>
+
+															|<span><a
+																	href="./zxgk/zxwx/"
+																	target="_blank" class="">政协文献</a></span>
+
+															|<span><a
+																	href="./zxgk/wszl/"
+																	target="_blank" class="">文史资料</a></span>
+
+															|<span><a
+																	href="./zxgk/zxdsj/"
+																	target="_blank" class="">大事记</a></span>
+
+														</div>
+													</div>
+													<div class="text_con ">
+														<div class="text_list show ">
+															<ul class="list ">
+                                                                                                                                              
+																<li class=""><a
+																		href="./zxww/2024/01/24/ARTI1706084119035695.shtml"
+																		target="_blank" title=" 中国人民政治协商会议全国委员会提案工作条例"
+																		class=""> 中国人民政治协商会议全国委员会提案工作条例</a></li>
+                                                                                                                                              
+																<li class=""><a
+																		href="http://www.cppcc.gov.cn/zxww/2023/03/20/ARTI1679275255601112.shtml"
+																		target="_blank" title=" 中国人民政治协商会议章程"
+																		class=""> 中国人民政治协商会议章程</a></li>
+                                                                                                                                              
+																<li class=""><a
+																		href="http://www.cppcc.gov.cn/zxww/2021/07/09/ARTI1625796713428344.shtml"
+																		target="_blank" title=" 政协全国委员会提案委员会关于年度好提案评选办法（试行）"
+																		class=""> 政协全国委员会提案委员会关于年度好提案评选办法（试行）</a></li>
+                                                                                                                                              
+																<li class=""><a
+																		href="./zxww/2019/09/16/ARTI1568597815165771.shtml"
+																		target="_blank" title=" 全国政协协商议政质量评价工作办法 (试行)"
+																		class=""> 全国政协协商议政质量评价工作办法 (试行)</a></li>
+                                                                                                                                              
+																<li class=""><a
+																		href="./zxww/2019/09/16/ARTI1568597189002737.shtml"
+																		target="_blank" title=" 全国政协关于进一步提高协商议政质量的意见 (试行)"
+																		class=""> 全国政协关于进一步提高协商议政质量的意见 (试行)</a></li>
+                                                                                                                                              
+																<li class=""><a
+																		href="./zxww/2019/09/16/ARTI1568597178952736.shtml"
+																		target="_blank" title=" 中国人民政治协商会议会徽制作和使用规定"
+																		class=""> 中国人民政治协商会议会徽制作和使用规定</a></li>
+                                                                                                                                              
+																<li class=""><a
+																		href="./zxww/2019/03/02/ARTI1551496548627798.shtml"
+																		target="_blank" title=" 中国人民政治协商会议全国委员会专门委员会通则"
+																		class=""> 中国人民政治协商会议全国委员会专门委员会通则</a></li>
+                                                                                                                                
+																
+
+															</ul>
+														</div>
+														<div class="text_list ">
+															<ul class="list ">
+
+																                
+																<li class=""><a
+																		href="http://www.cppcc.gov.cn/zxww/2026/03/11/ARTI1773230387414649.shtml"
+																		target="_blank" title=" 中国人民政治协商会议第十四届全国委员会第四次会议政治决议"
+																		class=""> 中国人民政治协商会议第十四届全国委员会第四次会议政治决议</a></li>
+                                                                                                                                            
+																<li class=""><a
+																		href="http://www.cppcc.gov.cn/zxww/2026/03/11/ARTI1773230210484637.shtml"
+																		target="_blank" title=" 中国人民政治协商会议第十四届全国委员会提案委员会关于政协..."
+																		class=""> 中国人民政治协商会议第十四届全国委员会提案委员会关于政协...</a></li>
+                                                                                                                                            
+																<li class=""><a
+																		href="http://www.cppcc.gov.cn/zxww/2026/03/11/ARTI1773230014095625.shtml"
+																		target="_blank" title=" 中国人民政治协商会议全国委员会常务委员会关于政协十四届三..."
+																		class=""> 中国人民政治协商会议全国委员会常务委员会关于政协十四届三...</a></li>
+                                                                                                                                            
+																<li class=""><a
+																		href="http://www.cppcc.gov.cn/zxww/2026/03/11/ARTI1773229794107610.shtml"
+																		target="_blank" title=" 中国人民政治协商会议第十四届全国委员会第四次会议关于政协..."
+																		class=""> 中国人民政治协商会议第十四届全国委员会第四次会议关于政协...</a></li>
+                                                                                                                                            
+																<li class=""><a
+																		href="http://www.cppcc.gov.cn/zxww/2026/03/11/ARTI1773229568363598.shtml"
+																		target="_blank" title=" 中国人民政治协商会议全国委员会常务委员会工作报告"
+																		class=""> 中国人民政治协商会议全国委员会常务委员会工作报告</a></li>
+                                                                                                                                            
+																<li class=""><a
+																		href="http://www.cppcc.gov.cn/zxww/2026/03/11/ARTI1773229062783586.shtml"
+																		target="_blank" title=" 中国人民政治协商会议第十四届全国委员会第四次会议关于常务..."
+																		class=""> 中国人民政治协商会议第十四届全国委员会第四次会议关于常务...</a></li>
+                                                                                                                                            
+																<li class=""><a
+																		href="http://www.cppcc.gov.cn/zxww/2025/03/11/ARTI1741653405654160.shtml"
+																		target="_blank" title=" 中国人民政治协商会议第十四届全国委员会第三次会议政治决议"
+																		class=""> 中国人民政治协商会议第十四届全国委员会第三次会议政治决议</a></li>
+                                                                                                                                
+															</ul>
+														</div>
+														<div class="text_list ">
+															<ul class="list ">
+
+																                 
+																<li class=""><a
+																		href="./zxww/2023/12/25/ARTI1703473348542319.shtml"
+																		target="_blank" title=" 毛泽东在香山民主协商纪事"
+																		class=""> 毛泽东在香山民主协商纪事</a></li>
+                                                                                                                                              
+																<li class=""><a
+																		href="./zxww/2021/11/11/ARTI1636617375127551.shtml"
+																		target="_blank" title=" 人民政协第一件提案提出经过"
+																		class=""> 人民政协第一件提案提出经过</a></li>
+                                                                                                                                              
+																<li class=""><a
+																		href="./zxww/2021/11/04/ARTI1635993369649257.shtml"
+																		target="_blank" title=" 李济深的“一号提案”与政协提案工作"
+																		class=""> 李济深的“一号提案”与政协提案工作</a></li>
+                                                                                                                                              
+																<li class=""><a
+																		href="./zxww/2021/08/05/ARTI1628128900788255.shtml"
+																		target="_blank" title=" 有关筹建新中国的四件决议案"
+																		class=""> 有关筹建新中国的四件决议案</a></li>
+                                                                                                                                              
+																<li class=""><a
+																		href="./zxww/2021/07/22/ARTI1626921682248361.shtml"
+																		target="_blank" title=" 筹备人民政协的回忆"
+																		class=""> 筹备人民政协的回忆</a></li>
+                                                                                                                                              
+																<li class=""><a
+																		href="./zxww/2021/07/12/ARTI1626066436252481.shtml"
+																		target="_blank" title=" 从统一战线“前哨地”到政治协商诞生地"
+																		class=""> 从统一战线“前哨地”到政治协商诞生地</a></li>
+                                                                                                                                              
+																<li class=""><a
+																		href="./zxww/2021/07/08/ARTI1625730921942671.shtml"
+																		target="_blank" title=" 三处“一大”纪念地"
+																		class=""> 三处“一大”纪念地</a></li>
+                                                                                                                                
+															</ul>
+														</div>
+														<div class="text_list time ">
+															<ul class="list " style="height:272px;">
+
+																<li class="">                                                                   
+                                                                  
+                                                                     <a href="./zxww/2017/12/25/ARTI1514166497981494.shtml" target="blank" tabindex="0">1949年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514166978198500.shtml" target="blank" tabindex="0">1950年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514167285027512.shtml" target="blank" tabindex="0">1951年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514167439913520.shtml" target="blank" tabindex="0">1952年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514167593969531.shtml" target="blank" tabindex="0">1953年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514167721106542.shtml" target="blank" tabindex="0">1954年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514167815050548.shtml" target="blank" tabindex="0">1955年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514167934179554.shtml" target="blank" tabindex="0">1956年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514168094729566.shtml" target="blank" tabindex="0">1957年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514168271474572.shtml" target="blank" tabindex="0">1958年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514168456508585.shtml" target="blank" tabindex="0">1959年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514168598889591.shtml" target="blank" tabindex="0">1960年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514168787940603.shtml" target="blank" tabindex="0">1961年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514168870228609.shtml" target="blank" tabindex="0">1962年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514168953529615.shtml" target="blank" tabindex="0">1963年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514169067506627.shtml" target="blank" tabindex="0">1964年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514169154528633.shtml" target="blank" tabindex="0">1965年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514169561333646.shtml" target="blank" tabindex="0">1966年全国政协大事记</a>
+                                                                    
+                                                                    <a href="http://www.cppcc.gov.cn/zxww/2017/12/25/ARTI1514169632210653.shtml" target="blank" tabindex="0">1967</a>
+                                                                    <a href="http://www.cppcc.gov.cn/zxww/2017/12/25/ARTI1514169632210653.shtml" target="blank" tabindex="0">1968</a>
+                                                                    <a href="http://www.cppcc.gov.cn/zxww/2017/12/25/ARTI1514169632210653.shtml" target="blank" tabindex="0">1969</a>
+                                                                    <a href="http://www.cppcc.gov.cn/zxww/2017/12/25/ARTI1514169632210653.shtml" target="blank" tabindex="0">1970</a>
+                                                                    <a href="http://www.cppcc.gov.cn/zxww/2017/12/25/ARTI1514169632210653.shtml" target="blank" tabindex="0">1971</a>
+                                                                    <a href="http://www.cppcc.gov.cn/zxww/2017/12/25/ARTI1514169632210653.shtml" target="blank" tabindex="0">1972</a>
+                                                                    <a href="http://www.cppcc.gov.cn/zxww/2017/12/25/ARTI1514169632210653.shtml" target="blank" tabindex="0">1973</a>
+                                                                    <a href="http://www.cppcc.gov.cn/zxww/2017/12/25/ARTI1514169632210653.shtml" target="blank" tabindex="0">1974</a>
+                                                                    <a href="http://www.cppcc.gov.cn/zxww/2017/12/25/ARTI1514169632210653.shtml" target="blank" tabindex="0">1975</a>
+                                                                    <a href="http://www.cppcc.gov.cn/zxww/2017/12/25/ARTI1514169632210653.shtml" target="blank" tabindex="0">1976</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514169794198659.shtml" target="blank" tabindex="0">1977年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514169937391670.shtml" target="blank" tabindex="0">1978年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514170044491676.shtml" target="blank" tabindex="0">1979年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514170137689682.shtml" target="blank" tabindex="0">1980年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514174155269874.shtml" target="blank" tabindex="0">1981年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514170318448688.shtml" target="blank" tabindex="0">1982年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514171063672695.shtml" target="blank" tabindex="0">1983年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514171548538701.shtml" target="blank" tabindex="0">1984年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514171761803714.shtml" target="blank" tabindex="0">1985年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514172150803720.shtml" target="blank" tabindex="0">1986年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514172317216726.shtml" target="blank" tabindex="0">1987年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514172442207732.shtml" target="blank" tabindex="0">1988年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514172554572738.shtml" target="blank" tabindex="0">1989年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514172645729744.shtml" target="blank" tabindex="0">1990年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514172828179757.shtml" target="blank" tabindex="0">1991年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514172937888763.shtml" target="blank" tabindex="0">1992年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514173026022769.shtml" target="blank" tabindex="0">1993年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514173196001788.shtml" target="blank" tabindex="0">1994年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514173301581800.shtml" target="blank" tabindex="0">1995年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514173492089818.shtml" target="blank" tabindex="0">1996年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514173574064830.shtml" target="blank" tabindex="0">1997年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514173669829842.shtml" target="blank" tabindex="0">1998年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514173876995868.shtml" target="blank" tabindex="0">1999年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514173696811843.shtml" target="blank" tabindex="0">2000年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514173557154826.shtml" target="blank" tabindex="0">2001年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514173477814817.shtml" target="blank" tabindex="0">2002年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514173361487806.shtml" target="blank" tabindex="0">2003年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514173257788794.shtml" target="blank" tabindex="0">2004年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514173107534775.shtml" target="blank" tabindex="0">2005年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514171033585694.shtml" target="blank" tabindex="0">2006年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514169561558647.shtml" target="blank" tabindex="0">2007年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514169055572625.shtml" target="blank" tabindex="0">2008年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514168764908602.shtml" target="blank" tabindex="0">2009年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514168445445584.shtml" target="blank" tabindex="0">2010年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514168315601573.shtml" target="blank" tabindex="0">2011年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514167952277555.shtml" target="blank" tabindex="0">2012年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514166257503490.shtml" target="blank" tabindex="0">2013年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2017/12/25/ARTI1514165084220461.shtml" target="blank" tabindex="0">2014年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2018/01/29/ARTI1517215310202792.shtml" target="blank" tabindex="0">2015年全国政协大事记</a>
+                                                                    
+                                                                     <a href="./zxww/2020/11/03/ARTI1604366968043672.shtml" target="blank" tabindex="0">2016年全国政协大事记</a>
+                                                                                                                                       
+                                                                </li>
+
+															</ul>
+														</div>
+													</div>
+													<div class="clear "></div>
+												</div>
+												<script type="text/javascript" class="">
+													var oCon03aELMT1525334510126974 = $("#ELMT1525334510126974 .nav .list span");
+													var oCon03listELMT1525334510126974 = $("#ELMT1525334510126974 .text_con .text_list .list");
+													$(oCon03aELMT1525334510126974).on("mouseover", function () {
+														var index = $(this).index();
+														var conlist = oCon03listELMT1525334510126974.eq(index).find('li').length;
+														if (conlist != 0) {
+															$(this).addClass("cur").siblings().removeClass("cur");
+															$(this).parents(".nav").siblings(".text_con").find(".text_list").eq(index).addClass("show").siblings().removeClass("show");
+														}
+													})
+												</script>
+											</div>
+
+										</div>
+									</div>
+
+									<div class="clear "></div>
+								</div>
+							</div>
+
+							<div id="SUBD1512458866642838" class="col_w350 ">
+								<style class="">
+									.zhengxie17370_ind05_220530 {
+										width: 100%;
+										margin: 0 auto;
+										border-top: 1px solid rgb(1, 82, 147);
+										background: rgb(233, 245, 255);
+										padding: 10px 0;
+									}
+
+									.zhengxie17370_ind05_220530 .pic_box_top,
+									.zhengxie17370_ind05_220530 .pic_box_bottom {
+										padding-left: 10px;
+										padding-right: 10px;
+									}
+
+									.zhengxie17370_ind05_220530 .pic_box_bottom {
+										border-top: 1px solid rgb(1, 82, 147);
+										padding-top: 5px;
+									}
+
+									.zhengxie17370_ind05_220530 .pic_box_top li {
+										background-color: #abd5f7;
+										padding: 5px;
+										margin-bottom: 10px;
+									}
+
+									.zhengxie17370_ind05_220530 .pic_box_top img,
+									.zhengxie17370_ind05_220530 .pic_box_bottom img {
+										display: block;
+										width: 100%;
+									}
+
+									.zhengxie17370_ind05_220530 .pic_box_bottom li {
+										margin-top: 5px;
+									}
+								</style>
+
+								<div class="zhengxie17370_ind05_220530 ">
+									<div class="pic_box_top ">
+										<ul class="">
+
+
+
+											<li class="">
+												<a href="http://www.cppcc.gov.cn/zxww/2019/08/23/ARTI1566521170008218.shtml"
+													target="_blank" class="">
+													<img src="./images/1672715152086_734.jpg" alt="" role="qrcode" aria-label="委员读书平台 委员履职平台 扫一扫关注全国政协微信公众号" class="" />
+												</a>
+											</li>
+
+
+
+										</ul>
+									</div>
+									<div class="pic_box_bottom ">
+										<ul class="">
+
+
+
+											<li class="">
+												<a href="http://www.rmzxb.com.cn/index.shtml" target="_blank" class="">
+													<img src="./images/1654057035927_615.jpg" alt="" role="imagelink" aria-label="人民政协报" class="" />
+												</a>
+											</li>
+
+
+
+											 <li class="">
+												<a href="http://114.255.32.40:8090/was5/frontpage/index.html"
+													target="_blank" class="">
+													<img src="./images/1654050432938_773.jpg" alt="" role="imagelink" aria-label="中国政协文史资料数据库" class="" />
+												</a>
+											</li> 
+
+
+
+										</ul>
+									</div>
+								</div>
+							</div>
+
+						</div>
+						<div class="vspace" style="height:40px;"></div>
+						<div class="zhengxie17370_ind06" aria-label="导航区,当前为网页底部分类导航区，包含中央机构、党派团体和地方政协等分类导航弹出窗口"
+							aria-regiontype="2">
+							<div class="nav_list">
+								<div class="list">
+
+									<li class="" aria-hidden="true">
+										<p>中央机构<span aria-hidden="true" class=""></span></p>
+										<div class="bor ">
+                                            
+                                              <div class="list_top" style="height: 0px; padding: 0px 10px; overflow: auto;">
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.zytzb.gov.cn/html/index.html">中共中央统战部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="https://www.idcpc.org.cn/">中共中央对外联络部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.scopsr.gov.cn/">中央机构编制委员会</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.npc.gov.cn/">中国人大网</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.gov.cn/">中国政府网</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.fmprc.gov.cn/web/">外交部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.mod.gov.cn/">国防部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.ndrc.gov.cn/">国家发展和改革委员会</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.moe.gov.cn/">教育部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.most.gov.cn/">科学技术部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.miit.gov.cn/">工业和信息化部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.seac.gov.cn/">国家民族事务委员会</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.mps.gov.cn/">公安部</a>
+                                              <a style="width:230px;text-align:left" target="_self">国家安全部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.mca.gov.cn/">民政部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.moj.gov.cn/">司法部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.mof.gov.cn/index.htm">财政部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.mohrss.gov.cn/">人力资源和社会保障部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.mnr.gov.cn/">自然资源部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="https://www.mee.gov.cn/">生态环境部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.mohurd.gov.cn/">住房和城乡建设部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.mot.gov.cn/">交通运输部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.mwr.gov.cn/">水利部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.moa.gov.cn/">农业农村部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.mofcom.gov.cn/">商务部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.mct.gov.cn/">文化和旅游部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.nhc.gov.cn/">国家卫生健康委员会</a>
+                                              <a style="width:230px;text-align:left" href="http://www.mva.gov.cn/" target="_blank">退役军人事务部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="https://www.mem.gov.cn/">应急管理部</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.pbc.gov.cn/">人民银行</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.audit.gov.cn/">审计署</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.moe.gov.cn/jyb_sy/China_Language/">国家语言文字工作委员会</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.safea.gov.cn/">国家外国专家局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.cnsa.gov.cn/">国家航天局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.caea.gov.cn/">国家原子能机构</a>
+                                              <a style="width:230px;text-align:left" target="_blank">国家海洋局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://nnsa.mee.gov.cn/">国家核安全局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.sasac.gov.cn/">国务院国有资产监督管理委员会</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.customs.gov.cn/">海关总署</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.chinatax.gov.cn/">国家税务总局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.samr.gov.cn/">国家市场监督管理总局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.nrta.gov.cn/col/col2011/index.html">国家广播电视总局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.sport.gov.cn/">国家体育总局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.stats.gov.cn/">国家统计局</a>
+                                              <a style="width:230px;text-align:left" href="http://www.cidca.gov.cn/">国家国际发展合作署</a>
+                                              <a style="width:230px;text-align:left" href="http://www.nhsa.gov.cn/">国家医疗保障局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.counsellor.gov.cn/">国务院参事室</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.ggj.gov.cn/">国家机关事务管理局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.cnca.gov.cn/">国家认证认可监督管理委员会</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.sac.gov.cn/">国家标准化管理委员会</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.ncac.gov.cn/">国家新闻出版署（国家版权局）</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.sara.gov.cn/">国家宗教事务局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.hmo.gov.cn/">国务院港澳事务办公室</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.gov.cn/guoqing/2005-12/26/content_2652073.htm">国务院研究室</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.gqb.gov.cn/">国务院侨务办公室</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.gwytb.gov.cn/">国务院台湾事务办公室</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.cac.gov.cn/">国家互联网信息办公室</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.scio.gov.cn/index.htm">国务院新闻办公室</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://203.192.6.89/xhs/">新华通讯社</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.cas.cn/">中国科学院</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.cssn.cn/">中国社会科学院</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.cae.cn/">中国工程院</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.drc.gov.cn/">国务院发展研究中心</a>
+                                              <a style="width:230px;text-align:left" href="http://www.cnr.cn/">中央广播电视总台</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.cma.gov.cn/">中国气象局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="https://www.nfra.gov.cn/cn/view/pages/index/index.html">国家金融监督管理总局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.csrc.gov.cn/pub/newsite/">中国证券监督管理委员会</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="https://www.ccps.gov.cn/">国家行政学院</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.gjxfj.gov.cn/">国家信访局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.chinagrain.gov.cn/index.html">国家粮食和物资储备局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.nea.gov.cn/">国家能源局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.sastind.gov.cn/">国家国防科技工业局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.tobacco.gov.cn/html/">国家烟草专卖局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="https://www.nia.gov.cn/">国家移民管理局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.forestry.gov.cn/">国家林业和草原局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.nra.gov.cn/">国家铁路局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.caac.gov.cn/index.html">中国民用航空局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.spb.gov.cn/">国家邮政局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.ncha.gov.cn/">国家文物局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.satcm.gov.cn/">国家中医药管理局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.chinacoal-safety.gov.cn/">国家煤矿安全监察局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.safe.gov.cn/">国家外汇管理局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="https://www.nmpa.gov.cn/">国家药品监督管理局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="https://www.cnipa.gov.cn/">国家知识产权局</a>
+                                              <a style="width:230px;text-align:left" target="_self">出入境管理局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.forestry.gov.cn/">国家公园管理局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.scs.gov.cn/">国家公务员局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="https://www.saac.gov.cn/">国家档案局</a>
+                                              <a style="width:230px;text-align:left" href="http://www.gjbmj.gov.cn/">国家保密局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.oscca.gov.cn/">国家密码管理局</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.court.gov.cn/">最高人民法院</a>
+                                              <a style="width:230px;text-align:left" target="_blank" href="http://www.spp.gov.cn/site2006/index.html">最高人民检察院</a>
+                                              </div>
+                                              
+
+										</div>
+									</li>
+
+									<li class="" aria-hidden="true">
+										<p>
+											党派团体<span aria-hidden="true" class=""></span></p>
+										<div class="bor ">
+											<div class="list_top "><br class="">
+                                            <a href="http://www.minge.gov.cn/" target="_blank" class="">中国国民党革命委员会</a>
+                                            <a href="http://www.dem-league.org.cn/" target="_blank" class="">中国民主同盟</a>
+                                            <a href="http://www.cndca.org.cn/" target="_blank" class="">中国民主建国会</a><a href="http://www.mj.org.cn/" target="_blank" class="">中国民主促进会</a>
+                                            <a href="http://www.ngd.org.cn/" target="_blank" class="">中国农工民主党</a><a href="http://www.zg.org.cn/" target="_blank" class="">中国致公党</a>
+                                            <a href="http://www.93.gov.cn/" target="_blank" class="">九三学社</a><a href="http://www.taimeng.org.cn/" target="_blank" class="">台湾民主自治同盟</a>
+                                            <a href="http://www.acfic.org.cn/" target="_blank" class="">中华全国工商业联合会</a>
+											</div>
+										</div>
+									</li>
+
+									<li class="" aria-hidden="true">
+										<p>地方政协<span aria-hidden="true" class=""></span></p>
+										<div class="bor ">
+											<div class="list_top" style="overflow: auto; height: 0px; padding: 0px 10px;">
+                                            <a href="http://www.bjzx.gov.cn/" target="_blank" style="width:72px">北　京</a>　|　
+                                            <a href="http://www.tjszx.gov.cn/" target="_blank" style="width:72px">天　津</a>　|　
+                                            <a href="http://www.hebzx.gov.cn/" target="_blank" style="width:72px">河　北</a>　|　
+                                            <a href="http://www.shanxizx.gov.cn/" target="_blank" style="width:72px">山　西</a>　|　
+                                            <a href="http://www.nmgzx.gov.cn/" target="_blank" style="width:72px">内蒙古</a>　|　
+                                            <a href="http://www.lnzx.gov.cn/" target="_blank" style="width:72px">辽　宁</a>　|　
+                                            <a href="http://www.jlzx.gov.cn/" target="_blank" style="width:72px">吉　林</a>　|　
+                                            <a href="http://www.hljzx.gov.cn/" target="_blank" style="width:72px">黑龙江</a>　|　
+                                            <a href="http://www.shszx.gov.cn/" target="_blank" style="width:72px">上　海</a>　|　
+                                            <a href="http://www.jszx.gov.cn/" target="_blank" style="width:72px">江　苏</a>　|　
+                                            <a href="http://www.zjzx.gov.cn/" target="_blank" style="width:72px">浙　江</a>　|　
+                                            <a href="http://www.ahzx.gov.cn/" target="_blank" style="width:72px">安　徽</a>　|　
+                                            <a href="http://www.fjzx.gov.cn/" target="_blank" style="width:72px">福　建</a>　|　
+                                            <a href="http://jxzx.jxnews.com.cn/" target="_blank" style="width:72px">江　西</a>　|　
+                                            <a href="http://www.sdzx.gov.cn/" target="_blank" style="width:72px">山　东</a>　|　
+                                            <a href="http://www.hnzx.gov.cn/" target="_blank" style="width:72px">河　南</a>　|　
+                                            <a href="http://www.hbzx.gov.cn/" target="_blank" style="width:72px">湖　北</a>　|　
+                                            <a href="http://www.hunanzx.gov.cn/" target="_blank" style="width:72px">湖　南</a>　|　
+                                            <a href="https://www.gdszx.gov.cn/" target="_blank" style="width:72px">广　东</a>　|　
+                                            <a href="http://www.gxzx.gov.cn/" target="_blank" style="width:72px">广　西</a>　|　
+                                            <a href="http://www.hainanzx.gov.cn/" target="_blank" style="width:72px">海　南</a>　|　
+                                            <a href="http://www.cqzx.gov.cn/" target="_blank" style="width:72px">重　庆</a>　|　
+                                            <a href="http://www.sczx.gov.cn/" target="_blank" style="width:72px">四　川</a>　|　
+                                            <a href="http://www.gzszx.gov.cn/" target="_blank" style="width:72px">贵　州</a>　|　
+                                            <a href="http://www.ynzx.gov.cn/" target="_blank" style="width:72px">云　南</a>　|　
+                                            <a href="https://www.xizangzx.gov.cn/" target="_blank" style="width:72px">西　藏</a>　|　
+                                            <a href="http://www.sxzx.gov.cn/" target="_blank" style="width:72px">陕　西</a>　|　
+                                            <a href="http://www.gszx.gov.cn" target="_blank" style="width:72px">甘　肃</a>　|　
+                                            <a href="http://www.qhszx.gov.cn/" target="_blank" style="width:72px">青　海</a>　|　
+                                            <a href="http://www.nxzx.gov.cn/" target="_blank" style="width:72px">宁　夏</a>　|　
+                                            <a href="http://www.xjzx.gov.cn/" target="_blank" style="width:72px">新　疆</a>　|　
+                                            <a href="https://www.gzzx.gov.cn/" target="_blank" style="width:72px">广　州</a>　|　
+                                            <a href="https://www.whzx.gov.cn/" target="_blank" style="width:72px">武　汉</a>　|　
+                                            <a href="http://www.hrbzx.gov.cn/" target="_blank" style="width:72px">哈尔滨</a>　|　
+                                            <a href="http://www.syzx.gov.cn/" target="_blank" style="width:72px">沈　阳</a>　|　
+                                            <a href="https://www.cdcppcc.gov.cn/" target="_blank" style="width:72px">成　都</a>　|　
+                                            <a href="http://www.njzx.gov.cn/" target="_blank" style="width:72px">南　京</a>　|　
+                                            <a href="http://www.xa-cppcc.gov.cn/" target="_blank" style="width:72px">西　安</a>　|　
+                                            <a href="http://www.cczx.gov.cn/" target="_blank" style="width:72px">长　春</a>　|　
+                                            <a href="https://www.jnzx.gov.cn/" target="_blank" style="width:72px">济　南</a>　|　
+                                            <a href="http://www.hzzx.gov.cn/" target="_blank" style="width:72px">杭　州</a>　|　
+                                            <a href="http://www.dlzx.gov.cn/" target="_blank" style="width:72px">大　连</a>　|　
+                                            <a href="http://qdzx.qingdao.gov.cn/" target="_blank" style="width:72px">青　岛</a>　|　
+                                            <a href="http://www.szzx.gov.cn/" target="_blank" style="width:72px">深　圳</a>　|　
+                                            <a href="http://www.zxxm.gov.cn/" target="_blank" style="width:72px">厦　门</a>　|　
+                                            <a href="http://www.nbzx.gov.cn/" target="_blank" style="width:72px">宁　波</a>    </div>
+										</div>
+									</li>
+
+									<li class="" aria-hidden="true">
+										<p>
+											中央媒体<span aria-hidden="true" class=""></span></p>
+										<div class="bor ">
+											<div class="list_top" style="overflow: auto; height: 0px; padding: 0px 10px;"><br>
+                                            <a target="_blank" href="http://www.xinhuanet.com/">新华网</a>&nbsp;&nbsp;
+                                            <a target="_blank" href="http://www.people.com.cn/">人民网</a>&nbsp;&nbsp;
+                                            <a target="_blank" href="http://www.china.com.cn/index.htm">中国网</a>&nbsp;&nbsp;
+                                            <a target="_blank" href="http://www.cntv.cn/">央视网</a>&nbsp;&nbsp;
+                                            <a target="_blank" href="http://www.cnr.cn/">中国广播网</a>&nbsp;&nbsp;
+                                            <a target="_blank" href="http://www.chinadaily.com.cn/">中国日报网</a>&nbsp;&nbsp;
+                                            <a target="_blank" href="http://www.gmw.cn/">光明网</a>&nbsp;&nbsp;
+                                            <a target="_blank" href="http://www.ce.cn/">中国经济网</a>&nbsp;&nbsp;
+                                            <a target="_blank" href="http://www.chinanews.com/">中国新闻网</a>&nbsp;&nbsp;
+                                            <a target="_blank" href="http://gb.cri.cn/">国际在线</a>&nbsp;&nbsp;
+                                            <a target="_blank" href="http://www.chinacourt.cn/">中国法院网</a>&nbsp;&nbsp;
+                                            <a target="_blank" href="http://www.jcrb.com/">正义网</a>&nbsp;&nbsp;
+                                            <a target="_blank" href="http://www.workercn.cn/">中工网</a>&nbsp;&nbsp;
+                                            <a target="_blank" href="http://www.cyol.com/">中青在线</a>&nbsp;&nbsp;
+                                            <a target="_blank" href="http://www.qstheory.cn/">求是网</a></div>
+										</div>
+									</li>
+
+									<li class="" aria-hidden="true">
+										<p>
+											政协社团<span aria-hidden="true" class=""></span></p>
+										<div class="bor ">
+											<div class="list_top ">
+												<p class="">&nbsp;</p><a target="_self" class="">中国经济社会理事会</a>
+                                                <a  target="_self" class="">中国宗教界和平委员会</a>
+                                                <a href="./zxst/zgrmzxllyjh/" target="_blank" class="">中国人民政协理论研究会</a>
+											</div>
+										</div>
+									</li>
+
+									<li class="last " aria-hidden="true">
+										<p>
+											信息资料<span aria-hidden="true" class=""></span></p>
+										<div class="bor ">
+											<div class="list_top" style="overflow: auto; height: 0px; padding: 0px 10px;">
+                                            <p style="color: rgb(1, 82, 147);">&nbsp;</p>
+                                            <a href="http://www.gov.cn/zhengce/zhengcewenjianku/index.htm" target="_blank">国务院政策文件库</a>
+                                            <a href="http://www.stats.gov.cn" target="_blank">国家统计局</a>
+                                            <a href="http://202.106.125.196/lfjc/member/memberIndex.action" target="_blank">国家图书馆政协委员服务平台</a>
+                                            <a href="https://qgzx.gwypx.com.cn/" target="_blank">全国政协机关干部学习网</a></div>
+										</div>
+									</li>
+
+								</div>
+							</div>
+						</div>
+
+
+
+					</div>
+
+					<!-- footer -->
+					<script src='https://auth.mangren.com/boots/cppcc.gov.cn/esdToolsInit.js' charset='UTF-8'></script>
+<div id='page_bottom'>
+						<div class='bottom_sub'>
+	<script>var _hmt = _hmt || []; (function () { var hm = document.createElement("script"); hm.src = "https://hm.baidu.com/hm.js?b4ae0087f7b17481d650cc0a8574f040"; var s = document.getElementsByTagName("script")[0]; s.parentNode.insertBefore(hm, s); })();</script>
+							<p>版权所有：中国人民政治协商会议全国委员会 <a href='https://beian.miit.gov.cn/#/Integrated/index'
+									target='_blank' style='color: #333; text-decoration: none;'>京ICP备08100501号</a></p>
+							<p>网站主办：全国政协办公厅</p>
+							<p>技术支持：人民政协网</p>
+<p></p>
+						</div>
+					</div>
+<script defer async type="text/javascript" src="//gov.govwza.cn/dist/aria.js?appid=71cf90fe0cdef8d89dffdec2377a2380" charset="utf-8"></script>
+<script id="_trs_ta_js" src="//ta.trs.cn/c/js/ta.js?mpid=7065" async="async" defer="defer"></script>
+					<!-- end footer -->
+
+
+				</div>
+			</div>
+		</div>
+	</div>
+	<script type="text/javascript" src="./images/index.js"></script>
+	<script>
+		$(function () {
+			var oCon03aELMT1512531797743259 = $("#ELMT1512531797743259 .nav .list span");
+			var oCon03listELMT1512531797743259 = $("#ELMT1512531797743259 .text_con .text_list .list");
+			$(oCon03aELMT1512531797743259).on("mouseover", function () {
+				var index = $(this).index();
+				var conlist = oCon03listELMT1512531797743259.eq(index).find('li').length;
+				if (conlist != 0) {
+					$(this).addClass("cur").siblings().removeClass("cur");
+					$(this).parents(".nav").siblings(".text_con").find(".text_list").eq(index).addClass("show").siblings().removeClass("show");
+				}
+			})
+		})
+		</script>
+	<script>
+$(function(){
+	
+	// 椤堕儴杞挱
+	var timer = null;
+	var oInd01Show = $(".zhengxie17370_ind01 .slideShow");
+	var oInd01Pic  = $(".zhengxie17370_ind01 .slideShow .pic_box .pic_list li");
+	var oInd01List = $(".zhengxie17370_ind01 .slideShow .pic_box .cover .text_list li");
+	var oInd01Li   = $(".zhengxie17370_ind01 .slideShow .pic_box .point .point_list li");
+	for (var i = 0; i < oInd01Li.length; i++) {
+		$($(oInd01Li)[i]).on("click",function(){
+			var index = $(this).index();
+			$(this).addClass("cur").siblings().removeClass("cur");
+			$(oInd01Pic).eq(index).fadeIn(1000).siblings().fadeOut(1000);
+			$(oInd01List).eq(index).addClass("cur").siblings().removeClass("cur");
+		})
+	}
+	function startMove(){
+		var index = $(".zhengxie17370_ind01 .slideShow .pic_box .point .point_list li[class='cur']").index();
+		index++;
+		if(index>=oInd01Li.length){
+			$(oInd01Li).eq(0).addClass("cur").siblings().removeClass("cur");
+			$(oInd01Pic).eq(0).fadeIn(1000).siblings().fadeOut(1000);
+			$(oInd01List).eq(0).addClass("cur").siblings().removeClass("cur");
+			index = 0;
+		}else{
+			$(oInd01Li).eq(index).addClass("cur").siblings().removeClass("cur");
+			$(oInd01Pic).eq(index).fadeIn(1000).siblings().fadeOut(1000);
+			$(oInd01List).eq(index).addClass("cur").siblings().removeClass("cur");
+		}
+	}
+	timer=setInterval(startMove,5000)
+	$(oInd01Show).on("mouseover",function(){
+		clearInterval(timer);
+	})
+	$(oInd01Show).on("mouseout",function(){
+		timer=setInterval(startMove,5000);
+	})
+	
+	// 鎺у埗鍥剧墖瀹藉害
+	var oInd02Li = $(".zhengxie17370_ind02 .l .pic_list li");
+	if(oInd02Li.length == 1){
+		$(oInd02Li).css("width","822px");
+	}
+	if(oInd02Li.length == 2){
+		$(oInd02Li).css("width","406px");
+	}
+	if(oInd02Li.length == 3){
+		$(oInd02Li).css("width","266px");
+	}
+	
+	// 搴曢儴灞曞紑
+	var oInd06Li =  $(".zhengxie17370_ind06 .nav_list .list li");
+	var oInd06bo =  $(".zhengxie17370_ind06 .nav_list .list li .bor");
+	var oInd06Di =  $(".zhengxie17370_ind06 .nav_list .list li .list_top");
+	var oInd06a  =  $(".zhengxie17370_ind06 .nav_list .list li .list_top a");
+	for (var i = 0; i < oInd06Li.length; i++) {
+		$($(oInd06Li)[i]).live("mouseover",function(){
+			var index = $(this).index();
+			var oLength = $(this).find("a").length;
+			$(this).find(".list_top").stop().animate({height : "120px"},300).css({"overflow":"auto","padding":"10px"});
+			$(this).css({background : "#004379"}).find("p").css({color : "#fff"});
+			$(this).find("p>span").css("background","url(http://www.cppcc.gov.cn/photoAlbum/templet/common/DEPA1512120485012874/style/img/zhengxie17370_bottom.png) no-repeat 50% 50%");
+			$(oInd06bo).css({background: "#015293"})
+
+
+		})
+		$($(oInd06Li)[i]).live("mouseout",function(){
+			$(this).css({background : "#d4ebfe"}).find("p").css({color : "#015293"});
+			$(this).find(".list_top").stop().animate({height : 0 +"px"},300).css({"overflow":"auto","padding":"0 10px"});
+			$(this).find("p>span").css("background","url(http://www.cppcc.gov.cn/photoAlbum/templet/common/DEPA1512120485012874/style/img/zhengxie17370_top.png) no-repeat 50% 50%");
+			$(oInd06bo).css({background: "#fff"})
+		})
+	}
+	
+	
+	
+	// nav灞曞紑
+	var oInd09Co = $(".zhengxie17370_ind09 .text_cover");
+	var oInd09Li = $(".zhengxie17370_ind09 .nav_bar .nav_list li");
+	for (var i = 0; i < oInd09Li.length; i++) {
+		$($(oInd09Li)[i]).on("mouseover",function(){
+			$(oInd09Co).show();
+			$(this).find(".drop").show();
+		})
+		$($(oInd09Li)[i]).on("mouseout",function(){
+			$(oInd09Co).hide();
+			$(this).find(".drop").hide()
+		})
+	}
+
+	if( !('placeholder' in document.createElement('input')) ){
+		$('input[placeholder],textarea[placeholder]').each(function(){
+			var that = $(this),
+					text= that.attr('placeholder');
+			if(that.val()===""){
+				that.val(text).addClass('placeholder');
+			}
+			that.focus(function(){
+				if(that.val()===text){
+					that.val("").removeClass('placeholder');
+				}
+			})
+			.blur(function(){
+				if(that.val()===""){
+					that.val(text).addClass('placeholder');
+				}
+			})
+			.closest('form').submit(function(){
+				if(that.val() === text){
+					that.val('');
+				}
+			});
+		});
+	}
+
+
+
+
+
+
+
+
+
+})
+</script>
+</body>
+
+</html>

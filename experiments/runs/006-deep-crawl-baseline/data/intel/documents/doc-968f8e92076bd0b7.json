@@ -1,0 +1,19 @@
+{
+  "id": "doc-968f8e92076bd0b7",
+  "requested_url": "https://www.gov.cn/home/2014-02/23/content_5046258.htm",
+  "final_url": "https://www.gov.cn/home/2014-02/23/content_5046258.htm",
+  "canonical_url": "https://www.gov.cn/home/2014-02/23/content_5046258.htm",
+  "title": "content_5046258.htm",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-12T08:20:31.955390+00:00",
+  "source_type": "government",
+  "source_group": "www.gov.cn",
+  "raw_path": "data/raw/doc-968f8e92076bd0b7.raw",
+  "raw_sha256": "35a655fb198ed41eb643c2c25ec6fbdd45943e637bba662dbcffea0b176733d4",
+  "text_path": "data/raw/doc-968f8e92076bd0b7.txt",
+  "text_sha256": "f22c85cf458a6b1d1fe7fa40ddda417791f29e737c3ab8246f41932f1c943eb7",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}

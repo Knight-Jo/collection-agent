@@ -1,0 +1,19 @@
+{
+  "id": "doc-4ce98831920c1e4d",
+  "requested_url": "https://www.gov.cn/yaowen",
+  "final_url": "https://www.gov.cn/yaowen/",
+  "canonical_url": "https://www.gov.cn/yaowen",
+  "title": "yaowen",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-12T08:20:02.830692+00:00",
+  "source_type": "government",
+  "source_group": "www.gov.cn",
+  "raw_path": "data/raw/doc-4ce98831920c1e4d.raw",
+  "raw_sha256": "0bc71df6d6e3f352048883ca5fc9bce2b659013dd4d02883380ba47af1cbeef4",
+  "text_path": "data/raw/doc-4ce98831920c1e4d.txt",
+  "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}

@@ -1,0 +1,4871 @@
+{
+  "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+  "snapshots": [
+    {
+      "id": "cov-c6cd71d7-37f7-4899-b78f-8b1c3a8e7010",
+      "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+      "created_at": "2026-08-12T08:24:29.091604+00:00",
+      "fingerprint": "c77cfba03c4e06de82bddc3ea5fdb99b405bb8d1ee323c9c0b10342371a9b60a",
+      "gap_score": 31,
+      "no_progress_rounds": 0,
+      "stop_reason": null,
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-82cba3ce-4606-4838-804f-c000993b70fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-027b7cb74bace778",
+              "statement": "有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-09be1558bb8111b8",
+              "statement": "2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3dc9ff9ab105b476",
+              "statement": "中商产业研究院预测2030年中国低空经济市场规模将达到2万亿元。",
+              "status": "gap",
+              "candidate_supports_count": 0,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-703494ff15e8d6c1",
+              "statement": "中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-72ac7d73f8a9e305",
+              "statement": "2025年中国低空经济相关领域融资事件156次,同比下降3.1%。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-c7682e33dec95873",
+              "statement": "2024年「低空经济」写入政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「2024年「低空经济」写入政府工作报告。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-fb65f92533b6378e",
+              "statement": "据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-bd12be7e-ab49-4b47-87cb-7ee5d5cae90c",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 6,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-1d041b703d40192c",
+              "statement": "2026年6月,亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司开展低空合作,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-48586de0b5cd181f",
+              "statement": "截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-5432e3f8b6564d6d",
+              "statement": "亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-6312a97d863a26cc",
+              "statement": "亿航EH216-S在广州与合肥开展常态化试运营。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-86adef45fbe0cc44",
+              "statement": "2026年8月10日,亿航EH216-S在哈萨克斯坦首都完成中亚首次无人驾驶载人eVTOL载人飞行。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-c84c293277815fd9",
+              "statement": "2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-3d249f04-a3ab-4c14-882f-8a538d93738e",
+      "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+      "created_at": "2026-08-12T08:25:20.684159+00:00",
+      "fingerprint": "e0d6514152cfb0c2957c73fdf694e3e530a26257a24170f026f9de9e81b9b3bd",
+      "gap_score": 26,
+      "no_progress_rounds": 0,
+      "stop_reason": null,
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-82cba3ce-4606-4838-804f-c000993b70fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-027b7cb74bace778",
+              "statement": "有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-09be1558bb8111b8",
+              "statement": "2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3dc9ff9ab105b476",
+              "statement": "中商产业研究院预测2030年中国低空经济市场规模将达到2万亿元。",
+              "status": "gap",
+              "candidate_supports_count": 0,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-703494ff15e8d6c1",
+              "statement": "中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-72ac7d73f8a9e305",
+              "statement": "2025年中国低空经济相关领域融资事件156次,同比下降3.1%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2025年中国低空经济相关领域融资事件156次,同比下降3.1%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-c7682e33dec95873",
+              "statement": "2024年「低空经济」写入政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「2024年「低空经济」写入政府工作报告。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-fb65f92533b6378e",
+              "statement": "据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-bd12be7e-ab49-4b47-87cb-7ee5d5cae90c",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 6,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-1d041b703d40192c",
+              "statement": "2026年6月,亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司开展低空合作,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 1,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact",
+                "1 条引文与 Fact 无直接支持关系"
+              ]
+            },
+            {
+              "fact_id": "fact-48586de0b5cd181f",
+              "statement": "截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-5432e3f8b6564d6d",
+              "statement": "亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-6312a97d863a26cc",
+              "statement": "亿航EH216-S在广州与合肥开展常态化试运营。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-86adef45fbe0cc44",
+              "statement": "2026年8月10日,亿航EH216-S在哈萨克斯坦首都完成中亚首次无人驾驶载人eVTOL载人飞行。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2026年8月10日,亿航EH216-S在哈萨克斯坦首都完成中亚首次无人驾驶载人eVTOL载人飞行。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-c84c293277815fd9",
+              "statement": "2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-d9a4cd07-65a0-459b-a297-511870367976",
+      "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+      "created_at": "2026-08-12T08:26:07.171778+00:00",
+      "fingerprint": "794a179eede4880250db8dc6c76894107799a6a48a7d6b0d9508e6c0cd369250",
+      "gap_score": 24,
+      "no_progress_rounds": 0,
+      "stop_reason": null,
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-82cba3ce-4606-4838-804f-c000993b70fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-027b7cb74bace778",
+              "statement": "有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-09be1558bb8111b8",
+              "statement": "2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3dc9ff9ab105b476",
+              "statement": "中商产业研究院预测2030年中国低空经济市场规模将达到2万亿元。",
+              "status": "gap",
+              "candidate_supports_count": 0,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-703494ff15e8d6c1",
+              "statement": "中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-72ac7d73f8a9e305",
+              "statement": "2025年中国低空经济相关领域融资事件156次,同比下降3.1%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2025年中国低空经济相关领域融资事件156次,同比下降3.1%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-c7682e33dec95873",
+              "statement": "2024年「低空经济」写入政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「2024年「低空经济」写入政府工作报告。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-fb65f92533b6378e",
+              "statement": "据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-bd12be7e-ab49-4b47-87cb-7ee5d5cae90c",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 6,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-48586de0b5cd181f",
+              "statement": "截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-5432e3f8b6564d6d",
+              "statement": "亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-6312a97d863a26cc",
+              "statement": "亿航EH216-S在广州与合肥开展常态化试运营。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航EH216-S在广州与合肥开展常态化试运营。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-686f8bde01f780bd",
+              "statement": "亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-86adef45fbe0cc44",
+              "statement": "2026年8月10日,亿航EH216-S在哈萨克斯坦首都完成中亚首次无人驾驶载人eVTOL载人飞行。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2026年8月10日,亿航EH216-S在哈萨克斯坦首都完成中亚首次无人驾驶载人eVTOL载人飞行。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-c84c293277815fd9",
+              "statement": "2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-7b95c12c-1d8b-4c08-9e6f-37584aba396a",
+      "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+      "created_at": "2026-08-12T08:27:23.648892+00:00",
+      "fingerprint": "8676af97e356e4a6e58e56eddb05fa064abbb45f68c0f61c11a014378d30bd90",
+      "gap_score": 30,
+      "no_progress_rounds": 1,
+      "stop_reason": null,
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-82cba3ce-4606-4838-804f-c000993b70fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-027b7cb74bace778",
+              "statement": "有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-09be1558bb8111b8",
+              "statement": "2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3dc9ff9ab105b476",
+              "statement": "中商产业研究院预测2030年中国低空经济市场规模将达到2万亿元。",
+              "status": "gap",
+              "candidate_supports_count": 0,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-703494ff15e8d6c1",
+              "statement": "中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-72ac7d73f8a9e305",
+              "statement": "2025年中国低空经济相关领域融资事件156次,同比下降3.1%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2025年中国低空经济相关领域融资事件156次,同比下降3.1%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-c7682e33dec95873",
+              "statement": "2024年「低空经济」写入政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「2024年「低空经济」写入政府工作报告。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-fb65f92533b6378e",
+              "statement": "据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-bd12be7e-ab49-4b47-87cb-7ee5d5cae90c",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 9,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-13d44baf0126bd7f",
+              "statement": "2025年亿航智能(EHang)营收为4.18亿元人民币,较2024年的4.56亿元下降8.37%,净亏损2.76亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2025年亿航智能(EHang)营收为4.18亿元人民币,较2024年的4.56亿元下降8.37%,净亏损2.76亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-48586de0b5cd181f",
+              "statement": "截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-5432e3f8b6564d6d",
+              "statement": "亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-6312a97d863a26cc",
+              "statement": "亿航EH216-S在广州与合肥开展常态化试运营。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航EH216-S在广州与合肥开展常态化试运营。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-686f8bde01f780bd",
+              "statement": "亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-77a86b2f01607de0",
+              "statement": "2026年年中,多家投行下调亿航智能(EH)评级或目标价:Goldman Sachs降至Neutral(目标价$7.30)、BofA降至Underperform($5.40)、JPMorgan降至Underweight($4.40)、Morgan Stanley下调目标价至$7.70。",
+              "status": "partial",
+              "candidate_supports_count": 4,
+              "supports_count": 4,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 4,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2026年年中,多家投行下调亿航智能(EH)评级或目标价:Goldman Sachs降至Neutral(目标价$7.30)、BofA降至Underperform($5.40)、JPMorgan降至Underweight($4.40)、Morgan Stanley下调目标价至$7.70。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-86adef45fbe0cc44",
+              "statement": "2026年8月10日,亿航EH216-S在哈萨克斯坦首都完成中亚首次无人驾驶载人eVTOL载人飞行。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2026年8月10日,亿航EH216-S在哈萨克斯坦首都完成中亚首次无人驾驶载人eVTOL载人飞行。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-c84c293277815fd9",
+              "statement": "2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-ee81d7f15b768a51",
+              "statement": "亿航智能2025年实现创纪录的eVTOL交付和强劲营收增长,并首次实现单季度GAAP盈利,2026年营收指引为6亿元人民币,无人驾驶eVTOL商业运营在中国和泰国启动。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能2025年实现创纪录的eVTOL交付和强劲营收增长,并首次实现单季度GAAP盈利,2026年营收指引为6亿元人民币,无人驾驶eVTOL商业运营在中国和泰国启动。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-48a54622-c296-4d61-bf5d-3c69f157ad10",
+      "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+      "created_at": "2026-08-12T08:28:02.893709+00:00",
+      "fingerprint": "673b00fd22e15a831d97f2f6fcd57189937ee4ca30af70b61d79d005f68ef575",
+      "gap_score": 30,
+      "no_progress_rounds": 2,
+      "stop_reason": "no_progress",
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-82cba3ce-4606-4838-804f-c000993b70fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-027b7cb74bace778",
+              "statement": "有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-09be1558bb8111b8",
+              "statement": "2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3dc9ff9ab105b476",
+              "statement": "中商产业研究院预测2030年中国低空经济市场规模将达到2万亿元。",
+              "status": "gap",
+              "candidate_supports_count": 0,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-703494ff15e8d6c1",
+              "statement": "中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-72ac7d73f8a9e305",
+              "statement": "2025年中国低空经济相关领域融资事件156次,同比下降3.1%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2025年中国低空经济相关领域融资事件156次,同比下降3.1%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-c7682e33dec95873",
+              "statement": "2024年「低空经济」写入政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「2024年「低空经济」写入政府工作报告。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-fb65f92533b6378e",
+              "statement": "据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-bd12be7e-ab49-4b47-87cb-7ee5d5cae90c",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 9,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-13d44baf0126bd7f",
+              "statement": "2025年亿航智能(EHang)营收为4.18亿元人民币,较2024年的4.56亿元下降8.37%,净亏损2.76亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2025年亿航智能(EHang)营收为4.18亿元人民币,较2024年的4.56亿元下降8.37%,净亏损2.76亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-48586de0b5cd181f",
+              "statement": "截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-5432e3f8b6564d6d",
+              "statement": "亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-6312a97d863a26cc",
+              "statement": "亿航EH216-S在广州与合肥开展常态化试运营。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航EH216-S在广州与合肥开展常态化试运营。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-686f8bde01f780bd",
+              "statement": "亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-77a86b2f01607de0",
+              "statement": "2026年年中,多家投行下调亿航智能(EH)评级或目标价:Goldman Sachs降至Neutral(目标价$7.30)、BofA降至Underperform($5.40)、JPMorgan降至Underweight($4.40)、Morgan Stanley下调目标价至$7.70。",
+              "status": "partial",
+              "candidate_supports_count": 4,
+              "supports_count": 4,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 4,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2026年年中,多家投行下调亿航智能(EH)评级或目标价:Goldman Sachs降至Neutral(目标价$7.30)、BofA降至Underperform($5.40)、JPMorgan降至Underweight($4.40)、Morgan Stanley下调目标价至$7.70。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-86adef45fbe0cc44",
+              "statement": "2026年8月10日,亿航EH216-S在哈萨克斯坦首都完成中亚首次无人驾驶载人eVTOL载人飞行。",
+              "status": "partial",
+              "candidate_supports_count": 3,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 2,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2026年8月10日,亿航EH216-S在哈萨克斯坦首都完成中亚首次无人驾驶载人eVTOL载人飞行。」的交叉验证来源（第 2 个独立来源组）",
+                "2 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-c84c293277815fd9",
+              "statement": "2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-ee81d7f15b768a51",
+              "statement": "亿航智能2025年实现创纪录的eVTOL交付和强劲营收增长,并首次实现单季度GAAP盈利,2026年营收指引为6亿元人民币,无人驾驶eVTOL商业运营在中国和泰国启动。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能2025年实现创纪录的eVTOL交付和强劲营收增长,并首次实现单季度GAAP盈利,2026年营收指引为6亿元人民币,无人驾驶eVTOL商业运营在中国和泰国启动。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-fea2d37e-a879-4444-b381-b54bc676ceb9",
+      "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+      "created_at": "2026-08-12T08:34:10.119026+00:00",
+      "fingerprint": "e1cba76e79db05f8085d4a05849a7720e7c391644cf76f62b795c97ad345c5f5",
+      "gap_score": 29,
+      "no_progress_rounds": 0,
+      "stop_reason": null,
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-82cba3ce-4606-4838-804f-c000993b70fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-027b7cb74bace778",
+              "statement": "有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-09be1558bb8111b8",
+              "statement": "2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3dc9ff9ab105b476",
+              "statement": "中商产业研究院预测2030年中国低空经济市场规模将达到2万亿元。",
+              "status": "gap",
+              "candidate_supports_count": 0,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-703494ff15e8d6c1",
+              "statement": "中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-72ac7d73f8a9e305",
+              "statement": "2025年中国低空经济相关领域融资事件156次,同比下降3.1%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2025年中国低空经济相关领域融资事件156次,同比下降3.1%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-c7682e33dec95873",
+              "statement": "2024年「低空经济」写入政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「2024年「低空经济」写入政府工作报告。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-fb65f92533b6378e",
+              "statement": "据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-bd12be7e-ab49-4b47-87cb-7ee5d5cae90c",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 9,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-13d44baf0126bd7f",
+              "statement": "2025年亿航智能(EHang)营收为4.18亿元人民币,较2024年的4.56亿元下降8.37%,净亏损2.76亿元。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 1,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2025年亿航智能(EHang)营收为4.18亿元人民币,较2024年的4.56亿元下降8.37%,净亏损2.76亿元。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条候选支持实际与 Fact 矛盾"
+              ]
+            },
+            {
+              "fact_id": "fact-48586de0b5cd181f",
+              "statement": "截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-5432e3f8b6564d6d",
+              "statement": "亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-6312a97d863a26cc",
+              "statement": "亿航EH216-S在广州与合肥开展常态化试运营。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航EH216-S在广州与合肥开展常态化试运营。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-686f8bde01f780bd",
+              "statement": "亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-77a86b2f01607de0",
+              "statement": "2026年年中,多家投行下调亿航智能(EH)评级或目标价:Goldman Sachs降至Neutral(目标价$7.30)、BofA降至Underperform($5.40)、JPMorgan降至Underweight($4.40)、Morgan Stanley下调目标价至$7.70。",
+              "status": "partial",
+              "candidate_supports_count": 4,
+              "supports_count": 4,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 4,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2026年年中,多家投行下调亿航智能(EH)评级或目标价:Goldman Sachs降至Neutral(目标价$7.30)、BofA降至Underperform($5.40)、JPMorgan降至Underweight($4.40)、Morgan Stanley下调目标价至$7.70。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-842c2514ee56ca43",
+              "statement": "亿航EH216-S在哈萨克斯坦首都完成中亚首次无人驾驶载人eVTOL载人飞行。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 2,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 2,
+              "source_groups": [
+                "ehang.com",
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 2,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-c84c293277815fd9",
+              "statement": "2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-ee81d7f15b768a51",
+              "statement": "亿航智能2025年实现创纪录的eVTOL交付和强劲营收增长,并首次实现单季度GAAP盈利,2026年营收指引为6亿元人民币,无人驾驶eVTOL商业运营在中国和泰国启动。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能2025年实现创纪录的eVTOL交付和强劲营收增长,并首次实现单季度GAAP盈利,2026年营收指引为6亿元人民币,无人驾驶eVTOL商业运营在中国和泰国启动。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-2a0f7e07-f5be-40da-bf0b-31827381ef36",
+      "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+      "created_at": "2026-08-12T08:34:54.105534+00:00",
+      "fingerprint": "e9322fc04fa9e916ac9aff2c8bc024b5edf9f0af966fbef6b10733f28674c90b",
+      "gap_score": 30,
+      "no_progress_rounds": 1,
+      "stop_reason": null,
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-82cba3ce-4606-4838-804f-c000993b70fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-027b7cb74bace778",
+              "statement": "有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-09be1558bb8111b8",
+              "statement": "2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3dc9ff9ab105b476",
+              "statement": "中商产业研究院预测2030年中国低空经济市场规模将达到2万亿元。",
+              "status": "gap",
+              "candidate_supports_count": 0,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-703494ff15e8d6c1",
+              "statement": "中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-72ac7d73f8a9e305",
+              "statement": "2025年中国低空经济相关领域融资事件156次,同比下降3.1%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2025年中国低空经济相关领域融资事件156次,同比下降3.1%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-c7682e33dec95873",
+              "statement": "2024年「低空经济」写入政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「2024年「低空经济」写入政府工作报告。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-fb65f92533b6378e",
+              "statement": "据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-bd12be7e-ab49-4b47-87cb-7ee5d5cae90c",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 9,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-478f867b5224c4cb",
+              "statement": "据StockAnalysis引用的S&P Global财务数据,亿航智能2025财年营收为4.18亿元人民币,较2024年的4.56亿元下降8.37%,净亏损2.76亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-48586de0b5cd181f",
+              "statement": "截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-5432e3f8b6564d6d",
+              "statement": "亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-6312a97d863a26cc",
+              "statement": "亿航EH216-S在广州与合肥开展常态化试运营。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航EH216-S在广州与合肥开展常态化试运营。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-686f8bde01f780bd",
+              "statement": "亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-77a86b2f01607de0",
+              "statement": "2026年年中,多家投行下调亿航智能(EH)评级或目标价:Goldman Sachs降至Neutral(目标价$7.30)、BofA降至Underperform($5.40)、JPMorgan降至Underweight($4.40)、Morgan Stanley下调目标价至$7.70。",
+              "status": "partial",
+              "candidate_supports_count": 4,
+              "supports_count": 4,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 4,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2026年年中,多家投行下调亿航智能(EH)评级或目标价:Goldman Sachs降至Neutral(目标价$7.30)、BofA降至Underperform($5.40)、JPMorgan降至Underweight($4.40)、Morgan Stanley下调目标价至$7.70。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-842c2514ee56ca43",
+              "statement": "亿航EH216-S在哈萨克斯坦首都完成中亚首次无人驾驶载人eVTOL载人飞行。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 2,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 2,
+              "source_groups": [
+                "ehang.com",
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 2,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-c84c293277815fd9",
+              "statement": "2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-ee81d7f15b768a51",
+              "statement": "亿航智能2025年实现创纪录的eVTOL交付和强劲营收增长,并首次实现单季度GAAP盈利,2026年营收指引为6亿元人民币,无人驾驶eVTOL商业运营在中国和泰国启动。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能2025年实现创纪录的eVTOL交付和强劲营收增长,并首次实现单季度GAAP盈利,2026年营收指引为6亿元人民币,无人驾驶eVTOL商业运营在中国和泰国启动。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-1bb9098f-2922-4c11-b67d-aa8f422b7d4f",
+      "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+      "created_at": "2026-08-12T08:35:00.515268+00:00",
+      "fingerprint": "e9322fc04fa9e916ac9aff2c8bc024b5edf9f0af966fbef6b10733f28674c90b",
+      "gap_score": 30,
+      "no_progress_rounds": 2,
+      "stop_reason": "no_progress",
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-82cba3ce-4606-4838-804f-c000993b70fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-027b7cb74bace778",
+              "statement": "有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-09be1558bb8111b8",
+              "statement": "2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3dc9ff9ab105b476",
+              "statement": "中商产业研究院预测2030年中国低空经济市场规模将达到2万亿元。",
+              "status": "gap",
+              "candidate_supports_count": 0,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-703494ff15e8d6c1",
+              "statement": "中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-72ac7d73f8a9e305",
+              "statement": "2025年中国低空经济相关领域融资事件156次,同比下降3.1%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2025年中国低空经济相关领域融资事件156次,同比下降3.1%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-c7682e33dec95873",
+              "statement": "2024年「低空经济」写入政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「2024年「低空经济」写入政府工作报告。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-fb65f92533b6378e",
+              "statement": "据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-bd12be7e-ab49-4b47-87cb-7ee5d5cae90c",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 9,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-478f867b5224c4cb",
+              "statement": "据StockAnalysis引用的S&P Global财务数据,亿航智能2025财年营收为4.18亿元人民币,较2024年的4.56亿元下降8.37%,净亏损2.76亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-48586de0b5cd181f",
+              "statement": "截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-5432e3f8b6564d6d",
+              "statement": "亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-6312a97d863a26cc",
+              "statement": "亿航EH216-S在广州与合肥开展常态化试运营。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航EH216-S在广州与合肥开展常态化试运营。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-686f8bde01f780bd",
+              "statement": "亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-77a86b2f01607de0",
+              "statement": "2026年年中,多家投行下调亿航智能(EH)评级或目标价:Goldman Sachs降至Neutral(目标价$7.30)、BofA降至Underperform($5.40)、JPMorgan降至Underweight($4.40)、Morgan Stanley下调目标价至$7.70。",
+              "status": "partial",
+              "candidate_supports_count": 4,
+              "supports_count": 4,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 4,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2026年年中,多家投行下调亿航智能(EH)评级或目标价:Goldman Sachs降至Neutral(目标价$7.30)、BofA降至Underperform($5.40)、JPMorgan降至Underweight($4.40)、Morgan Stanley下调目标价至$7.70。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-842c2514ee56ca43",
+              "statement": "亿航EH216-S在哈萨克斯坦首都完成中亚首次无人驾驶载人eVTOL载人飞行。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 2,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 2,
+              "source_groups": [
+                "ehang.com",
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 2,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-c84c293277815fd9",
+              "statement": "2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-ee81d7f15b768a51",
+              "statement": "亿航智能2025年实现创纪录的eVTOL交付和强劲营收增长,并首次实现单季度GAAP盈利,2026年营收指引为6亿元人民币,无人驾驶eVTOL商业运营在中国和泰国启动。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能2025年实现创纪录的eVTOL交付和强劲营收增长,并首次实现单季度GAAP盈利,2026年营收指引为6亿元人民币,无人驾驶eVTOL商业运营在中国和泰国启动。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-8359827e-943a-4a92-a32e-e6083294578d",
+      "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+      "created_at": "2026-08-12T08:36:39.365540+00:00",
+      "fingerprint": "66570b9a1dc1e2d0520fe233d68a1a80aed3199f8db194f3432a19d24704ed7e",
+      "gap_score": 29,
+      "no_progress_rounds": 0,
+      "stop_reason": null,
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-82cba3ce-4606-4838-804f-c000993b70fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-027b7cb74bace778",
+              "statement": "有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-09be1558bb8111b8",
+              "statement": "2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3dc9ff9ab105b476",
+              "statement": "中商产业研究院预测2030年中国低空经济市场规模将达到2万亿元。",
+              "status": "gap",
+              "candidate_supports_count": 0,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-703494ff15e8d6c1",
+              "statement": "中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-72ac7d73f8a9e305",
+              "statement": "2025年中国低空经济相关领域融资事件156次,同比下降3.1%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2025年中国低空经济相关领域融资事件156次,同比下降3.1%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-c7682e33dec95873",
+              "statement": "2024年「低空经济」写入政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「2024年「低空经济」写入政府工作报告。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-fb65f92533b6378e",
+              "statement": "据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-bd12be7e-ab49-4b47-87cb-7ee5d5cae90c",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 9,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-48586de0b5cd181f",
+              "statement": "截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-5432e3f8b6564d6d",
+              "statement": "亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-586d681f8643b3dc",
+              "statement": "2025年亿航智能营收为417.98百万(人民币单位,折合约4.18亿元),较2024年的456.15百万下降8.37%,净亏损275.98百万。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2025年亿航智能营收为417.98百万(人民币单位,折合约4.18亿元),较2024年的456.15百万下降8.37%,净亏损275.98百万。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-6312a97d863a26cc",
+              "statement": "亿航EH216-S在广州与合肥开展常态化试运营。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航EH216-S在广州与合肥开展常态化试运营。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-686f8bde01f780bd",
+              "statement": "亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-77a86b2f01607de0",
+              "statement": "2026年年中,多家投行下调亿航智能(EH)评级或目标价:Goldman Sachs降至Neutral(目标价$7.30)、BofA降至Underperform($5.40)、JPMorgan降至Underweight($4.40)、Morgan Stanley下调目标价至$7.70。",
+              "status": "partial",
+              "candidate_supports_count": 4,
+              "supports_count": 4,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 4,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2026年年中,多家投行下调亿航智能(EH)评级或目标价:Goldman Sachs降至Neutral(目标价$7.30)、BofA降至Underperform($5.40)、JPMorgan降至Underweight($4.40)、Morgan Stanley下调目标价至$7.70。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-842c2514ee56ca43",
+              "statement": "亿航EH216-S在哈萨克斯坦首都完成中亚首次无人驾驶载人eVTOL载人飞行。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 2,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 2,
+              "source_groups": [
+                "ehang.com",
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 2,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-c84c293277815fd9",
+              "statement": "2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-ee81d7f15b768a51",
+              "statement": "亿航智能2025年实现创纪录的eVTOL交付和强劲营收增长,并首次实现单季度GAAP盈利,2026年营收指引为6亿元人民币,无人驾驶eVTOL商业运营在中国和泰国启动。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能2025年实现创纪录的eVTOL交付和强劲营收增长,并首次实现单季度GAAP盈利,2026年营收指引为6亿元人民币,无人驾驶eVTOL商业运营在中国和泰国启动。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-a7b70b16-7b09-4476-bbfc-cf95eec299ac",
+      "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+      "created_at": "2026-08-12T08:38:04.134705+00:00",
+      "fingerprint": "66570b9a1dc1e2d0520fe233d68a1a80aed3199f8db194f3432a19d24704ed7e",
+      "gap_score": 29,
+      "no_progress_rounds": 1,
+      "stop_reason": null,
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-82cba3ce-4606-4838-804f-c000993b70fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-027b7cb74bace778",
+              "statement": "有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-09be1558bb8111b8",
+              "statement": "2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3dc9ff9ab105b476",
+              "statement": "中商产业研究院预测2030年中国低空经济市场规模将达到2万亿元。",
+              "status": "gap",
+              "candidate_supports_count": 0,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-703494ff15e8d6c1",
+              "statement": "中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-72ac7d73f8a9e305",
+              "statement": "2025年中国低空经济相关领域融资事件156次,同比下降3.1%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2025年中国低空经济相关领域融资事件156次,同比下降3.1%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-c7682e33dec95873",
+              "statement": "2024年「低空经济」写入政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「2024年「低空经济」写入政府工作报告。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-fb65f92533b6378e",
+              "statement": "据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-bd12be7e-ab49-4b47-87cb-7ee5d5cae90c",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 9,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-48586de0b5cd181f",
+              "statement": "截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-5432e3f8b6564d6d",
+              "statement": "亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-586d681f8643b3dc",
+              "statement": "2025年亿航智能营收为417.98百万(人民币单位,折合约4.18亿元),较2024年的456.15百万下降8.37%,净亏损275.98百万。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2025年亿航智能营收为417.98百万(人民币单位,折合约4.18亿元),较2024年的456.15百万下降8.37%,净亏损275.98百万。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-6312a97d863a26cc",
+              "statement": "亿航EH216-S在广州与合肥开展常态化试运营。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航EH216-S在广州与合肥开展常态化试运营。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-686f8bde01f780bd",
+              "statement": "亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-77a86b2f01607de0",
+              "statement": "2026年年中,多家投行下调亿航智能(EH)评级或目标价:Goldman Sachs降至Neutral(目标价$7.30)、BofA降至Underperform($5.40)、JPMorgan降至Underweight($4.40)、Morgan Stanley下调目标价至$7.70。",
+              "status": "partial",
+              "candidate_supports_count": 4,
+              "supports_count": 4,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 4,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2026年年中,多家投行下调亿航智能(EH)评级或目标价:Goldman Sachs降至Neutral(目标价$7.30)、BofA降至Underperform($5.40)、JPMorgan降至Underweight($4.40)、Morgan Stanley下调目标价至$7.70。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-842c2514ee56ca43",
+              "statement": "亿航EH216-S在哈萨克斯坦首都完成中亚首次无人驾驶载人eVTOL载人飞行。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 2,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 2,
+              "source_groups": [
+                "ehang.com",
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 2,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-c84c293277815fd9",
+              "statement": "2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-ee81d7f15b768a51",
+              "statement": "亿航智能2025年实现创纪录的eVTOL交付和强劲营收增长,并首次实现单季度GAAP盈利,2026年营收指引为6亿元人民币,无人驾驶eVTOL商业运营在中国和泰国启动。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能2025年实现创纪录的eVTOL交付和强劲营收增长,并首次实现单季度GAAP盈利,2026年营收指引为6亿元人民币,无人驾驶eVTOL商业运营在中国和泰国启动。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cov-6fd95be1-2e2c-4a37-ace3-8eaeb57b3b80",
+      "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+      "created_at": "2026-08-12T08:38:23.350859+00:00",
+      "fingerprint": "66570b9a1dc1e2d0520fe233d68a1a80aed3199f8db194f3432a19d24704ed7e",
+      "gap_score": 29,
+      "no_progress_rounds": 2,
+      "stop_reason": "no_progress",
+      "level": "insufficient",
+      "per_question": [
+        {
+          "question_id": "q-82cba3ce-4606-4838-804f-c000993b70fb",
+          "question": "2026年低空经济投资与融资趋势",
+          "status": "partial",
+          "fact_count": 7,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-027b7cb74bace778",
+              "statement": "有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「有机构预测2025年我国低空经济整体市场规模将达到8591.7亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-09be1558bb8111b8",
+              "statement": "2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年中国低空经济相关领域融资事件161次,较2023年的63次增长155.6%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-3dc9ff9ab105b476",
+              "statement": "中商产业研究院预测2030年中国低空经济市场规模将达到2万亿元。",
+              "status": "gap",
+              "candidate_supports_count": 0,
+              "supports_count": 0,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 0,
+              "source_groups": [],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 3,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-703494ff15e8d6c1",
+              "statement": "中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-72ac7d73f8a9e305",
+              "statement": "2025年中国低空经济相关领域融资事件156次,同比下降3.1%。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "seccw.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2025年中国低空经济相关领域融资事件156次,同比下降3.1%。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-c7682e33dec95873",
+              "statement": "2024年「低空经济」写入政府工作报告。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「2024年「低空经济」写入政府工作报告。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-fb65f92533b6378e",
+              "statement": "据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "www.gov.cn"
+              ],
+              "high_quality_sources": 1,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "独立来源组不足",
+                "建议搜索「据不完全统计,约30个省份将发展低空经济写入当地政府工作报告或出台相关政策。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        },
+        {
+          "question_id": "q-bd12be7e-ab49-4b47-87cb-7ee5d5cae90c",
+          "question": "亿航智能商业化进展与订单情况",
+          "status": "partial",
+          "fact_count": 9,
+          "covered_fact_count": 0,
+          "facts": [
+            {
+              "fact_id": "fact-48586de0b5cd181f",
+              "statement": "截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「截至2026年5月,亿航智能旗舰产品EH216-S无人驾驶载人航空器已累计完成超过9万架次安全飞行。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-5432e3f8b6564d6d",
+              "statement": "亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能计划2026年年底前由文成县额外采购270架EH216-S,且已支付不可退还订金。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-586d681f8643b3dc",
+              "statement": "2025年亿航智能营收为417.98百万(人民币单位,折合约4.18亿元),较2024年的456.15百万下降8.37%,净亏损275.98百万。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2025年亿航智能营收为417.98百万(人民币单位,折合约4.18亿元),较2024年的456.15百万下降8.37%,净亏损275.98百万。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-6312a97d863a26cc",
+              "statement": "亿航EH216-S在广州与合肥开展常态化试运营。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航EH216-S在广州与合肥开展常态化试运营。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-686f8bde01f780bd",
+              "statement": "亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司,成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-77a86b2f01607de0",
+              "statement": "2026年年中,多家投行下调亿航智能(EH)评级或目标价:Goldman Sachs降至Neutral(目标价$7.30)、BofA降至Underperform($5.40)、JPMorgan降至Underweight($4.40)、Morgan Stanley下调目标价至$7.70。",
+              "status": "partial",
+              "candidate_supports_count": 4,
+              "supports_count": 4,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 4,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2026年年中,多家投行下调亿航智能(EH)评级或目标价:Goldman Sachs降至Neutral(目标价$7.30)、BofA降至Underperform($5.40)、JPMorgan降至Underweight($4.40)、Morgan Stanley下调目标价至$7.70。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            },
+            {
+              "fact_id": "fact-842c2514ee56ca43",
+              "statement": "亿航EH216-S在哈萨克斯坦首都完成中亚首次无人驾驶载人eVTOL载人飞行。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 2,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 2,
+              "source_groups": [
+                "ehang.com",
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 2,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 1,
+              "notes": [
+                "高质量独立来源组不足"
+              ]
+            },
+            {
+              "fact_id": "fact-c84c293277815fd9",
+              "statement": "2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。",
+              "status": "partial",
+              "candidate_supports_count": 2,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 1,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "ehang.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 0,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「2024年6月,亿航智能与浙江省温州市文成县政府达成合作,文成县交通发展集团有限公司与亿航智能签署首批30架EH216-S采购协议,并已支付总货款50%作为预付款。」的交叉验证来源（第 2 个独立来源组）",
+                "1 条引文只部分支持 Fact"
+              ]
+            },
+            {
+              "fact_id": "fact-ee81d7f15b768a51",
+              "statement": "亿航智能2025年实现创纪录的eVTOL交付和强劲营收增长,并首次实现单季度GAAP盈利,2026年营收指引为6亿元人民币,无人驾驶eVTOL商业运营在中国和泰国启动。",
+              "status": "partial",
+              "candidate_supports_count": 1,
+              "supports_count": 1,
+              "pending_reviews": 0,
+              "partial_reviews": 0,
+              "irrelevant_reviews": 0,
+              "contradictory_reviews": 0,
+              "contradicts_count": 0,
+              "independent_sources": 1,
+              "source_groups": [
+                "stockanalysis.com"
+              ],
+              "high_quality_sources": 0,
+              "recent_count": 0,
+              "unknown_publish_time": 1,
+              "unresolved_conflicts": 0,
+              "unresolved_contradictions": 0,
+              "gap_score": 2,
+              "notes": [
+                "独立来源组不足",
+                "高质量独立来源组不足",
+                "建议搜索「亿航智能2025年实现创纪录的eVTOL交付和强劲营收增长,并首次实现单季度GAAP盈利,2026年营收指引为6亿元人民币,无人驾驶eVTOL商业运营在中国和泰国启动。」的交叉验证来源（第 2 个独立来源组）"
+              ]
+            }
+          ],
+          "notes": [
+            "存在未充分覆盖的事实"
+          ]
+        }
+      ]
+    }
+  ]
+}

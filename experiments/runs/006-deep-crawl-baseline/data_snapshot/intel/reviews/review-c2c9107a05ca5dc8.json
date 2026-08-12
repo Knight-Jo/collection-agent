@@ -1,0 +1,13 @@
+{
+  "id": "review-c2c9107a05ca5dc8",
+  "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+  "fact_id": "fact-0983f530993f47ed",
+  "evidence_id": "ev-d394343841b4959a",
+  "verdict": "full",
+  "reason": "quote完整支持fact的所有重要组成部分：时间（截至2026年5月）、主体（亿航智能旗舰产品EH216-S无人驾驶载人航空器）、数字（累计完成超过9万架次安全飞行）、地点与运营状态（在广州与合肥开展常态化试运营），所有要素均直接对应。",
+  "unsupported_parts": [],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-12T08:22:38.698391+00:00"
+}

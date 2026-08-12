@@ -1,0 +1,13 @@
+{
+  "id": "fact-478f867b5224c4cb",
+  "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+  "question_id": "q-bd12be7e-ab49-4b47-87cb-7ee5d5cae90c",
+  "statement": "据StockAnalysis引用的S&P Global财务数据,亿航智能2025财年营收为4.18亿元人民币,较2024年的4.56亿元下降8.37%,净亏损2.76亿元。",
+  "status": "superseded",
+  "superseded_by": [
+    "fact-586d681f8643b3dc"
+  ],
+  "supersession_reason": "收敛陈述去除来源前缀，使引文能够完整蕴含事实内容。",
+  "created_at": "2026-08-12T08:34:27.316092+00:00",
+  "updated_at": "2026-08-12T08:35:21.200600+00:00"
+}

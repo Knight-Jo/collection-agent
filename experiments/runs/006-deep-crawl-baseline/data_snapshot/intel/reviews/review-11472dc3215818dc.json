@@ -1,0 +1,13 @@
+{
+  "id": "review-11472dc3215818dc",
+  "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+  "fact_id": "fact-77a86b2f01607de0",
+  "evidence_id": "ev-61e64bbcf7a8a0ee",
+  "verdict": "full",
+  "reason": "Quote directly states JPMorgan downgraded EHang to Underweight with price target of $4.40, fully matching the Fact's claim for JPMorgan.",
+  "unsupported_parts": [],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-12T08:27:21.052622+00:00"
+}

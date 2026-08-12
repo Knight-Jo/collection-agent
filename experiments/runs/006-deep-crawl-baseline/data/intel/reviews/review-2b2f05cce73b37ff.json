@@ -1,0 +1,13 @@
+{
+  "id": "review-2b2f05cce73b37ff",
+  "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+  "fact_id": "fact-6312a97d863a26cc",
+  "evidence_id": "ev-e431d96eb8cfa4b0",
+  "verdict": "full",
+  "reason": "Quote 直接说明'EH216-S无人驾驶载人航空器'在'广州与合肥开展常态化试运营'，完整支持了Fact中关于产品名称（EH216-S）、地点（广州、合肥）和动作（常态化试运营）的所有重要组成。",
+  "unsupported_parts": [],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-12T08:26:02.602176+00:00"
+}

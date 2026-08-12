@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="keywords" content="亿航，亿航智能，城市空中交通，自动驾驶飞行器，无人驾驶航空器，无人机物流，智慧城市，空中媒体，飞行的士" />
+<meta name="description" content="亿航智能是一家全球领先的城市空中交通科技企业，致力于让每个人都享受到安全、自动、环保的空中交通。亿航智能为全球多个行业领域客户提供无人驾驶航空器系统和解决方案，覆盖空中交通（包括载人交通和物流运输），智慧城市管理和空中媒体等应用领域。" />
+<meta property="wb:webmaster" content="0fd69b56cfb4d4b7" />
+<meta property="qc:admins" content="3523562374650167637571645060454" />
+<link rel="stylesheet" href="https://www.ehang.com/Public/cn/css/common_2024.css?0228" />
+<link rel="stylesheet" href="https://www.ehang.com/Public/cn/ehangweb/css/style_2024.css?44" />
+<script src="https://www.ehang.com/Public/cn/js/jquery-1.11.1.min.js"></script>
+<!-- <script src="https://www.ehang.com/Public/Ehang/layer/layer.js"></script> -->
+<script src="https://www.ehang.com/Public/cn/ehangweb/js/ehang.js?849348934" type="text/javascript"></script>
+<title>亿航智能 EHang | 亿航智能 EHang | 城市空中交通无人驾驶航空器创新者</title>
+
+  <link rel="stylesheet" href="https://www.ehang.com/Public/cn/ehangweb/css/index.css?0222">
+  <link rel="stylesheet" href="https://www.ehang.com/Public/cn/plugins/swiper8/swiper8.css"> 
+  <script src="https://www.ehang.com/Public/cn/plugins/swiper8/swiper8.js"> </script>
+</head>
+<body>
+  <div class="index-main">
+    <!-- 首屏介绍vt35 -->
+    <header class="navbar-2024" id="header">
+  <!-- 下拉白屏菜单 -->
+  <div class="header-nav-drag">
+    <div class="top-line"></div>
+    <div class="drag-container hidden-xs" id="first">
+      <div class="sub-nav-box">
+        <div class="nav-item-wrap">
+          <div class="tit-wrap"><span class="tit">载人交通</span></div>
+          <div class="nav-item-list">
+            <div class="sub-nav-item">
+              <a href="https://www.ehang.com/cn/vt35/">
+                <img width="231" src="https://www.ehang.com/Public/cn/ehangweb/image/index/tvt35.jpg" alt="EH216-S无人驾驶航空器" />
+              </a>
+            </div>
+            <div class="sub-nav-item">
+              <a href="https://www.ehang.com/cn/ehang216s/">
+                <img width="231" src="https://www.ehang.com/Public/cn/ehangweb/image/index/teh216s.jpg" alt="EH216-S无人驾驶航空器" />
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="nav-center-line"></div>
+        <div class="nav-item-wrap">
+          <div class="tit-wrap"><span class="tit">物流运输</span></div>
+          <div class="nav-item-list">
+            <div class="sub-nav-item">
+              <a href="https://www.ehang.com/cn/ehang216l/">
+                <img width="231" src="https://www.ehang.com/Public/cn/ehangweb/image/index/teh216l.jpg" alt="物流交通" />
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="nav-center-line"></div>
+        <div class="nav-item-wrap ">
+          <div class="tit-wrap"><span class="tit">应急救援</span></div>
+          <div class="nav-item-list">
+            <div class="sub-nav-item">
+              <a href="https://www.ehang.com/cn/ehang216f/">
+                <img width="231" src="https://www.ehang.com/Public/cn/ehangweb/image/index/teh216f.jpg" alt="应急救援" />
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="nav-center-line"></div>
+        <div class="nav-item-wrap">
+          <div class="tit-wrap"><span class="tit">空中媒体</span></div>
+          <div class="nav-item-list">
+            <div class="sub-nav-item">
+              <a href="https://www.ehang.com/cn/formation/">
+                <img width="231" src="https://www.ehang.com/Public/cn/ehangweb/image/index/gd4.jpg" alt="空中媒体" />
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="drag-filter"></div>
+  <div class="header-container nav">
+    <div class="logo">
+      <a class="logo-black" href="https://www.ehang.com/cn/">
+        <img  style="display: block;height: 16px;" src="https://www.ehang.com/Public/cn/ehangweb/image/logo_black.png" alt="亿航智能 EHang" title="亿航智能 EHang" />
+      </a>
+      <!-- 白色logo -->
+      <a class="logo-white" href="https://www.ehang.com/cn/">
+        <img style="display: block;height: 16px;" src="https://www.ehang.com/Public/cn/ehangweb/image/logo_white.png" alt="亿航智能 EHang" title="亿航智能 EHang" />
+      </a>
+    </div>
+    <!-- 手机端的菜单 -->
+    <div class="visible-xs">
+      <div class="moblie-toggle" id="moblie-toggle">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </div>
+    </div>
+    <div id="myDropdown" class="navbar-collapse-my">
+      <div class="nav-item hidden-xs">
+        <a href="javascirpt:;" class="nav-item-drop" data-nav="first">
+          创新产品
+        </a>
+      </div>
+      <div class="nav-item hidden-xs">
+        <a href="https://www.ehang.com/cn/operation/" class="hide-nav">
+          基建解决方案
+        </a>
+      </div>
+      <div class="nav-item visible-xs">
+        <a href="https://www.ehang.com/cn/vt35/" class="hide-nav">
+          VT-35
+        </a>
+      </div>
+      <div class="nav-item visible-xs">
+        <a href="https://www.ehang.com/cn/ehang216s/" class="hide-nav">
+          EH216-S
+        </a>
+      </div>
+      
+      <div class="nav-item visible-xs">
+        <a href="https://www.ehang.com/cn/ehang216f/" class="hide-nav">
+          EH216-F
+        </a>
+      </div>
+      <div class="nav-item visible-xs">
+        <a href="https://www.ehang.com/cn/ehang216l/" class="hide-nav">
+          EH216-L
+        </a>
+      </div>
+      <div class="nav-item visible-xs">
+        <a href="https://www.ehang.com/cn/formation/" class="hide-nav">
+          空中媒体
+        </a>
+      </div>
+      <div class="nav-item visible-xs">
+        <a href="https://www.ehang.com/cn/announcement/" class="hide-nav">
+          公司公告
+        </a>
+      </div>
+      <div class="nav-item visible-xs">
+        <a href="https://www.ehang.com/cn/article/" class="hide-nav">
+          公司新闻
+        </a>
+      </div>
+      <div class="nav-item visible-xs">
+        <a href="https://www.ehang.com/cn/about/" class="hide-nav">
+          探索亿航
+        </a>
+      </div>
+      <div class="nav-item visible-xs">
+        <a href="http://ir.ehang.com" class="hide-nav">
+          投资者关系
+        </a>
+      </div>
+      
+      <div class="nav-item hidden-xs">
+        <a href="https://www.ehang.com/cn/article/" class="hide-nav">媒体中心</a>
+        <div class="drop hidden-xs">
+          <div class="sub-nav">
+            
+            <a href="https://www.ehang.com/cn/article/">公司新闻</a>
+            <a href="https://www.ehang.com/cn/news/">媒体报道</a>
+            <a href="https://www.ehang.com/cn/video/">视频中心</a>
+          </div>
+        </div>
+      </div>
+      <div class="nav-item hidden-xs">
+        <a href="https://www.ehang.com/cn/about/" class="hide-nav">探索亿航</a>
+        <div class="drop hidden-xs">
+          <div class="sub-nav">
+            <a href="https://www.ehang.com/cn/about/">了解我们</a>
+            <a href="https://www.ehang.com/cn/partners/">合作伙伴</a>
+            <a href="https://www.ehang.com/cn/contact/">联系我们</a>
+            <a href="https://www.ehang.com/cn/announcement/">公司公告</a>
+            <a  target="_blank" href="https://hr.ehang.com/">加入我们</a>
+            <!-- <a href="https://www.ehang.com/cn/support/">服务支持</a> -->
+            <a href="http://ir.ehang.com" target="_blank" class="hide-nav">投资者关系</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="header-lang">
+      <a class="btn-more" href="https://www.ehang.com/cn/partner/">咨询合作</a>
+      <div class="footer-language">
+        <div class="country">
+          <a class="country-item" href="https://www.ehang.com/cn/">
+              <div class="lang-icon"><img src="https://www.ehang.com/Public/cn/ehangweb/image/cn_small.png" alt=""></div>
+              中国
+              <span>中文</span>
+          </a>
+          <a class="country-item" href="https://www.ehang.com/index.html">
+              <div class="lang-icon en">
+                <img src="https://www.ehang.com/Public/cn/ehangweb/image/global_black.png" alt="">
+              </div>
+              Global
+              <span>English</span>
+          </a>
+        </div>
+        <div class="country-current">
+          <img src="https://www.ehang.com/Public/cn/ehangweb/image/china.png" alt="">中国
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</header>
+
+<script>
+  $(() => {
+    $('#moblie-toggle').click(() => {
+      document.getElementById('myDropdown').classList.toggle('show')
+    })
+
+    $('#first').show()
+
+    $('#header').mousemove(function (e) {
+      if (e.target.className === 'nav-item-drop') {
+        $('.header-nav-drag').fadeIn().addClass('show')
+        $('#header').addClass('black')
+
+        $('.nav-item-drop').removeClass('active')
+        $(e.target).addClass('active')
+
+        var nav = $(e.target).attr('data-nav')
+        if (nav === 'first') {
+          $('#first').show()
+        } else {
+          $('#first').hide()
+        }
+      }
+      if (e.target.className === 'hide-nav') {
+        $('.header-nav-drag').fadeOut().removeClass('show')
+        $('#header').removeClass('black')
+
+        $('.nav-item-drop').removeClass('active')
+      }
+    })
+    $('#header').mouseleave(function (e) {
+      $('.header-nav-drag').fadeOut().removeClass('show')
+      $('#header').removeClass('black')
+      $('.nav-item-drop').removeClass('active')
+    })
+  })
+</script>
+
+
+    <!-- 产品对比展示区 -->
+    <div class="product-compare">
+      <div class="eh-container-full">
+        <div class="text-box fedeBox">
+          <p>无人驾驶载人eVTOL</p>
+          <h2>空中交通旗舰产品</h2>
+          <div class="btn-box">
+            <a id="vt35" class="btn-more btn-more-white first" href="https://www.ehang.com/cn/vt35/">VT35</a>
+            <a id="eh216s" class="btn-more btn-more-white" href="https://www.ehang.com/cn/ehang216s/">EH216-S</a>
+          </div>
+        </div>
+      </div>
+      <div class="comparison-slider hidden-xs">
+        <!-- 产品B - 完整显示 -->
+        <div class="comparison-product">
+          <img src="https://www.ehang.com/Public/cn/ehangweb/image/index/p35@2.jpg" alt="EH216-S">
+        </div>
+        <!-- 产品A 覆盖层 -->
+        <div class="comparison-product comparison-overlay">
+          <img src="https://www.ehang.com/Public/cn/ehangweb/image/index/p216@2.jpg" alt="VT35">
+        </div>
+        <!-- 中间隔离块 -->
+        <div class="center-box">
+        </div>
+      </div>
+    </div>
+
+    <!-- 第二屏 飞行场景方案 -->
+    <div class="index-sec-two">
+        <div class="swiper swiperIndex2">
+          <div class="swiper-wrapper">
+            <div class="swiper-slide swiper-slide-1">
+              <div class="video-bg">
+                <img class="hidden-xs" src="https://www.ehang.com/Public/cn/ehangweb/image/index/index2_2.jpg" alt="">
+                <img class="visible-xs" src="https://www.ehang.com/Public/cn/ehangweb/image/index/m/m2_2.jpg" alt="">
+              </div>
+              <div class="eh-container-full">
+                <div class="eh-container">
+                  <div class="text-box fedeBox">
+                    <img src="https://www.ehang.com/Public/cn/ehangweb/image/index/eh216_l.png" alt="">
+                    <p>大载重物流“空中快线”</p>
+                    <a class="btn-more btn-more-white" href="https://www.ehang.com/cn/ehang216l/">了解产品</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="swiper-slide swiper-slide-2">
+              <div class="video-bg">
+                <img class="hidden-xs" src="https://www.ehang.com/Public/cn/ehangweb/image/index/index2_3.jpg" alt="">
+                <img class="visible-xs" src="https://www.ehang.com/Public/cn/ehangweb/image/index/m/m2_3.jpg" alt="">
+              </div>
+              <div class="eh-container-full">
+                <div class="eh-container">
+                  <div class="text-box fedeBox">
+                    <img src="https://www.ehang.com/Public/cn/ehangweb/image/index/eh216_f.png" alt="">
+                    <p>高层灭火的空中消防先锋</p>
+                    <a class="btn-more btn-more-white" href="https://www.ehang.com/cn/ehang216f/">了解产品</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="swiper-slide swiper-slide-3">
+              <div class="video-bg">
+                <img class="hidden-xs" src="https://www.ehang.com/Public/cn/ehangweb/image/index/index2_4.jpg" alt="">
+                <img class="visible-xs" src="https://www.ehang.com/Public/cn/ehangweb/image/index/m/m2_4.jpg" alt="">
+              </div>
+              <div class="eh-container-full">
+                <div class="eh-container">
+                  <div class="text-box fedeBox">
+                    <img src="https://www.ehang.com/Public/cn/ehangweb/image/index/w.png" alt="">
+                    <p>天幕中的星空舞者</p>
+                    <a class="btn-more btn-more-white" href="https://www.ehang.com/cn/formation/">了解产品</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- 如果需要分页器 -->
+          <div class="swiper-pagination swiper-pagination-2"></div>
+          <div class="swiper-button-prev index-2-button-prev"></div>
+          <div class="swiper-button-next index-2-button-next"></div>
+
+          <!-- pc自定义分页器 -->
+          <div class="swiper-pagination-custom">
+            <div class="swiper-pagination-custom-inner">
+              <div class="swiper-pagination-custom-item active">
+                <span class="attr">物流运输</span>
+              </div>
+              <div class="swiper-pagination-custom-item">
+                <span class="attr">应急救援</span>
+              </div>
+              <div class="swiper-pagination-custom-item">
+                <span class="attr">空中媒体</span>
+              </div>
+            </div>
+          </div>
+        </div>
+    </div>
+    
+    <!-- 第三屏 通航认证 -->
+    <div class="index-sec-three">
+      <div class="desc-box fedeBox">
+        <h3>适航三证齐全 <br class="visible-xs"/> 领航行业标准</h3>
+        <p>型号合格证<span class="line"></span> 生产许可证 <span class="line"></span>标准适航证</p>
+        <a class="btn-more btn-more-white" href="https://www.ehang.com/cn/ehang216s/airworthiness/">了解更多</a>
+      </div>
+    </div>
+
+    <!-- 第5 咨询中心 -->
+    <div class="eh-container-full">
+      <div class="eh-container index-sec-4 ">
+        <div class="title-top fedeBox">运营示范点全国布局</div>
+
+        <div class="new-box">
+            <div class="new-box-item-full">
+              <img class="hidden-xs" src="https://www.ehang.com/Public/cn/ehangweb/image/index/y1.jpg" alt="">
+              <img class="visible-xs" src="https://www.ehang.com/Public/cn/ehangweb/image/index/y1_m.jpg" alt="">
+              <div class="new-box-title-box">
+                <div class="new-box-title">广州黄埔穗港码头</div>
+                <div class="new-box-title-sub">双城空中游览运营点</div>
+              </div>
+            </div>
+            <div class="new-box-item" href="https://www.ehang.com/cn/news/1250.html" target="_blank">
+              <div class="img-box">
+                <img src="https://www.ehang.com/Public/cn/ehangweb/image/index/y2.jpg">
+              </div>
+              <div class="title-one">合肥骆岗公园</div>
+              <div class="title-one-sub">枢纽式双坪运营点</div>
+            </div>
+            <div class="new-box-item" href="https://www.ehang.com/cn/news/1246.html" target="_blank">
+              <div class="img-box">
+                <img src="https://www.ehang.com/Public/cn/ehangweb/image/index/y3.jpg">
+              </div>
+              <div class="title-one">深圳罗湖体育休闲公园</div>
+              <div class="title-one-sub">升降式机库城市一体起降点</div>
+            </div>
+            <div class="new-box-item" href="https://www.ehang.com/cn/news/1240.html" target="_blank">
+              <div class="img-box">
+                <img src="https://www.ehang.com/Public/cn/ehangweb/image/index/y4.jpg">
+              </div>
+              <div class="title-one">珠海桂山岛</div>
+              <div class="title-one-sub">海岸物流枢纽起降点</div>
+            </div>
+        </div>
+        <a class="btn-more" href="https://www.ehang.com/cn/operation/">了解更多</a>
+      </div>
+    </div>
+
+    <!-- 咨询合作 -->
+    <div class="index-sec-coop">
+      <div class="desc-box fedeBox">
+        <h3>创新领航 向上而生</h3>
+        <p>以飞行科技重新定义空中交通</p>
+        <div class="btn-box">
+          <a class="btn-more active" href="https://www.ehang.com/cn/partner/">咨询合作</a>
+        </div>
+      </div>
+    </div>
+
+    <script>
+
+      var mySwiper = new Swiper ('.swiperIndex2', {
+        loop: true, // 循环模式选项
+        effect: 'fade',
+        autoplay: {
+          delay: 3000, // 3秒自动切换
+          disableOnInteraction: false, // 用户操作后继续自动播放
+        },
+        // 如果需要分页器
+        pagination: {
+          el: '.swiper-pagination',
+          clickable: true
+        },
+        navigation: {
+          nextEl: '.index-2-button-next',
+          prevEl: '.index-2-button-prev',
+        }
+      })
+
+
+      
+      // 添加自定义分页器的交互功能
+        document.addEventListener('DOMContentLoaded', function () {
+          // 获取所有自定义分页项
+          const customPaginationItems = document.querySelectorAll('.swiper-pagination-custom-item');
+
+          // 为每个分页项添加点击事件
+          customPaginationItems.forEach((item, index) => {
+            item.addEventListener('mouseenter', function () {
+              // 移除所有活动状态
+              customPaginationItems.forEach(i => i.classList.remove('active'));
+
+              // 添加当前活动状态
+              this.classList.add('active');
+
+              // 切换到对应的slide
+              mySwiper.slideToLoop(index);
+            });
+          });
+
+          // 当swiper切换时，同步更新自定义分页器状态
+          if (mySwiper) {
+            mySwiper.on('slideChangeTransitionStart', function () {
+              const activeIndex = this.realIndex;
+
+              // 移除所有活动状态
+              customPaginationItems.forEach(item => item.classList.remove('active'));
+
+              // 添加对应活动状态
+              if (customPaginationItems[activeIndex]) {
+                customPaginationItems[activeIndex].classList.add('active');
+              }
+            });
+          }
+        });
+
+      // 渐变显示出现
+      // 监听numberAdd进入窗口
+      const targetElements = document.querySelectorAll('.fedeBox');
+      let isActive = false
+      const observerCallback = (entries, observer) => {
+        entries.forEach(entry => {
+          const element = entry.target;
+          if (entry.isIntersecting) {
+            element.classList.add('showFade');
+          }
+        });
+      };
+      const observerOptions = { threshold: 1 }; // 可以根据需求调整阈值
+      const observer = new IntersectionObserver(observerCallback, observerOptions);   
+      targetElements.forEach(element => observer.observe(element));
+    </script>
+    <script
+      type="text/javascript"
+      src="https://www.ehang.com/Public/cn/ehangweb/js/nav.js"
+    ></script>
+    <!--底部-->
+<footer class="footer-box-2024">
+  <div class="eh-container footer-wrap">
+    <div class="block">
+      <dl class="footer-item">
+        <dt>创新产品</dt>
+        <dd><a href="https://www.ehang.com/cn/ehang216s/">载人交通</a></dd>
+        <dd><a href="https://www.ehang.com/cn/ehang216l/">物流运输</a></dd>
+        <dd><a href="https://www.ehang.com/cn/ehang216f/">应急救援</a></dd>
+        <dd><a href="https://www.ehang.com/cn/formation/">空中媒体</a></dd>
+      </dl>
+      <dl class="footer-item">
+        <dt>基建解决方案</dt>
+        <dd><a href="https://www.ehang.com/cn/operation/">基建解决方案</a></dd>
+      </dl>
+      <dl class="footer-item">
+        <dt>媒体中心</dt>
+        <dd><a href="https://www.ehang.com/cn/article/">公司新闻</a></dd>
+        <dd><a href="https://www.ehang.com/cn/news/">媒体报道</a></dd>
+        <dd><a href="https://www.ehang.com/cn/video/">视频中心</a></dd>
+      </dl>
+      <dl class="footer-item m-footer-item">
+        <dt>探索亿航</dt>
+        <dd><a href="https://www.ehang.com/cn/about/">了解我们</a></dd>
+        <dd><a href="https://www.ehang.com/cn/partners/">合作伙伴</a></dd>
+        <dd><a href="https://www.ehang.com/cn/contact/">联系我们</a></dd>
+        <dd><a href="https://www.ehang.com/cn/announcement/">公司公告</a></dd>
+        <dd><a href="https://hr.ehang.com/"  target="_blank">加入我们</a></dd>
+        <!-- <dd><a href="https://www.ehang.com/cn/support/">服务支持</a></dd> -->
+        <dd><a href="http://ir.ehang.com" target="_blank">投资者关系</a></dd>
+      </dl>
+      <dl class="footer-item footer-item-100">
+        <dt>订阅</dt>
+        <dd>第一时间了解亿航最新资讯</dd>
+        <dd>
+          <div class="subscibe-form-new">
+            <input
+              type="text"
+              id="dyemail"
+              name="dyemail"
+              value=""
+              placeholder="邮件订阅"
+            />
+            <div id="dysubmit">
+              <img src="https://www.ehang.com/Public/cn/ehangweb/image/footer/e.png" alt="" />
+            </div>
+          </div>
+        </dd>
+        <dd class="follow-wrap">
+          <div class="follow-title">关注我们</div>
+          <div class="follow-box">
+            <div>
+              <a
+                href="https://www.linkedin.com/company/ehang-inc-/"
+                target="_blank"
+              >
+                <img
+                  src="https://www.ehang.com/Public/cn/ehangweb/image/footer/i.png"
+                  alt=""
+                />
+              </a>
+            </div>
+            <div>
+              <a
+                href="https://www.youtube.com/channel/UCuehMeuZkXlUTD6iolx6nGQ"
+                target="_blank"
+              >
+                <img
+                  src="https://www.ehang.com/Public/cn/ehangweb/image/footer/c.png"
+                  alt=""
+                />
+              </a>
+            </div>
+            <div>
+              <a
+                href="https://www.instagram.com/ehang.official"
+                target="_blank"
+              >
+                <img
+                  src="https://www.ehang.com/Public/cn/ehangweb/image/footer/o.png"
+                  alt=""
+                />
+              </a>
+            </div>
+            <div>
+              <a
+                href="https://twitter.com/ehang"
+                target="_blank"
+              >
+                <img
+                  src="https://www.ehang.com/Public/cn/ehangweb/image/footer/t.png"
+                  alt=""
+                />
+              </a>
+            </div>
+            <div>
+              <a
+                href="https://www.facebook.com/theghostdrone"
+                target="_blank"
+              >
+                <img
+                  src="https://www.ehang.com/Public/cn/ehangweb/image/footer/f.png"
+                  alt=""
+                />
+              </a>
+            </div>
+            <div>
+              <a
+                href="http://weibo.com/EHangFlying"
+                target="_blank"
+              >
+                <img
+                  src="https://www.ehang.com/Public/cn/ehangweb/image/footer/wb.png"
+                  alt=""
+                />
+              </a>
+            </div>
+            <div class="wx-icon">
+              <a class="hidden-xs" href="">
+                <img
+                  src="https://www.ehang.com/Public/cn/ehangweb/image/footer/wx.png"
+                  alt=""
+                />
+                <div class="wx-icon-show">
+                  <img
+                    width="138"
+                    src="https://www.ehang.com/Public/cn/ehangweb/image/ehang_wx.png"
+                    alt=""
+                  />
+                </div>
+              </a>
+            </div>
+        </dd>
+      </dl>
+      <dl class="footer-item customer-box footer-item-100">
+        <dt>客服电话</dt>
+        <dd class="tell">400-622-1638</dd>
+        <dd class="work-time">09：00-12：00、13：00-18：00</dd>
+        <dd class="tell">周一到周五</dd>
+        <a
+          class="online"
+          target="_blank"
+          href="https://im.7x24cc.com/phone_webChat.html?accountId=N000000021491&chatId=16c70fc1-2b92-468f-8e56-36afd07a2c76"
+          >
+          联系在线客服
+          <div>即时回复，第一时间给予您反馈</div>
+        </a>
+      </dl>
+    </div>
+    <div class="copyright">
+      <div class="footer-logo hidden-xs">
+        <img style="display: block;height: 16px;" src="https://www.ehang.com/Public/cn/ehangweb/image/logo_white.png" alt="亿航智能 EHang" title="亿航智能 EHang" />
+      </div>
+      <div class="copyright-info hidden-xs">
+          <a href="https://beian.miit.gov.cn" target="_blank">粤ICP备15008538号</a>　© 2014-2026<br class="visible-xs" />
+          亿航智能（EHang）
+          <a href="https://www.ehang.com/cn/policy/">隐私政策</a>
+          <a href="https://www.ehang.com/cn/terms/">服务协议</a>
+      </div>
+      <div class="footer-language">
+        <div class="country">
+          <a class="country-item" href="https://www.ehang.com/cn/">
+            <div class="lang-icon"><img src="https://www.ehang.com/Public/cn/ehangweb/image/cn_small.png" alt=""></div>
+            中国
+            <span>中文</span>
+          </a>
+          <a class="country-item" href="https://www.ehang.com/index.html">
+            <div class="lang-icon en">
+              <img src="https://www.ehang.com/Public/cn/ehangweb/image/global_black.png" alt="">
+            </div>
+            Global
+            <span>English</span>
+          </a>
+        </div>
+        <div class="country-current">
+          <img src="https://www.ehang.com/Public/cn/ehangweb/image/china.png" alt="">中国
+        </div>
+      </div>
+      <div class="mob-copyright">
+        <div>Guangdong ICP No. 15008538</div>
+        <div>© 2014-2026 亿航智能（EHang）</div>
+      </div>
+    </div>
+  </div>
+</footer>
+<div class="back-to-top-container">
+  <!-- 客服按钮 - 始终显示 -->
+  <div class="back-to-top-item customer-service">
+    <a target="_blank"
+      href="https://im.7x24cc.com/phone_webChat.html?accountId=N000000021491&chatId=16c70fc1-2b92-468f-8e56-36afd07a2c76">
+      <svg t="1760242447714" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5271"
+        width="24" height="24">
+        <path
+          d="M927.616 465.6C923.328 236.704 745.888 51.808 528 51.808h-32c-217.888 0-395.328 184.896-399.616 413.76C58.112 487.744 32 528.672 32 576v64c0 70.592 57.408 128 128 128s128-57.408 128-128v-64a128.064 128.064 0 0 0-126.784-127.872C173.728 262.688 318.912 115.808 496 115.808h32c177.12 0 322.272 146.88 334.784 332.32A128.064 128.064 0 0 0 736 576v64c0 57.792 38.72 106.176 91.392 122.016a337.504 337.504 0 0 1-191.936 124.48A79.712 79.712 0 0 0 560 832a80 80 0 1 0 0 160 79.68 79.68 0 0 0 67.872-38.112 402.432 402.432 0 0 0 278.24-193.6C955.968 742.816 992 695.776 992 640v-64c0-47.328-26.112-88.256-64.384-110.4zM224 576v64c0 35.296-28.704 64-64 64s-64-28.704-64-64v-64c0-35.296 28.704-64 64-64s64 28.704 64 64z m704 64c0 34.304-27.2 62.176-61.12 63.712l-2.496-1.184c-0.224 0.512-0.576 0.928-0.8 1.408A64 64 0 0 1 800 640v-64c0-35.296 28.704-64 64-64s64 28.704 64 64v64z"
+          p-id="5272"></path>
+      </svg>
+    </a>
+  </div>
+  <!-- 回到顶部按钮 - 滚动时显示 -->
+  <div class="back-to-top-item back-to-top" id="backToTop">
+    <svg t="1760243039770" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="7838"
+      width="200" height="200">
+      <path
+        d="M992 784a32.128 32.128 0 0 1-22.656-9.344L512 317.248 54.656 774.592a32 32 0 0 1-45.248-45.248l480-480a32 32 0 0 1 45.248 0l480 480a32 32 0 0 1-22.656 54.656z"
+        p-id="7839" fill="#2c2c2c"></path>
+    </svg>
+  </div>
+</div>
+
+
+<style>
+  .subscibe-form {
+    display: flex;
+    justify-content: center;
+  }
+  .back-to-top-container {
+    position: fixed;
+    right: 40px;
+    bottom: 80px;
+    z-index: 9999;
+  }
+  .back-to-top-item {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: #fff;
+    margin-top: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: hsla(0, 0%, 92.5%, .6);
+    transition: color .3s 
+cubic-bezier(.39, .575, .565, 1), background .3s 
+cubic-bezier(.39, .575, .565, 1);
+    cursor: pointer;
+    -webkit-backdrop-filter: saturate(180%) blur(5px);
+    backdrop-filter: saturate(180%) blur(5px);
+  }
+  
+  .back-to-top-item:hover {
+    color: #fff;
+    background-color: #181b24;
+  }
+  .back-to-top-item a {
+    display: block;
+    padding-top:2px;
+  }
+  .back-to-top-item .icon {
+    width: 24px;
+    height: 24px;
+  }
+  .back-to-top-item:hover .icon path  {
+    color: #fff;
+    fill: #fff;
+  }
+  
+  .back-to-top {
+    display: none;
+  }
+  
+  .back-to-top.show {
+    display: flex;
+  }
+
+  @media screen and (max-width: 768px) { 
+    .back-to-top-container {
+      position: fixed;
+      right: 20px;
+      bottom: 80px;
+      z-index: 9999;
+    }
+    .back-to-top-item {
+      width: 38px;
+      height: 38px;
+    }
+    .back-to-top-item .icon {
+      width: 18px;
+      height: 18px;
+    }
+  }
+</style>
+<script>
+  $(document).ready(function () {
+    // 检测滚动事件
+    $(window).scroll(function () {
+      if ($(this).scrollTop() > 50) {
+        $('#backToTop').addClass('show');
+      } else {
+        $('#backToTop').removeClass('show');
+      }
+    });
+
+    // 点击回到顶部
+    $('#backToTop').click(function () {
+      $('html, body').animate({ scrollTop: 0 }, 300);
+    });
+  });
+</script>
+<script type="text/javascript">
+  $(function () {
+    $('#dysubmit').click(function () {
+      var txtemail = $('#dyemail').val()
+      if (
+        !txtemail.match(
+          /^([a-zA-Z0-9_\.\-])+\@(([a-zA-Z0-9\-])+\.)+([a-zA-Z0-9]{2,4})+$/
+        )
+      ) {
+        alert('请输入正确的邮件地址')
+        return false
+      }
+      $.ajax({
+        type: 'post',
+        url: 'https://www.ehang.com/cn/company/subscribe/', //登录处理页
+        cache: false,
+        dataType: 'json',
+        contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+        //传送请求数据
+        data: { email: txtemail },
+        success: function (data) {
+          if (data.status == 1) {
+            alert(data.message)
+            $('#dyemail').val('')
+          } else {
+            alert(data.message)
+          }
+        }
+      })
+    })
+  })
+</script>
+<script>
+  var _hmt = _hmt || []
+  ;(function () {
+    var hm = document.createElement('script')
+    hm.src = 'https://hm.baidu.com/hm.js?16c2e07394edb9ae413941fb870cd27d'
+    var s = document.getElementsByTagName('script')[0]
+    s.parentNode.insertBefore(hm, s)
+  })()
+</script>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        // 获取VT35按钮和product-compare元素
+        const vt35Button = document.getElementById('vt35');
+        const eh216Button = document.getElementById('eh216s');
+        const productCompare = document.querySelector('.product-compare');
+
+        // 确保元素存在
+        if (vt35Button && productCompare) {
+          // VT35按钮鼠标移入事件
+          vt35Button.addEventListener('mouseenter', function () {
+            productCompare.classList.add('left');
+            productCompare.classList.remove('right');
+          });
+
+          // VT35按钮鼠标移出事件
+          vt35Button.addEventListener('mouseleave', function () {
+            productCompare.classList.remove('left');
+          });
+        }
+
+        if (eh216Button && productCompare) {
+          // EH216-S按钮鼠标移入事件
+          eh216Button.addEventListener('mouseenter', function () {
+            productCompare.classList.add('right');
+            productCompare.classList.remove('left');
+          });
+
+          // EH216-S按钮鼠标移出事件
+          eh216Button.addEventListener('mouseleave', function () {
+            productCompare.classList.remove('right');
+          });
+        }
+      });
+    </script>
+  </div>
+</body>
+</html>

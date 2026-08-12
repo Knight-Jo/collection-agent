@@ -1,0 +1,16 @@
+{
+  "id": "review-c38249d2b963f06e",
+  "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+  "fact_id": "fact-1d041b703d40192c",
+  "evidence_id": "ev-d75fd6d03e32fa0b",
+  "verdict": "irrelevant",
+  "reason": "引用仅提到香港推进监管沙盒试点、低空经济成为当地创新发展方向，未提及亿航智能、冠忠智慧出行、香港数码港管理有限公司、三方联合合作、首批非传统航空器试点项目入选等任何Fact中的具体主体和事件。",
+  "unsupported_parts": [
+    "亿航智能联合冠忠智慧出行有限公司及香港数码港管理有限公司开展低空合作",
+    "成功入选香港低空经济「监管沙盒X」首批非传统航空器试点项目"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-12T08:25:17.950084+00:00"
+}

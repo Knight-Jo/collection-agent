@@ -1,0 +1,48 @@
+{
+  "id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+  "topic": "低空经济（低空经济政策、产业与投资）",
+  "stage": "challenge",
+  "questions": [
+    {
+      "id": "q-82cba3ce-4606-4838-804f-c000993b70fb",
+      "text": "2026年低空经济投资与融资趋势"
+    },
+    {
+      "id": "q-bd12be7e-ab49-4b47-87cb-7ee5d5cae90c",
+      "text": "亿航智能商业化进展与订单情况"
+    }
+  ],
+  "criteria": {
+    "min_independent_sources": 2,
+    "min_high_quality_sources": 1,
+    "recency_days": 120,
+    "require_recency": false
+  },
+  "deep_crawl": true,
+  "collection": {
+    "search_attempts": 6,
+    "search_stop_reason": "search_budget_exhausted",
+    "fetch_attempts_since_evidence": 0,
+    "evidence_count": 40,
+    "stop_reason": null
+  },
+  "outputs": {
+    "package": {
+      "coverage_id": "cov-6fd95be1-2e2c-4a37-ace3-8eaeb57b3b80",
+      "coverage_fingerprint": "66570b9a1dc1e2d0520fe233d68a1a80aed3199f8db194f3432a19d24704ed7e",
+      "path": "output/低空经济-低空经济政策-产业与投资-evidence-package.md",
+      "content_sha256": "5997f85b4f5cd778afb58f82ac1534006b162fd0511350d78d49d5d29a4c81a5",
+      "created_at": "2026-08-12T08:38:46.961878+00:00"
+    },
+    "assessment": {
+      "coverage_id": "cov-6fd95be1-2e2c-4a37-ace3-8eaeb57b3b80",
+      "coverage_fingerprint": "66570b9a1dc1e2d0520fe233d68a1a80aed3199f8db194f3432a19d24704ed7e",
+      "path": "output/低空经济-低空经济政策-产业与投资-assessment.md",
+      "content_sha256": "5d64542b7f2abcb24152250c49d36aa1240a3ad562fa1c068fcc55c112bc9749",
+      "created_at": "2026-08-12T08:39:16.624583+00:00"
+    }
+  },
+  "challenge_round": 2,
+  "created_at": "2026-08-12T08:18:31.857102+00:00",
+  "updated_at": "2026-08-12T08:39:16.624662+00:00"
+}

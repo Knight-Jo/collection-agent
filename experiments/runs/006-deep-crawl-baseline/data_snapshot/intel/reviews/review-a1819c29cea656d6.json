@@ -1,0 +1,13 @@
+{
+  "id": "review-a1819c29cea656d6",
+  "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+  "fact_id": "fact-13d44baf0126bd7f",
+  "evidence_id": "ev-6ac5406feaaf9e9f",
+  "verdict": "full",
+  "reason": "Quote directly supports all key components of the fact: 2025 revenue of 417.98 million (approx. 4.18亿元 in RMB, matching), decrease of -8.37% compared to previous year's 456.15 million (approx. 4.56亿元), and losses of -275.98 million (approx. 2.76亿元). All amounts and percentages align with the fact's stated figures.",
+  "unsupported_parts": [],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-12T08:27:21.052480+00:00"
+}

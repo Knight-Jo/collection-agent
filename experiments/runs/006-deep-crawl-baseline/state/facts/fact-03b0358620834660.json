@@ -1,0 +1,14 @@
+{
+  "id": "fact-03b0358620834660",
+  "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+  "question_id": "q-82cba3ce-4606-4838-804f-c000993b70fb",
+  "statement": "中商产业研究院报告显示2025年中国低空经济市场规模已达1.5万亿元,并预测2030年市场规模将达到2万亿元。",
+  "status": "superseded",
+  "superseded_by": [
+    "fact-703494ff15e8d6c1",
+    "fact-3dc9ff9ab105b476"
+  ],
+  "supersession_reason": "复合市场规模事实被审核为 partial：拆分为2025年市场规模与2030年预测两个原子事实。",
+  "created_at": "2026-08-12T08:20:51.383117+00:00",
+  "updated_at": "2026-08-12T08:23:07.861375+00:00"
+}

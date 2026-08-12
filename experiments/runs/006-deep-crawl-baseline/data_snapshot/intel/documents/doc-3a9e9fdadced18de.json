@@ -1,0 +1,19 @@
+{
+  "id": "doc-3a9e9fdadced18de",
+  "requested_url": "http://www.npc.gov.cn/",
+  "final_url": "http://www.npc.gov.cn/npc/index.html",
+  "canonical_url": "http://www.npc.gov.cn/npc/index.html",
+  "title": "index.html",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-12T08:20:14.636330+00:00",
+  "source_type": "government",
+  "source_group": "npc.gov.cn",
+  "raw_path": "data/raw/doc-3a9e9fdadced18de.raw",
+  "raw_sha256": "21bf74aa2478e10be6ba44ea19c34b2e40d5c2f95f50d7d7c3116200255d2ed7",
+  "text_path": "data/raw/doc-3a9e9fdadced18de.txt",
+  "text_sha256": "58dbb263be9e83c5ff365408970db9e778f3b3c9b49c1fd172c33024e5fb8c73",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}

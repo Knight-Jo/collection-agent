@@ -1,0 +1,19 @@
+{
+  "id": "doc-4d18623abb1681fb",
+  "requested_url": "https://www.ehang.com/cn/news/1370.html",
+  "final_url": "https://www.ehang.com/cn/news/1370.html",
+  "canonical_url": "https://www.ehang.com/cn/news/1370.html",
+  "title": "1370.html",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-12T08:19:31.387930+00:00",
+  "source_type": "other",
+  "source_group": "ehang.com",
+  "raw_path": "data/raw/doc-4d18623abb1681fb.raw",
+  "raw_sha256": "9caee662637aa84d45692b63ae9b837aa651403e14f1b0f8cb98b004d7fb0a79",
+  "text_path": "data/raw/doc-4d18623abb1681fb.txt",
+  "text_sha256": "157de5398f01c08731f64f2bfbe2e522bf02d6d1c81c4d6d4a1a750fe8347732",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}

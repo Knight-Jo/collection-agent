@@ -1,0 +1,16 @@
+{
+  "id": "review-30fcd062082f88bd",
+  "task_id": "task-7cab926f-ab32-4ac3-a0e0-42e0c2a9b7ec",
+  "fact_id": "fact-09be1558bb8111b8",
+  "evidence_id": "ev-2eebac39beece0d2",
+  "verdict": "partial",
+  "reason": "quote 支持了融资事件数量161次和增长155.6%，但未提及2023年的63次这一基数，也未明确指向'中国低空经济相关领域'这一主体范围。quote中缺少这些重要组成信息。",
+  "unsupported_parts": [
+    "2023年的63次（基数）",
+    "中国低空经济相关领域"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-12T08:23:59.902852+00:00"
+}

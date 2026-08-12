@@ -1,0 +1,19 @@
+{
+  "id": "doc-8e04bcadcde773b4",
+  "requested_url": "https://english.www.gov.cn/",
+  "final_url": "https://english.www.gov.cn/",
+  "canonical_url": "https://english.www.gov.cn/",
+  "title": "https://english.www.gov.cn/",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-12T08:20:08.672343+00:00",
+  "source_type": "government",
+  "source_group": "www.gov.cn",
+  "raw_path": "data/raw/doc-8e04bcadcde773b4.raw",
+  "raw_sha256": "ff7fa14e8f8f86a5f7e67c201736477978ecad4cb92ce15d0d25f048dc90bf2b",
+  "text_path": "data/raw/doc-8e04bcadcde773b4.txt",
+  "text_sha256": "95fa827ca7d0addae36a33dd4c5bb12abc08b3e40f77cccb7b99f0cee0ab9da5",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}
