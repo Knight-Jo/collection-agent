@@ -15,6 +15,7 @@ from intel_agent.crawl import crawl_collect, create_crawl, enqueue_url
 from intel_agent.evidence import load_document
 from intel_agent.fetch import (
     FetchedResponse,
+    _read_response_body,
     canonicalize_url,
     parse_http_response,
 )
@@ -133,6 +134,84 @@ def test_duplicate_queued_url_keeps_higher_relevance_at_frontier_limit(cwd):
     assert snapshot.entries[0].priority < original_priority
 
 
+def test_full_frontier_admits_better_candidate_by_evicting_worst_queued(cwd):
+    snapshot = create_crawl(
+        cwd,
+        "task-frontier-replace",
+        ["https://example.com/low"],
+        CrawlConfig(max_urls=1),
+    )
+
+    assert enqueue_url(
+        snapshot,
+        "https://example.com/high",
+        parent_url=None,
+        depth=0,
+        relevance=2,
+    )
+    assert [entry.canonical_url for entry in snapshot.entries] == [
+        "https://example.com/high"
+    ]
+
+
+def test_full_frontier_rejects_equal_priority_candidate(cwd):
+    snapshot = create_crawl(
+        cwd,
+        "task-frontier-equal",
+        ["https://example.com/first"],
+        CrawlConfig(max_urls=1),
+    )
+
+    assert not enqueue_url(
+        snapshot,
+        "https://example.com/equal",
+        parent_url=None,
+        depth=0,
+    )
+    assert [entry.canonical_url for entry in snapshot.entries] == [
+        "https://example.com/first"
+    ]
+
+
+def test_full_frontier_never_evicts_terminal_entry(cwd):
+    snapshot = create_crawl(
+        cwd,
+        "task-frontier-terminal",
+        ["https://example.com/complete"],
+        CrawlConfig(max_urls=1),
+    )
+    snapshot.entries[0].status = "complete"
+
+    assert not enqueue_url(
+        snapshot,
+        "https://example.com/high",
+        parent_url=None,
+        depth=0,
+        relevance=10,
+    )
+    assert [entry.canonical_url for entry in snapshot.entries] == [
+        "https://example.com/complete"
+    ]
+
+
+def test_frontier_keeps_low_relevance_candidate_when_capacity_exists(cwd):
+    snapshot = create_crawl(
+        cwd,
+        "task-frontier-capacity",
+        ["https://example.com/first"],
+        CrawlConfig(max_urls=2),
+    )
+
+    assert enqueue_url(
+        snapshot,
+        "https://example.com/low",
+        parent_url=None,
+        depth=0,
+        relevance=0,
+    )
+    assert snapshot.entries[1].status == "queued"
+
+
 def test_crawl_snapshot_round_trips_for_resume(cwd):
     snapshot = create_crawl(
         cwd,
@@ -223,6 +302,55 @@ async def test_crawl_retries_timeout(cwd):
 
     assert calls == 2
     assert snapshot.entries[0].status == "complete"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [TimeoutError(), OSError("reset")])
+async def test_crawl_accounts_partial_failed_reads_across_retry(cwd, failure):
+    task = new_task(cwd)
+    calls = 0
+
+    class Reader:
+        def __init__(self):
+            self.reads = iter([b"abc", failure])
+
+        async def read(self, _size):
+            item = next(self.reads)
+            if isinstance(item, BaseException):
+                raise item
+            return item
+
+    async def fetcher(url, init, address):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            await _read_response_body(Reader(), {}, init["_max_body_bytes"])
+            raise AssertionError("partial read should fail")
+        assert init["_max_body_bytes"] == 2
+        raise IntelError(
+            "RESPONSE_TOO_LARGE",
+            "response exceeded remaining limit",
+            downloaded_bytes=init["_max_body_bytes"],
+        )
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/partial"],
+        config=CrawlConfig(
+            retries=1,
+            max_total_bytes=5,
+            obey_robots=False,
+            per_host_delay_seconds=0,
+        ),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+    )
+
+    assert calls == 2
+    assert snapshot.downloaded_bytes == 5
+    assert snapshot.entries[0].downloaded_bytes == 5
+    assert snapshot.entries[0].status == "skipped_limit"
 
 
 @pytest.mark.asyncio

@@ -157,9 +157,19 @@ async def pinned_fetch(
             raise IntelError("NETWORK_ERROR", "响应头不完整") from error
         status, headers = _parse_http_head(raw_head)
         content_type = headers.get("content-type", "").lower()
+        generic_content = content_type.split(";", 1)[0].strip() in {
+            "",
+            "application/octet-stream",
+            "binary/octet-stream",
+        }
+        html_path = Path(parsed.path).suffix.lower() in {".htm", ".html"}
         body_limit = max_bytes
-        if max_html_bytes is not None and re.match(
-            r"^(?:text/html|application/xhtml\+xml)(?:;|$)", content_type
+        if max_html_bytes is not None and (
+            re.match(
+                r"^(?:text/html|application/xhtml\+xml)(?:;|$)",
+                content_type,
+            )
+            or (generic_content and html_path)
         ):
             body_limit = min(body_limit, max_html_bytes)
         body = await _read_response_body(reader, headers, body_limit)
@@ -189,7 +199,17 @@ async def _read_exact_body(reader, size: int, downloaded: int = 0) -> bytes:
     chunks: list[bytes] = []
     remaining = size
     while remaining:
-        chunk = await reader.read(min(65_536, remaining))
+        try:
+            chunk = await reader.read(min(65_536, remaining))
+        except (TimeoutError, OSError, asyncio.IncompleteReadError) as error:
+            partial = getattr(error, "partial", b"")
+            raise IntelError(
+                "NETWORK_ERROR",
+                "响应正文读取失败",
+                downloaded_bytes=(
+                    downloaded + size - remaining + len(partial)
+                ),
+            ) from error
         if not chunk:
             raise IntelError(
                 "NETWORK_ERROR",
@@ -208,7 +228,13 @@ async def _read_chunked_body(reader, max_bytes: int) -> bytes:
         try:
             size_line = await reader.readuntil(b"\r\n")
             size = int(size_line[:-2].split(b";", 1)[0], 16)
-        except (ValueError, asyncio.IncompleteReadError) as error:
+        except (
+            ValueError,
+            TimeoutError,
+            OSError,
+            asyncio.IncompleteReadError,
+            asyncio.LimitOverrunError,
+        ) as error:
             raise IntelError(
                 "NETWORK_ERROR",
                 "分块响应不完整",
@@ -261,17 +287,34 @@ async def _read_response_body(
     chunks: list[bytes] = []
     downloaded = 0
     while downloaded < max_bytes:
-        chunk = await reader.read(min(65_536, max_bytes - downloaded))
+        try:
+            chunk = await reader.read(min(65_536, max_bytes - downloaded))
+        except (TimeoutError, OSError, asyncio.IncompleteReadError) as error:
+            partial = getattr(error, "partial", b"")
+            raise IntelError(
+                "NETWORK_ERROR",
+                "响应正文读取失败",
+                downloaded_bytes=downloaded + len(partial),
+            ) from error
         if not chunk:
             return b"".join(chunks)
         chunks.append(chunk)
         downloaded += len(chunk)
-    if reader.at_eof():
+    try:
+        extra = await reader.read(1)
+    except (TimeoutError, OSError, asyncio.IncompleteReadError) as error:
+        partial = getattr(error, "partial", b"")
+        raise IntelError(
+            "NETWORK_ERROR",
+            "响应正文读取失败",
+            downloaded_bytes=downloaded + len(partial),
+        ) from error
+    if not extra:
         return b"".join(chunks)
     raise IntelError(
         "RESPONSE_TOO_LARGE",
         f"响应超过 {max_bytes} 字节",
-        downloaded_bytes=downloaded,
+        downloaded_bytes=downloaded + len(extra),
     )
 
 

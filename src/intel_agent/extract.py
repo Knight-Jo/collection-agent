@@ -124,8 +124,10 @@ class _LinkParser(HTMLParser):
     def handle_endtag(self, tag: str) -> None:
         if tag.lower() != "a" or self._anchor_url is None:
             return
+        context = " ".join(" ".join(self._anchor_text).split())
+        previous = self.context.get(self._anchor_url, "")
         self.context[self._anchor_url] = " ".join(
-            " ".join(self._anchor_text).split()
+            item for item in (previous, context) if item
         )
         self._anchor_url = None
         self._anchor_text = []
@@ -154,6 +156,27 @@ def _text_links(text: str, base_url: str) -> list[str]:
     for url in re.findall(r"https?://[^\s<>\]\[\"']+", text):
         _append_link(links, url.rstrip(".,);"), base_url)
     return links
+
+
+def _link_relevance_map(
+    links: list[str], text: str, terms: list[str] | None
+) -> dict[str, float]:
+    lines = text.splitlines()
+    return {
+        link: _link_relevance(
+            " ".join(line for line in lines if link in line) or link,
+            terms,
+        )
+        for link in links
+    }
+
+
+def _link_relevance_with_document_context(
+    links: list[str], text: str, terms: list[str] | None
+) -> dict[str, float]:
+    link_context = _link_relevance_map(links, text, terms)
+    document_context = _link_relevance(text, terms)
+    return {link: max(link_context[link], document_context) for link in links}
 
 
 def is_rejected_resource(mime_type: str, url: str) -> bool:
@@ -638,7 +661,13 @@ def extract_resource(
                 raw, ocr_languages, url, cancellation_event
             )
             return ExtractionResult(
-                status="complete", text=text, links=links, processor=processor
+                status="complete",
+                text=text,
+                links=links,
+                link_relevance=_link_relevance_with_document_context(
+                    links, text, relevance_terms
+                ),
+                processor=processor,
             )
         office_type = _OFFICE_MIMES.get(mime) or suffix.lstrip(".")
         if office_type == "doc":
@@ -664,12 +693,21 @@ def extract_resource(
                 status="complete",
                 text=text,
                 links=links,
+                link_relevance=_link_relevance_with_document_context(
+                    links, text, relevance_terms
+                ),
                 processor="python-docx",
             )
         if office_type == "xlsx":
             text, links = _extract_xlsx(raw, url)
             return ExtractionResult(
-                status="complete", text=text, links=links, processor="openpyxl"
+                status="complete",
+                text=text,
+                links=links,
+                link_relevance=_link_relevance_with_document_context(
+                    links, text, relevance_terms
+                ),
+                processor="openpyxl",
             )
         if office_type == "pptx":
             text, links = _extract_pptx(raw, url)
@@ -677,6 +715,9 @@ def extract_resource(
                 status="complete",
                 text=text,
                 links=links,
+                link_relevance=_link_relevance_with_document_context(
+                    links, text, relevance_terms
+                ),
                 processor="python-pptx",
             )
         if mime in _IMAGE_MIMES or (
@@ -710,10 +751,12 @@ def extract_resource(
                 status="complete", text=text, processor="faster-whisper"
             )
         text = decode_body(raw, mime_type).replace("\r\n", "\n").strip()
+        links = _text_links(text, url)
         return ExtractionResult(
             status="complete",
             text=text,
-            links=_text_links(text, url),
+            links=links,
+            link_relevance=_link_relevance_map(links, text, relevance_terms),
             processor="text",
         )
     except (

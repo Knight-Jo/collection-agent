@@ -1,10 +1,15 @@
 """Document fetch tests with fake fetcher."""
 
+import asyncio
+
 import pytest
 
 import intel_agent.fetch as fetch_module
 from intel_agent.fetch import (
     FetchedResponse,
+    _read_chunked_body,
+    _read_exact_body,
+    _read_response_body,
     fetch_document,
     parse_http_response,
     pinned_fetch,
@@ -52,6 +57,104 @@ class _Writer:
         pass
 
 
+class _ScriptedReader:
+    def __init__(self, reads, *, lines=()):
+        self.reads = iter(reads)
+        self.lines = iter(lines)
+
+    async def read(self, _size: int) -> bytes:
+        item = next(self.reads)
+        if isinstance(item, BaseException):
+            raise item
+        return item
+
+    async def readuntil(self, _separator: bytes) -> bytes:
+        item = next(self.lines)
+        if isinstance(item, BaseException):
+            raise item
+        return item
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [TimeoutError(), OSError("reset")])
+async def test_fixed_length_partial_read_reports_downloaded_bytes(failure):
+    reader = _ScriptedReader([b"abc", failure])
+
+    with pytest.raises(IntelError) as error:
+        await _read_exact_body(reader, 5)
+
+    assert error.value.code == "NETWORK_ERROR"
+    assert error.value.downloaded_bytes == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [TimeoutError(), OSError("reset")])
+async def test_chunked_partial_read_reports_downloaded_bytes(failure):
+    reader = _ScriptedReader(
+        [b"abc", failure],
+        lines=[b"5\r\n"],
+    )
+
+    with pytest.raises(IntelError) as error:
+        await _read_chunked_body(reader, 10)
+
+    assert error.value.code == "NETWORK_ERROR"
+    assert error.value.downloaded_bytes == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [TimeoutError(), OSError("reset")])
+async def test_chunked_size_line_failure_preserves_prior_download(failure):
+    reader = _ScriptedReader(
+        [b"abc", b"\r\n"],
+        lines=[b"3\r\n", failure],
+    )
+
+    with pytest.raises(IntelError) as error:
+        await _read_chunked_body(reader, 10)
+
+    assert error.value.code == "NETWORK_ERROR"
+    assert error.value.downloaded_bytes == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [TimeoutError(), OSError("reset")])
+async def test_unknown_length_partial_read_reports_downloaded_bytes(failure):
+    reader = _ScriptedReader([b"abc", failure])
+
+    with pytest.raises(IntelError) as error:
+        await _read_response_body(reader, {}, 10)
+
+    assert error.value.code == "NETWORK_ERROR"
+    assert error.value.downloaded_bytes == 3
+
+
+@pytest.mark.asyncio
+async def test_partial_read_does_not_wrap_cancellation():
+    reader = _ScriptedReader([b"abc", asyncio.CancelledError()])
+
+    with pytest.raises(asyncio.CancelledError):
+        await _read_exact_body(reader, 5)
+
+
+@pytest.mark.asyncio
+async def test_unknown_length_body_at_exact_limit_uses_eof_probe():
+    reader = _ScriptedReader([b"1234", b""])
+
+    assert await _read_response_body(reader, {}, 4) == b"1234"
+
+
+@pytest.mark.asyncio
+async def test_unknown_length_body_one_byte_over_reports_exact_download():
+    reader = _ScriptedReader([b"1234", b"5"])
+
+    with pytest.raises(IntelError) as error:
+        await _read_response_body(reader, {}, 4)
+
+    assert error.value.code == "RESPONSE_TOO_LARGE"
+    assert error.value.downloaded_bytes == 5
+
+
 @pytest.mark.asyncio
 async def test_pinned_fetch_stops_html_stream_at_mime_aware_cap(monkeypatch):
     reader = _StreamingReader("text/html", b"0123456789")
@@ -74,7 +177,35 @@ async def test_pinned_fetch_stops_html_stream_at_mime_aware_cap(monkeypatch):
 
     assert error.value.code == "RESPONSE_TOO_LARGE"
     assert error.value.downloaded_bytes == reader.downloaded_body_bytes
-    assert reader.downloaded_body_bytes == 4
+    assert reader.downloaded_body_bytes == 5
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("content_type", ["", "application/octet-stream"])
+async def test_pinned_fetch_uses_html_url_suffix_for_stream_cap(
+    monkeypatch, content_type
+):
+    reader = _StreamingReader(content_type, b"0123456789")
+
+    async def open_connection(*_args, **_kwargs):
+        return reader, _Writer()
+
+    monkeypatch.setattr(
+        fetch_module.asyncio, "open_connection", open_connection
+    )
+
+    with pytest.raises(IntelError) as error:
+        await pinned_fetch(
+            "http://example.com/report.html?download=1",
+            None,
+            "93.184.216.34",
+            max_bytes=10,
+            max_html_bytes=4,
+        )
+
+    assert error.value.code == "RESPONSE_TOO_LARGE"
+    assert error.value.downloaded_bytes == 5
+    assert reader.downloaded_body_bytes == 5
 
 
 @pytest.mark.asyncio

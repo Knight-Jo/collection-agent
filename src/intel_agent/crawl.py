@@ -179,12 +179,21 @@ def enqueue_url(
             existing.updated_at = now
             snapshot.updated_at = now
         return False
-    if len(snapshot.entries) >= config.max_urls:
-        return False
     if attachment is None:
         attachment = Path(urlparse(canonical).path).suffix.lower() in (
             _ATTACHMENT_SUFFIXES
         )
+    candidate_priority = _priority(
+        depth, relevance, source_priority, bool(attachment)
+    )
+    if len(snapshot.entries) >= config.max_urls:
+        queued = [
+            entry for entry in snapshot.entries if entry.status == "queued"
+        ]
+        worst = max(queued, key=lambda entry: entry.priority, default=None)
+        if worst is None or candidate_priority >= worst.priority:
+            return False
+        snapshot.entries.remove(worst)
     now = utc_now()
     snapshot.entries.append(
         CrawlEntry(
@@ -192,9 +201,7 @@ def enqueue_url(
             parent_url=(canonicalize_url(parent_url) if parent_url else None),
             depth=depth,
             relevance=relevance,
-            priority=_priority(
-                depth, relevance, source_priority, bool(attachment)
-            ),
+            priority=candidate_priority,
             created_at=now,
             updated_at=now,
         )

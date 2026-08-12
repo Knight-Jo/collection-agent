@@ -79,6 +79,78 @@ def test_pdf_relative_links_resolve_against_document_url(monkeypatch):
     assert result.links == ["https://example.com/appendix.pdf"]
 
 
+def test_pdf_link_relevance_uses_document_and_link_context(monkeypatch):
+    class Page:
+        def get_text(self, _kind):
+            return "quarterly outlook and enough useful document text"
+
+        def get_links(self):
+            return [
+                {"uri": "https://example.com/appendix"},
+                {"uri": "https://example.com/outlook"},
+            ]
+
+    class Document:
+        def __iter__(self):
+            return iter([Page()])
+
+        def __len__(self):
+            return 1
+
+        def close(self):
+            pass
+
+    class Fitz:
+        @staticmethod
+        def open(**_kwargs):
+            return Document()
+
+    monkeypatch.setitem(sys.modules, "fitz", Fitz)
+
+    result = extract_resource(
+        b"pdf",
+        "application/pdf",
+        "https://example.com/report.pdf",
+        relevance_terms=["outlook"],
+    )
+
+    assert result.link_relevance == {
+        "https://example.com/appendix": 1,
+        "https://example.com/outlook": 1,
+    }
+
+
+def test_duplicate_html_anchor_keeps_strongest_context():
+    result = extract_resource(
+        (
+            b'<html><a href="/same">important topic progress</a>'
+            b'<a href="/same">more</a></html>'
+        ),
+        "text/html",
+        "https://example.com/root",
+        relevance_terms=["important", "topic", "progress"],
+    )
+
+    assert result.link_relevance["https://example.com/same"] == 3
+
+
+def test_plain_text_link_relevance_orders_links_from_document_context():
+    result = extract_resource(
+        (
+            b"Appendix https://example.com/appendix\n"
+            b"Market outlook https://example.com/outlook\n"
+        ),
+        "text/plain",
+        "https://example.com/report.txt",
+        relevance_terms=["outlook"],
+    )
+
+    assert (
+        result.link_relevance["https://example.com/outlook"]
+        > (result.link_relevance["https://example.com/appendix"])
+    )
+
+
 def test_ooxml_member_count_is_rejected_before_expansion():
     raw = BytesIO()
     with zipfile.ZipFile(raw, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -356,6 +428,46 @@ def test_extract_xlsx_cells_and_hyperlinks_with_optional_processor_fake(
         "https://example.com/external",
         "https://example.com/in-text",
     ]
+
+
+def test_xlsx_link_relevance_uses_visible_cell_context(monkeypatch):
+    class Hyperlink:
+        target = "https://example.com/outlook"
+
+    class Cell:
+        coordinate = "A1"
+        value = "Market outlook"
+        hyperlink = Hyperlink()
+
+    class Sheet:
+        title = "Summary"
+        max_row = 1
+        max_column = 1
+
+        def iter_rows(self):
+            return [[Cell()]]
+
+    class Workbook:
+        worksheets = [Sheet()]
+
+        def close(self):
+            pass
+
+    class Openpyxl:
+        @staticmethod
+        def load_workbook(_stream, read_only, data_only):
+            return Workbook()
+
+    monkeypatch.setattr(extract_module, "import_module", lambda _: Openpyxl)
+
+    result = extract_resource(
+        b"workbook",
+        "application/octet-stream",
+        "https://example.com/a.xlsx",
+        relevance_terms=["outlook"],
+    )
+
+    assert result.link_relevance["https://example.com/outlook"] > 0
 
 
 def test_xlsx_sheet_count_is_bounded(monkeypatch):
