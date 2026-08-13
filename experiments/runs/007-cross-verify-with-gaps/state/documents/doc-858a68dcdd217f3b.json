@@ -1,0 +1,19 @@
+{
+  "id": "doc-858a68dcdd217f3b",
+  "requested_url": "https://ir.ehang.com/",
+  "final_url": "https://ir.ehang.com/",
+  "canonical_url": "https://ir.ehang.com/",
+  "title": "EHang Holdings Limited | Investor Relations",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-13T14:14:28.646380+00:00",
+  "source_type": "other",
+  "source_group": "ehang.com",
+  "raw_path": "data/raw/doc-858a68dcdd217f3b.raw",
+  "raw_sha256": "b75bf664aa9b985f33820ab977f6270ce144a7197cb4b74604b5be459e2e4579",
+  "text_path": "data/raw/doc-858a68dcdd217f3b.txt",
+  "text_sha256": "2ae64a66a57bdb925bbe276de2dd8dbcd21028ca8ad503e76c398a46d383165b",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}

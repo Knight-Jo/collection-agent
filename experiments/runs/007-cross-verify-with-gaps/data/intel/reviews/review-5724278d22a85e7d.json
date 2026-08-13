@@ -1,0 +1,13 @@
+{
+  "id": "review-5724278d22a85e7d",
+  "task_id": "task-3de8207e-d0f8-4e73-aa4c-d965daa3b1f5",
+  "fact_id": "fact-3ae3401f68f57e7b",
+  "evidence_id": "ev-9474efd68f25f714",
+  "verdict": "full",
+  "reason": "该quote完整支持事实的两个组成部分：1) 提及'Regulatory Sandbox X trial program'及EHang入选该试验项目（通过描述该程序下的申请）；2) 明确说明香港民航处已接受EHang本地合作伙伴冠忠集团（Kwoon Chung Group）提交的沙盒飞行申请。quote中的所有重要主体（亿航、冠忠集团、香港民航处、沙盒X程序）、动作（入选、申请被接受）均已覆盖。",
+  "unsupported_parts": [],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-13T14:26:49.868833+00:00"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "review-fc0fcfba7b2bc321",
+  "task_id": "task-3de8207e-d0f8-4e73-aa4c-d965daa3b1f5",
+  "fact_id": "fact-3ae3401f68f57e7b",
+  "evidence_id": "ev-3c27551acee82776",
+  "verdict": "partial",
+  "reason": "该quote仅支持事实中'亿航智能入选香港低空经济监管沙盒X试验项目'这一部分，即项目入选的事实。但事实还包含'其本地合作伙伴冠忠集团向香港民航处提交的沙盒飞行申请已获接受'这一重要组成部分，该quote未提及冠忠集团或飞行申请获批的任何信息。",
+  "unsupported_parts": [
+    "本地合作伙伴冠忠集团向香港民航处提交的沙盒飞行申请已获接受"
+  ],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-13T14:26:49.868765+00:00"
+}

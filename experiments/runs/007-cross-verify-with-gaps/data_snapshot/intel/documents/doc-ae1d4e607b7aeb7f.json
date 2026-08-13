@@ -1,0 +1,19 @@
+{
+  "id": "doc-ae1d4e607b7aeb7f",
+  "requested_url": "https://www.ehang.com/Public/cn/ehangweb/image/china.png",
+  "final_url": "https://www.ehang.com/Public/cn/ehangweb/image/china.png",
+  "canonical_url": "https://www.ehang.com/Public/cn/ehangweb/image/china.png",
+  "title": "china.png",
+  "content_type": "image/png",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-13T14:23:32.198259+00:00",
+  "source_type": "other",
+  "source_group": "ehang.com",
+  "raw_path": "data/raw/doc-ae1d4e607b7aeb7f.raw",
+  "raw_sha256": "a8cd62a44353e4108c85871b7b1e049264b05c301c36b001ec1812886728346a",
+  "text_path": "data/raw/doc-ae1d4e607b7aeb7f.txt",
+  "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "extraction_status": "unavailable",
+  "injection_warnings": []
+}

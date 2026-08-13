@@ -1,0 +1,19 @@
+{
+  "id": "doc-7ec6f7060c838796",
+  "requested_url": "https://www.visitorlando.com/things-to-do/theme-parks",
+  "final_url": "https://www.visitorlando.com/things-to-do/theme-parks/",
+  "canonical_url": "https://www.visitorlando.com/things-to-do/theme-parks",
+  "title": "Orlando Theme Parks | Disney, Universal, SeaWorld & LEGOLAND",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-13T14:22:39.416879+00:00",
+  "source_type": "other",
+  "source_group": "visitorlando.com",
+  "raw_path": "data/raw/doc-7ec6f7060c838796.raw",
+  "raw_sha256": "d8e80d857689c89b8664aadc6d8263e96933e0aa42bf913f33c687c0adae5f32",
+  "text_path": "data/raw/doc-7ec6f7060c838796.txt",
+  "text_sha256": "0b23ba27aa208a00332dc72118e7ba1d3ba1b4c5f40f7a1d37dca14712bbb125",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}

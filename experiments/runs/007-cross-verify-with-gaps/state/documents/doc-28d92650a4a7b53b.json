@@ -1,0 +1,19 @@
+{
+  "id": "doc-28d92650a4a7b53b",
+  "requested_url": "https://elc.polyu.edu.hk/goodpoint/www.baidu.com/index.html",
+  "final_url": "https://elc.polyu.edu.hk/goodpoint/www.baidu.com/index.html",
+  "canonical_url": "https://elc.polyu.edu.hk/goodpoint/www.baidu.com/index.html",
+  "title": "百度一下，你就知道",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-13T14:22:27.089257+00:00",
+  "source_type": "academic",
+  "source_group": "polyu.edu.hk",
+  "raw_path": "data/raw/doc-28d92650a4a7b53b.raw",
+  "raw_sha256": "a48dc21b1abafbd44428b67e692f6a4bd3c6cc7ec591ef9369c9e380edab10b9",
+  "text_path": "data/raw/doc-28d92650a4a7b53b.txt",
+  "text_sha256": "08da2f1abb795f52ebcb04568d57230fc248a8b45f1f9b7c1fe23d0a4b5f9261",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}

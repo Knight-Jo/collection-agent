@@ -1,0 +1,111 @@
+{
+  "items": [
+    {
+      "id": "challenge-08ab93e8-f950-4c3b-b7c6-5d74ec70ed81",
+      "task_id": "task-3de8207e-d0f8-4e73-aa4c-d965daa3b1f5",
+      "round": 1,
+      "status": "confirmed",
+      "evidence_ids_before": [
+        "ev-0c5b9a3ba33bfc48",
+        "ev-3c27551acee82776",
+        "ev-9474efd68f25f714",
+        "ev-be3a42fc185c451d",
+        "ev-efedb6defda290f2"
+      ],
+      "points": [
+        {
+          "id": "cp-r1-18c074a1",
+          "question_ids": [
+            "q-d271bd87-b0fd-4ef5-b2c4-d2cf261abd9a"
+          ],
+          "category": "evidence_gap",
+          "challenge": "关于'2026年低空经济投资与融资趋势'，未提供任何具体投资规模、融资额、基金或公司融资案例的数据；唯一事实仅涉及政策/战略定位（十五五规划），且只有中国日报1个独立来源组，缺少第二个独立来源交叉验证。无法据此判断2026年融资趋势。",
+          "gap_action": "需补充第二个独立来源（如财经媒体或官方统计）并提供具体融资/投资数据，否则该问显得以推测呈现。",
+          "status": "dismissed",
+          "reason": "公开来源情报在此环境下面临严重网络限制：web_search 预算6次已耗尽，且候选结果多为不相关噪音；目标独立来源(SEC EDGAR 403、FoxBusiness 403、xueqiu WAF加密、eastmoney搜索结果JS未渲染)均无法抓取到可用正文。因此无法获得第二个独立来源或具体融资/规模数据。此缺口为预算与网络限制下的硬性可接受缺口，且 require_recency=false，我将在最终报告中明确披露 '2026年融资具体数据未能获得、仅有政策/战略层面的单一来源支撑' 的局限。",
+          "new_evidence_ids": []
+        },
+        {
+          "id": "cp-r1-0472681c",
+          "question_ids": [
+            "q-5c0f0d1c-c853-46f8-8241-05623dadef54"
+          ],
+          "category": "evidence_gap",
+          "challenge": "'亿航智能商业化进展与订单情况'核心的哈萨克斯坦EH216-S载人飞行仅由亿航公司自身来源（且为标题级、审核为partial）支撑，未获完整文章或第二个独立来源；未提供任何订单数量、交付量与营收数据。商业化'进展'与'订单'关键证据链不完整。",
+          "gap_action": "需补充亿航财报/公告或独立媒体报道的订单与交付数据，并完善哈萨克斯坦飞行证据至full。",
+          "status": "dismissed",
+          "reason": "哈萨克斯坦EH216-S载人飞行由亿航公司官方来源（全球新闻中心与投资者关系页，2026-08-10）独立两次披露，属公司对外公告的一手信号；因搜索与抓取预算均已耗尽（search_budget_exhausted + 连续抓取未新增证据6次被拦），无法在本轮获取第二个独立来源或完整文章正文，证据链确不完整，此种缺口已如实保留并将在研判中标注为单源/低置信。属预算硬限制下的可接受缺口。",
+          "new_evidence_ids": []
+        },
+        {
+          "id": "cp-r1-72881526",
+          "question_ids": [
+            "q-5c0f0d1c-c853-46f8-8241-05623dadef54"
+          ],
+          "category": "recency",
+          "challenge": "亿航相关证据的发布时间多为2026年8月(哈萨克斯坦)与2026年1月(香港沙盒)，中国日报文章发布于2026年1月28日；对'商业化进展'属时效可接受，但需确认不存在更新的反向或矛盾信息(如订单取消、经营风险)。",
+          "gap_action": "补充来源确认无未消解矛盾。",
+          "status": "dismissed",
+          "reason": "现有全部证据中未发现该主题存在 contradicts 证据或未消解矛盾；未登记任何 conflict。哈萨克斯坦飞行(2026-08-10)与香港沙盒(2026-01-28)时效在120天内属可接受。因预算耗尽未能在本轮补充更新/反向信息复核，此点按'无矛盾证据'处理，缺口保留。",
+          "new_evidence_ids": []
+        }
+      ],
+      "accepted_partial_questions": [],
+      "converged": false,
+      "created_at": "2026-08-13T14:31:30.820485+00:00",
+      "confirmed_at": "2026-08-13T14:31:39.477195+00:00"
+    },
+    {
+      "id": "challenge-58e5146e-6f10-470a-9dc6-a94ff9dc2e76",
+      "task_id": "task-3de8207e-d0f8-4e73-aa4c-d965daa3b1f5",
+      "round": 2,
+      "status": "confirmed",
+      "evidence_ids_before": [
+        "ev-0c5b9a3ba33bfc48",
+        "ev-3c27551acee82776",
+        "ev-9474efd68f25f714",
+        "ev-be3a42fc185c451d",
+        "ev-efedb6defda290f2"
+      ],
+      "points": [
+        {
+          "id": "cp-r2-a74246b7",
+          "question_ids": [
+            "q-d271bd87-b0fd-4ef5-b2c4-d2cf261abd9a"
+          ],
+          "category": "evidence_gap",
+          "challenge": "第二轮：'2026年低空经济投资与融资趋势'仍无具体融资/投资规模数据，且唯一事实仅有1个独立来源组（chinadailyhk），未达覆盖。因检索与抓取预算均已耗尽，无法补充新独立来源。",
+          "gap_action": "接受此问为partial，保留缺口并在最终报告中披露。",
+          "status": "dismissed",
+          "reason": "两轮挑战均因检索(search_budget_exhausted,6次)与抓取(fetch_without_evidence,连续6次未新增证据被拦)预算完全耗尽而无法补充第二独立来源或具体融资数据。属硬性可接受缺口，接受为partial，将在最终报告中披露。",
+          "new_evidence_ids": []
+        },
+        {
+          "id": "cp-r2-0257a726",
+          "question_ids": [
+            "q-5c0f0d1c-c853-46f8-8241-05623dadef54"
+          ],
+          "category": "evidence_gap",
+          "challenge": "第二轮：'亿航智能商业化进展与订单情况'的哈萨克斯坦EH216-S载人飞行证据仍为亿航单源且审核为partial，无法获得完整正文或第二独立来源；无订单/交付量数据。",
+          "gap_action": "接受此问为partial，保留缺口并在最终报告中披露。",
+          "status": "dismissed",
+          "reason": "哈萨克斯坦飞行证据为亿航官方单源(标题级、audit partial)，预算耗尽无法获取完整正文或第二独立来源，亦无订单/交付量数据。两轮后仍不充分，系统按with_gaps终态处理，缺口如实保留。",
+          "new_evidence_ids": []
+        }
+      ],
+      "accepted_partial_questions": [
+        {
+          "question_id": "q-d271bd87-b0fd-4ef5-b2c4-d2cf261abd9a",
+          "reason": "搜索预算6次与抓取预算均已耗尽，且目标独立来源（SEC EDGAR、FoxBusiness、xueqiu、eastmoney均被403/WAF/JS拦截）无法抓取可用正文，无法获得第二个独立来源或具体2026融资/投资规模数据。仅有政策/战略层面单一来源（chinadailyhk）支撑，接受该问为partial。"
+        },
+        {
+          "question_id": "q-5c0f0d1c-c853-46f8-8241-05623dadef54",
+          "reason": "哈萨克斯坦EH216-S载人飞行为亿航公司官方单源且审核为partial，无法获得完整文章或第二独立来源；无订单/交付量/营收数据。因预算耗尽无法补证，接受该问为partial。"
+        }
+      ],
+      "converged": true,
+      "created_at": "2026-08-13T14:32:06.800422+00:00",
+      "confirmed_at": "2026-08-13T14:32:13.013066+00:00"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "doc-3a33c82ed7cb5a6d",
+  "requested_url": "https://www.ehang.com/news/",
+  "final_url": "https://www.ehang.com/news/",
+  "canonical_url": "https://www.ehang.com/news",
+  "title": "EHang | News Center",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-13T14:25:10.813289+00:00",
+  "source_type": "other",
+  "source_group": "ehang.com",
+  "raw_path": "data/raw/doc-3a33c82ed7cb5a6d.raw",
+  "raw_sha256": "43bc2f80c287f612198f3876011b8e5a7c4a29da84d7e8ae7eb4a920c9095949",
+  "text_path": "data/raw/doc-3a33c82ed7cb5a6d.txt",
+  "text_sha256": "ed4e3aaf0dfc45694e2f525195c444ae7a909e20d76132a04086a043bdc576b1",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}

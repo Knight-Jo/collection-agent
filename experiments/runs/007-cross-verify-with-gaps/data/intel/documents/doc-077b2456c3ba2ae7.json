@@ -1,0 +1,19 @@
+{
+  "id": "doc-077b2456c3ba2ae7",
+  "requested_url": "https://www.2345.com/baidu/baidusearch.html",
+  "final_url": "https://www.2345.com/baidu/baidusearch.html",
+  "canonical_url": "https://www.2345.com/baidu/baidusearch.html",
+  "title": "�ٶ�һ�£����֪��",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-13T14:22:27.257855+00:00",
+  "source_type": "other",
+  "source_group": "2345.com",
+  "raw_path": "data/raw/doc-077b2456c3ba2ae7.raw",
+  "raw_sha256": "e00c3852f7b015797eecc739865cfd7cc5f93bc61ef62ffeaeac25c504e39fc8",
+  "text_path": "data/raw/doc-077b2456c3ba2ae7.txt",
+  "text_sha256": "df77c6829f9806c1e4d7e3cae42a99fe9c5b4b2c389aa535fa72e170fbbb9976",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}

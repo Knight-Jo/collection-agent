@@ -1,0 +1,13 @@
+{
+  "id": "review-c87dd74c955f0438",
+  "task_id": "task-3de8207e-d0f8-4e73-aa4c-d965daa3b1f5",
+  "fact_id": "fact-9062767fab36af61",
+  "evidence_id": "ev-0c5b9a3ba33bfc48",
+  "verdict": "full",
+  "reason": "The quote directly states that the LAE (Low-Altitude Economy) is named in the recommendations for the nation's 15th Five-Year Plan (2026-30) as a strategic emerging industrial cluster to be accelerated. This fully supports all key components of the fact: the low-altitude economy being included in the national 15th Five-Year Plan recommendations, the timeframe (2026-2030), the designation as a strategic emerging industrial cluster, and the acceleration aspect.",
+  "unsupported_parts": [],
+  "judge_provider": "deepseek",
+  "judge_model": "deepseek-chat",
+  "prompt_version": "support-entailment-v1",
+  "created_at": "2026-08-13T14:26:49.868856+00:00"
+}

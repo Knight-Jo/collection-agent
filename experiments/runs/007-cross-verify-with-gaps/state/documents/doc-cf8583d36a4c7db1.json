@@ -1,0 +1,19 @@
+{
+  "id": "doc-cf8583d36a4c7db1",
+  "requested_url": "https://www.ehang.com/cn",
+  "final_url": "https://www.ehang.com/cn",
+  "canonical_url": "https://www.ehang.com/cn",
+  "title": "亿航智能 EHang | 亿航智能 EHang | 城市空中交通无人驾驶航空器创新者",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-13T14:15:27.569318+00:00",
+  "source_type": "other",
+  "source_group": "ehang.com",
+  "raw_path": "data/raw/doc-cf8583d36a4c7db1.raw",
+  "raw_sha256": "88d45fde0e812b751be4b67f2c1a9a5623dad0d29a67180b6ebf974b598e2367",
+  "text_path": "data/raw/doc-cf8583d36a4c7db1.txt",
+  "text_sha256": "144cb0e0aed7ed93fcc9825e926c6bf07741094965233ebbed49865ebdbc3ad0",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}

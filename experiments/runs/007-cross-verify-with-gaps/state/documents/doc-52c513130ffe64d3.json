@@ -1,0 +1,19 @@
+{
+  "id": "doc-52c513130ffe64d3",
+  "requested_url": "https://de.visitorlando.com/aktivitaeten/themenparks/universal-orlando-resort",
+  "final_url": "https://de.visitorlando.com/aktivitaeten/themenparks/universal-orlando-resort/",
+  "canonical_url": "https://de.visitorlando.com/aktivitaeten/themenparks/universal-orlando-resort",
+  "title": "Universal Orlando Resort : Parkführer und Informationen",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-13T14:22:58.990336+00:00",
+  "source_type": "other",
+  "source_group": "visitorlando.com",
+  "raw_path": "data/raw/doc-52c513130ffe64d3.raw",
+  "raw_sha256": "511599af7b8f2b3a3c30b07b1c55f1bbf98ceaa0aa5b116bb355ee5c106ec9b7",
+  "text_path": "data/raw/doc-52c513130ffe64d3.txt",
+  "text_sha256": "5c23186a7f365b0cb9705bc380cedeb994a3c760045c1115eeae41dd26b7dc17",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}

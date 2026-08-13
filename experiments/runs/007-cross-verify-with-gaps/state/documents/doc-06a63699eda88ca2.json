@@ -1,0 +1,19 @@
+{
+  "id": "doc-06a63699eda88ca2",
+  "requested_url": "https://hr.ehang.com/campus",
+  "final_url": "https://hr.ehang.com/campus",
+  "canonical_url": "https://hr.ehang.com/campus",
+  "title": "校园招聘",
+  "content_type": "text/html",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-13T14:15:34.608089+00:00",
+  "source_type": "other",
+  "source_group": "ehang.com",
+  "raw_path": "data/raw/doc-06a63699eda88ca2.raw",
+  "raw_sha256": "194de8ef06400e7607b4c526b80cf36e4919576fbe6bf02f4e70cdf05243ecbc",
+  "text_path": "data/raw/doc-06a63699eda88ca2.txt",
+  "text_sha256": "b8b92a1bc1d0c536cff13c7e33a37f314a5742a5fa6fb3f5615848426725d9ad",
+  "extraction_status": "complete",
+  "injection_warnings": []
+}

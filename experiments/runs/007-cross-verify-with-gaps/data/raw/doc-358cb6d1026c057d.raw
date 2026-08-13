@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en" class="h-100">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="UTF-8" />
+    <title>Welcome to the BLS Spain Visa Application Centres - Official Website</title>
+    <meta
+      name="description"
+      content=""
+    />
+    <meta
+      name="keywords"
+      content=""
+    />
+    <meta name="author" content="BLS International" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="google-site-verification" content="dIhSAYuh3ZKP-bb4JYXTSbKilkajnCULOR9aRbP_q_c" />
+    <link rel="canonical" href="https://blsspainvisa.com/" />
+    <link rel="icon" href="assets/images/favicon.ico" type="image/x-icon" />
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="./assets/css/bootstrap.min.css" />
+
+    <!-- Style CSS -->
+    <link rel="stylesheet" href="./assets/css/style.css" />
+    <!-- Responsive CSS -->
+    <link rel="stylesheet" href="./assets/css/responsive.css" />
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZQ8983R25S"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-ZQ8983R25S");
+    </script>
+    <meta name="yandex-verification" content="e091d78687a0dd36" />
+    <meta name="msvalidate.01" content="74025A0B257CF66A0C144DBDDFC7BC34" />
+  </head>
+
+  <body>
+    <div class="main-header shadow-sm">
+      <div class="container">
+        <nav class="navbar navbar-expand-lg">
+          <div class="container-fluid p-0">
+            <a class="navbar-brand p-0" href="#">
+              <img src="./assets/images/bls-logo.png" alt="bls-logo" width="100" />
+            </a>
+
+            <div class="navbar-collapse1" id="navbarSupportedContent">
+              <div class="ms-auto d-flex">                
+                <div class="main-text me-2">
+                  <h4>
+                    Apply for <span class="theme_fontcolor">VISA to Spain</span>
+                  </h4>
+                  <a href="#" class="active">English</a> | <a href="index-spain.php">Español</a>
+                </div>
+                <div class="log_img">
+                  <img src="./assets/images/spain-flag.png" alt="logo" width="85" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </nav>
+      </div>
+    </div>
+
+    <section class="hero_section">
+      <div class="hero_section_inner" style="background-image: url(assets/images/map-desktop.png);">
+        <div class="container">
+          <div class="  ">
+            <h1>Welcome to the <span class="theme_fontcolor">Spain</span> Visa Application Centres</h1>
+            <p>Please select the region and country you wish to apply from</p>
+          </div>
+          <div class="main-wrapper">
+            <form>
+              <div class="mb-3 position-relative">              
+                <input type="text" class="form-control" id="searchbar" placeholder="Enter input here" onkeyup="search_country()" autocomplete="off">
+                <img src="assets/images/search-icon.png" alt="icon" class="i fa-search"/>
+              </div>
+            </form>
+  
+            <div class="row spain-home" >
+              <div class="col-md-3">
+                <div class="country-card">
+                  <h2>Asia REGION (9)</h2>
+                  <ul class="country-list">
+                    <li class="country-name"><a href="https://bgd.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/bangladesh-flag.svg" alt="flag1" /></span> <span class="text">Bangladesh</span></a></li>
+                    <li class="country-name"><a href="https://web.blscn.cn/" target="_blank"><span class="flag"><img src="./assets/images/China_flag.svg" alt="flag1" /></span> <span class="text">China</span></a></li>
+                    <li class="country-name"><a href="https://india.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/India-flag.svg" alt="flag1" /></span> <span class="text">India</span></a></li>
+                    <li class="country-name"><a href="https://idn.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Indonesia Flag.svg" alt="flag1" /></span> <span class="text">Indonesia</span></a></li>
+                    <!-- <li class="country-name"><a href="https://thespainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/pakistan-flag-icon.png" alt="flag1" /></span> <span class="text">Pakistan</span></a></li> -->
+                    <li class="country-name"><a href="https://ph.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Philippines-flag.svg" alt="flag1" /></span> <span class="text">Philippines</span></a></li>
+                    <li class="country-name"><a href="https://singapore.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/singapore-flag.svg" alt="flag1" /></span> <span class="text">Singapore</span></a></li>
+                    <li class="country-name"><a href="https://india.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/sri-lanka-flag-icon.svg" alt="flag1" /></span> <span class="text">Sri Lanka</span></a></li>
+                    <li class="country-name"><a href="https://thailand.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/thiland-flag.svg" alt="flag1" /></span> <span class="text">Thailand</span></a></li>
+                    <li class="country-name"><a href="https://vietnam.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/vietna-flag.svg" alt="flag1" /></span> <span class="text">Vietnam</span></a></li>
+                    
+                  </ul>
+                </div>
+              </div>
+  
+              <div class="col-md-3">
+                <div class="country-card">
+                  <h2>Middle East & Africa (22)</h2>
+                  <ul class="country-list">
+                    <li class="country-name"><a href="https://algeria.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Algeria-flag.svg" alt="flag1" /></span> <span class="text">Algeria</span></a></li>
+                    <li class="country-name"><a href="https://bahrain.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Bahrain-flag.svg" alt="flag1" /></span> <span class="text">Bahrain</span></a></li>
+                    <li class="country-name"><a href="https://civ.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Cote-flag.svg" alt="flag1" /></span> <span class="text">Côte d'Ivoire</span></a></li>
+                    <li class="country-name"><a href="https://egypt.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Egypt-flag.svg" alt="flag1" /></span> <span class="text">Egypt</span></a></li>
+                    <li class="country-name"><a href="https://gq.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/equatorial-guinea.svg" alt="flag1" /></span> <span class="text">Equatorial Guinea</span></a></li>
+                    <li class="country-name"><a href="https://ghana.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/ghana_flag.svg" alt="flag1" /></span> <span class="text">Ghana</span></a></li>
+                    <!-- <li class="country-name"><a href="https://spainvisa-iran.com/" target="_blank"><span class="flag"><img src="./assets/images/iran-flag-icon.svg" alt="flag1" /></span> <span class="text">Iran</span></a></li> -->
+                    <li class="country-name"><a href="https://jerusalem.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/israel-flag.svg" alt="flag1" /></span> <span class="text">Jerusalem</span></a></li>
+                    <li class="country-name"><a href="https://jordan.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Jordan-flag.svg" alt="flag1" /></span> <span class="text">Jordan</span></a></li>
+                    <li class="country-name"><a href="https://kenya.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Kenya-flag.svg" alt="flag1" /></span> <span class="text">Kenya</span></a></li>
+                    <li class="country-name"><a href="https://kuwait.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Kuwait-flag.svg" alt="flag1" /></span> <span class="text">Kuwait</span></a></li>
+                    <li class="country-name"><a href="https://lebanon.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Lebanon-flag.svg" alt="flag1" /></span> <span class="text">Lebanon</span></a></li>
+                    <li class="country-name"><a href="https://libya.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/libya-fag.svg" alt="flag1" /></span> <span class="text">Libya</span></a></li>
+                    <li class="country-name"><a href="https://mr.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/mauritania-flag.svg" alt="flag1" /></span> <span class="text">Mauritania</span></a></li>
+                    <li class="country-name"><a href="https://blsspainmorocco.com/" target="_blank"><span class="flag"><img src="./assets/images/Morocco-flag.svg" alt="flag1" /></span> <span class="text">Morocco</span></a></li>
+                    <li class="country-name"><a href="https://nigeria.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Nigeria-flag.svg" alt="flag1" /></span> <span class="text">Nigeria</span></a></li>
+                    <li class="country-name"><a href="https://oman.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/oman-flag.svg" alt="flag1" /></span> <span class="text">Oman</span></a></li>
+                    <li class="country-name"><a href="https://qatar.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/qatar-flag.svg" alt="flag1" /></span> <span class="text">Qatar</span></a></li>
+                    <li class="country-name"><a href="https://saudi.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Saudi Arabia Flag.svg" alt="flag1" /></span> <span class="text">Saudi Arabia</span></a></li>
+                    <li class="country-name"><a href="https://senegal.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/senegal-flag.svg" alt="flag1" /></span> <span class="text">Senegal </span></a></li>
+                    <li class="country-name"><a href="https://sa.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/South Africa-flag.svg" alt="flag1" /></span> <span class="text">South Africa</span></a></li>
+                    <li class="country-name"><a href="https://tunisia.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Tunisia-flag.svg" alt="flag1" /></span> <span class="text">Tunisia</span></a></li>
+                    <li class="country-name"><a href="https://uae.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/UAE-flag.svg" alt="flag1" /></span> <span class="text">UAE</span></a></li>
+                  </ul>
+                </div>
+              </div>
+  
+              <div class="col-md-3">
+                <div class="country-card">
+                  <h2>Russia and CIS (5)</h2>
+                  <ul class="country-list">
+                    <li class="country-name"><a href="https://armenia.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Armenia-flag.svg" alt="flag1" /></span> <span class="text">Armenia</span></a></li>
+                    <li class="country-name"><a href="https://blsspainbelarus.by/" target="_blank"><span class="flag"><img src="./assets/images/Belarus-flag.svg" alt="flag1" /></span> <span class="text">Belarus</span></a></li>                  
+                    <li class="country-name"><a href="https://kz.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Kazakhstan-flag.svg" alt="flag1" /></span> <span class="text">Kazakhstan</span></a></li>
+                    <li class="country-name"><a href="https://www.blsspainrussia.ru/" target="_blank"><span class="flag"><img src="./assets/images/Russia-flag.svg" alt="flag1" /></span> <span class="text">Russia</span></a></li>              
+                    <li class="country-name"><a href="https://uzbek.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/uzbakistan-flag.svg" alt="flag1" /></span> <span class="text">Uzbekistan</span></a></li>
+                  </ul>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="country-card">
+                  <h2>Europe REGION (3)</h2>
+                  <ul class="country-list">
+                    <li class="country-name"><a href="https://ireland.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/ireland-flag.svg" alt="flag1" /></span> <span class="text">Ireland</span></a></li>
+                    <li class="country-name"><a href="https://turkey.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Turkey-flag.svg" alt="flag1" /></span> <span class="text">Turkey</span></a></li>
+                    <li class="country-name"><a href="https://uk.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/United Kingdom-flag.svg" alt="flag1" /></span> <span class="text">United Kingdom</span></a></li>                  
+                  </ul>
+                </div>
+              </div>
+  
+              <div class="col-md-3">
+                <div class="country-card">
+                  <h2>Americas REGION (9)</h2>  
+                  <ul class="country-list">
+                    <li class="country-name"><a href="https://buenosaires.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/argenita-flag.png" alt="flag1" /></span> <span class="text">Argentina</span></a></li>
+                    <li class="country-name"><a href="https://bolivia.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/bolivia-flag.svg" alt="flag1" /></span> <span class="text">Bolivia</span></a></li>
+                    <li class="country-name"><a href="https://chile.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/chile-flag-icon.svg" alt="flag1" /></span> <span class="text">Chile</span></a></li>
+                    <li class="country-name"><a href="https://colombia.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/colombia-flag-icon.svg" alt="flag1" /></span> <span class="text">Colombia</span></a></li>
+                    <li class="country-name"><a href="https://do.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Dominicanrepublic-flag.svg" alt="flag1" /></span> <span class="text">Dominican Republic</span></a></li>
+                    <li class="country-name"><a href="https://ecuador.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/Ecuador-flag.svg" alt="flag1" /></span> <span class="text">Ecuador</span></a></li>
+                    <li class="country-name"><a href="https://mexico.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/mexico-flag-icon.svg" alt="flag1" /></span> <span class="text">Mexico</span></a></li>
+                    <!-- <li class="country-name"><a href="https://nyc.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/new-york-state-flag.svg" alt="flag1" /></span> <span class="text">New York</span></a></li> -->
+                    <li class="country-name"><a href="https://peru.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/peru-national-flag-icon.svg" alt="flag1" /></span> <span class="text">Peru</span></a></li>
+                    <li class="country-name"><a href="https://usa.blsspainvisa.com/" target="_blank"><span class="flag"><img src="./assets/images/United States of America-flag.svg" alt="flag1" /></span> <span class="text">United States of America</span></a></li>
+                    
+                  </ul>
+                </div>
+              </div>
+            </div>           
+        </div>
+        </div>
+      </div>
+    </section>
+    <div data-hottrix-secret-key="cmQ2MDBZWGcrbTZMRDdtcDBIa1lzUT09:3cf3a99a939a3c71a08b6acf87a314bf70a1fba54dd0c42e9b8d2bfb7bf1b621"
+    id="hottrix_chat_widow_initiate_root"></div>
+    <script src="https://desk.hottrix.in/modules/hotbot_version_two/hotbot2.js"></script>
+    <footer>
+      <div class="row">
+        <p class="m-0">© 2026 BLS International. All Rights Reserved.</p>
+      </div>
+    </footer>
+    
+    <!--Jquery JS -->
+    <script src="./assets/js/jquery.min.js"></script>
+    <!--Popper JS -->
+    <!-- <script src="./assets/js/popper.min.js"></script> -->
+    <!--Bootstrap JS -->
+    <script src="./assets/js/bootstrap.min.js"></script>
+    <script src="./assets/js/main.js"></script>  
+    <script src="./assets/js/sienna.min.js"></script>
+    <!-- <script>
+    setTimeout(function() {
+        $('#exampleMod2').modal('show');
+    }, 50);
+    </script> -->
+  </body>
+</html>

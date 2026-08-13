@@ -1,0 +1,19 @@
+{
+  "id": "doc-8ccc37ebd83aa0df",
+  "requested_url": "https://www.ehang.com/Public/cn/ehangweb/image/index/p35@2.jpg",
+  "final_url": "https://www.ehang.com/Public/cn/ehangweb/image/index/p35@2.jpg",
+  "canonical_url": "https://www.ehang.com/Public/cn/ehangweb/image/index/p35@2.jpg",
+  "title": "p35@2.jpg",
+  "content_type": "image/jpeg",
+  "publish_time": null,
+  "publish_time_source": "unknown",
+  "collected_at": "2026-08-13T14:23:38.144697+00:00",
+  "source_type": "other",
+  "source_group": "ehang.com",
+  "raw_path": "data/raw/doc-8ccc37ebd83aa0df.raw",
+  "raw_sha256": "378a8629015f2e538e89c91034682e8c10570bb7553f66e960f6023002ebf1cb",
+  "text_path": "data/raw/doc-8ccc37ebd83aa0df.txt",
+  "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "extraction_status": "unavailable",
+  "injection_warnings": []
+}
