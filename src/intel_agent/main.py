@@ -16,6 +16,7 @@ from pathlib import Path
 from .config import load_config
 from .models import SufficiencyCriteria
 from .runner import TaskRunSpec, run_agent_task
+from .task import load_task
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -50,6 +51,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--max-turns", type=int, default=40, help="agent 最大工具轮次"
+    )
+    parser.add_argument(
+        "--max-tool-calls", type=int, default=None, help="agent 最大工具调用数"
     )
     parser.add_argument(
         "--trace", default=None, help="保存完整消息轨迹到 JSONL 文件"
@@ -131,6 +135,8 @@ async def _run(args: argparse.Namespace) -> int:
             require_recency=args.require_recency,
         ),
         deep_crawl=args.deep_crawl,
+        max_requests=args.max_turns,
+        max_tool_calls=args.max_tool_calls,
     )
     result = await run_agent_task(Path(args.cwd), settings, spec)
     if args.trace:
@@ -140,7 +146,11 @@ async def _run(args: argparse.Namespace) -> int:
     print(
         f"\n[usage] requests={usage.requests} total_tokens={usage.total_tokens}"
     )
-    return 0
+    try:
+        task = load_task(Path(args.cwd))
+    except Exception:
+        return 2
+    return 0 if task.stage == "done" else 2
 
 
 def main() -> int:

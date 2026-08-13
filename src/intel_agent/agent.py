@@ -10,6 +10,7 @@ were added to curb LLM re-fetch loops observed in experiments.
 
 from __future__ import annotations
 
+import html
 import inspect
 import json
 import re
@@ -30,7 +31,7 @@ from .challenge import confirm_challenge, start_challenge
 from .config import ModelConfig, Settings
 from .conflicts import resolve_conflict, save_conflict
 from .coverage import eval_coverage
-from .crawl import CrawlEventCallback, create_crawl
+from .crawl import CrawlEventCallback, create_crawl, summarize_crawl
 from .crawl import crawl_collect as run_crawl_collect
 from .evidence import list_evidence_for_task, load_document, save_evidence
 from .fact import load_fact, save_fact, supersede_fact
@@ -51,11 +52,11 @@ from .search import (
 )
 from .storage import (
     ensure_intel_dirs,
+    load_crawl,
     verify_document_integrity,
     workspace_path,
 )
 from .task import (
-    FETCH_ATTEMPT_LIMIT,
     create_task,
     load_task,
     record_evidence_progress,
@@ -88,9 +89,9 @@ SYSTEM_PROMPT = """\
 9. `contradicts` 证据和未消解矛盾会阻止相关 Fact 达到 covered；必须登记、补检索、消解，或在最终报告中保留。
 10. 连续两次 `coverage_eval` 没有降低 `gap_score` 时必须停止检索；新增低价值证据不算进展。
 11. 红队复审最多两轮；不得用复审前已有证据冒充新增证据。
-12. 自最近一次新增 evidence 起最多执行 6 次 `web_fetch`；收到 `COLLECTION_BUDGET_EXHAUSTED` 后不得继续猜测 URL，必须从已抓取文档存证、运行审核/覆盖评估，或接受缺口停止。
-13. 每个任务最多执行 6 次 `web_search`。收到 `SEARCH_BUDGET_EXHAUSTED` 后不得继续换词搜索，必须使用已有候选来源或接受检索缺口。
-14. 深度抓取任务中，`web_search` 只负责播种；必须调用 `crawl_collect` 清空可执行队列，并用 `document_read` 读取完整提取的归档正文后才能评估覆盖。
+12. `web_fetch` 次数受任务配置限制；收到 `COLLECTION_BUDGET_EXHAUSTED` 后不得继续猜测 URL，必须从已抓取文档存证、运行审核/覆盖评估，或接受缺口停止。
+13. `web_search` 次数受任务配置限制。收到 `SEARCH_BUDGET_EXHAUSTED` 后不得继续换词搜索，必须使用已有候选来源或接受检索缺口。
+14. 深度抓取任务中，`web_search` 只负责播种；必须调用 `crawl_collect` 清空可执行队列，先用 `document_search` 查找已归档语料，再用 `document_read` 读取完整提取的正文后才能评估覆盖。
 
 ## 工作流
 
@@ -111,7 +112,7 @@ SYSTEM_PROMPT = """\
 10. 对挑战点定向补检索。确认时：
     - `addressed` 必须给出本轮开始后新增、关联相关活跃 Fact、且 supports 已审核为 full 的 evidence ID；
     - `dismissed` 必须给出可审查理由；
-    - 接受未充分问题必须在 `accepted_partial_questions` 给出理由。
+    - 接受未充分问题必须在 `accepted_partial_questions` 给出理由；第二轮后仍不充分时，系统会以 with_gaps 终态完成并保留缺口。
 11. 收敛后更新研判，再将阶段推进到 `done`，向用户报告结论、置信度、矛盾、缺口和产物路径。
     `challenge_confirm` 会生成新 coverage；之后必须重新运行 `generate_package` 和 `intel_assess`。两类产物未绑定最新 coverage 或文件哈希变化时，`done` 会被拒绝。
 
@@ -255,7 +256,7 @@ class JudgeAgent:
 
 
 def _error_text(error: object) -> str:
-    return str(error)
+    return str(error) or type(error).__name__
 
 
 def _failure(error: object) -> dict:
@@ -360,9 +361,11 @@ def _seed_active_crawl(cwd: Path, settings: Settings, result: dict) -> None:
     items = [
         item
         for item in result.get("results", [])
-        if isinstance(item, dict) and item.get("url")
+        if isinstance(item, dict)
+        and item.get("url")
+        and item.get("fetchable", True)
     ]
-    urls = [str(item["url"]) for item in items]
+    urls = [html.unescape(str(item["url"])) for item in items]
     if urls:
         terms = tokenize_query(
             " ".join(
@@ -438,6 +441,56 @@ def _read_document_lines(
     }
 
 
+def _document_search(cwd: Path, task_id: str, query: str, limit: int) -> dict:
+    task = load_task(cwd, task_id)
+    if not task.deep_crawl:
+        raise IntelError("INVALID_INPUT", "该任务未启用深度抓取")
+    terms = [
+        term.casefold()
+        for term in re.findall(r"[\w\u4e00-\u9fff]+", query)
+        if len(term) >= 2
+    ]
+    if not terms or not 1 <= limit <= 20:
+        raise IntelError("INVALID_INPUT", "query 或 limit 无效")
+    results: list[dict] = []
+    for entry in load_crawl(cwd, task.id).entries:
+        if not entry.document_id or entry.extraction.status != "complete":
+            continue
+        document = load_document(cwd, entry.document_id)
+        verify_document_integrity(cwd, document)
+        text = workspace_path(cwd, document.text_path).read_text(
+            encoding="utf-8"
+        )
+        normalized = text.casefold()
+        if not all(term in normalized for term in terms):
+            continue
+        matching_line = next(
+            (
+                line.strip()
+                for line in text.splitlines()
+                if any(term in line.casefold() for term in terms)
+            ),
+            "",
+        )
+        results.append(
+            {
+                "document_id": document.id,
+                "title": document.title,
+                "url": document.final_url,
+                "mime_type": document.content_type,
+                "publish_time": document.publish_time,
+                "score": sum(normalized.count(term) for term in terms),
+                "snippet": matching_line[:500],
+            }
+        )
+    results.sort(key=lambda item: (-item["score"], item["document_id"]))
+    return {
+        "query": query,
+        "count": len(results[:limit]),
+        "results": results[:limit],
+    }
+
+
 def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
     settings = settings or Settings()
     api_key = settings.model_api_key()
@@ -473,7 +526,6 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         )
         if block:
             return {"results": [], "engineUsed": "blocked", "error": block}
-        record_search_attempt(ctx.deps.cwd)
         broad, reason = is_broad_query(query)
         if broad:
             return {
@@ -481,6 +533,10 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                 "engineUsed": "blocked",
                 "error": f"查询过宽：{reason}",
             }
+        record_search_attempt(
+            ctx.deps.cwd,
+            limit=ctx.deps.settings.budgets.search_attempts,
+        )
         result = await web_search(
             query,
             max_results,
@@ -530,7 +586,19 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             config=ctx.deps.settings.crawl,
             on_event=ctx.deps.crawl_event_callback,
         )
-        return snapshot.model_dump()
+        return summarize_crawl(snapshot)
+
+    @agent.tool(name="document_search")
+    def document_search_tool(
+        ctx: RunContext[AgentDeps],
+        task_id: str,
+        query: str,
+        limit: int = 10,
+    ) -> dict:
+        """Search extracted crawl text before spending more network budget."""
+        return _guarded_sync(
+            lambda: _document_search(ctx.deps.cwd, task_id, query, limit)
+        )
 
     @agent.tool(name="document_read")
     def document_read_tool(
@@ -564,7 +632,10 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                 "ok": False,
                 "error": {"code": "BLOCKED_REPETITION", "message": block},
             }
-        collection = record_fetch_attempt(ctx.deps.cwd)
+        collection = record_fetch_attempt(
+            ctx.deps.cwd,
+            limit=ctx.deps.settings.budgets.fetch_attempts_since_evidence,
+        )
         fetched_via = "pinned"
         try:
             document, content, outbound_links = await fetch_document(
@@ -592,7 +663,7 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         return {
             "document": document.model_dump(),
             "fetched_via": fetched_via,
-            "remaining_fetch_budget": FETCH_ATTEMPT_LIMIT
+            "remaining_fetch_budget": ctx.deps.settings.budgets.fetch_attempts_since_evidence
             - collection["fetch_attempts_since_evidence"],
             "preview": preview
             + ("\n[正文预览已截断]" if len(content) > len(preview) else ""),

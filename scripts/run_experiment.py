@@ -70,12 +70,15 @@ def main() -> int:
         help="前 N 个工具轮次后中止（调试用，0=完整运行）",
     )
     parser.add_argument("--config", default=None, help="config.yaml 路径")
-    parser.add_argument("--deep-crawl", action="store_true", help="启用深度抓取（BFS 爬虫）")
+    parser.add_argument(
+        "--deep-crawl", action="store_true", help="启用深度抓取（BFS 爬虫）"
+    )
     args = parser.parse_args()
     if not 2 <= len(args.questions) <= 6:
         print("错误: questions 数量必须为 2-6 个", file=sys.stderr)
         return 1
 
+    RUNS_DIR.mkdir(parents=True, exist_ok=True)
     number = _next_run_number()
     run_dir = RUNS_DIR / f"{number:03d}-{args.name}"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -126,7 +129,13 @@ def main() -> int:
         str(args.recency),
         "--trace",
         str(run_dir / "trace.jsonl"),
+        "--max-turns",
+        str(args.max_turns),
     ]
+    if args.dry:
+        cmd += ["--max-tool-calls", str(args.dry)]
+    if args.deep_crawl:
+        cmd.append("--deep-crawl")
     if args.config:
         cmd += ["--config", args.config]
 

@@ -138,3 +138,89 @@ def test_done_rejected_after_output_tampering(cwd):
     with pytest.raises(IntelError) as e:
         set_task_stage(cwd, task.id, "done")
     assert e.value.code == "INVALID_STAGE_TRANSITION"
+
+
+def test_package_reports_stale_coverage_when_fact_was_added_later(cwd):
+    task = create_task(
+        cwd,
+        "测试主题",
+        ["问题甲", "问题乙"],
+        {
+            "min_independent_sources": 2,
+            "min_high_quality_sources": 1,
+            "recency_days": 90,
+            "require_recency": False,
+        },
+    )
+    eval_coverage(cwd, task.id)
+    save_fact(cwd, task.id, task.questions[0].id, "覆盖评估后新增的事实")
+
+    with pytest.raises(IntelError) as error:
+        generate_package(cwd, task.id)
+
+    assert error.value.code == "COVERAGE_STALE"
+
+
+def test_second_challenge_can_complete_with_disclosed_gaps(cwd):
+    from intel_agent.assess import generate_assessment
+    from intel_agent.models import ReportedConclusion
+
+    task = create_task(
+        cwd,
+        "测试主题",
+        ["问题甲", "问题乙"],
+        {
+            "min_independent_sources": 2,
+            "min_high_quality_sources": 1,
+            "recency_days": 90,
+            "require_recency": False,
+        },
+    )
+    fact = save_fact(cwd, task.id, task.questions[0].id, "测试主题有一项进展")
+    document = make_document(cwd, "测试主题有一项进展")
+    save_evidence(cwd, fact.id, document, "supports", "测试主题有一项进展")
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+    eval_coverage(cwd, task.id)
+    eval_coverage(cwd, task.id)
+    eval_coverage(cwd, task.id)
+    set_task_stage(cwd, task.id, "assess")
+    set_task_stage(cwd, task.id, "challenge")
+    point = {
+        "question_ids": [task.questions[1].id],
+        "category": "覆盖不足",
+        "challenge": "第二个问题没有证据",
+        "gap_action": "补充独立来源",
+    }
+    for round_number in (1, 2):
+        challenge = start_challenge(cwd, task.id, round_number, [point])
+        confirmed = confirm_challenge(
+            cwd,
+            task.id,
+            round_number,
+            [
+                {
+                    "point_id": challenge.points[0].id,
+                    "status": "dismissed",
+                    "reason": "公开来源中未找到，保留缺口",
+                }
+            ],
+            [],
+        )
+        assert confirmed.converged is False
+
+    assert (
+        "intel_status(stage=done)"
+        in summarize_task(cwd, task.id)["next_action"]
+    )
+
+    generate_package(cwd, task.id)
+    assert generate_assessment(
+        cwd,
+        task.id,
+        [ReportedConclusion(fact_id=fact.id, attribution="example.com")],
+    )["ok"]
+
+    completed = set_task_stage(cwd, task.id, "done")
+
+    assert completed.completion_status == "with_gaps"
+    assert "缺口" in summarize_task(cwd, task.id)["next_action"]

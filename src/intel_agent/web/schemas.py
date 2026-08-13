@@ -19,7 +19,14 @@ from ..models import (
 )
 from ..runner import TaskRunSpec
 
-RunStatus = Literal["queued", "running", "completed", "failed", "cancelled"]
+RunStatus = Literal[
+    "queued",
+    "running",
+    "completed_sufficient",
+    "completed_with_gaps",
+    "failed",
+    "cancelled",
+]
 CrawlResourceStatus = Literal[
     "queued",
     "fetching",

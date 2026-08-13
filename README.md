@@ -6,14 +6,14 @@
 
 ## 特性
 
-- **完整工具链**：除检索、事实、证据、审核、覆盖和研判工具外，提供 `crawl_collect` 运行持久化抓取队列、`document_read` 分页读取已校验正文
+- **完整工具链**：除检索、事实、证据、审核、覆盖和研判工具外，提供 `crawl_collect` 运行持久化抓取队列、`document_search` 检索归档语料、`document_read` 分页读取已校验正文
 - **可信证据链**：所有关系用稳定 ID（fact/evidence/doc 为 SHA-256 派生 ID），引文逐字定位行号，文档原文与正文双重 SHA-256 完整性校验
 - **语义审计**：独立的隔离 LLM 法官逐条判定引文是否完整蕴含事实（full/partial/irrelevant/contradicts），只有 `full` 才计入覆盖；审核结果不可重复抽样
 - **安全边界**：DNS-pinned 抓取（SSRF 防护、私有地址拦截、重定向逐跳校验）、网页内容标记为不可信数据、注入检测
 - **预算与门控**：搜索 6 次 / 抓取 6 次（自上次新证据起）预算持久化；阶段状态机 `collect → assess → challenge → done` 相邻推进，产物绑定覆盖快照哈希
 - **红队复审**：最多两轮挑战，`addressed` 必须引用本轮新增且已 full 审核的证据
 - **深度抓取**：搜索结果播种持久化优先队列；逐跳执行 SSRF、DNS pinning、robots、速率、并发和字节限制，支持中断后恢复
-- **多文档类型**：HTML、PDF、Office、文本/CSV、图片、音视频；原件始终按 SHA-256 归档，处理器缺失时正文标记为不可用
+- **多文档类型**：从页面链接及 `img/audio/video/source/object/embed` 自动发现 HTML、PDF、Office、文本/CSV、图片、音视频；原件始终按 SHA-256 归档，处理器缺失时正文标记为不可用且不能进入证据链
 - **来源扩展**：抓取结果返回 `outbound_links` 可继续展开（不消耗搜索预算）；已知权威来源（金融/IR/政策）可直接抓取
 
 ## 快速开始
@@ -40,6 +40,10 @@ python -m intel_agent --topic "低空经济" \
 `crawl.enabled_by_default`。媒体处理还需要系统可执行文件：Tesseract（并安装
 `chi_sim`/`eng` 语言数据）、FFmpeg 和 LibreOffice。音视频转写使用 media extra
 中的 `faster-whisper`；缺少任一可选处理器不会丢弃已下载原件。
+
+CLI 的 `--max-turns` 限制单次运行的模型请求数，`--max-tool-calls` 限制工具调用数。
+研究充分时任务以 `completion_status=sufficient` 完成；两轮复审后仍有明确缺口时以
+`completion_status=with_gaps` 完成并保留披露，不再卡在挑战阶段。
 
 ### Web 工作台
 

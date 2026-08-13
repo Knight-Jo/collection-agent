@@ -106,9 +106,13 @@ def require_crawl_complete(cwd: Path, task: IntelTask) -> None:
         )
 
 
-def record_fetch_attempt(cwd: Path, task_id: str | None = None) -> dict:
+def record_fetch_attempt(
+    cwd: Path,
+    task_id: str | None = None,
+    limit: int = FETCH_ATTEMPT_LIMIT,
+) -> dict:
     task = load_task(cwd, task_id)
-    if task.collection.fetch_attempts_since_evidence >= FETCH_ATTEMPT_LIMIT:
+    if task.collection.fetch_attempts_since_evidence >= limit:
         if not task.collection.stop_reason:
             task = task.model_copy(
                 update={
@@ -121,7 +125,7 @@ def record_fetch_attempt(cwd: Path, task_id: str | None = None) -> dict:
             save_task(cwd, task)
         raise IntelError(
             "COLLECTION_BUDGET_EXHAUSTED",
-            f"连续抓取未新增证据已达 {FETCH_ATTEMPT_LIMIT} 次；请先保存现有文档中的有效证据并运行审核/覆盖评估，或接受缺口停止检索。",
+            f"连续抓取未新增证据已达 {limit} 次；请先保存现有文档中的有效证据并运行审核/覆盖评估，或接受缺口停止检索。",
         )
     task = task.model_copy(
         update={
@@ -138,9 +142,13 @@ def record_fetch_attempt(cwd: Path, task_id: str | None = None) -> dict:
     return task.collection.model_dump()
 
 
-def record_search_attempt(cwd: Path, task_id: str | None = None) -> dict:
+def record_search_attempt(
+    cwd: Path,
+    task_id: str | None = None,
+    limit: int = SEARCH_ATTEMPT_LIMIT,
+) -> dict:
     task = load_task(cwd, task_id)
-    if task.collection.search_attempts >= SEARCH_ATTEMPT_LIMIT:
+    if task.collection.search_attempts >= limit:
         if not task.collection.search_stop_reason:
             task = task.model_copy(
                 update={
@@ -155,7 +163,7 @@ def record_search_attempt(cwd: Path, task_id: str | None = None) -> dict:
             save_task(cwd, task)
         raise IntelError(
             "SEARCH_BUDGET_EXHAUSTED",
-            f"搜索预算已用完（{SEARCH_ATTEMPT_LIMIT} 次）；请使用已有候选来源，或接受并披露检索缺口。",
+            f"搜索预算已用完（{limit} 次）；请使用已有候选来源，或接受并披露检索缺口。",
         )
     task = task.model_copy(
         update={
@@ -281,7 +289,7 @@ def set_task_stage(cwd: Path, task_id: str, stage: TaskStage) -> IntelTask:
         rounds = [
             ChallengeRound.model_validate(item) for item in store["items"]
         ]
-        latest = next(
+        latest_challenge = next(
             (
                 r
                 for r in rounds
@@ -289,16 +297,21 @@ def set_task_stage(cwd: Path, task_id: str, stage: TaskStage) -> IntelTask:
             ),
             None,
         )
-        if (
-            latest is None
-            or latest.status != "confirmed"
-            or not latest.converged
-        ):
+        if latest_challenge is None or latest_challenge.status != "confirmed":
+            raise IntelError("INVALID_STAGE_TRANSITION", "红队复审尚未确认")
+        if not latest_challenge.converged and task.challenge_round < 2:
             raise IntelError(
                 "INVALID_STAGE_TRANSITION", "红队复审尚未确认收敛"
             )
         _verify_current_outputs(cwd, task)
-    updated = task.model_copy(update={"stage": stage, "updated_at": utc_now()})
+    updates = {"stage": stage, "updated_at": utc_now()}
+    if stage == "done":
+        updates["completion_status"] = (
+            "sufficient"
+            if latest_challenge and latest_challenge.converged
+            else "with_gaps"
+        )
+    updated = task.model_copy(update=updates)
     save_task(cwd, updated)
     return updated
 
@@ -310,7 +323,11 @@ def summarize_task(cwd: Path, task_id: str | None = None) -> dict:
         "collect": "按问题 ID 检索并抓取文档，再保存可定位引文。",
         "assess": "运行 coverage_eval；充分或停止后生成证据包和研判。",
         "challenge": "完成最多两轮红队复审。",
-        "done": "任务已完成。",
+        "done": (
+            "任务已完成，但保留已披露的证据缺口。"
+            if task.completion_status == "with_gaps"
+            else "任务已完成。"
+        ),
     }[task.stage]
     # 防死循环：两轮红队已确认但仍未收敛时给出终态指引
     if task.stage == "challenge" and task.challenge_round >= 2:
@@ -332,8 +349,8 @@ def summarize_task(cwd: Path, task_id: str | None = None) -> dict:
                 and not latest.get("converged")
             ):
                 next_action = (
-                    "已完成两轮红队复审且未收敛，无法推进到 done。"
-                    "请停止调用 intel_status(stage=done) 与 intel_challenge_*，"
-                    "直接向用户总结：结论、置信度、矛盾、缺口及收敛失败原因。"
+                    "已完成两轮红队复审且仍有缺口。请基于最新覆盖重新生成"
+                    "证据包和研判，再调用 intel_status(stage=done) 以 with_gaps"
+                    " 终态完成，并向用户披露结论、置信度、矛盾和缺口。"
                 )
     return {"task": task.model_dump(), "next_action": next_action}

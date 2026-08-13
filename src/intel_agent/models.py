@@ -46,6 +46,9 @@ class ExtractionResult(BaseModel):
     link_relevance: dict[str, float] = Field(default_factory=dict)
     processor: str | None = None
     error: str | None = None
+    title: str = ""
+    publish_time: str | None = None
+    publish_time_source: Literal["meta", "time-element", "unknown"] = "unknown"
 
 
 class CrawlEntry(BaseModel):
@@ -131,6 +134,7 @@ class IntelTask(BaseModel):
     questions: list[IntelQuestion]
     criteria: SufficiencyCriteria
     deep_crawl: bool = False
+    completion_status: Literal["sufficient", "with_gaps"] | None = None
     collection: CollectionState = Field(default_factory=CollectionState)
     outputs: TaskOutputs = Field(default_factory=TaskOutputs)
     challenge_round: int = 0

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import re
 
 import httpx
@@ -43,6 +44,7 @@ class SearchResult(BaseModel):
     kind_label: str
     hits: int
     url_note: str | None = None
+    fetchable: bool = True
 
 
 def count_hits(query: str, title: str, snippet: str) -> int:
@@ -92,8 +94,10 @@ def _result(
     snippet: str,
     query: str,
     url_note: str | None = None,
+    fetchable: bool = True,
 ) -> SearchResult | None:
     title = title.strip()
+    url = html.unescape(url).strip()
     if not title or not re.match(r"^https?://", url):
         return None
     kind = classify_domain(url)
@@ -106,6 +110,7 @@ def _result(
         kind_label=domain_kind_label(kind),
         hits=count_hits(query, title, snippet),
         url_note=url_note,
+        fetchable=fetchable,
     )
 
 
@@ -180,6 +185,7 @@ async def baidu_search(
             "百度跳转链接，web_fetch 直抓可能失败，建议以其标题为线索改用 Bing 复搜原文"
             if is_redirect
             else None,
+            not is_redirect,
         )
         if result:
             out.append(result)

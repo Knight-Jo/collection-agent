@@ -203,6 +203,12 @@ def build_query_variants(topic: str, question: str) -> list[str]:
         f"{keywords} 争议 质疑",
         f"{keywords} 同比 增长 统计",
         f"EN:{keywords} {year} official update（将关键词译为英文后搜索）",
+        f"{keywords} filetype:pdf",
+        f"{keywords} filetype:docx",
+        f"{keywords} filetype:xlsx OR filetype:pptx",
+        f"{keywords} filetype:png OR filetype:jpg OR filetype:webp",
+        f"{keywords} filetype:mp3 OR filetype:wav OR filetype:m4a",
+        f"{keywords} filetype:mp4 OR filetype:webm OR filetype:mov",
     ]
     variants.extend(industry_terms(question))
     return [

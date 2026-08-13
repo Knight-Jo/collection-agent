@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from intel_agent.config import Settings
+from intel_agent.config import BudgetConfig, Settings
 from intel_agent.models import SufficiencyCriteria
 from intel_agent.runner import TaskRunSpec, build_task_prompt, run_agent_task
 
@@ -23,6 +23,20 @@ def make_spec() -> TaskRunSpec:
             require_recency=False,
         ),
     )
+
+
+def test_task_run_spec_validates_run_limits():
+    spec = make_spec().model_copy(
+        update={"max_requests": 40, "max_tool_calls": 12}
+    )
+
+    assert TaskRunSpec.model_validate(spec.model_dump()).max_requests == 40
+    assert TaskRunSpec.model_validate(spec.model_dump()).max_tool_calls == 12
+
+    with pytest.raises(ValidationError):
+        TaskRunSpec.model_validate(
+            {**make_spec().model_dump(), "max_requests": 0}
+        )
 
 
 def test_task_run_spec_normalizes_and_validates_questions():
@@ -109,3 +123,54 @@ async def test_run_agent_task_streams_events(monkeypatch, cwd):
 
     assert actual is result
     assert received == ["tool-started", "tool-completed"]
+
+
+@pytest.mark.asyncio
+async def test_run_agent_task_applies_tighter_task_limits(monkeypatch, cwd):
+    result = SimpleNamespace(output="完成")
+    captured = None
+
+    class FakeEvents:
+        def __init__(self):
+            self.result = result
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            raise StopAsyncIteration
+
+    class FakeAgent:
+        def run_stream_events(self, _prompt, **kwargs):
+            nonlocal captured
+            captured = kwargs["usage_limits"]
+            return FakeEvents()
+
+    monkeypatch.setattr(
+        "intel_agent.runner.build_agent", lambda _s: FakeAgent()
+    )
+    monkeypatch.setattr(
+        "intel_agent.runner.build_deps",
+        lambda _cwd, _settings, *, deep_crawl: SimpleNamespace(
+            crawl_event_callback=None
+        ),
+    )
+    settings = Settings(budgets=BudgetConfig(request_limit=200))
+
+    await run_agent_task(
+        cwd,
+        settings,
+        make_spec().model_copy(
+            update={"max_requests": 40, "max_tool_calls": 12}
+        ),
+    )
+
+    assert captured is not None
+    assert captured.request_limit == 40
+    assert captured.tool_calls_limit == 12

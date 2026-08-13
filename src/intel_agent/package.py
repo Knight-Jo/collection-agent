@@ -62,6 +62,20 @@ def generate_package(cwd: Path, task_id: str) -> dict:
     coverage = latest_coverage(cwd, task.id)
     if coverage is None:
         raise IntelError("INVALID_INPUT", "生成证据包前必须运行 coverage_eval")
+    active_fact_ids = {
+        fact.id
+        for question in task.questions
+        for fact in list_active_facts_for_question(cwd, task.id, question.id)
+    }
+    covered_fact_ids = {
+        fact.fact_id
+        for question in coverage.per_question
+        for fact in question.facts
+    }
+    if active_fact_ids != covered_fact_ids:
+        raise IntelError(
+            "COVERAGE_STALE", "事实已变化，请重新运行 coverage_eval"
+        )
     lines = [
         f"# 证据包：{task.topic}",
         "",

@@ -11,7 +11,7 @@ from pydantic_ai import RunContext
 
 import intel_agent.agent as agent_module
 from intel_agent.agent import AgentDeps, build_agent
-from intel_agent.config import CrawlConfig, Settings
+from intel_agent.config import BudgetConfig, CrawlConfig, Settings
 from intel_agent.coverage import eval_coverage
 from intel_agent.crawl import create_crawl
 from intel_agent.fetch import FetchedResponse
@@ -34,6 +34,15 @@ def _context(cwd, *, settings: Settings | None = None) -> RunContext[Any]:
 
 def _tool(agent, name: str):
     return agent._function_toolset.tools[name].function
+
+
+def test_failure_includes_exception_type_when_message_is_empty():
+    failure = agent_module._failure(RuntimeError())
+
+    assert failure["error"] == {
+        "code": "UNKNOWN",
+        "message": "RuntimeError",
+    }
 
 
 def test_deep_crawl_persists_and_legacy_tasks_default_off(cwd):
@@ -212,6 +221,169 @@ async def test_web_search_seeds_only_enabled_active_task(monkeypatch, cwd):
         "https://example.com/a",
         "https://example.com/b",
     ]
+
+
+@pytest.mark.asyncio
+async def test_blocked_broad_search_does_not_spend_budget(cwd):
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+
+    result = await _tool(build_agent(Settings()), "web_search")(
+        _context(cwd), "低空经济", 5, "general", "zh-CN", None
+    )
+
+    assert result["engineUsed"] == "blocked"
+    assert load_task(cwd, task.id).collection.search_attempts == 0
+
+
+@pytest.mark.asyncio
+async def test_web_search_uses_configured_search_budget(monkeypatch, cwd):
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+
+    async def fake_search(*_args, **_kwargs):
+        return {"results": [], "engineUsed": "fake"}
+
+    settings = Settings(budgets=BudgetConfig(search_attempts=1))
+    monkeypatch.setattr(agent_module, "web_search", fake_search)
+    tool = _tool(build_agent(settings), "web_search")
+
+    await tool(
+        _context(cwd, settings=settings),
+        "亿航智能 订单 270 2026",
+        5,
+        "general",
+        "zh-CN",
+        None,
+    )
+    exhausted = await tool(
+        _context(cwd, settings=settings),
+        "亿航智能 哈萨克斯坦 订单 2025",
+        5,
+        "general",
+        "zh-CN",
+        None,
+    )
+
+    assert exhausted["error"]["code"] == "SEARCH_BUDGET_EXHAUSTED"
+    assert load_task(cwd, task.id).collection.search_attempts == 1
+
+
+@pytest.mark.asyncio
+async def test_web_search_does_not_seed_unfetchable_redirects(
+    monkeypatch, cwd
+):
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+        deep_crawl=True,
+    )
+
+    async def fake_search(*_args, **_kwargs):
+        return {
+            "results": [
+                {
+                    "url": "https://www.baidu.com/link?url=opaque",
+                    "title": "redirect",
+                    "fetchable": False,
+                },
+                {
+                    "url": "https://example.com/report.pdf?a=1&amp;b=2",
+                    "title": "report",
+                    "fetchable": True,
+                },
+            ],
+            "engineUsed": "fake",
+        }
+
+    monkeypatch.setattr(agent_module, "web_search", fake_search)
+    await _tool(build_agent(Settings()), "web_search")(
+        _context(cwd), "具体 企业 报告", 5, "general", "zh-CN", None
+    )
+
+    crawl = load_crawl(cwd, task.id)
+    assert [entry.canonical_url for entry in crawl.entries] == [
+        "https://example.com/report.pdf?a=1&b=2"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_crawl_collect_returns_compact_resource_index(monkeypatch, cwd):
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+        deep_crawl=True,
+    )
+    snapshot = create_crawl(
+        cwd,
+        task.id,
+        [f"https://example.com/{index}.pdf" for index in range(80)],
+        CrawlConfig(max_urls=80),
+    )
+    for index, entry in enumerate(snapshot.entries):
+        entry.status = "complete"
+        entry.document_id = f"doc-{index}"
+        entry.mime_type = "application/pdf"
+        entry.size = 100
+        entry.extraction.status = "complete"
+
+    async def fake_collect(*_args, **_kwargs):
+        return snapshot
+
+    monkeypatch.setattr(agent_module, "run_crawl_collect", fake_collect)
+    result = await _tool(build_agent(Settings()), "crawl_collect")(
+        _context(cwd), task.id
+    )
+
+    assert "entries" not in result
+    assert result["counts"]["complete"] == 80
+    assert len(result["resources"]) == 50
+    assert result["resources_truncated"] is True
+    assert len(str(result)) < 16_000
+
+
+def test_document_search_finds_crawled_multimedia_text(cwd):
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+        deep_crawl=True,
+    )
+    relevant = make_document(
+        cwd,
+        "[00:00:01.000 --> 00:00:03.000] 公司确认新增订单 270 架",
+        "https://media.example.com/interview.mp4",
+    )
+    unrelated = make_document(
+        cwd, "其他内容", "https://media.example.com/photo.jpg"
+    )
+    crawl = create_crawl(
+        cwd,
+        task.id,
+        [relevant.final_url, unrelated.final_url],
+        CrawlConfig(),
+    )
+    for entry, document in zip(
+        crawl.entries, [relevant, unrelated], strict=True
+    ):
+        entry.status = "complete"
+        entry.document_id = document.id
+        entry.extraction.status = "complete"
+    from intel_agent.storage import save_crawl
+
+    save_crawl(cwd, crawl)
+    agent = build_agent(Settings())
+
+    assert "document_search" in agent._function_toolset.tools
+    result = _tool(agent, "document_search")(
+        _context(cwd), task.id, "订单 270", 5
+    )
+
+    assert [item["document_id"] for item in result["results"]] == [relevant.id]
+    assert "270" in result["results"][0]["snippet"]
 
 
 @pytest.mark.asyncio

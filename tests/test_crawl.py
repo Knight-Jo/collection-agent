@@ -1135,6 +1135,51 @@ async def test_crawl_preserves_original_when_processor_is_unavailable(
     document = load_document(cwd, entry.document_id)
     assert (cwd / document.raw_path).read_bytes() == b"original image bytes"
 
+    from intel_agent.evidence import save_evidence
+    from intel_agent.fact import save_fact
+
+    fact = save_fact(
+        cwd,
+        task.id,
+        task.questions[0].id,
+        "图片显示新增订单",
+    )
+    with pytest.raises(IntelError) as error:
+        save_evidence(cwd, fact.id, document.id, "supports", "新增订单")
+    assert error.value.code == "EXTRACTION_UNAVAILABLE"
+
+
+@pytest.mark.asyncio
+async def test_crawl_archives_html_title_and_publish_time(cwd):
+    task = new_task(cwd)
+
+    async def fetcher(_url, _init, _address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=(
+                b"<title>Quarterly report</title>"
+                b'<meta property="article:published_time" content="2026-08-12">'
+                b"<p>material update</p>"
+            ),
+        )
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/report"],
+        config=CrawlConfig(obey_robots=False, per_host_delay_seconds=0),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+    )
+
+    document_id = snapshot.entries[0].document_id
+    assert document_id
+    document = load_document(cwd, document_id)
+    assert document.title == "Quarterly report"
+    assert document.publish_time == "2026-08-12"
+    assert document.publish_time_source == "meta"
+
 
 @pytest.mark.asyncio
 async def test_reprocessing_metadata_failure_preserves_prior_document(
@@ -1447,3 +1492,29 @@ async def test_crawl_cancellation_during_extraction_persists_resumable_entry(
     saved = load_crawl(cwd, task.id)
     assert saved.status == "paused"
     assert saved.entries[0].status == "queued"
+
+
+def test_attachment_replaces_lower_value_navigation_when_frontier_is_full(cwd):
+    snapshot = create_crawl(
+        cwd,
+        "task-priority",
+        [],
+        CrawlConfig(max_urls=1),
+    )
+    assert enqueue_url(
+        snapshot,
+        "https://www.gov.cn/index.html",
+        parent_url=None,
+        depth=1,
+        source_priority=1,
+    )
+
+    assert enqueue_url(
+        snapshot,
+        "https://example.com/report.pdf",
+        parent_url=None,
+        depth=1,
+    )
+    assert [entry.canonical_url for entry in snapshot.entries] == [
+        "https://example.com/report.pdf"
+    ]

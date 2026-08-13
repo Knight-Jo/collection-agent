@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_ai import (
     AgentRunResult,
     CancellationToken,
@@ -26,6 +26,8 @@ class TaskRunSpec(BaseModel):
     questions: list[str]
     criteria: SufficiencyCriteria
     deep_crawl: bool | None = None
+    max_requests: int | None = Field(default=None, ge=1)
+    max_tool_calls: int | None = Field(default=None, ge=1)
 
     @field_validator("topic")
     @classmethod
@@ -131,7 +133,13 @@ async def run_agent_task(
     async with agent.run_stream_events(
         build_task_prompt(resolved_spec),
         deps=deps,
-        usage_limits=UsageLimits(request_limit=settings.budgets.request_limit),
+        usage_limits=UsageLimits(
+            request_limit=min(
+                settings.budgets.request_limit,
+                resolved_spec.max_requests or settings.budgets.request_limit,
+            ),
+            tool_calls_limit=resolved_spec.max_tool_calls,
+        ),
         cancellation_token=cancellation_token,
     ) as events:
         async for event in events:

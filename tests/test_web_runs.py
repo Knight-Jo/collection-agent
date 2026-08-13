@@ -39,6 +39,14 @@ async def test_registry_runs_task_and_replays_events(cwd):
         from intel_agent.task import create_task
 
         task = create_task(run_cwd, spec.topic, spec.questions, spec.criteria)
+        from intel_agent.task import save_task
+
+        save_task(
+            run_cwd,
+            task.model_copy(
+                update={"stage": "done", "completion_status": "sufficient"}
+            ),
+        )
         await on_event(SimpleNamespace(event_kind="function_tool_result"))
         usage = SimpleNamespace(
             requests=3,
@@ -55,7 +63,7 @@ async def test_registry_runs_task_and_replays_events(cwd):
     await registry.wait(created.run_id)
     view = registry.get(created.run_id)
 
-    assert view.status == "completed"
+    assert view.status == "completed_sufficient"
     assert view.task_id is not None
     assert view.result == "完成"
     assert [event.type for event in registry.events(created.run_id)] == [
@@ -63,6 +71,67 @@ async def test_registry_runs_task_and_replays_events(cwd):
         "task.updated",
         "run.completed",
     ]
+
+
+@pytest.mark.asyncio
+async def test_registry_marks_model_stop_before_done_as_incomplete(cwd):
+    async def fake_runner(
+        run_cwd, _settings, spec, *, on_event, cancellation_token
+    ):
+        create_task(run_cwd, spec.topic, spec.questions, spec.criteria)
+        return SimpleNamespace(
+            output="stopped",
+            usage=SimpleNamespace(
+                requests=1,
+                tool_calls=0,
+                input_tokens=1,
+                output_tokens=1,
+                total_tokens=2,
+            ),
+        )
+
+    registry = RunRegistry(cwd, Settings(), runner=fake_runner)
+
+    created = await registry.create(make_spec())
+    await registry.wait(created.run_id)
+    view = registry.get(created.run_id)
+
+    assert view.status == "failed"
+    assert view.error is not None
+    assert view.error.code == "RUN_INCOMPLETE"
+
+
+@pytest.mark.asyncio
+async def test_registry_exposes_completed_with_gaps(cwd):
+    async def fake_runner(
+        run_cwd, _settings, spec, *, on_event, cancellation_token
+    ):
+        task = create_task(run_cwd, spec.topic, spec.questions, spec.criteria)
+        from intel_agent.task import save_task
+
+        save_task(
+            run_cwd,
+            task.model_copy(
+                update={"stage": "done", "completion_status": "with_gaps"}
+            ),
+        )
+        return SimpleNamespace(
+            output="done",
+            usage=SimpleNamespace(
+                requests=1,
+                tool_calls=0,
+                input_tokens=1,
+                output_tokens=1,
+                total_tokens=2,
+            ),
+        )
+
+    registry = RunRegistry(cwd, Settings(), runner=fake_runner)
+
+    created = await registry.create(make_spec())
+    await registry.wait(created.run_id)
+
+    assert registry.get(created.run_id).status == "completed_with_gaps"
 
 
 @pytest.mark.asyncio
@@ -252,7 +321,8 @@ async def test_registry_cancellation_pauses_crawl_for_resume(cwd, monkeypatch):
                 view = registry.get(created.run_id)
                 assert view.status not in {
                     "failed",
-                    "completed",
+                    "completed_sufficient",
+                    "completed_with_gaps",
                     "cancelled",
                 }, view.error
                 await asyncio.sleep(0.01)

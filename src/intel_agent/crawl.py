@@ -128,13 +128,42 @@ def _crawl_event_data(snapshot: CrawlSnapshot) -> dict[str, object]:
     }
 
 
+def summarize_crawl(snapshot: CrawlSnapshot) -> dict[str, object]:
+    """Return the model-facing crawl summary without the persisted frontier."""
+    resources = [
+        {
+            "url": entry.canonical_url,
+            "depth": entry.depth,
+            "status": entry.status,
+            "document_id": entry.document_id,
+            "mime_type": entry.mime_type,
+            "size": entry.size,
+            "extraction_status": entry.extraction.status,
+            **(
+                {"error": entry.error or entry.extraction.error}
+                if entry.error or entry.extraction.error
+                else {}
+            ),
+        }
+        for entry in snapshot.entries
+        if entry.status != "queued"
+    ]
+    return {
+        **_crawl_event_data(snapshot),
+        "resources": resources[:50],
+        "resources_truncated": len(resources) > 50,
+    }
+
+
 def _priority(
     depth: int,
     relevance: float,
     source_priority: float,
     attachment: bool,
 ) -> float:
-    return depth * 100 - relevance * 20 - source_priority * 10 - attachment * 5
+    return (
+        depth * 100 - relevance * 20 - source_priority * 10 - attachment * 20
+    )
 
 
 def enqueue_url(
@@ -318,6 +347,12 @@ def _archive_resource(
     raw: bytes,
     text: str,
     extraction_status: Literal["complete", "unavailable", "failed"],
+    *,
+    title: str = "",
+    publish_time: str | None = None,
+    publish_time_source: Literal["meta", "time-element", "unknown"] = (
+        "unknown"
+    ),
 ) -> IntelDocument:
     canonical_url = canonicalize_url(final_url)
     raw_hash = sha256(raw)
@@ -326,6 +361,7 @@ def _archive_resource(
     if intel_path(cwd, record_path).exists():
         document = IntelDocument.model_validate(read_json(cwd, record_path))
         verify_document_integrity(cwd, document)
+        updates: dict[str, object] = {}
         if (
             extraction_status == "complete"
             and document.extraction_status != "complete"
@@ -333,13 +369,20 @@ def _archive_resource(
             text_hash = sha256(text)
             text_path = f"data/raw/{document_id}.{text_hash[:16]}.txt"
             write_file_atomic(cwd, text_path, text)
-            document = document.model_copy(
-                update={
-                    "text_path": text_path,
-                    "text_sha256": text_hash,
-                    "extraction_status": "complete",
-                }
+            updates.update(
+                text_path=text_path,
+                text_sha256=text_hash,
+                extraction_status="complete",
             )
+        if title and not document.title:
+            updates["title"] = title
+        if publish_time and not document.publish_time:
+            updates.update(
+                publish_time=publish_time,
+                publish_time_source=publish_time_source,
+            )
+        if updates:
+            document = document.model_copy(update=updates)
             write_json_atomic(cwd, record_path, document.model_dump())
         return document
     raw_path = f"data/raw/{document_id}.raw"
@@ -356,8 +399,10 @@ def _archive_resource(
         requested_url=requested_url,
         final_url=final_url,
         canonical_url=canonical_url,
-        title=Path(urlparse(final_url).path).name or final_url,
+        title=title or Path(urlparse(final_url).path).name or final_url,
         content_type=mime_type,
+        publish_time=publish_time,
+        publish_time_source=publish_time_source,
         collected_at=utc_now(),
         source_type=source_type_for_domain(hostname),
         source_group=source_group,
@@ -834,6 +879,9 @@ class _CrawlRunner:
                 "failed"
                 if extracted.status == "skipped"
                 else extracted.status,
+                title=extracted.title,
+                publish_time=extracted.publish_time,
+                publish_time_source=extracted.publish_time_source,
             )
             entry.canonical_url = document.canonical_url
             entry.document_id = document.id

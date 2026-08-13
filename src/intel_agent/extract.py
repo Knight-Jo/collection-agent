@@ -104,25 +104,61 @@ class _LinkParser(HTMLParser):
         self.base_url = base_url
         self.links: list[str] = []
         self.context: dict[str, str] = {}
+        self.penalties: dict[str, float] = {}
+        self.has_body_text = False
         self._anchor_url: str | None = None
         self._anchor_text: list[str] = []
+        self._navigation_depth = 0
 
     def handle_starttag(
         self, tag: str, attrs: list[tuple[str, str | None]]
     ) -> None:
-        if tag.lower() != "a":
+        tag = tag.lower()
+        attributes = dict(attrs)
+        if tag in {"nav", "header", "footer"}:
+            self._navigation_depth += 1
+        if tag != "a":
+            attribute_names = {
+                "img": ("src",),
+                "audio": ("src",),
+                "video": ("src", "poster"),
+                "source": ("src",),
+                "object": ("data",),
+                "embed": ("src",),
+            }.get(tag, ())
+            context = " ".join(
+                value
+                for key in ("alt", "title")
+                if (value := attributes.get(key))
+            )
+            for name in attribute_names:
+                if (raw := attributes.get(name)) and (
+                    url := _append_link(self.links, raw, self.base_url)
+                ):
+                    self.context[url] = " ".join(
+                        item
+                        for item in (self.context.get(url, ""), context)
+                        if item
+                    )
             return
-        href = dict(attrs).get("href")
+        href = attributes.get("href")
         if href:
             self._anchor_url = _append_link(self.links, href, self.base_url)
             self._anchor_text = []
+            if self._anchor_url and self._navigation_depth:
+                self.penalties[self._anchor_url] = 1
 
     def handle_data(self, data: str) -> None:
         if self._anchor_url is not None:
             self._anchor_text.append(data)
+        elif data.strip():
+            self.has_body_text = True
 
     def handle_endtag(self, tag: str) -> None:
-        if tag.lower() != "a" or self._anchor_url is None:
+        tag = tag.lower()
+        if tag in {"nav", "header", "footer"}:
+            self._navigation_depth = max(0, self._navigation_depth - 1)
+        if tag != "a" or self._anchor_url is None:
             return
         context = " ".join(" ".join(self._anchor_text).split())
         previous = self.context.get(self._anchor_url, "")
@@ -644,17 +680,33 @@ def extract_resource(
             parser.feed(decoded)
             extracted = extract_html(decoded)
             return ExtractionResult(
-                status="complete",
+                status=(
+                    "complete"
+                    if parser.has_body_text or not parser.links
+                    else "unavailable"
+                ),
                 text=extracted["text"],
                 links=parser.links,
                 link_relevance={
-                    link: _link_relevance(
-                        f"{link} {parser.context.get(link, '')}",
-                        relevance_terms,
+                    link: max(
+                        0,
+                        _link_relevance(
+                            f"{link} {parser.context.get(link, '')}",
+                            relevance_terms,
+                        )
+                        - parser.penalties.get(link, 0),
                     )
                     for link in parser.links
                 },
                 processor="html",
+                error=(
+                    None
+                    if parser.has_body_text or not parser.links
+                    else "html text is empty"
+                ),
+                title=extracted["title"],
+                publish_time=extracted["publish_time"],
+                publish_time_source=extracted["publish_time_source"],
             )
         if mime == "application/pdf" or suffix == ".pdf":
             text, links, processor = _extract_pdf(

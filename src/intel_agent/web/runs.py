@@ -24,7 +24,12 @@ from ..task import load_task
 from .schemas import RunErrorView, RunEvent, RunStatus, RunView, UsageView
 
 Runner = Callable[..., Awaitable[Any]]
-TERMINAL_STATUSES = {"completed", "failed", "cancelled"}
+TERMINAL_STATUSES = {
+    "completed_sufficient",
+    "completed_with_gaps",
+    "failed",
+    "cancelled",
+}
 
 
 @dataclass
@@ -152,7 +157,27 @@ class RunRegistry:
                 state.status = "cancelled"
                 await self._append(state, "run.cancelled", {})
             else:
-                state.status = "completed"
+                task = load_task(self.cwd, state.task_id)
+                if task.stage != "done":
+                    state.status = "failed"
+                    state.error = RunErrorView(
+                        code="RUN_INCOMPLETE",
+                        message="模型运行已结束，但研究任务未进入 done 阶段",
+                    )
+                    await self._append(
+                        state,
+                        "run.failed",
+                        {
+                            "code": state.error.code,
+                            "message": state.error.message,
+                        },
+                    )
+                    return
+                state.status = (
+                    "completed_with_gaps"
+                    if task.completion_status == "with_gaps"
+                    else "completed_sufficient"
+                )
                 state.result = str(result.output)
                 usage = result.usage
                 state.usage = UsageView(

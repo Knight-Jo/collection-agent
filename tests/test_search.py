@@ -1,6 +1,7 @@
 """Search query analysis tests."""
 
 from intel_agent.search import (
+    _result,
     authoritative_variants,
     build_query_variants,
     extract_keywords,
@@ -56,3 +57,26 @@ def test_industry_terms_injection():
 def test_authoritative_variants():
     variants = authoritative_variants("低空经济 亿航智能")
     assert any("site:gov.cn" in v for v in variants)
+
+
+def test_search_result_decodes_url_entities():
+    result = _result(
+        "test",
+        "report",
+        "https://example.com/report.pdf?a=1&amp;b=2",
+        "",
+        "company report",
+    )
+
+    assert result is not None
+    assert result.url == "https://example.com/report.pdf?a=1&b=2"
+
+
+def test_query_plan_includes_document_and_media_discovery():
+    variants = build_query_variants("低空经济", "亿航智能订单情况")
+
+    assert any("filetype:pdf" in variant for variant in variants)
+    assert any("filetype:docx" in variant for variant in variants)
+    assert any("filetype:png" in variant for variant in variants)
+    assert any("filetype:mp3" in variant for variant in variants)
+    assert any("filetype:mp4" in variant for variant in variants)

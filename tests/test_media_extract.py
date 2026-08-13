@@ -44,6 +44,40 @@ def test_extract_html_text_links_and_plain_text():
     assert plain.text == "name,value\na,1"
 
 
+def test_extract_html_discovers_embedded_media_and_metadata():
+    html = b"""
+    <html><head><title>Quarterly media briefing</title>
+    <meta property="article:published_time" content="2026-08-12"></head>
+    <body>
+      <img src="/chart.webp" alt="orders chart">
+      <audio controls src="/briefing.mp3"></audio>
+      <video poster="/cover.jpg"><source src="/launch.webm"></video>
+      <object data="/appendix.pdf"></object>
+      <embed src="/slides.pptx">
+    </body></html>
+    """
+
+    result = extract_resource(
+        html,
+        "text/html",
+        "https://example.com/news/briefing",
+        relevance_terms=["orders"],
+    )
+
+    assert result.title == "Quarterly media briefing"
+    assert result.publish_time == "2026-08-12"
+    assert result.publish_time_source == "meta"
+    assert result.links == [
+        "https://example.com/chart.webp",
+        "https://example.com/briefing.mp3",
+        "https://example.com/cover.jpg",
+        "https://example.com/launch.webm",
+        "https://example.com/appendix.pdf",
+        "https://example.com/slides.pptx",
+    ]
+    assert result.link_relevance["https://example.com/chart.webp"] == 1
+
+
 def test_pdf_relative_links_resolve_against_document_url(monkeypatch):
     class Page:
         def get_text(self, _kind):
@@ -132,6 +166,35 @@ def test_duplicate_html_anchor_keeps_strongest_context():
     )
 
     assert result.link_relevance["https://example.com/same"] == 3
+
+
+def test_html_navigation_links_are_ranked_below_article_links():
+    result = extract_resource(
+        (
+            b"<html><nav><a href='/index'>topic report</a></nav>"
+            b"<main><a href='/article'>topic report</a></main></html>"
+        ),
+        "text/html",
+        "https://example.com/root",
+        relevance_terms=["topic"],
+    )
+
+    assert (
+        result.link_relevance["https://example.com/article"]
+        > result.link_relevance["https://example.com/index"]
+    )
+
+
+def test_empty_html_is_unavailable_but_still_discovers_attachments():
+    result = extract_resource(
+        b'<html><body><a href="/report.pdf">report</a></body></html>',
+        "text/html",
+        "https://example.com/root",
+    )
+
+    assert result.status == "unavailable"
+    assert result.links == ["https://example.com/report.pdf"]
+    assert result.error == "html text is empty"
 
 
 def test_plain_text_link_relevance_orders_links_from_document_context():

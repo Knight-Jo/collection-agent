@@ -1,5 +1,5 @@
 export type Stage = "collect" | "assess" | "challenge" | "done";
-export type RunStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
+export type RunStatus = "queued" | "running" | "completed_sufficient" | "completed_with_gaps" | "failed" | "cancelled";
 
 export interface Criteria {
   min_independent_sources: number;
