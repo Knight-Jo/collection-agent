@@ -132,6 +132,7 @@ class CollectionState(BaseModel):
 class TaskOutputs(BaseModel):
     package: TaskOutputBinding | None = None
     assessment: TaskOutputBinding | None = None
+    report: TaskOutputBinding | None = None
 
 
 class IntelTask(BaseModel):
@@ -329,6 +330,20 @@ AssessmentConclusion = Annotated[
     FactConclusion | ReportedConclusion | InferenceConclusion,
     Field(discriminator="kind"),
 ]
+
+
+class ResearchReportSection(BaseModel):
+    question_id: str
+    conclusions: list[AssessmentConclusion] = Field(default_factory=list)
+
+
+class ResearchReportInput(BaseModel):
+    executive_summary: str
+    sections: list[ResearchReportSection] = Field(default_factory=list)
+    overall_conclusions: list[AssessmentConclusion] = Field(
+        default_factory=list
+    )
+    limitations: list[str] = Field(default_factory=list)
 
 
 class ChallengePoint(BaseModel):

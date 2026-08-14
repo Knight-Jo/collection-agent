@@ -193,11 +193,13 @@ def get_resource_download(
 def get_artifact(
     cwd: Path,
     task_id: str,
-    kind: Literal["assessment", "package"],
+    kind: Literal["report", "assessment", "package"],
 ) -> ArtifactView:
     """Load an output only when it still matches its persisted binding hash."""
     task = load_task(cwd, task_id)
     binding = getattr(task.outputs, kind)
+    if kind == "assessment" and binding is None:
+        binding = task.outputs.report
     if binding is None:
         raise IntelError("NOT_FOUND", f"任务尚未生成 {kind} 产物")
     path = workspace_path(cwd, binding.path)

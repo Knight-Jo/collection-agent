@@ -17,6 +17,7 @@ from intel_agent.models import (
     utc_now,
 )
 from intel_agent.package import generate_package
+from intel_agent.report import generate_research_report
 from intel_agent.storage import save_crawl
 from intel_agent.web.views import (
     get_artifact,
@@ -136,3 +137,17 @@ def test_get_artifact_verifies_bound_content(cwd):
     with pytest.raises(IntelError) as error:
         get_artifact(cwd, task.id, "package")
     assert error.value.code == "OUTPUT_TAMPERED"
+
+
+def test_report_is_primary_artifact_with_assessment_fallback(cwd):
+    from tests.test_report import report_draft, seed_reportable_task
+
+    task, facts, _ = seed_reportable_task(cwd)
+    generate_research_report(cwd, task.id, report_draft(task, facts))
+
+    report = get_artifact(cwd, task.id, "report")
+    legacy = get_artifact(cwd, task.id, "assessment")
+
+    assert report.kind == "report"
+    assert legacy.kind == "assessment"
+    assert legacy.content == report.content

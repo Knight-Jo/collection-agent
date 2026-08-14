@@ -41,11 +41,13 @@ from .models import (
     AssessmentConclusion,
     ClaimType,
     IntelError,
+    ResearchReportInput,
     SufficiencyCriteria,
     SupportVerdict,
     TaskStage,
 )
 from .package import generate_package
+from .report import generate_research_report
 from .search import (
     build_query_variants,
     is_broad_query,
@@ -823,6 +825,17 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         """从本地 Fact 生成结构化研判；事实、单源转述和推断分离，引用由系统自动生成。"""
         return _guarded_sync(
             lambda: generate_assessment(ctx.deps.cwd, task_id, conclusions)
+        )
+
+    @agent.tool(name="generate_research_report")
+    def generate_research_report_tool(
+        ctx: RunContext[AgentDeps],
+        task_id: str,
+        draft: ResearchReportInput,
+    ) -> dict:
+        """Generate the primary report from verified structured findings."""
+        return _guarded_sync(
+            lambda: generate_research_report(ctx.deps.cwd, task_id, draft)
         )
 
     @agent.tool(name="intel_challenge_start")

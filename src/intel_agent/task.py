@@ -231,17 +231,22 @@ def bind_task_output(
     return task.outputs.model_dump()
 
 
-def _verify_current_outputs(cwd: Path, task: IntelTask) -> None:
+def _verify_current_outputs(cwd: Path, task: IntelTask) -> CoverageSnapshot:
     history = CoverageHistory.model_validate(
         read_json(cwd, f"coverage/{task.id}.json")
     )
     coverage = history.snapshots[-1] if history.snapshots else None
     if coverage is None:
         raise IntelError("INVALID_STAGE_TRANSITION", "缺少最新覆盖快照")
-    for kind, output in (
-        ("package", task.outputs.package),
-        ("assessment", task.outputs.assessment),
-    ):
+    outputs = (
+        (("report", task.outputs.report),)
+        if task.outputs.report
+        else (
+            ("package", task.outputs.package),
+            ("assessment", task.outputs.assessment),
+        )
+    )
+    for kind, output in outputs:
         if (
             output is None
             or output.coverage_id != coverage.id
@@ -258,13 +263,15 @@ def _verify_current_outputs(cwd: Path, task: IntelTask) -> None:
             raise IntelError(
                 "INVALID_STAGE_TRANSITION", f"{kind} 产物缺失或已被修改"
             )
+    return coverage
 
 
 def set_task_stage(cwd: Path, task_id: str, stage: TaskStage) -> IntelTask:
     """Advance stage by exactly one step; assess/done enforce hard preconditions."""
     task = load_task(cwd, task_id)
     current = STAGE_ORDER.index(task.stage)
-    if STAGE_ORDER.index(stage) != current + 1:
+    report_completion = task.stage == "assess" and stage == "done"
+    if not report_completion and STAGE_ORDER.index(stage) != current + 1:
         raise IntelError(
             "INVALID_STAGE_TRANSITION", f"非法阶段转换: {task.stage} → {stage}"
         )
@@ -282,7 +289,8 @@ def set_task_stage(cwd: Path, task_id: str, stage: TaskStage) -> IntelTask:
                 "INVALID_STAGE_TRANSITION",
                 "最新覆盖评估尚未达到停止条件，请继续补证或评估",
             )
-    if stage == "done":
+    latest_challenge = None
+    if stage == "done" and task.outputs.report is None:
         store = (
             read_json_object(cwd, "challenges.json")
             if intel_path(cwd, "challenges.json").exists()
@@ -305,12 +313,12 @@ def set_task_stage(cwd: Path, task_id: str, stage: TaskStage) -> IntelTask:
             raise IntelError(
                 "INVALID_STAGE_TRANSITION", "红队复审尚未确认收敛"
             )
-        _verify_current_outputs(cwd, task)
+    coverage = _verify_current_outputs(cwd, task) if stage == "done" else None
     updates = {"stage": stage, "updated_at": utc_now()}
     if stage == "done":
         updates["completion_status"] = (
             "sufficient"
-            if latest_challenge and latest_challenge.converged
+            if coverage and coverage.level == "sufficient"
             else "with_gaps"
         )
     updated = task.model_copy(update=updates)

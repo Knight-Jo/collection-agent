@@ -191,7 +191,7 @@ class TaskView(BaseModel):
 
 
 class ArtifactView(BaseModel):
-    kind: Literal["assessment", "package"]
+    kind: Literal["report", "assessment", "package"]
     path: str
     content: str
     content_sha256: str

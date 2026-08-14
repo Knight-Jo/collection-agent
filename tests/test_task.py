@@ -177,3 +177,40 @@ def test_done_requires_challenge_and_outputs(cwd):
     with pytest.raises(IntelError) as e:
         set_task_stage(cwd, task.id, "done")
     assert e.value.code == "INVALID_STAGE_TRANSITION"
+
+
+def test_current_report_can_complete_directly_from_assess(cwd):
+    from intel_agent.report import generate_research_report
+    from tests.test_report import report_draft, seed_reportable_task
+
+    task, facts, _ = seed_reportable_task(cwd)
+    set_task_stage(cwd, task.id, "assess")
+    generate_research_report(cwd, task.id, report_draft(task, facts))
+
+    completed = set_task_stage(cwd, task.id, "done")
+
+    assert completed.completion_status == "sufficient"
+
+
+def test_done_rejects_report_bound_to_stale_coverage(cwd):
+    from intel_agent.coverage import eval_coverage
+    from intel_agent.fact import save_fact
+    from intel_agent.report import generate_research_report
+    from tests.test_report import report_draft, seed_reportable_task
+
+    task, facts, _ = seed_reportable_task(cwd)
+    set_task_stage(cwd, task.id, "assess")
+    generate_research_report(cwd, task.id, report_draft(task, facts))
+    save_fact(
+        cwd,
+        task.id,
+        task.questions[0].id,
+        "报告生成后新增的事实",
+        claim_type="primary",
+    )
+    eval_coverage(cwd, task.id)
+
+    with pytest.raises(IntelError) as error:
+        set_task_stage(cwd, task.id, "done")
+
+    assert error.value.code == "INVALID_STAGE_TRANSITION"

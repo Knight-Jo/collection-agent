@@ -132,7 +132,7 @@ def create_app(
         "/api/tasks/{task_id}/artifacts/{kind}", response_model=ArtifactView
     )
     async def artifact(
-        task_id: str, kind: Literal["assessment", "package"]
+        task_id: str, kind: Literal["report", "assessment", "package"]
     ) -> ArtifactView:
         return get_artifact(app.state.cwd, task_id, kind)
 
