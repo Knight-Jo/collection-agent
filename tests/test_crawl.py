@@ -75,7 +75,7 @@ def test_crawl_config_uses_documented_defaults():
         "obey_robots": True,
         "ocr_languages": "chi_sim+eng",
         "whisper_model": "small",
-        "enabled_by_default": True,
+        "enabled_by_default": False,
     }
 
 

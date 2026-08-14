@@ -23,10 +23,11 @@ export function TaskPage() {
   if (error && !detail) return <main className="page"><p className="form-error">{error}</p></main>;
   if (!detail) return <main className="page"><p className="muted">正在加载研究…</p></main>;
   const evidenceCount = detail.questions.flatMap((question) => question.facts).reduce((sum, fact) => sum + fact.evidence.length, 0);
+  const answeredCount = detail.questions.filter((question) => question.coverage?.answer_status === "answered").length;
 
   return (
     <main className="page">
-      <div className="task-title"><div><div className="eyebrow">PUBLIC INFORMATION RESEARCH</div><h1>{detail.task.topic}</h1><p>{detail.questions.length} 个关键问题 · {evidenceCount} 条证据 · 更新于 {new Date(detail.task.updated_at).toLocaleString("zh-CN")}</p></div><div className="score-card"><span>缺口分</span><strong>{detail.coverage?.gap_score ?? "—"}</strong><small>{detail.coverage?.level?.replace("_", " ") ?? "待评估"}</small></div></div>
+      <div className="task-title"><div><div className="eyebrow">PUBLIC INFORMATION RESEARCH</div><h1>{detail.task.topic}</h1><p>{detail.questions.length} 个关键问题 · {evidenceCount} 条证据 · 更新于 {new Date(detail.task.updated_at).toLocaleString("zh-CN")}</p></div><div className="score-card"><span>问题回答</span><strong>{answeredCount}/{detail.questions.length}</strong><small>{detail.task.stage === "done" ? "报告已完成" : "调研进行中"}</small></div></div>
       <StageStepper stage={detail.task.stage} />
       <nav className="tabs" aria-label="研究内容">
         <button type="button" data-active={tab === "report"} onClick={() => setTab("report")}><FileText size={17} />调研报告</button>

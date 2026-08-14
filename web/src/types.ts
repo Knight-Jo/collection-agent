@@ -120,7 +120,7 @@ export interface TaskDetail {
   questions: Array<{
     id: string;
     text: string;
-    coverage: { status: string; notes: string[] } | null;
+    coverage: { status: string; answer_status?: "answered" | "partial" | "unanswered" | "conflicted"; notes: string[] } | null;
     facts: Fact[];
   }>;
   conflicts: Array<{ id: string; resolution: string; note: string }>;
