@@ -1,20 +1,21 @@
 # collection-agent-pydantic
 
-基于 **pydantic-ai** 的开源情报（OSINT）收集与研判智能体 —— 对
-[pi-prototype-collection](pi-prototype-collection)（TypeScript / Pi 框架）的完整 Python 移植。
-核心目标不是堆积搜索结果，而是围绕主题形成**可复核、可审计的证据链**：事实 → 引文 → 文档 → 哈希，全程防篡改。
+基于 **pydantic-ai** 的公开信息调研智能体。用户只需给出主题，Agent 会自主制定问题、检索公开来源、提取和核验信息，并生成一份结构化公开信息调研报告。事实 → 引文 → 文档 → 哈希的证据链作为底层质量保障和审计能力保留。
 
 ## 特性
 
-- **完整工具链**：除检索、事实、证据、审核、覆盖和研判工具外，提供 `crawl_collect` 运行持久化抓取队列、`document_search` 检索归档语料、`document_read` 分页读取已校验正文
+- **报告优先**：主产物为带编号引用、材料导读、局限和来源目录的 `research-report.md`；证据包和红队复审为可选审计步骤
+- **主题驱动**：只输入主题即可运行，也可附加调研目标、问题、时间、地区、语言和报告深度
+- **材料导读**：每份材料提供唯一的 1–5 星阅读推荐和一句话评价，并按任务生成内容摘要与优先阅读清单；不重复增加可信度标签
+- **完整工具链**：除检索、事实、证据、审核和覆盖工具外，提供 `crawl_collect` 运行持久化抓取队列、`document_search` 检索归档语料、`document_read` 分页读取已校验正文
 - **可信证据链**：所有关系用稳定 ID（fact/evidence/doc 为 SHA-256 派生 ID），引文逐字定位行号，文档原文与正文双重 SHA-256 完整性校验
 - **语义审计**：独立的隔离 LLM 法官逐条判定引文是否完整蕴含事实（full/partial/irrelevant/contradicts），只有 `full` 才计入覆盖；审核结果不可重复抽样
 - **安全边界**：DNS-pinned 抓取（SSRF 防护、私有地址拦截、重定向逐跳校验）、网页内容标记为不可信数据、注入检测
-- **预算与门控**：搜索 6 次 / 抓取 6 次（自上次新证据起）预算持久化；阶段状态机 `collect → assess → challenge → done` 相邻推进，产物绑定覆盖快照哈希
-- **红队复审**：最多两轮挑战，`addressed` 必须引用本轮新增且已 full 审核的证据
-- **深度抓取**：搜索结果播种持久化优先队列；逐跳执行 SSRF、DNS pinning、robots、速率、并发和字节限制，支持中断后恢复
+- **声明级核验**：一手披露和带归属转述可由一个审核通过的来源支持；重大或争议性声明继续要求独立来源交叉验证
+- **预算与门控**：搜索 6 次 / 抓取 6 次（自上次新证据起）预算持久化；报告绑定覆盖快照和文件哈希，过期或被修改的报告不能完成任务
+- **按需深度抓取**：默认使用定向抓取；显式启用或选择 `deep` 报告时，搜索结果播种持久化队列，并逐跳执行 SSRF、DNS pinning、robots、速率、并发和字节限制
 - **多文档类型**：从页面链接及 `img/audio/video/source/object/embed` 自动发现 HTML、PDF、Office、文本/CSV、图片、音视频；原件始终按 SHA-256 归档，处理器缺失时正文标记为不可用且不能进入证据链
-- **来源扩展**：抓取结果返回 `outbound_links` 可继续展开（不消耗搜索预算）；已知权威来源（金融/IR/政策）可直接抓取
+- **来源扩展**：抓取结果返回 `outbound_links` 可继续展开（不消耗搜索预算）；部署方可配置直连来源提示
 
 ## 快速开始
 
@@ -29,25 +30,37 @@ cp config.example.yaml config.yaml
 # 开发依赖；需要 Office/图片/音视频提取时同时安装 media extra
 UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv sync --extra dev --extra media
 
-# 运行情报收集任务
-python -m intel_agent --topic "低空经济" \
-  --questions "2026年低空经济投资与融资趋势" "亿航智能商业化进展与订单情况" \
-  --config config.yaml --min-sources 2 --min-quality 1 --recency 120 \
-  --deep-crawl
+# 只提供主题即可运行
+python -m intel_agent --topic "量子计算产业发展情况" --config config.yaml
+
+# 可选：补充目标、范围、核心问题和报告深度
+python -m intel_agent --topic "量子计算产业发展情况" \
+  --objective "了解产业现状、政策和主要参与者" \
+  --questions "近期政策如何变化" "主要商业化进展有哪些" \
+  --time-range "2024-2026" --geography "中国" \
+  --language zh-CN --language en --report-depth deep \
+  --config config.yaml
 ```
 
-`--deep-crawl` 强制启用，`--no-deep-crawl` 强制关闭；两者都省略时使用
-`crawl.enabled_by_default`。媒体处理还需要系统可执行文件：Tesseract（并安装
+`--deep-crawl` 显式启用递归采集；普通任务默认关闭。`--report-depth deep`
+也会启用递归采集。媒体处理还需要系统可执行文件：Tesseract（并安装
 `chi_sim`/`eng` 语言数据）、FFmpeg 和 LibreOffice。音视频转写使用 media extra
 中的 `faster-whisper`；缺少任一可选处理器不会丢弃已下载原件。
 
 CLI 的 `--max-turns` 限制单次运行的模型请求数，`--max-tool-calls` 限制工具调用数。
-研究充分时任务以 `completion_status=sufficient` 完成；两轮复审后仍有明确缺口时以
-`completion_status=with_gaps` 完成并保留披露，不再卡在挑战阶段。
+核心问题均得到回答时任务以 `completion_status=sufficient` 完成；仍有明确缺口时以
+`completion_status=with_gaps` 完成并在报告中披露，不要求先完成红队挑战。
+
+等价的最小 API 请求为：
+
+```json
+POST /api/runs
+{"topic": "量子计算产业发展情况"}
+```
 
 ### Web 工作台
 
-工作台提供任务创建、实时进度、证据链和研判报告。前端依赖与脚本统一使用 Bun 1.3.14：
+工作台提供主题式任务创建、实时进度、调研报告和按星级排序的来源材料。任务详情默认打开调研报告；证据链和原件下载位于“来源与材料”。前端依赖与脚本统一使用 Bun 1.3.14：
 
 ```bash
 cd web
@@ -60,9 +73,11 @@ intel-agent-web --config config.yaml
 默认访问 `http://127.0.0.1:6780`。监听地址和端口通过 `config.yaml` 的 `web.host`、`web.port` 配置；`--host` 与 `--port` 可用于临时覆盖。开发时分别运行后端和 `cd web && bun run dev`；Vite 会将 `/api` 转发到本地后端。
 
 运行结束后产物位于：
-- `data/intel/` — 任务/抓取队列/事实/证据/审核/覆盖等状态（JSON，原子写入）
+- `data/intel/` — 任务/材料导读/抓取队列/事实/证据/审核/覆盖等状态（JSON，原子写入）
 - `data/raw/` — 文档原文（.raw）与提取正文（.txt）
-- `output/` — 证据包与研判报告（Markdown）
+- `output/` — 正式调研报告，以及可选的证据包和旧研判产物（Markdown）
+
+主报告路径为 `output/{topic}-research-report.md`。材料推荐按当前任务存储：5 星表示直接支撑审核通过的核心发现，4 星表示已用于候选证据，3 星表示与主题相关，2 星表示阅读关联有限，1 星表示正文不可用或采集失败。
 
 ## 配置（config.yaml）
 
@@ -73,7 +88,7 @@ intel-agent-web --config config.yaml
 | `search.searxng_url` | 本地 SearXNG 地址；`null` 则只用 Bing/Baidu 直连 |
 | `budgets` | 搜索/抓取/模型请求预算（request_limit 默认 200） |
 | `fetch.enable_httpx_fallback` | 单次 `web_fetch` 的 pinned 抓取失败时回退 httpx（兼容 WAF/Cloudflare 站点）；递归 crawler 始终仅使用 pinned fetch |
-| `crawl.enabled_by_default` | 新任务省略开关时是否默认深度抓取（默认 `true`；旧任务仍为 `false`） |
+| `crawl.enabled_by_default` | 新任务省略开关时是否默认深度抓取（默认 `false`） |
 | `crawl.max_depth` / `crawl.max_urls` | 递归深度与任务 URL 上限（默认 2 / 200） |
 | `crawl.max_total_bytes` | 整个任务的下载硬上限（默认 1 GiB，失败响应也计数） |
 | `crawl.max_html_bytes` / `crawl.max_attachment_bytes` | 单响应 HTML / 附件硬上限（默认 5 MiB / 50 MiB） |
@@ -83,7 +98,7 @@ intel-agent-web --config config.yaml
 | `crawl.obey_robots` | 是否逐跳遵守 robots.txt（默认 `true`） |
 | `crawl.ocr_languages` / `crawl.whisper_model` | Tesseract 语言与 faster-whisper 模型（默认 `chi_sim+eng` / `small`） |
 | `web.host` / `web.port` | Web 工作台监听地址与端口（默认 `0.0.0.0:6780`） |
-| `sources` | 金融/IR/政策已知权威来源清单（intel_plan 按问题关键词建议） |
+| `sources` | 可选的部署级直连来源提示；默认留空，由 Agent 针对主题检索 |
 
 ## 项目结构
 
@@ -105,9 +120,11 @@ src/intel_agent/
 ├── audit.py        # 语义支撑审计（独立 LLM 法官）
 ├── conflicts.py    # 证据冲突登记/消解
 ├── coverage.py     # 覆盖评估 + 停止条件（sufficient/no_progress）
+├── materials.py    # 任务级材料星级、内容摘要和阅读导引
+├── report.py       # 带验证引用的正式公开信息调研报告
 ├── package.py      # 证据包 Markdown 生成
 ├── assess.py       # 结构化研判（fact/reported/inference）
-├── challenge.py    # 红队挑战（两轮，容错 ID 匹配）
+├── challenge.py    # 可选红队挑战（最多两轮）
 ├── task.py         # 任务生命周期、预算、阶段门控
 ├── main.py         # CLI 入口
 ├── runner.py       # CLI 与 Web 共用的 Agent 运行器
