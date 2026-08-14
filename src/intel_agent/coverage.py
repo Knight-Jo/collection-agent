@@ -101,10 +101,15 @@ def _evaluate_fact(
     # satisfied, so score 0 == fully covered. Contradictions and unresolved
     # conflicts count directly because a covered fact must not sit on a
     # contested base.
-    source_gap = max(0, criteria.min_independent_sources - len(source_groups))
-    quality_gap = max(
-        0, criteria.min_high_quality_sources - len(high_quality_groups)
+    requires_corroboration = fact.claim_type == "corroborated"
+    min_sources = (
+        criteria.min_independent_sources if requires_corroboration else 1
     )
+    min_quality = (
+        criteria.min_high_quality_sources if requires_corroboration else 0
+    )
+    source_gap = max(0, min_sources - len(source_groups))
+    quality_gap = max(0, min_quality - len(high_quality_groups))
     recency_gap = 1 if criteria.require_recency and recent_count == 0 else 0
     gap_score = (
         source_gap
@@ -190,6 +195,19 @@ def _evaluate_question(
     else:
         status = "partial"
         notes = ["存在未充分覆盖的事实"]
+    has_conflict = any(
+        fact.unresolved_conflicts > 0 or fact.unresolved_contradictions > 0
+        for fact in facts
+    )
+    answer_status = (
+        "conflicted"
+        if has_conflict
+        else "answered"
+        if status == "covered"
+        else "unanswered"
+        if status == "gap"
+        else "partial"
+    )
     return QuestionCoverage(
         question_id=question.id,
         question=question.text,
@@ -197,6 +215,7 @@ def _evaluate_question(
         fact_count=len(facts),
         covered_fact_count=covered_count,
         facts=facts,
+        answer_status=answer_status,
         notes=notes,
     )
 

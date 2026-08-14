@@ -38,6 +38,7 @@ from .fact import load_fact, save_fact, supersede_fact
 from .fetch import DEFAULT_MAX_BYTES, fetch_document
 from .models import (
     AssessmentConclusion,
+    ClaimType,
     IntelError,
     SufficiencyCriteria,
     SupportVerdict,
@@ -676,11 +677,16 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         task_id: str,
         question_id: str,
         statement: str,
+        claim_type: ClaimType = "corroborated",
     ) -> dict:
         """在取得候选来源后登记一个规范事实。不同措辞的来源通过同一 fact_id 支撑该事实。"""
         return _guarded_sync(
             lambda: save_fact(
-                ctx.deps.cwd, task_id, question_id, statement
+                ctx.deps.cwd,
+                task_id,
+                question_id,
+                statement,
+                claim_type,
             ).model_dump()
         )
 

@@ -46,6 +46,8 @@ def create_task(
     """Create a task with stable question IDs and persist it as the active task."""
     if isinstance(criteria, dict):
         criteria = SufficiencyCriteria.model_validate(criteria)
+    else:
+        criteria = criteria.model_copy(deep=True)
     topic = topic.strip()
     question_texts = list(
         dict.fromkeys(q.strip() for q in questions if q.strip())

@@ -23,6 +23,8 @@ TaskStage = Literal["collect", "assess", "challenge", "done"]
 QuestionStatus = Literal["covered", "partial", "gap"]
 SupportVerdict = Literal["full", "partial", "irrelevant", "contradicts"]
 ReportDepth = Literal["brief", "standard", "deep"]
+ClaimType = Literal["primary", "corroborated", "reported"]
+AnswerStatus = Literal["answered", "partial", "unanswered", "conflicted"]
 SUPPORT_REVIEW_PROMPT_VERSION = "support-entailment-v1"
 
 
@@ -178,6 +180,7 @@ class Fact(BaseModel):
     task_id: str
     question_id: str
     statement: str
+    claim_type: ClaimType = "corroborated"
     status: Literal["active", "superseded"]
     superseded_by: list[str] = Field(default_factory=list)
     supersession_reason: str = ""
@@ -256,6 +259,7 @@ class QuestionCoverage(BaseModel):
     fact_count: int
     covered_fact_count: int
     facts: list[FactCoverage]
+    answer_status: AnswerStatus | None = None
     notes: list[str] = Field(default_factory=list)
 
 

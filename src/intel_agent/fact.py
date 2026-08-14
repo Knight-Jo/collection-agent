@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .models import Fact, IntelError, normalized_statement
+from .models import ClaimType, Fact, IntelError, normalized_statement
 from .storage import (
     intel_path,
     list_json,
@@ -130,7 +130,11 @@ def list_active_facts_for_question(
 
 
 def save_fact(
-    cwd: Path, task_id: str, question_id: str, statement: str
+    cwd: Path,
+    task_id: str,
+    question_id: str,
+    statement: str,
+    claim_type: ClaimType = "corroborated",
 ) -> Fact:
     task = load_task(cwd, task_id)
     statement = normalized_statement(statement)
@@ -140,7 +144,12 @@ def save_fact(
         raise IntelError("INVALID_INPUT", f"问题不属于任务: {question_id}")
     id_ = _fact_id(task.id, question_id, statement)
     if intel_path(cwd, f"facts/{id_}.json").exists():
-        return load_fact(cwd, id_)
+        existing = load_fact(cwd, id_)
+        if existing.claim_type != claim_type:
+            raise IntelError(
+                "INVALID_INPUT", "同一事实不能使用不同的声明类型重复保存"
+            )
+        return existing
     from .models import utc_now
 
     fact = Fact(
@@ -148,6 +157,7 @@ def save_fact(
         task_id=task.id,
         question_id=question_id,
         statement=statement,
+        claim_type=claim_type,
         status="active",
         superseded_by=[],
         supersession_reason="",

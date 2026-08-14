@@ -73,6 +73,76 @@ def test_coverage_gap_without_evidence(cwd):
     assert snapshot.per_question[0].status == "gap"
 
 
+def test_primary_claim_is_covered_by_one_verified_source(cwd):
+    task = new_task(cwd)
+    question = task.questions[0]
+    document = make_document(
+        cwd, "政府发布测试主题政策", "https://www.gov.cn/policy"
+    )
+    fact = save_fact(
+        cwd,
+        task.id,
+        question.id,
+        "政府发布测试主题政策",
+        claim_type="primary",
+    )
+    save_evidence(cwd, fact.id, document, "supports", "政府发布测试主题政策")
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+
+    coverage = eval_coverage(cwd, task.id)
+
+    assert coverage.per_question[0].facts[0].status == "covered"
+    assert coverage.per_question[0].answer_status == "answered"
+
+
+def test_corroborated_claim_still_requires_two_sources(cwd):
+    task = new_task(cwd)
+    question = task.questions[0]
+    document = make_document(
+        cwd, "媒体报道测试主题进展", "https://news.cn/story"
+    )
+    fact = save_fact(
+        cwd,
+        task.id,
+        question.id,
+        "测试主题取得进展",
+        claim_type="corroborated",
+    )
+    save_evidence(cwd, fact.id, document, "supports", "媒体报道测试主题进展")
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+
+    coverage = eval_coverage(cwd, task.id)
+
+    assert coverage.per_question[0].facts[0].status == "partial"
+    assert coverage.per_question[0].answer_status == "partial"
+    assert coverage.per_question[1].answer_status == "unanswered"
+
+
+def test_question_answer_status_reports_unresolved_contradiction(cwd):
+    task = new_task(cwd)
+    question = task.questions[0]
+    supporting = make_document(
+        cwd, "政府发布测试主题政策", "https://www.gov.cn/policy"
+    )
+    contradicting = make_document(
+        cwd, "该政策尚未发布", "https://news.cn/contradiction"
+    )
+    fact = save_fact(
+        cwd,
+        task.id,
+        question.id,
+        "政府发布测试主题政策",
+        claim_type="primary",
+    )
+    save_evidence(cwd, fact.id, supporting, "supports", "政府发布测试主题政策")
+    save_evidence(cwd, fact.id, contradicting, "contradicts", "该政策尚未发布")
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+
+    coverage = eval_coverage(cwd, task.id)
+
+    assert coverage.per_question[0].answer_status == "conflicted"
+
+
 def test_coverage_no_progress_stops_after_two_rounds(cwd):
     task = new_task(cwd)
     q = task.questions[0]

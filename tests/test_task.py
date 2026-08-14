@@ -2,7 +2,7 @@
 
 import pytest
 
-from intel_agent.models import IntelError
+from intel_agent.models import IntelError, SufficiencyCriteria
 from intel_agent.task import (
     FETCH_ATTEMPT_LIMIT,
     SEARCH_ATTEMPT_LIMIT,
@@ -14,6 +14,20 @@ from intel_agent.task import (
     set_task_stage,
 )
 from tests.conftest import new_task
+
+
+def test_create_task_does_not_alias_caller_criteria(cwd):
+    criteria = SufficiencyCriteria(
+        min_independent_sources=2,
+        min_high_quality_sources=1,
+        recency_days=90,
+        require_recency=False,
+    )
+
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], criteria)
+    task.criteria.require_recency = True
+
+    assert criteria.require_recency is False
 
 
 def test_create_task_validates_input(cwd):
