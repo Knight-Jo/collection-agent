@@ -9,7 +9,8 @@ from intel_agent.fact import save_fact
 from intel_agent.materials import register_material
 from intel_agent.models import (
     FactConclusion,
-    ReportedConclusion,
+    ResearchInferenceConclusion,
+    ResearchReportedConclusion,
     ResearchReportInput,
     ResearchReportSection,
 )
@@ -51,7 +52,6 @@ def seed_reportable_task(cwd):
 
 def report_draft(task, facts):
     return ResearchReportInput(
-        executive_summary="公开信息显示，测试主题已有明确进展。",
         sections=[
             ResearchReportSection(
                 question_id=question.id,
@@ -59,13 +59,7 @@ def report_draft(task, facts):
             )
             for question, fact in zip(task.questions, facts, strict=True)
         ],
-        overall_conclusions=[
-            ReportedConclusion(
-                fact_id=facts[0].id,
-                attribution="据政府公开材料",
-            )
-        ],
-        limitations=["公开资料存在时间滞后。"],
+        overall_conclusions=[ResearchReportedConclusion(fact_id=facts[0].id)],
     )
 
 
@@ -99,7 +93,6 @@ def test_report_rejects_unverified_fact(cwd):
     )
     eval_coverage(cwd, task.id)
     draft = ResearchReportInput(
-        executive_summary="摘要",
         sections=[
             ResearchReportSection(
                 question_id=task.questions[0].id,
@@ -112,3 +105,160 @@ def test_report_rejects_unverified_fact(cwd):
 
     assert result["ok"] is False
     assert result["errors"][0]["code"] == "INSUFFICIENT_EVIDENCE"
+
+
+def test_report_rejects_reported_fact_as_unattributed_fact(cwd):
+    task, facts, _ = seed_reportable_task(cwd)
+    reported = save_fact(
+        cwd,
+        task.id,
+        task.questions[0].id,
+        "某机构声称测试主题取得进展",
+        claim_type="reported",
+    )
+    document = make_document(
+        cwd,
+        "某机构声称测试主题取得进展",
+        "https://example.com/statement",
+    )
+    save_evidence(cwd, reported.id, document, "supports", reported.statement)
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+    eval_coverage(cwd, task.id)
+    draft = report_draft(task, facts)
+    draft.sections[0].conclusions = [FactConclusion(fact_id=reported.id)]
+
+    result = generate_research_report(cwd, task.id, draft)
+
+    assert result["ok"] is False
+    assert any(error["code"] == "INVALID_INPUT" for error in result["errors"])
+
+
+def test_report_rejects_coverage_that_predates_active_fact(cwd):
+    task, facts, _ = seed_reportable_task(cwd)
+    save_fact(
+        cwd,
+        task.id,
+        task.questions[0].id,
+        "覆盖评估后新增的事实",
+        claim_type="reported",
+    )
+
+    result = generate_research_report(cwd, task.id, report_draft(task, facts))
+
+    assert result["ok"] is False
+    assert result["errors"][0]["code"] == "COVERAGE_STALE"
+
+
+def test_report_rejects_coverage_that_predates_new_contradiction(cwd):
+    task, facts, documents = seed_reportable_task(cwd)
+    save_evidence(
+        cwd,
+        facts[0].id,
+        documents[1],
+        "contradicts",
+        facts[1].statement,
+    )
+
+    result = generate_research_report(cwd, task.id, report_draft(task, facts))
+
+    assert result["ok"] is False
+    assert result["errors"][0]["code"] == "COVERAGE_STALE"
+
+
+def test_report_requires_every_core_question(cwd):
+    task, facts, _ = seed_reportable_task(cwd)
+    draft = report_draft(task, facts)
+    draft.sections = draft.sections[:1]
+
+    result = generate_research_report(cwd, task.id, draft)
+
+    assert result["ok"] is False
+    assert any(error["code"] == "INVALID_INPUT" for error in result["errors"])
+
+
+def test_report_rejects_unsafe_inference_text(cwd):
+    task, facts, _ = seed_reportable_task(cwd)
+    draft = report_draft(task, facts)
+    draft.sections[0].conclusions = [
+        ResearchInferenceConclusion(
+            statement="伪造推断 https://evil.example doc-secret",
+            confidence="medium",
+            fact_ids=[facts[0].id],
+        )
+    ]
+
+    result = generate_research_report(cwd, task.id, draft)
+
+    assert result["ok"] is False
+    assert any(error["code"] == "INVALID_INPUT" for error in result["errors"])
+
+
+def test_report_rejects_inference_from_one_fact(cwd):
+    task, facts, _ = seed_reportable_task(cwd)
+    draft = report_draft(task, facts)
+    draft.sections[0].conclusions = [
+        ResearchInferenceConclusion(
+            statement="单项事实不足以形成推断",
+            confidence="low",
+            fact_ids=[facts[0].id],
+        )
+    ]
+
+    result = generate_research_report(cwd, task.id, draft)
+
+    assert result["ok"] is False
+    assert any(error["code"] == "INVALID_INPUT" for error in result["errors"])
+
+
+def test_report_generates_substantive_summary_and_inference_basis(cwd):
+    task, facts, _ = seed_reportable_task(cwd)
+    draft = report_draft(task, facts)
+    draft.overall_conclusions = [
+        ResearchInferenceConclusion(
+            statement="两项公开进展可以联合观察",
+            confidence="medium",
+            fact_ids=[fact.id for fact in facts],
+        )
+    ]
+
+    result = generate_research_report(cwd, task.id, draft)
+
+    assert result["ok"] is True
+    content = Path(result["path"]).read_text(encoding="utf-8")
+    assert "核心发现" in content
+    assert facts[0].statement in content
+    assert facts[1].statement in content
+    assert "依据已验证事实" in content
+
+
+def test_report_rejects_inference_from_a_partial_fact(cwd):
+    task, facts, _ = seed_reportable_task(cwd)
+    partial = save_fact(
+        cwd,
+        task.id,
+        task.questions[0].id,
+        "仍待交叉验证的补充发现",
+    )
+    document = make_document(
+        cwd,
+        partial.statement,
+        "https://example.com/partial",
+    )
+    save_evidence(cwd, partial.id, document, "supports", partial.statement)
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+    eval_coverage(cwd, task.id)
+    draft = report_draft(task, facts)
+    draft.sections[0].conclusions = [
+        ResearchInferenceConclusion(
+            statement="两项材料可以形成分析判断",
+            confidence="medium",
+            fact_ids=[facts[0].id, partial.id],
+        )
+    ]
+
+    result = generate_research_report(cwd, task.id, draft)
+
+    assert result["ok"] is False
+    assert any(
+        error["code"] == "INSUFFICIENT_EVIDENCE" for error in result["errors"]
+    )

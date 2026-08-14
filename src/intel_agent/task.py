@@ -25,6 +25,7 @@ from .storage import (
     read_json,
     read_json_object,
     sha256,
+    verify_document_integrity,
     workspace_path,
     write_json_atomic,
 )
@@ -214,7 +215,13 @@ def record_evidence_progress(
 
 
 def bind_task_output(
-    cwd: Path, task_id: str, kind: str, path: str, coverage: CoverageSnapshot
+    cwd: Path,
+    task_id: str,
+    kind: str,
+    path: str,
+    coverage: CoverageSnapshot,
+    *,
+    document_hashes: dict[str, str] | None = None,
 ) -> dict:
     task = load_task(cwd, task_id)
     if coverage.task_id != task.id:
@@ -228,6 +235,7 @@ def bind_task_output(
         path=path,
         content_sha256=sha256(full_path.read_bytes()),
         created_at=utc_now(),
+        document_hashes=document_hashes or {},
     )
     task = task.model_copy(
         update={
@@ -254,6 +262,19 @@ def _verify_current_outputs(cwd: Path, task: IntelTask) -> CoverageSnapshot:
             ("assessment", task.outputs.assessment),
         )
     )
+    if task.outputs.report:
+        from .coverage import current_coverage_fingerprint
+
+        try:
+            current_fingerprint = current_coverage_fingerprint(cwd, task.id)
+        except IntelError as error:
+            raise IntelError(
+                "INVALID_STAGE_TRANSITION", "当前证据状态无效或已被修改"
+            ) from error
+        if coverage.fingerprint != current_fingerprint:
+            raise IntelError(
+                "INVALID_STAGE_TRANSITION", "事实、证据审核或冲突状态已变化"
+            )
     for kind, output in outputs:
         if (
             output is None
@@ -271,6 +292,22 @@ def _verify_current_outputs(cwd: Path, task: IntelTask) -> CoverageSnapshot:
             raise IntelError(
                 "INVALID_STAGE_TRANSITION", f"{kind} 产物缺失或已被修改"
             )
+        for document_id, expected_hash in output.document_hashes.items():
+            try:
+                from .evidence import load_document
+
+                document = load_document(cwd, document_id)
+                verify_document_integrity(cwd, document)
+            except IntelError as error:
+                raise IntelError(
+                    "INVALID_STAGE_TRANSITION",
+                    f"{kind} 引用文档缺失或已被修改: {document_id}",
+                ) from error
+            if document.text_sha256 != expected_hash:
+                raise IntelError(
+                    "INVALID_STAGE_TRANSITION",
+                    f"{kind} 引用文档版本已变化: {document_id}",
+                )
     return coverage
 
 

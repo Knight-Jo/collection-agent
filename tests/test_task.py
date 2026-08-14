@@ -209,6 +209,45 @@ def test_current_report_can_complete_directly_from_assess(cwd):
     assert completed.completion_status == "sufficient"
 
 
+def test_done_rejects_tampered_document_cited_by_report(cwd):
+    from intel_agent.report import generate_research_report
+    from tests.test_report import report_draft, seed_reportable_task
+
+    task, facts, documents = seed_reportable_task(cwd)
+    set_task_stage(cwd, task.id, "assess")
+    result = generate_research_report(cwd, task.id, report_draft(task, facts))
+    assert result["ok"] is True
+    (cwd / documents[0].text_path).write_text("tampered", encoding="utf-8")
+
+    with pytest.raises(IntelError) as error:
+        set_task_stage(cwd, task.id, "done")
+
+    assert error.value.code == "INVALID_STAGE_TRANSITION"
+
+
+def test_done_rejects_evidence_change_after_report_generation(cwd):
+    from intel_agent.evidence import save_evidence
+    from intel_agent.report import generate_research_report
+    from tests.test_report import report_draft, seed_reportable_task
+
+    task, facts, documents = seed_reportable_task(cwd)
+    set_task_stage(cwd, task.id, "assess")
+    result = generate_research_report(cwd, task.id, report_draft(task, facts))
+    assert result["ok"] is True
+    save_evidence(
+        cwd,
+        facts[0].id,
+        documents[1].id,
+        "contradicts",
+        facts[1].statement,
+    )
+
+    with pytest.raises(IntelError) as error:
+        set_task_stage(cwd, task.id, "done")
+
+    assert error.value.code == "INVALID_STAGE_TRANSITION"
+
+
 def test_done_rejects_report_bound_to_stale_coverage(cwd):
     from intel_agent.coverage import eval_coverage
     from intel_agent.fact import save_fact

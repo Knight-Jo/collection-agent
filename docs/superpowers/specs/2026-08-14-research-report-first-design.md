@@ -160,6 +160,8 @@ Agent 的逻辑流程改为：
 
 新增 `ResearchReportInput`、`ResearchReportSection` 结构化输入模型和 `generate_research_report` 生成器。报告包含：
 
+报告输入只选择已验证的事实和分析关系；执行摘要、转述归属、推理依据和局限由系统根据证据与最新覆盖状态生成，模型不能直接提供待发布的 URL、引用或内部 ID。
+
 1. 标题与调研范围
 2. 执行摘要
 3. 按调研问题组织的核心发现

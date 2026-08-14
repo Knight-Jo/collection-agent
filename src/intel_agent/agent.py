@@ -35,7 +35,7 @@ from .crawl import CrawlEventCallback, create_crawl, summarize_crawl
 from .crawl import crawl_collect as run_crawl_collect
 from .evidence import list_evidence_for_task, load_document, save_evidence
 from .fact import load_fact, save_fact, supersede_fact
-from .fetch import DEFAULT_MAX_BYTES, fetch_document
+from .fetch import DEFAULT_MAX_BYTES, canonicalize_url, fetch_document
 from .materials import generate_material_digest, register_material
 from .models import (
     AssessmentConclusion,
@@ -621,20 +621,22 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             ctx.deps.cwd,
             limit=ctx.deps.settings.budgets.fetch_attempts_since_evidence,
         )
+        task = load_task(ctx.deps.cwd)
         fetched_via = "pinned"
         try:
-            document, content, outbound_links = await fetch_document(
-                ctx.deps.cwd, url, max_bytes=max_bytes
-            )
-        except IntelError as error:
-            if (
-                not ctx.deps.settings.fetch.enable_httpx_fallback
-                or error.code not in ("NETWORK_ERROR", "TIMEOUT", "UNSAFE_URL")
-            ):
-                raise
-            from .fetch import httpx_fallback_fetch
-
             try:
+                document, content, outbound_links = await fetch_document(
+                    ctx.deps.cwd, url, max_bytes=max_bytes
+                )
+            except IntelError as error:
+                if (
+                    not ctx.deps.settings.fetch.enable_httpx_fallback
+                    or error.code
+                    not in ("NETWORK_ERROR", "TIMEOUT", "UNSAFE_URL")
+                ):
+                    raise
+                from .fetch import httpx_fallback_fetch
+
                 document, content, outbound_links = await fetch_document(
                     ctx.deps.cwd,
                     url,
@@ -642,9 +644,14 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                     max_bytes=max_bytes,
                 )
                 fetched_via = "httpx-fallback"
-            except IntelError:
-                raise
-        task = load_task(ctx.deps.cwd)
+        except IntelError as error:
+            register_material(
+                ctx.deps.cwd,
+                task.id,
+                canonicalize_url(url),
+                error=str(error),
+            )
+            raise
         register_material(
             ctx.deps.cwd,
             task.id,

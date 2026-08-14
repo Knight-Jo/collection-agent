@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -186,19 +187,22 @@ def _evaluate_question(
     ]
     covered_count = sum(1 for f in facts if f.status == "covered")
     has_support = any(f.candidate_supports_count > 0 for f in facts)
+    has_conflict = any(
+        fact.unresolved_conflicts > 0 or fact.unresolved_contradictions > 0
+        for fact in facts
+    )
     if not facts or not has_support:
         status = "gap"
         notes = ["尚未登记事实"] if not facts else ["事实尚无支持证据"]
-    elif covered_count == len(facts):
+    elif has_conflict:
+        status = "partial"
+        notes = ["存在未消解矛盾"]
+    elif covered_count > 0:
         status = "covered"
         notes = []
     else:
         status = "partial"
         notes = ["存在未充分覆盖的事实"]
-    has_conflict = any(
-        fact.unresolved_conflicts > 0 or fact.unresolved_contradictions > 0
-        for fact in facts
-    )
     answer_status = (
         "conflicted"
         if has_conflict
@@ -232,6 +236,31 @@ def latest_coverage(cwd: Path, task_id: str) -> CoverageSnapshot | None:
     return snapshots[-1] if snapshots else None
 
 
+def _coverage_fingerprint(per_question: list[QuestionCoverage]) -> str:
+    return sha256(
+        json.dumps(
+            [question.model_dump() for question in per_question],
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    )
+
+
+def current_coverage_fingerprint(
+    cwd: Path, task_id: str, now: datetime | None = None
+) -> str:
+    """Fingerprint current facts, evidence reviews, and conflicts."""
+    now = now or datetime.now(UTC)
+    task = load_task(cwd, task_id)
+    conflicts = load_conflicts(cwd, task.id)
+    return _coverage_fingerprint(
+        [
+            _evaluate_question(cwd, task.id, question.id, conflicts, now)
+            for question in task.questions
+        ]
+    )
+
+
 def eval_coverage(
     cwd: Path, task_id: str, now: datetime | None = None
 ) -> CoverageSnapshot:
@@ -255,34 +284,16 @@ def eval_coverage(
         else "insufficient"
     )
     gap_score = sum(
-        (1 if q.fact_count == 0 else sum(f.gap_score for f in q.facts))
+        (
+            0
+            if q.status == "covered"
+            else 1
+            if q.fact_count == 0
+            else sum(f.gap_score for f in q.facts)
+        )
         for q in per_question
     )
-    fingerprint = sha256(
-        __import__("json").dumps(
-            [
-                {
-                    "question_id": q.question_id,
-                    "status": q.status,
-                    "facts": [
-                        {
-                            "fact_id": f.fact_id,
-                            "status": f.status,
-                            "gap_score": f.gap_score,
-                            "supports_count": f.supports_count,
-                            "pending_reviews": f.pending_reviews,
-                            "partial_reviews": f.partial_reviews,
-                            "irrelevant_reviews": f.irrelevant_reviews,
-                            "contradictory_reviews": f.contradictory_reviews,
-                        }
-                        for f in q.facts
-                    ],
-                }
-                for q in per_question
-            ],
-            ensure_ascii=False,
-        )
-    )
+    fingerprint = _coverage_fingerprint(per_question)
     # Only a strictly smaller gap_score counts as progress; the agent gets two
     # consecutive rounds to improve before no_progress stops collection. Note a
     # gap_score increase is also "not progress" — e.g. newly found contradicting

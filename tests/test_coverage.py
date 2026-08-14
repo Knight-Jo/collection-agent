@@ -65,6 +65,36 @@ def test_coverage_sufficient(cwd):
     assert all(q.status == "covered" for q in snapshot.per_question)
 
 
+def test_answered_question_does_not_regress_for_an_extra_partial_fact(cwd):
+    task = _seed_covered_task(cwd)
+    initial = eval_coverage(cwd, task.id)
+    extra = save_fact(
+        cwd,
+        task.id,
+        task.questions[0].id,
+        "补充发现仍待第二个来源确认",
+    )
+    document = make_document(
+        cwd,
+        "补充发现仍待第二个来源确认",
+        "https://example.com/extra",
+    )
+    save_evidence(cwd, extra.id, document, "supports", extra.statement)
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+
+    updated = eval_coverage(cwd, task.id)
+
+    assert initial.level == updated.level == "sufficient"
+    assert initial.gap_score == updated.gap_score == 0
+    assert updated.per_question[0].answer_status == "answered"
+    extra_coverage = next(
+        fact
+        for fact in updated.per_question[0].facts
+        if fact.fact_id == extra.id
+    )
+    assert extra_coverage.status == "partial"
+
+
 def test_coverage_gap_without_evidence(cwd):
     task = new_task(cwd)
     snapshot = eval_coverage(cwd, task.id)

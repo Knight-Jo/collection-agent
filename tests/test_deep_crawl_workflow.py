@@ -365,6 +365,25 @@ async def test_web_fetch_registers_collected_material(monkeypatch, cwd):
     assert digest.materials[0].document_id == document.id
 
 
+@pytest.mark.asyncio
+async def test_failed_web_fetch_registers_one_star_material(monkeypatch, cwd):
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+
+    async def failed_fetch(*_args, **_kwargs):
+        raise IntelError("NETWORK_ERROR", "连接失败")
+
+    monkeypatch.setattr(agent_module, "fetch_document", failed_fetch)
+    tool = _tool(build_agent(Settings()), "web_fetch")
+
+    result = await tool(_context(cwd), "https://example.com/fail", 1024)
+
+    assert result["error"]["code"] == "NETWORK_ERROR"
+    digest = load_material_digest(cwd, task.id)
+    assert digest is not None
+    assert digest.materials[0].rating == 1
+    assert "连接失败" in digest.materials[0].description
+
+
 def test_material_digest_tool_returns_ranked_collection(cwd):
     task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
     register_material(

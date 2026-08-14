@@ -7,7 +7,7 @@ import uuid
 from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 SourceType = Literal[
     "news",
@@ -119,6 +119,7 @@ class TaskOutputBinding(BaseModel):
     path: str
     content_sha256: str
     created_at: str
+    document_hashes: dict[str, str] = Field(default_factory=dict)
 
 
 class CollectionState(BaseModel):
@@ -335,18 +336,38 @@ AssessmentConclusion = Annotated[
 ]
 
 
+class ResearchReportedConclusion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["reported"] = "reported"
+    fact_id: str
+
+
+class ResearchInferenceConclusion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["inference"] = "inference"
+    statement: str
+    confidence: Literal["high", "medium", "low"]
+    fact_ids: list[str]
+
+
+ResearchConclusion = Annotated[
+    FactConclusion | ResearchReportedConclusion | ResearchInferenceConclusion,
+    Field(discriminator="kind"),
+]
+
+
 class ResearchReportSection(BaseModel):
     question_id: str
-    conclusions: list[AssessmentConclusion] = Field(default_factory=list)
+    conclusions: list[ResearchConclusion] = Field(default_factory=list)
 
 
 class ResearchReportInput(BaseModel):
-    executive_summary: str
+    model_config = ConfigDict(extra="forbid")
+
     sections: list[ResearchReportSection] = Field(default_factory=list)
-    overall_conclusions: list[AssessmentConclusion] = Field(
-        default_factory=list
-    )
-    limitations: list[str] = Field(default_factory=list)
+    overall_conclusions: list[ResearchConclusion] = Field(default_factory=list)
 
 
 class ChallengePoint(BaseModel):

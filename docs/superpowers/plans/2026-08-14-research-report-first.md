@@ -44,6 +44,7 @@ def test_task_run_spec_accepts_topic_without_questions():
     assert spec.objective == ""
     assert spec.report_depth == "standard"
 
+
 def test_topic_only_prompt_asks_agent_to_generate_questions():
     prompt = build_task_prompt(TaskRunSpec(topic="低空经济"))
     assert "生成 3–6 个" in prompt
@@ -68,6 +69,7 @@ Add:
 
 ```python
 ReportDepth = Literal["brief", "standard", "deep"]
+
 
 class ResearchScope(BaseModel):
     time_range: str = ""
@@ -110,20 +112,32 @@ git commit -m "feat(research): accept topic-only tasks"
 ```python
 def test_primary_claim_is_covered_by_one_verified_source(cwd):
     task = new_task(cwd)
-    document = make_document(cwd, "政府发布测试主题政策", "https://gov.cn/policy")
-    fact = save_fact(cwd, task.id, task.questions[0].id, "政府发布测试主题政策", "primary")
+    document = make_document(
+        cwd, "政府发布测试主题政策", "https://gov.cn/policy"
+    )
+    fact = save_fact(
+        cwd, task.id, task.questions[0].id, "政府发布测试主题政策", "primary"
+    )
     save_evidence(cwd, fact.id, document, "supports", "政府发布测试主题政策")
     asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
     coverage = eval_coverage(cwd, task.id)
     assert coverage.per_question[0].facts[0].status == "covered"
 
+
 def test_corroborated_claim_still_requires_two_sources(cwd):
     task = new_task(cwd)
-    document = make_document(cwd, "媒体报道测试主题进展", "https://news.cn/story")
-    fact = save_fact(cwd, task.id, task.questions[0].id, "测试主题取得进展", "corroborated")
+    document = make_document(
+        cwd, "媒体报道测试主题进展", "https://news.cn/story"
+    )
+    fact = save_fact(
+        cwd, task.id, task.questions[0].id, "测试主题取得进展", "corroborated"
+    )
     save_evidence(cwd, fact.id, document, "supports", "媒体报道测试主题进展")
     asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
-    assert eval_coverage(cwd, task.id).per_question[0].facts[0].status == "partial"
+    assert (
+        eval_coverage(cwd, task.id).per_question[0].facts[0].status
+        == "partial"
+    )
 ```
 
 Add a historical JSON test that omits `claim_type` and validates it as `corroborated`. Add an answer-status test for answered, partial, unanswered, and conflicted mappings.
@@ -188,15 +202,24 @@ Use real task, document, fact, evidence, and crawl fixtures. Tests must prove:
 ```python
 def test_verified_core_material_receives_five_stars(cwd):
     digest = generate_material_digest(cwd, task.id)
-    review = next(item for item in digest.materials if item.document_id == document.id)
+    review = next(
+        item for item in digest.materials if item.document_id == document.id
+    )
     assert review.rating == 5
     assert len(review.description) <= 120
     assert review.question_ids == [question.id]
 
+
 def test_failed_material_receives_one_star(cwd):
-    record = register_material(cwd, task.id, "https://example.com/fail", error="提取失败")
+    record = register_material(
+        cwd, task.id, "https://example.com/fail", error="提取失败"
+    )
     digest = generate_material_digest(cwd, task.id)
-    review = next(item for item in digest.materials if item.canonical_url == record.canonical_url)
+    review = next(
+        item
+        for item in digest.materials
+        if item.canonical_url == record.canonical_url
+    )
     assert review.rating == 1
     assert "提取失败" in review.description
 ```
@@ -252,7 +275,7 @@ git commit -m "feat(research): rank collected materials"
 - Modify: `tests/test_web_views.py`
 
 **Interfaces:**
-- Produces: `ResearchReportSection(question_id, conclusions)` and `ResearchReportInput(executive_summary, sections, overall_conclusions, limitations)`.
+- Produces: `ResearchReportSection(question_id, conclusions)` and `ResearchReportInput(sections, overall_conclusions)`; the system derives the executive summary, source attribution, reasoning basis, and limitations from verified facts and coverage state.
 - Produces: `generate_research_report(cwd, task_id, draft) -> dict`.
 - Adds: `TaskOutputs.report: TaskOutputBinding | None`.
 - Adds artifact kind: `report`, with `assessment` falling back to the report during compatibility.
@@ -260,7 +283,9 @@ git commit -m "feat(research): rank collected materials"
 - [ ] **Step 1: Write failing report tests**
 
 ```python
-def test_report_has_question_sections_citations_digest_and_no_internal_ids(cwd):
+def test_report_has_question_sections_citations_digest_and_no_internal_ids(
+    cwd,
+):
     result = generate_research_report(cwd, task.id, draft)
     content = Path(result["path"]).read_text(encoding="utf-8")
     assert "## 执行摘要" in content
@@ -269,6 +294,7 @@ def test_report_has_question_sections_citations_digest_and_no_internal_ids(cwd):
     assert document.final_url in content
     assert "fact-" not in content
     assert "doc-" not in content
+
 
 def test_report_rejects_cross_task_or_unverified_fact(cwd):
     result = generate_research_report(cwd, task.id, invalid_draft)

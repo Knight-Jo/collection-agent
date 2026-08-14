@@ -10,9 +10,11 @@ from intel_agent.coverage import eval_coverage
 from intel_agent.fact import save_fact
 from intel_agent.models import IntelError
 from intel_agent.package import generate_package
+from intel_agent.storage import read_json_object, write_json_atomic
 from intel_agent.task import (
     create_task,
     load_task,
+    save_task,
     set_task_stage,
     summarize_task,
 )
@@ -124,6 +126,28 @@ def test_full_pipeline_reaches_done(cwd):
     set_task_stage(cwd, task.id, "done")
     assert load_task(cwd, task.id).stage == "done"
     assert summarize_task(cwd, task.id)["next_action"] == "任务已完成。"
+
+
+def test_legacy_outputs_accept_their_historical_coverage_fingerprint(cwd):
+    task = _full_pipeline(cwd)
+    history = read_json_object(cwd, f"coverage/{task.id}.json")
+    history["snapshots"][-1]["fingerprint"] = "legacy-fingerprint"
+    write_json_atomic(cwd, f"coverage/{task.id}.json", history)
+    stored = load_task(cwd, task.id)
+    package = stored.outputs.package
+    assessment = stored.outputs.assessment
+    assert package is not None and assessment is not None
+    stored.outputs.package = package.model_copy(
+        update={"coverage_fingerprint": "legacy-fingerprint"}
+    )
+    stored.outputs.assessment = assessment.model_copy(
+        update={"coverage_fingerprint": "legacy-fingerprint"}
+    )
+    save_task(cwd, stored)
+
+    completed = set_task_stage(cwd, task.id, "done")
+
+    assert completed.completion_status == "sufficient"
 
 
 def test_done_rejected_after_output_tampering(cwd):
