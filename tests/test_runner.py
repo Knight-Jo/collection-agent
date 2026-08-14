@@ -276,7 +276,7 @@ async def test_deep_report_enables_recursive_collection(monkeypatch, cwd):
     await run_agent_task(
         cwd,
         Settings(),
-        TaskRunSpec(topic="量子计算", report_depth="deep"),
+        TaskRunSpec(topic="量子计算", report_depth="deep", deep_crawl=False),
     )
 
     assert captured["deep_crawl"] is True

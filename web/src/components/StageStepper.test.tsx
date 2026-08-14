@@ -12,7 +12,7 @@ it("marks completed, active, and future research stages", () => {
     "data-state",
     "active",
   );
-  expect(screen.getByText("红队复审").closest("li")).toHaveAttribute(
+  expect(screen.getByText("可选复审").closest("li")).toHaveAttribute(
     "data-state",
     "pending",
   );

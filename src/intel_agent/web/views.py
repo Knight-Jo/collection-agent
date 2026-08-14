@@ -12,7 +12,15 @@ from ..conflicts import load_conflicts
 from ..coverage import latest_coverage
 from ..evidence import list_evidence_for_task, load_document
 from ..fact import list_facts_for_task
-from ..models import CrawlEntry, IntelDocument, IntelError, IntelTask
+from ..materials import load_material_digest
+from ..models import (
+    CrawlEntry,
+    ExtractionState,
+    IntelDocument,
+    IntelError,
+    IntelTask,
+    MaterialDigest,
+)
 from ..storage import (
     list_json,
     load_crawl,
@@ -48,29 +56,80 @@ def _source_chain(
     return chain
 
 
-def _crawl_resources(cwd: Path, task_id: str) -> list[CrawlResourceView]:
+def _crawl_resources(
+    cwd: Path, task_id: str, digest: MaterialDigest | None
+) -> list[CrawlResourceView]:
     try:
         crawl = load_crawl(cwd, task_id)
     except IntelError as error:
         if error.code == "NOT_FOUND":
-            return []
-        raise
-    entries_by_url = {entry.canonical_url: entry for entry in crawl.entries}
-    return [
-        CrawlResourceView(
-            canonical_url=entry.canonical_url,
-            source_chain=_source_chain(entry, entries_by_url),
-            depth=entry.depth,
-            status=entry.status,
-            mime_type=entry.mime_type,
-            size=entry.size,
-            downloaded_bytes=entry.downloaded_bytes,
-            document_id=entry.document_id,
-            extraction=entry.extraction,
-            error=entry.error,
+            crawl = None
+        else:
+            raise
+    reviews = (
+        {item.canonical_url: item for item in digest.materials}
+        if digest
+        else {}
+    )
+    entries = crawl.entries if crawl else []
+    entries_by_url = {entry.canonical_url: entry for entry in entries}
+    resources: list[CrawlResourceView] = []
+    for entry in entries:
+        review = reviews.get(entry.canonical_url)
+        resources.append(
+            CrawlResourceView(
+                canonical_url=entry.canonical_url,
+                source_chain=_source_chain(entry, entries_by_url),
+                depth=entry.depth,
+                status=entry.status,
+                mime_type=entry.mime_type,
+                size=entry.size,
+                downloaded_bytes=entry.downloaded_bytes,
+                document_id=entry.document_id,
+                extraction=entry.extraction,
+                error=entry.error,
+                rating=review.rating if review else None,
+                description=review.description if review else None,
+            )
         )
-        for entry in crawl.entries
-    ]
+    for material in digest.materials if digest else []:
+        if material.canonical_url in entries_by_url:
+            continue
+        document = (
+            load_document(cwd, material.document_id)
+            if material.document_id
+            else None
+        )
+        if document:
+            verify_document_integrity(cwd, document)
+        size = (
+            workspace_path(cwd, document.raw_path).stat().st_size
+            if document
+            else 0
+        )
+        resources.append(
+            CrawlResourceView(
+                canonical_url=material.canonical_url,
+                source_chain=[material.canonical_url],
+                depth=0,
+                status="complete" if document else "failed",
+                mime_type=document.content_type if document else None,
+                size=size or None,
+                downloaded_bytes=size,
+                document_id=material.document_id,
+                extraction=ExtractionState(
+                    status=document.extraction_status
+                    if document
+                    else "failed",
+                    text_path=document.text_path if document else None,
+                    error=material.error,
+                ),
+                error=material.error,
+                rating=material.rating,
+                description=material.description,
+            )
+        )
+    return resources
 
 
 def list_task_summaries(cwd: Path) -> list[TaskSummary]:
@@ -96,6 +155,7 @@ def list_task_summaries(cwd: Path) -> list[TaskSummary]:
 def get_task_view(cwd: Path, task_id: str) -> TaskView:
     """Build a question-first task view with nested evidence and reviews."""
     task = load_task(cwd, task_id)
+    material_digest = load_material_digest(cwd, task.id)
     coverage = latest_coverage(cwd, task.id)
     facts = list_facts_for_task(cwd, task.id)
     evidence = list_evidence_for_task(cwd, task.id)
@@ -166,7 +226,8 @@ def get_task_view(cwd: Path, task_id: str) -> TaskView:
         ],
         conflicts=load_conflicts(cwd, task.id),
         challenges=list_challenge_rounds(cwd, task.id),
-        resources=_crawl_resources(cwd, task.id),
+        resources=_crawl_resources(cwd, task.id, material_digest),
+        material_digest=material_digest,
     )
 
 
@@ -175,15 +236,25 @@ def get_resource_download(
 ) -> tuple[Path, IntelDocument]:
     """Resolve a task-owned original only after document integrity checks."""
     load_task(cwd, task_id)
+    crawl_document_ids: set[str] = set()
     try:
         crawl = load_crawl(cwd, task_id)
     except IntelError as error:
-        if error.code != "NOT_FOUND":
+        if error.code == "NOT_FOUND":
+            crawl = None
+        else:
             raise
-        raise IntelError(
-            "NOT_FOUND", f"任务资源不存在: {document_id}"
-        ) from error
-    if not any(entry.document_id == document_id for entry in crawl.entries):
+    if crawl:
+        crawl_document_ids = {
+            entry.document_id for entry in crawl.entries if entry.document_id
+        }
+    digest = load_material_digest(cwd, task_id)
+    material_document_ids = {
+        item.document_id
+        for item in (digest.materials if digest else [])
+        if item.document_id
+    }
+    if document_id not in crawl_document_ids | material_document_ids:
         raise IntelError("NOT_FOUND", f"任务资源不存在: {document_id}")
     document = load_document(cwd, document_id)
     verify_document_integrity(cwd, document)

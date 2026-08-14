@@ -4,7 +4,7 @@ import type { Stage } from "../types";
 const stages: Array<{ id: Stage; label: string }> = [
   { id: "collect", label: "资料收集" },
   { id: "assess", label: "综合研判" },
-  { id: "challenge", label: "红队复审" },
+  { id: "challenge", label: "可选复审" },
   { id: "done", label: "报告完成" },
 ];
 

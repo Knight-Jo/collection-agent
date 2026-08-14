@@ -11,6 +11,8 @@ from .models import (
     IntelError,
     IntelQuestion,
     IntelTask,
+    ReportDepth,
+    ResearchScope,
     SufficiencyCriteria,
     TaskOutputBinding,
     TaskStage,
@@ -42,6 +44,9 @@ def create_task(
     questions: list[str],
     criteria: SufficiencyCriteria | dict,
     deep_crawl: bool = False,
+    objective: str = "",
+    scope: ResearchScope | None = None,
+    report_depth: ReportDepth = "standard",
 ) -> IntelTask:
     """Create a task with stable question IDs and persist it as the active task."""
     if isinstance(criteria, dict):
@@ -71,6 +76,9 @@ def create_task(
             IntelQuestion(id=new_id("q"), text=text) for text in question_texts
         ],
         criteria=criteria,
+        objective=objective.strip(),
+        scope=scope or ResearchScope(),
+        report_depth=report_depth,
         deep_crawl=deep_crawl,
         created_at=now,
         updated_at=now,

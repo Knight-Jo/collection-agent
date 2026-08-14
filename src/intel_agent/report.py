@@ -210,6 +210,11 @@ def generate_research_report(
         "## 调研范围",
         "",
         f"- 主题：{task.topic}",
+        f"- 目标：{task.objective or '围绕主题开展公开信息调研'}",
+        f"- 时间：{task.scope.time_range or '未限定'}",
+        f"- 地区：{'、'.join(task.scope.geography) or '未限定'}",
+        f"- 语言：{'、'.join(task.scope.languages) or '未限定'}",
+        f"- 报告深度：{task.report_depth}",
         f"- 核心问题：{'；'.join(question.text for question in task.questions)}",
     ]
     conclusion_offset = 0

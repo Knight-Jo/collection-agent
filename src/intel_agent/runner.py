@@ -144,17 +144,20 @@ async def run_agent_task(
     resolved_spec = spec.model_copy(
         update={
             "deep_crawl": (
-                spec.deep_crawl
-                if spec.deep_crawl is not None
-                else (
-                    spec.report_depth == "deep"
-                    or settings.crawl.enabled_by_default
+                spec.report_depth == "deep"
+                or (
+                    spec.deep_crawl
+                    if spec.deep_crawl is not None
+                    else settings.crawl.enabled_by_default
                 )
             )
         }
     )
     agent = build_agent(settings)
     deps = build_deps(cwd, settings, deep_crawl=bool(resolved_spec.deep_crawl))
+    for name in ("objective", "scope", "report_depth"):
+        if hasattr(deps, name):
+            setattr(deps, name, getattr(resolved_spec, name))
     if hasattr(deps, "crawl_event_callback"):
         deps.crawl_event_callback = on_event
     async with agent.run_stream_events(

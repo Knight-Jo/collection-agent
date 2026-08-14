@@ -13,6 +13,7 @@ from ..models import (
     ExtractionState,
     FactCoverage,
     IntelTask,
+    MaterialDigest,
     QuestionCoverage,
     ReportDepth,
     ResearchScope,
@@ -179,6 +180,8 @@ class CrawlResourceView(BaseModel):
     document_id: str | None = None
     extraction: ExtractionState
     error: str | None = None
+    rating: int | None = Field(default=None, ge=1, le=5)
+    description: str | None = None
 
 
 class TaskView(BaseModel):
@@ -188,6 +191,7 @@ class TaskView(BaseModel):
     conflicts: list[EvidenceConflict]
     challenges: list[ChallengeRound]
     resources: list[CrawlResourceView]
+    material_digest: MaterialDigest | None = None
 
 
 class ArtifactView(BaseModel):

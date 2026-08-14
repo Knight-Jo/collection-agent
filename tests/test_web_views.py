@@ -9,6 +9,7 @@ import pytest
 from intel_agent.audit import audit_task_evidence
 from intel_agent.coverage import eval_coverage
 from intel_agent.fact import save_fact
+from intel_agent.materials import generate_material_digest, register_material
 from intel_agent.models import (
     CrawlEntry,
     CrawlSnapshot,
@@ -21,6 +22,7 @@ from intel_agent.report import generate_research_report
 from intel_agent.storage import save_crawl
 from intel_agent.web.views import (
     get_artifact,
+    get_resource_download,
     get_task_view,
     list_task_summaries,
 )
@@ -137,6 +139,28 @@ def test_get_artifact_verifies_bound_content(cwd):
     with pytest.raises(IntelError) as error:
         get_artifact(cwd, task.id, "package")
     assert error.value.code == "OUTPUT_TAMPERED"
+
+
+def test_task_view_includes_ranked_direct_fetch_material(cwd):
+    task = new_task(cwd)
+    document = make_document(cwd, "测试主题背景材料")
+    register_material(
+        cwd,
+        task.id,
+        document.canonical_url,
+        document_id=document.id,
+    )
+    digest = generate_material_digest(cwd, task.id)
+
+    view = get_task_view(cwd, task.id)
+    path, downloaded = get_resource_download(cwd, task.id, document.id)
+
+    assert view.material_digest == digest
+    assert len(view.resources) == 1
+    assert view.resources[0].rating == 3
+    assert view.resources[0].description
+    assert path.exists()
+    assert downloaded.id == document.id
 
 
 def test_report_is_primary_artifact_with_assessment_fallback(cwd):

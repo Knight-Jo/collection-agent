@@ -143,6 +143,9 @@ class IntelTask(BaseModel):
     stage: TaskStage
     questions: list[IntelQuestion]
     criteria: SufficiencyCriteria
+    objective: str = ""
+    scope: ResearchScope = Field(default_factory=ResearchScope)
+    report_depth: ReportDepth = "standard"
     deep_crawl: bool = False
     completion_status: Literal["sufficient", "with_gaps"] | None = None
     collection: CollectionState = Field(default_factory=CollectionState)

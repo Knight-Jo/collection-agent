@@ -41,7 +41,9 @@ from .models import (
     AssessmentConclusion,
     ClaimType,
     IntelError,
+    ReportDepth,
     ResearchReportInput,
+    ResearchScope,
     SufficiencyCriteria,
     SupportVerdict,
     TaskStage,
@@ -177,6 +179,9 @@ class AgentDeps:
     cwd: Path
     settings: Settings
     deep_crawl: bool = False
+    objective: str = ""
+    scope: ResearchScope = field(default_factory=ResearchScope)
+    report_depth: ReportDepth = "standard"
     crawl_event_callback: CrawlEventCallback | None = None
     http: httpx.AsyncClient = field(default_factory=httpx.AsyncClient)
     judge: Judge | None = None
@@ -858,6 +863,9 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             questions,
             criteria,
             deep_crawl=ctx.deps.deep_crawl,
+            objective=ctx.deps.objective,
+            scope=ctx.deps.scope,
+            report_depth=ctx.deps.report_depth,
         )
         return {
             "task": task.model_dump(),

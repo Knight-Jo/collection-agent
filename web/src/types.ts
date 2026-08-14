@@ -10,7 +10,10 @@ export interface Criteria {
 
 export interface RunInput {
   topic: string;
-  questions: string[];
+  objective?: string;
+  questions?: string[];
+  scope?: { time_range: string; geography: string[]; languages: string[] };
+  report_depth?: "brief" | "standard" | "deep";
   deep_crawl: boolean | null;
   criteria: Criteria;
 }
@@ -62,6 +65,16 @@ export interface CrawlResource {
   document_id: string | null;
   extraction: { status: "pending" | "complete" | "unavailable" | "failed" | "skipped"; processor: string | null; text_path: string | null; error: string | null };
   error: string | null;
+  rating: number | null;
+  description: string | null;
+}
+
+export interface MaterialDigest {
+  overview: string;
+  key_points: string[];
+  priority_materials: string[];
+  reading_guide: Record<string, string[]>;
+  gaps: string[];
 }
 
 export interface Evidence {
@@ -97,7 +110,7 @@ export interface TaskDetail {
     stage: Stage;
     updated_at: string;
     criteria: Criteria;
-    outputs: { assessment: unknown | null; package: unknown | null };
+    outputs: { report: unknown | null; assessment: unknown | null; package: unknown | null };
   };
   coverage: {
     level: string;
@@ -118,10 +131,11 @@ export interface TaskDetail {
     points: Array<{ id: string; challenge: string; status: string }>;
   }>;
   resources: CrawlResource[];
+  material_digest: MaterialDigest | null;
 }
 
 export interface Artifact {
-  kind: "assessment" | "package";
+  kind: "report" | "assessment" | "package";
   path: string;
   content: string;
   content_sha256: string;

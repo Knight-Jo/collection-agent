@@ -2,7 +2,7 @@
 
 import pytest
 
-from intel_agent.models import IntelError, SufficiencyCriteria
+from intel_agent.models import IntelError, ResearchScope, SufficiencyCriteria
 from intel_agent.task import (
     FETCH_ATTEMPT_LIMIT,
     SEARCH_ATTEMPT_LIMIT,
@@ -91,6 +91,23 @@ def test_create_task_dedupes_questions_and_persists(cwd):
     assert task.collection.search_attempts == 0
     assert load_task(cwd).id == task.id
     assert load_task(cwd, task.id).id == task.id
+
+
+def test_create_task_persists_research_brief(cwd):
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        SufficiencyCriteria(),
+        objective="了解公开进展",
+        scope=ResearchScope(time_range="2024-2026", geography=["中国"]),
+        report_depth="deep",
+    )
+
+    stored = load_task(cwd, task.id)
+    assert stored.objective == "了解公开进展"
+    assert stored.scope.geography == ["中国"]
+    assert stored.report_depth == "deep"
 
 
 def test_search_budget_exhausts(cwd):
