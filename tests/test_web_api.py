@@ -83,6 +83,23 @@ def test_run_create_preserves_deep_crawl_omission():
     assert disabled.to_spec().deep_crawl is False
 
 
+def test_run_create_accepts_topic_only_research_brief():
+    request = RunCreate.model_validate(
+        {
+            "topic": "测试主题",
+            "objective": "了解现状",
+            "scope": {"geography": ["中国"]},
+            "report_depth": "brief",
+        }
+    )
+
+    spec = request.to_spec()
+    assert spec.questions == []
+    assert spec.objective == "了解现状"
+    assert spec.scope.geography == ["中国"]
+    assert spec.report_depth == "brief"
+
+
 def test_resource_download_checks_ownership_and_integrity(cwd):
     task = new_task(cwd)
     document = make_document(cwd, "original resource")

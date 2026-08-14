@@ -54,12 +54,57 @@ def test_task_run_spec_normalizes_and_validates_questions():
     assert spec.topic == "测试主题"
     assert spec.questions == ["问题甲", "问题乙"]
 
-    with pytest.raises(ValidationError):
-        TaskRunSpec(
-            topic="测试",
-            questions=["只有一个问题"],
-            criteria=spec.criteria,
-        )
+    one_question = TaskRunSpec(
+        topic="测试",
+        questions=["只有一个问题"],
+        criteria=spec.criteria,
+    )
+    assert one_question.questions == ["只有一个问题"]
+
+
+def test_task_run_spec_accepts_topic_without_questions():
+    spec = TaskRunSpec(topic=" 低空经济 ")
+
+    assert spec.topic == "低空经济"
+    assert spec.questions == []
+    assert spec.objective == ""
+    assert spec.scope.model_dump() == {
+        "time_range": "",
+        "geography": [],
+        "languages": [],
+    }
+    assert spec.report_depth == "standard"
+
+
+def test_topic_only_prompt_asks_agent_to_generate_questions():
+    prompt = build_task_prompt(TaskRunSpec(topic="低空经济"))
+
+    assert "生成 3–6 个" in prompt
+    assert "低空经济" in prompt
+
+
+def test_prompt_preserves_optional_research_brief():
+    spec = TaskRunSpec.model_validate(
+        {
+            "topic": "低空经济",
+            "objective": "了解产业现状",
+            "questions": ["政策如何变化？"],
+            "scope": {
+                "time_range": "2024-2026",
+                "geography": ["中国"],
+                "languages": ["zh-CN", "en"],
+            },
+            "report_depth": "deep",
+        }
+    )
+
+    prompt = build_task_prompt(spec)
+    assert "了解产业现状" in prompt
+    assert "政策如何变化？" in prompt
+    assert "补充" in prompt
+    assert "2024-2026" in prompt
+    assert "中国" in prompt
+    assert "zh-CN、en" in prompt
 
 
 def test_build_task_prompt_preserves_user_input_and_criteria():

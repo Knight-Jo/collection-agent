@@ -14,6 +14,8 @@ from ..models import (
     FactCoverage,
     IntelTask,
     QuestionCoverage,
+    ReportDepth,
+    ResearchScope,
     SufficiencyCriteria,
     SupportReview,
 )
@@ -42,7 +44,10 @@ CrawlResourceStatus = Literal[
 
 class RunCreate(BaseModel):
     topic: str
-    questions: list[str]
+    objective: str = ""
+    questions: list[str] = Field(default_factory=list)
+    scope: ResearchScope = Field(default_factory=ResearchScope)
+    report_depth: ReportDepth = "standard"
     deep_crawl: bool | None = None
     criteria: SufficiencyCriteria = Field(
         default_factory=lambda: SufficiencyCriteria(

@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 from .config import load_config
-from .models import SufficiencyCriteria
+from .models import ResearchScope, SufficiencyCriteria
 from .runner import TaskRunSpec, run_agent_task
 from .task import load_task
 
@@ -25,7 +25,22 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--topic", required=True, help="情报收集主题")
     parser.add_argument(
-        "--questions", nargs="+", required=True, help="2-6 个关键问题"
+        "--questions",
+        nargs="*",
+        default=[],
+        help="可选的关键问题（最多 6 个）",
+    )
+    parser.add_argument("--objective", default="", help="调研目标")
+    parser.add_argument("--time-range", default="", help="调研时间范围")
+    parser.add_argument(
+        "--geography", nargs="*", default=[], help="调研地区范围"
+    )
+    parser.add_argument("--language", nargs="*", default=[], help="检索语言")
+    parser.add_argument(
+        "--report-depth",
+        choices=("brief", "standard", "deep"),
+        default="standard",
+        help="报告详略程度",
     )
     parser.add_argument("--config", default=None, help="config.yaml 路径")
     parser.add_argument(
@@ -127,7 +142,14 @@ async def _run(args: argparse.Namespace) -> int:
         return 1
     spec = TaskRunSpec(
         topic=args.topic,
+        objective=args.objective,
         questions=args.questions,
+        scope=ResearchScope(
+            time_range=args.time_range,
+            geography=args.geography,
+            languages=args.language,
+        ),
+        report_depth=args.report_depth,
         criteria=SufficiencyCriteria(
             min_independent_sources=args.min_sources,
             min_high_quality_sources=args.min_quality,
@@ -155,8 +177,8 @@ async def _run(args: argparse.Namespace) -> int:
 
 def main() -> int:
     args = _build_parser().parse_args()
-    if not 2 <= len(args.questions) <= 6:
-        print("错误: questions 数量必须为 2-6 个", file=sys.stderr)
+    if len(args.questions) > 6:
+        print("错误: questions 数量不能超过 6 个", file=sys.stderr)
         return 1
     return asyncio.run(_run(args))
 

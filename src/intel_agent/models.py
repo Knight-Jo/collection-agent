@@ -22,6 +22,7 @@ SourceType = Literal[
 TaskStage = Literal["collect", "assess", "challenge", "done"]
 QuestionStatus = Literal["covered", "partial", "gap"]
 SupportVerdict = Literal["full", "partial", "irrelevant", "contradicts"]
+ReportDepth = Literal["brief", "standard", "deep"]
 SUPPORT_REVIEW_PROMPT_VERSION = "support-entailment-v1"
 
 
@@ -93,10 +94,16 @@ class CrawlSnapshot(BaseModel):
 
 
 class SufficiencyCriteria(BaseModel):
-    min_independent_sources: int
-    min_high_quality_sources: int
-    recency_days: int
-    require_recency: bool
+    min_independent_sources: int = 2
+    min_high_quality_sources: int = 1
+    recency_days: int = 90
+    require_recency: bool = False
+
+
+class ResearchScope(BaseModel):
+    time_range: str = ""
+    geography: list[str] = Field(default_factory=list)
+    languages: list[str] = Field(default_factory=list)
 
 
 class IntelQuestion(BaseModel):

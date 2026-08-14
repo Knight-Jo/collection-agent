@@ -14,7 +14,7 @@ from pydantic_ai.usage import UsageLimits
 
 from .agent import build_agent, build_deps
 from .config import Settings
-from .models import SufficiencyCriteria
+from .models import ReportDepth, ResearchScope, SufficiencyCriteria
 
 EventCallback = Callable[[object], Awaitable[None]]
 
@@ -23,8 +23,11 @@ class TaskRunSpec(BaseModel):
     """Validated inputs shared by CLI and Web task runs."""
 
     topic: str
-    questions: list[str]
-    criteria: SufficiencyCriteria
+    objective: str = ""
+    questions: list[str] = Field(default_factory=list)
+    scope: ResearchScope = Field(default_factory=ResearchScope)
+    report_depth: ReportDepth = "standard"
+    criteria: SufficiencyCriteria = Field(default_factory=SufficiencyCriteria)
     deep_crawl: bool | None = None
     max_requests: int | None = Field(default=None, ge=1)
     max_tool_calls: int | None = Field(default=None, ge=1)
@@ -37,14 +40,19 @@ class TaskRunSpec(BaseModel):
             raise ValueError("主题不能为空")
         return value
 
+    @field_validator("objective")
+    @classmethod
+    def normalize_objective(cls, value: str) -> str:
+        return value.strip()
+
     @field_validator("questions")
     @classmethod
     def normalize_questions(cls, value: list[str]) -> list[str]:
         questions = list(
             dict.fromkeys(item.strip() for item in value if item.strip())
         )
-        if not 2 <= len(questions) <= 6:
-            raise ValueError("关键问题数量必须为 2–6 个")
+        if len(questions) > 6:
+            raise ValueError("用户关键问题数量不能超过 6 个")
         return questions
 
     @model_validator(mode="after")
@@ -73,10 +81,39 @@ def build_task_prompt(spec: TaskRunSpec) -> str:
         if spec.deep_crawl
         else "使用逐页 web_fetch 收集文档。\n"
     )
+    question_instruction = (
+        "调用 intel_plan 时根据主题、目标和范围生成 3–6 个可独立回答的调研问题。\n"
+        if not spec.questions
+        else (
+            "调用 intel_plan 时必须原样保留下列用户问题，并补充必要问题，"
+            "使最终问题总数为 2–6 个：\n"
+            f"{questions}\n"
+        )
+    )
+    scope_parts = [
+        value
+        for value in (
+            f"时间范围={spec.scope.time_range}"
+            if spec.scope.time_range
+            else "",
+            (
+                f"地区={'、'.join(spec.scope.geography)}"
+                if spec.scope.geography
+                else ""
+            ),
+            (
+                f"语言={'、'.join(spec.scope.languages)}"
+                if spec.scope.languages
+                else ""
+            ),
+        )
+        if value
+    ]
     return (
         f"请围绕主题「{spec.topic}」执行公开来源情报收集与研判。\n"
-        f"【关键问题·必须原样使用】调用 intel_plan 时必须原样使用下列问题，不得替换、增删或改写：\n"
-        f"{questions}\n"
+        f"【调研目标】{spec.objective or '围绕主题形成公开信息调研报告'}。\n"
+        f"【调研范围】{'；'.join(scope_parts) or '未限定'}；报告深度={spec.report_depth}。\n"
+        f"【关键问题】{question_instruction}"
         f"【充分性标准·必须照此设置】min_independent_sources={criteria.min_independent_sources}，"
         f"min_high_quality_sources={criteria.min_high_quality_sources}，recency_days={criteria.recency_days}，"
         f"require_recency={str(criteria.require_recency).lower()}（{recency_required}）。\n"

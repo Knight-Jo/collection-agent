@@ -11,6 +11,39 @@ from intel_agent.config import Settings
 from intel_agent.task import create_task
 
 
+def test_cli_accepts_topic_without_questions():
+    args = main_module._build_parser().parse_args(["--topic", "测试主题"])
+
+    assert args.topic == "测试主题"
+    assert args.questions == []
+
+
+def test_cli_accepts_optional_research_brief():
+    args = main_module._build_parser().parse_args(
+        [
+            "--topic",
+            "测试主题",
+            "--objective",
+            "了解现状",
+            "--time-range",
+            "2024-2026",
+            "--geography",
+            "中国",
+            "--language",
+            "zh-CN",
+            "en",
+            "--report-depth",
+            "deep",
+        ]
+    )
+
+    assert args.objective == "了解现状"
+    assert args.time_range == "2024-2026"
+    assert args.geography == ["中国"]
+    assert args.language == ["zh-CN", "en"]
+    assert args.report_depth == "deep"
+
+
 @pytest.mark.asyncio
 async def test_cli_returns_nonzero_when_agent_stops_before_done(
     monkeypatch, cwd
