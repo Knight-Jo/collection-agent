@@ -16,6 +16,7 @@ from intel_agent.coverage import eval_coverage
 from intel_agent.crawl import create_crawl
 from intel_agent.fetch import FetchedResponse
 from intel_agent.main import _build_parser
+from intel_agent.materials import load_material_digest, register_material
 from intel_agent.models import IntelError, IntelTask
 from intel_agent.runner import TaskRunSpec, build_task_prompt, run_agent_task
 from intel_agent.storage import load_crawl, read_json_object, write_json_atomic
@@ -342,6 +343,40 @@ async def test_crawl_collect_returns_compact_resource_index(monkeypatch, cwd):
     assert len(result["resources"]) == 50
     assert result["resources_truncated"] is True
     assert len(str(result)) < 16_000
+
+
+@pytest.mark.asyncio
+async def test_web_fetch_registers_collected_material(monkeypatch, cwd):
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    document = make_document(cwd, "主题材料", "https://example.com/source")
+
+    async def fake_fetch(*_args, **_kwargs):
+        return document, "主题材料", []
+
+    monkeypatch.setattr(agent_module, "fetch_document", fake_fetch)
+
+    result = await _tool(build_agent(Settings()), "web_fetch")(
+        _context(cwd), document.canonical_url, 1024
+    )
+
+    assert result["document"]["id"] == document.id
+    digest = load_material_digest(cwd, task.id)
+    assert digest is not None
+    assert digest.materials[0].document_id == document.id
+
+
+def test_material_digest_tool_returns_ranked_collection(cwd):
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    register_material(
+        cwd, task.id, "https://example.com/fail", error="提取失败"
+    )
+
+    result = _tool(build_agent(Settings()), "material_digest")(
+        _context(cwd), task.id
+    )
+
+    assert result["materials"][0]["rating"] == 1
+    assert "提取失败" in result["materials"][0]["description"]
 
 
 def test_document_search_finds_crawled_multimedia_text(cwd):

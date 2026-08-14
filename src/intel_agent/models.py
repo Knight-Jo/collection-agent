@@ -173,6 +173,30 @@ class IntelDocument(BaseModel):
     injection_warnings: list[str] = Field(default_factory=list)
 
 
+class MaterialReview(BaseModel):
+    task_id: str
+    canonical_url: str
+    document_id: str | None = None
+    rating: int = Field(ge=1, le=5)
+    description: str = Field(max_length=120)
+    question_ids: list[str] = Field(default_factory=list)
+    error: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class MaterialDigest(BaseModel):
+    task_id: str
+    overview: str = ""
+    key_points: list[str] = Field(default_factory=list)
+    priority_materials: list[str] = Field(default_factory=list)
+    reading_guide: dict[str, list[str]] = Field(default_factory=dict)
+    gaps: list[str] = Field(default_factory=list)
+    materials: list[MaterialReview] = Field(default_factory=list)
+    created_at: str
+    updated_at: str
+
+
 class Fact(BaseModel):
     """A canonical atomic statement; superseded facts keep history for audit."""
 

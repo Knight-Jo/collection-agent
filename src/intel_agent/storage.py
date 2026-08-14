@@ -31,6 +31,7 @@ def ensure_intel_dirs(cwd: Path) -> None:
         "data/intel/reviews",
         "data/intel/coverage",
         "data/intel/crawls",
+        "data/intel/materials",
         "data/raw",
         "output",
     ]:

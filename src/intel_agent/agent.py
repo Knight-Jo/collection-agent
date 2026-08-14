@@ -36,6 +36,7 @@ from .crawl import crawl_collect as run_crawl_collect
 from .evidence import list_evidence_for_task, load_document, save_evidence
 from .fact import load_fact, save_fact, supersede_fact
 from .fetch import DEFAULT_MAX_BYTES, fetch_document
+from .materials import generate_material_digest, register_material
 from .models import (
     AssessmentConclusion,
     ClaimType,
@@ -615,6 +616,15 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             )
         )
 
+    @agent.tool(name="material_digest")
+    def material_digest_tool(ctx: RunContext[AgentDeps], task_id: str) -> dict:
+        """Rate collected materials and build a task-specific reading guide."""
+        return _guarded_sync(
+            lambda: generate_material_digest(
+                ctx.deps.cwd, task_id
+            ).model_dump()
+        )
+
     @agent.tool(name="web_fetch")
     async def web_fetch_tool(
         ctx: RunContext[AgentDeps],
@@ -660,6 +670,13 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                 fetched_via = "httpx-fallback"
             except IntelError:
                 raise
+        task = load_task(ctx.deps.cwd)
+        register_material(
+            ctx.deps.cwd,
+            task.id,
+            document.canonical_url,
+            document_id=document.id,
+        )
         preview = content[:20_000]
         return {
             "document": document.model_dump(),
