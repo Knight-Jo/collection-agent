@@ -331,8 +331,8 @@ def summarize_task(cwd: Path, task_id: str | None = None) -> dict:
     task = load_task(cwd, task_id)
     next_action = {
         "collect": "按问题 ID 检索并抓取文档，再保存可定位引文。",
-        "assess": "运行 coverage_eval；充分或停止后生成证据包和研判。",
-        "challenge": "完成最多两轮红队复审。",
+        "assess": "生成材料导读和正式调研报告后完成任务。",
+        "challenge": "完成可选红队复审并更新正式调研报告。",
         "done": (
             "任务已完成，但保留已披露的证据缺口。"
             if task.completion_status == "with_gaps"

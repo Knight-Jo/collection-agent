@@ -110,38 +110,25 @@ def build_task_prompt(spec: TaskRunSpec) -> str:
         if value
     ]
     return (
-        f"请围绕主题「{spec.topic}」执行公开来源情报收集与研判。\n"
+        f"请围绕主题「{spec.topic}」执行公开信息调研并形成正式报告。\n"
         f"【调研目标】{spec.objective or '围绕主题形成公开信息调研报告'}。\n"
         f"【调研范围】{'；'.join(scope_parts) or '未限定'}；报告深度={spec.report_depth}。\n"
         f"【关键问题】{question_instruction}"
-        f"【充分性标准·必须照此设置】min_independent_sources={criteria.min_independent_sources}，"
+        f"【交叉验证标准】corroborated 声明使用 min_independent_sources={criteria.min_independent_sources}，"
         f"min_high_quality_sources={criteria.min_high_quality_sources}，recency_days={criteria.recency_days}，"
-        f"require_recency={str(criteria.require_recency).lower()}（{recency_required}）。\n"
+        f"require_recency={str(criteria.require_recency).lower()}（{recency_required}）；"
+        "primary 和 attributed reported 声明可由一个审核通过的一手来源支持。\n"
         f"【深度抓取】调用 intel_plan 时必须设置 deep_crawl={str(bool(spec.deep_crawl)).lower()}。"
         f"{deep_crawl_instruction}"
-        f"【检索纪律】先按问题逐一 web_search（每问题至少一次），优先官方/政府/主流新闻/学术来源；"
-        f"每问题定向抓取 2-3 篇不同来源组的文档；同一问题至少 2 个独立来源组才可能达到 covered。\n"
-        f"【检索多样性·重要】避免反复抓取同一批结果：web_search 返回的 already_archived=true 表示"
-        f"该 URL 已归档，不要再抓取；若某问题结果几乎全部已归档（fresh_count 很小），必须换更具体的"
-        f"查询词（公司名/机构名/具体事件/年份），或把 language 设为 en 搜英文一手来源（公司新闻稿、"
-        f"交易所公告、行业媒体），或使用 filetype=pdf 搜索政府报告/白皮书。百度百科/维基百科只能当背景知识，"
-        f"不能作为主要证据来源；优先抓取 gov.cn/新闻/企业官网/学术来源。\n"
-        f"【来源扩展】web_fetch 返回的 outbound_links 可继续直接抓取（不消耗搜索预算），优先跟进"
-        f"gov.cn/新闻/学术/公司官网链接；已知权威来源（如 ir.亿航公司.com、sec.gov、caixin.com）"
-        f"可直接 web_fetch 无需先搜索。intel_plan 返回的 suggested_direct_sources 可直接抓取。\n"
-        f"【金融数据源】投资/融资/市场规模类问题：可直接 web_fetch caixin.com（财新）、cls.cn（财联社）、"
-        f"eastmoney.com（东方财富）、xueqiu.com（雪球）的搜索页/行情页/专题页；搜索研报时优先 filetype=pdf。\n"
-        f"【订单数据】公司订单/交付/财报数据：直接 fetch ir.{{公司}}.com 投资者关系页、"
-        f"sec.gov/edgar（美国上市公司财报）；英文搜索用 orders deliveries FY2025 等专业词。\n"
-        f"【事实纪律】fact_save 只登记单一、原子、可独立核验的命题；引文必须逐字覆盖命题的"
-        f"全部重要组成（主体/动作/范围/时间/数量）；evidence_audit 返回 partial 时用 fact_supersede "
-        f"拆分为更窄的事实，或保存覆盖完整组成的引文。\n"
-        f"【挑战纪律】intel_challenge_confirm 中 addressed 优先（引用本轮新增且已 full 审核的证据）；"
-        f"确需 dismissed 时必须给出具体、可审查的理由（说明为何该缺口可接受）。\n"
-        "按工作流推进：intel_plan → 逐问题检索抓取 → 事实与证据 → evidence_audit → coverage_eval"
-        "（充分或 no_progress 停止）→ intel_status(assess) → generate_package + intel_assess → "
-        "intel_status(challenge) → intel_challenge_start/confirm（最多 2 轮）→ 收敛后重新出包与研判 → "
-        "intel_status(done)，并向用户报告结论、置信度、矛盾、缺口和产物路径。"
+        "【检索纪律】围绕每个问题制定不同查询，优先获取与声明类型匹配的一手或高质量公开来源；"
+        "搜索摘要不是证据，already_archived=true 的 URL 不重复抓取。普通检索不足或发现高价值附件时再使用深度抓取。\n"
+        "【事实纪律】fact_save 仅保存原子、可核验的命题，并正确选择 primary、corroborated 或 reported；"
+        "引文必须逐字覆盖主体、动作、范围、时间和数量，partial 时缩窄事实或补充引文。冲突数字分别记录并披露口径。\n"
+        "【报告要求】先运行 material_digest 生成材料集合摘要和 1–5 星阅读推荐；正式报告只使用"
+        "审核通过的结构化结论，逐问题回答并披露分歧、局限和未回答内容。证据包和红队复审是可选审计步骤。\n"
+        "按主流程推进：intel_plan → 定向 web_search/web_fetch → fact_save/evidence_save → "
+        "evidence_audit → coverage_eval（充分或 no_progress 停止）→ intel_status(assess) → "
+        "material_digest → generate_research_report → intel_status(done)，最后返回报告路径和核心发现。"
     )
 
 
@@ -157,9 +144,12 @@ async def run_agent_task(
     resolved_spec = spec.model_copy(
         update={
             "deep_crawl": (
-                settings.crawl.enabled_by_default
-                if spec.deep_crawl is None
-                else spec.deep_crawl
+                spec.deep_crawl
+                if spec.deep_crawl is not None
+                else (
+                    spec.report_depth == "deep"
+                    or settings.crawl.enabled_by_default
+                )
             )
         }
     )

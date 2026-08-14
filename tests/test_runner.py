@@ -116,6 +116,21 @@ def test_build_task_prompt_preserves_user_input_and_criteria():
     assert "require_recency=false" in prompt
 
 
+def test_prompt_is_generic_and_report_first():
+    prompt = build_task_prompt(TaskRunSpec(topic="量子计算"))
+
+    assert "material_digest" in prompt
+    assert "generate_research_report" in prompt
+    assert "generate_package + intel_assess" not in prompt
+    assert "intel_challenge_start/confirm" not in prompt
+    assert "亿航" not in prompt
+    assert "caixin.com" not in prompt
+
+
+def test_deep_crawl_defaults_off():
+    assert Settings().crawl.enabled_by_default is False
+
+
 @pytest.mark.asyncio
 async def test_run_agent_task_streams_events(monkeypatch, cwd):
     received: list[object] = []
@@ -219,3 +234,50 @@ async def test_run_agent_task_applies_tighter_task_limits(monkeypatch, cwd):
     assert captured is not None
     assert captured.request_limit == 40
     assert captured.tool_calls_limit == 12
+
+
+@pytest.mark.asyncio
+async def test_deep_report_enables_recursive_collection(monkeypatch, cwd):
+    result = SimpleNamespace(output="完成")
+    captured: dict[str, object] = {}
+
+    class FakeEvents:
+        def __init__(self):
+            self.result = result
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            raise StopAsyncIteration
+
+    class FakeAgent:
+        def run_stream_events(self, prompt, **_kwargs):
+            captured["prompt"] = prompt
+            return FakeEvents()
+
+    monkeypatch.setattr(
+        "intel_agent.runner.build_agent", lambda _s: FakeAgent()
+    )
+    monkeypatch.setattr(
+        "intel_agent.runner.build_deps",
+        lambda _cwd, _settings, *, deep_crawl: (
+            captured.update({"deep_crawl": deep_crawl})
+            or SimpleNamespace(crawl_event_callback=None)
+        ),
+    )
+
+    await run_agent_task(
+        cwd,
+        Settings(),
+        TaskRunSpec(topic="量子计算", report_depth="deep"),
+    )
+
+    assert captured["deep_crawl"] is True
+    assert "deep_crawl=true" in str(captured["prompt"])

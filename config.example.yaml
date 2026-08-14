@@ -43,7 +43,7 @@ crawl:
   obey_robots: true
   ocr_languages: chi_sim+eng
   whisper_model: small
-  enabled_by_default: true
+  enabled_by_default: false
 
 web:
   # Web 工作台监听地址和端口；仅本机访问可将 host 设为 127.0.0.1
@@ -51,15 +51,7 @@ web:
   port: 6780
 
 sources:
-  # 已知权威来源（intel_plan 按问题关键词返回 suggested_direct_sources，可直接抓取）
-  financial:
-    - https://www.caixin.com
-    - https://www.cls.cn
-    - https://quote.eastmoney.com
-    - https://xueqiu.com
-  ir_company:
-    - https://ir.ehang.com
-    - https://www.sec.gov/edgar
-  policy:
-    - https://www.gov.cn
-    - https://www.ndrc.gov.cn
+  # 可选的部署级直连来源；留空时由 Agent 针对主题检索。
+  financial: []
+  ir_company: []
+  policy: []

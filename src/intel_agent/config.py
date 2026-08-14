@@ -52,7 +52,7 @@ class CrawlConfig(BaseModel):
     obey_robots: bool = True
     ocr_languages: str = "chi_sim+eng"
     whisper_model: str = "small"
-    enabled_by_default: bool = True
+    enabled_by_default: bool = False
 
 
 class WebConfig(BaseModel):
@@ -61,33 +61,11 @@ class WebConfig(BaseModel):
 
 
 class SourcesConfig(BaseModel):
-    """Known authoritative sources returned by intel_plan for direct fetch.
+    """Optional deployment-specific sources returned as direct-fetch hints."""
 
-    Keyword-matched against each question (financial/IR/policy terms) so the
-    agent can fetch vetted domains without spending search budget. Lists are
-    defaults for the Chinese low-altitude-economy use case; extend per domain.
-    """
-
-    financial: list[str] = Field(
-        default_factory=lambda: [
-            "https://www.caixin.com",
-            "https://www.cls.cn",
-            "https://quote.eastmoney.com",
-            "https://xueqiu.com",
-        ]
-    )
-    ir_company: list[str] = Field(
-        default_factory=lambda: [
-            "https://ir.ehang.com",
-            "https://www.sec.gov/edgar",
-        ]
-    )
-    policy: list[str] = Field(
-        default_factory=lambda: [
-            "https://www.gov.cn",
-            "https://www.ndrc.gov.cn",
-        ]
-    )
+    financial: list[str] = Field(default_factory=list)
+    ir_company: list[str] = Field(default_factory=list)
+    policy: list[str] = Field(default_factory=list)
 
 
 class Settings(BaseModel):
