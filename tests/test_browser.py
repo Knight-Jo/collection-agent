@@ -121,6 +121,49 @@ async def test_browser_policy_skips_heavy_and_streaming_resources():
 
 
 @pytest.mark.asyncio
+async def test_renderer_route_blocks_popup_and_iframe_documents():
+    renderer = BrowserRenderer(
+        FetchConfig(enable_browser_fallback=True), resolver=_public_resolver
+    )
+    main_frame = object()
+    main_page = SimpleNamespace(main_frame=main_frame)
+    popup_page = object()
+    calls = []
+
+    class Route:
+        def __init__(self, request):
+            self.request = request
+
+        async def abort(self, reason):
+            calls.append(("abort", reason))
+
+        async def continue_(self):
+            calls.append(("continue", None))
+
+    state = browser_module._RenderState(max_bytes=1024)
+
+    for frame in (
+        SimpleNamespace(page=popup_page),
+        SimpleNamespace(page=main_page),
+    ):
+        route = Route(
+            SimpleNamespace(
+                url="https://example.com/embedded",
+                method="GET",
+                resource_type="document",
+                frame=frame,
+                is_navigation_request=lambda: True,
+            )
+        )
+        await renderer._route_handler(state, None, main_page)(route)
+
+    assert calls == [
+        ("abort", "blockedbyclient"),
+        ("abort", "blockedbyclient"),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_renderer_reports_missing_playwright(monkeypatch):
     monkeypatch.setattr(browser_module, "find_spec", lambda _name: None)
     renderer = BrowserRenderer(
@@ -260,6 +303,9 @@ class _FakeContext:
         self.cdp_session = _FakeCdpSession()
 
     async def route(self, _pattern, _handler):
+        return None
+
+    def on(self, _event, _handler):
         return None
 
     async def route_web_socket(self, _pattern, _handler):

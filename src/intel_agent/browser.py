@@ -208,13 +208,22 @@ class BrowserRenderer:
             )
             state = _RenderState(max_bytes=limit)
             cdp_session = None
+            popup_tasks: set[asyncio.Task] = set()
             try:
-                await context.route(
-                    "**/*", self._route_handler(state, before_navigation)
-                )
                 await context.route_web_socket("**/*", self._websocket_handler)
                 await context.add_init_script(_DOM_QUIET_SCRIPT)
                 page = await context.new_page()
+
+                def close_popup(popup) -> None:
+                    task = asyncio.create_task(popup.close())
+                    popup_tasks.add(task)
+                    task.add_done_callback(popup_tasks.discard)
+
+                context.on("page", close_popup)
+                await context.route(
+                    "**/*",
+                    self._route_handler(state, before_navigation, page),
+                )
                 cdp_session = await context.new_cdp_session(page)
                 cdp_session.on(
                     "Network.dataReceived",
@@ -286,12 +295,15 @@ class BrowserRenderer:
                 if cdp_session is not None:
                     with suppress(Exception):
                         await cdp_session.detach()
+                if popup_tasks:
+                    await asyncio.gather(*popup_tasks, return_exceptions=True)
                 await context.close()
 
     def _route_handler(
         self,
         state: _RenderState,
         before_navigation: NavigationCheck | None,
+        main_page,
     ) -> Callable:
         async def handle(route) -> None:
             request = route.request
@@ -300,6 +312,12 @@ class BrowserRenderer:
                 state.failure = IntelError(
                     "RENDER_LIMIT", "浏览器请求数量超过限制"
                 )
+                await route.abort("blockedbyclient")
+                return
+            if request.is_navigation_request() and (
+                request.frame.page is not main_page
+                or request.frame is not main_page.main_frame
+            ):
                 await route.abort("blockedbyclient")
                 return
             try:

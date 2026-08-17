@@ -59,6 +59,7 @@ Playwright 官方容器镜像包含浏览器和系统依赖，但官方明确提
 - 登录、账号 Cookie 导入和付费墙绕过；
 - POST 等可能产生外部写操作的请求；
 - WebSocket、EventSource 和页面下载；
+- 弹窗、新窗口和 iframe 文档，避免未纳入主页面计费会话的旁路下载；
 - 图形验证码、滑块、Turnstile、reCAPTCHA 等交互式挑战；
 - 打码平台、住宅代理、代理池轮换、stealth 插件和浏览器指纹伪装；
 - 站点 robots.txt 明确拒绝的主文档。
