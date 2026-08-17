@@ -1,15 +1,18 @@
 {
-
+  "$schema": "https://opencode.ai/config.json",
   "instructions": [
-      "common/code-review.md",
-      "common/coding-style.md",
-      "common/development-workflow.md",
-      "common/patterns.md",
-      "python/coding-sytle.md",
-      "python/fastapi.md",
-      "python/hooks.md",
-      "python/patterns.md",
-      "python/security.md",
-      "python/testing.md"
-    ]
+    "common/code-review.md",
+    "common/coding-style.md",
+    "common/development-workflow.md",
+    "common/patterns.md",
+    "python/coding-sytle.md",
+    "python/fastapi.md",
+    "python/hooks.md",
+    "python/patterns.md",
+    "python/security.md",
+    "python/testing.md"
+  ],
+  "plugin": [
+    ".opencode/plugins/graphify.js"
+  ]
 }
