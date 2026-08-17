@@ -170,9 +170,10 @@ def verify_document_integrity(cwd: Path, document: IntelDocument) -> None:
         )
     if all(rendered_pair):
         rendered_path = workspace_path(cwd, document.rendered_path or "")
-        if not rendered_path.exists() or sha256(
-            rendered_path.read_bytes()
-        ) != document.rendered_sha256:
+        if (
+            not rendered_path.exists()
+            or sha256(rendered_path.read_bytes()) != document.rendered_sha256
+        ):
             raise IntelError(
                 "DOCUMENT_TAMPERED", f"渲染正文哈希不匹配: {document.id}"
             )

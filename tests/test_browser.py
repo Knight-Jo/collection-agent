@@ -1,5 +1,6 @@
 """Dynamic browser fallback tests."""
 
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -137,6 +138,55 @@ def test_browser_runtime_status_uses_install_list_without_starting_driver(
 
     assert status.playwright is True
     assert status.chromium is True
+
+
+@pytest.mark.asyncio
+async def test_real_chromium_renders_local_javascript_fixture(monkeypatch):
+    if not browser_runtime_status().chromium:
+        pytest.skip("Playwright Chromium is not installed")
+
+    html = b"""<!doctype html>
+<div id="root"></div>
+<script>document.getElementById("root").textContent = "rendered-smoke-token";</script>
+"""
+
+    async def handle(reader, writer):
+        await reader.readuntil(b"\r\n\r\n")
+        writer.write(
+            b"HTTP/1.1 200 OK\r\n"
+            b"Content-Type: text/html; charset=utf-8\r\n"
+            + f"Content-Length: {len(html)}\r\n".encode()
+            + b"Connection: close\r\n\r\n"
+            + html
+        )
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+
+    server = await asyncio.start_server(handle, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    renderer = BrowserRenderer(
+        FetchConfig(
+            enable_browser_fallback=True,
+            browser_timeout_seconds=5,
+        ),
+        resolver=_public_resolver,
+    )
+
+    async def allow_local_fixture(_url, _method, _resource_type):
+        return True
+
+    monkeypatch.setattr(renderer.policy, "validate", allow_local_fixture)
+    try:
+        async with server, renderer:
+            rendered = await renderer.render(
+                f"http://127.0.0.1:{port}/", 1024 * 1024
+            )
+    finally:
+        server.close()
+        await server.wait_closed()
+
+    assert "rendered-smoke-token" in rendered.html
 
 
 class _FakePage:
