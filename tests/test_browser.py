@@ -8,6 +8,7 @@ import intel_agent.browser as browser_module
 from intel_agent.browser import (
     BrowserRenderer,
     BrowserRequestPolicy,
+    browser_runtime_status,
     challenge_required,
     should_render_html,
 )
@@ -120,6 +121,22 @@ async def test_renderer_reports_missing_playwright(monkeypatch):
         await renderer.render("https://example.com", 1024)
 
     assert raised.value.code == "BROWSER_UNAVAILABLE"
+
+
+def test_browser_runtime_status_uses_install_list_without_starting_driver(
+    monkeypatch,
+):
+    monkeypatch.setattr(browser_module, "find_spec", lambda _name: object())
+    monkeypatch.setattr(
+        browser_module,
+        "_playwright_install_output",
+        lambda: "chromium-123 /cache/ms-playwright/chromium-123",
+    )
+
+    status = browser_runtime_status()
+
+    assert status.playwright is True
+    assert status.chromium is True
 
 
 class _FakePage:

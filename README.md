@@ -14,6 +14,7 @@
 - **声明级核验**：一手披露和带归属转述可由一个审核通过的来源支持；重大或争议性声明继续要求独立来源交叉验证
 - **预算与门控**：搜索 6 次 / 抓取 6 次（自上次新证据起）预算持久化；报告绑定覆盖快照、报告及引用文档哈希，过期或被修改的产物不能完成任务
 - **按需深度抓取**：默认使用定向抓取；显式启用或选择 `deep` 报告时，搜索结果播种持久化队列，并逐跳执行 SSRF、DNS pinning、robots、速率、并发和字节限制
+- **动态网页采集**：静态正文不足时可按需启动隔离 Chromium，执行 JavaScript 后继续复用正文提取、链接发现、原文/渲染 DOM 双哈希和证据审核
 - **多文档类型**：从页面链接及 `img/audio/video/source/object/embed` 自动发现 HTML、PDF、Office、文本/CSV、图片、音视频；原件始终按 SHA-256 归档，处理器缺失时正文标记为不可用且不能进入证据链
 - **来源扩展**：抓取结果返回 `outbound_links` 可继续展开（不消耗搜索预算）；部署方可配置直连来源提示
 
@@ -29,6 +30,10 @@ cp config.example.yaml config.yaml
 
 # 开发依赖；需要 Office/图片/音视频提取时同时安装 media extra
 UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv sync --extra dev --extra media
+
+# 可选：支持 JavaScript 动态网页，并安装匹配版本的 Chromium
+UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv sync --extra dev --extra browser
+UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run playwright install chromium
 
 # 只提供主题即可运行
 python -m intel_agent --topic "量子计算产业发展情况" --config config.yaml
@@ -88,6 +93,10 @@ intel-agent-web --config config.yaml
 | `search.searxng_url` | 本地 SearXNG 地址；`null` 则只用 Bing/Baidu 直连 |
 | `budgets` | 搜索/抓取/模型请求预算（request_limit 默认 200） |
 | `fetch.enable_httpx_fallback` | 单次 `web_fetch` 的 pinned 抓取失败时回退 httpx（兼容 WAF/Cloudflare 站点）；递归 crawler 始终仅使用 pinned fetch |
+| `fetch.enable_browser_fallback` | 静态 HTML 无有效正文时是否按需执行 Chromium（默认 `false`） |
+| `fetch.browser_network_mode` | `validated` 表示应用层公网 URL 校验；生产隔离部署声明为 `isolated` |
+| `fetch.browser_timeout_seconds` / `fetch.browser_max_requests` / `fetch.browser_max_bytes` | 单页渲染时间、请求数和下载字节限制 |
+| `fetch.browser_concurrency` | 同一渲染器的页面并发数（默认 1） |
 | `crawl.enabled_by_default` | 新任务省略开关时是否默认深度抓取（默认 `false`） |
 | `crawl.max_depth` / `crawl.max_urls` | 递归深度与任务 URL 上限（默认 2 / 200） |
 | `crawl.max_total_bytes` | 整个任务的下载硬上限（默认 1 GiB，失败响应也计数） |
@@ -112,6 +121,7 @@ src/intel_agent/
 ├── search.py       # SearXNG + Bing + Baidu 并行搜索与结果聚合
 ├── search_queries.py # 查询词分析、去重与变体生成
 ├── fetch.py        # DNS-pinned 抓取、HTTP 解析、注入检测与文档归档
+├── browser.py      # 动态页面判定、浏览器请求策略与可选 Playwright 渲染
 ├── crawl.py        # 持久化优先队列、robots、限速、缓存和资源归档
 ├── extract.py      # PDF/Office/图片/音视频安全提取与处理器边界
 ├── document_extract.py # HTML/PDF/Word 文本、日期与外链提取
@@ -141,6 +151,9 @@ experiments/        # 迭代实验结果、轨迹与报告
 UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv sync --extra dev
 UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest
 ```
+
+动态采集的生产网络隔离、运行状态和反爬边界参见
+[`docs/js-dynamic-page-deployment.md`](docs/js-dynamic-page-deployment.md)。
 
 ## 迭代实验
 

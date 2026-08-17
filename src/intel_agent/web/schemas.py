@@ -104,6 +104,13 @@ class CrawlStatus(BaseModel):
     default_enabled: bool
 
 
+class BrowserStatus(BaseModel):
+    enabled: bool
+    playwright: bool
+    chromium: bool
+    network_mode: Literal["validated", "isolated"]
+
+
 class ProcessorStatus(BaseModel):
     tesseract: bool
     ffmpeg: bool
@@ -116,6 +123,7 @@ class SystemStatus(BaseModel):
     audit: ServiceStatus
     search: ServiceStatus
     crawl: CrawlStatus
+    browser: BrowserStatus
     processors: ProcessorStatus
 
 

@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import re
+import subprocess
+import sys
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from importlib.util import find_spec
-from pathlib import Path
 from typing import Literal
 
 from .config import FetchConfig
@@ -106,17 +107,24 @@ def browser_runtime_status() -> BrowserAvailability:
     """Report whether the optional Playwright driver and Chromium exist."""
     if find_spec("playwright") is None:
         return BrowserAvailability(playwright=False, chromium=False)
-    try:
-        from playwright.sync_api import sync_playwright
+    return BrowserAvailability(
+        playwright=True,
+        chromium="chromium" in _playwright_install_output().casefold(),
+    )
 
-        playwright = sync_playwright().start()
-        try:
-            chromium = Path(playwright.chromium.executable_path).is_file()
-        finally:
-            playwright.stop()
-    except Exception:
-        chromium = False
-    return BrowserAvailability(playwright=True, chromium=chromium)
+
+def _playwright_install_output() -> str:
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "--list"],
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout if result.returncode == 0 else ""
 
 
 class BrowserRenderer:

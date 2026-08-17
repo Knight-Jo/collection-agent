@@ -51,6 +51,7 @@ it("uses the system crawl default and submits the chosen crawl setting", async (
     audit: { name: "audit", configured: true },
     search: { name: "search", configured: true },
     crawl: { default_enabled: true },
+    browser: { enabled: false, playwright: false, chromium: false, network_mode: "validated" },
     processors: { tesseract: true, ffmpeg: true, whisper: true, libreoffice: true },
   });
   const user = userEvent.setup();
@@ -104,7 +105,7 @@ it("waits for an unresolved system default before creating a run", async () => {
   expect(screen.getByRole("button", { name: "开始研究" })).toBeDisabled();
   expect(createRun).not.toHaveBeenCalled();
 
-  resolveSystem({ model: { name: "model", configured: true }, audit: { name: "audit", configured: true }, search: { name: "search", configured: true }, crawl: { default_enabled: true }, processors: { tesseract: true, ffmpeg: true, whisper: true, libreoffice: true } });
+  resolveSystem({ model: { name: "model", configured: true }, audit: { name: "audit", configured: true }, search: { name: "search", configured: true }, crawl: { default_enabled: true }, browser: { enabled: false, playwright: false, chromium: false, network_mode: "validated" }, processors: { tesseract: true, ffmpeg: true, whisper: true, libreoffice: true } });
   await waitFor(() => expect(screen.getByRole("checkbox", { name: "启用深度抓取" })).toBeChecked());
   await user.click(screen.getByRole("button", { name: "开始研究" }));
   expect(createRun).toHaveBeenCalledWith(expect.objectContaining({ deep_crawl: true }));
@@ -137,6 +138,6 @@ it("preserves a user crawl choice made before the system default resolves", asyn
 
   await user.click(screen.getByText("高级选项"));
   await user.click(screen.getByRole("checkbox", { name: "启用深度抓取" }));
-  resolveSystem({ model: { name: "model", configured: true }, audit: { name: "audit", configured: true }, search: { name: "search", configured: true }, crawl: { default_enabled: false }, processors: { tesseract: true, ffmpeg: true, whisper: true, libreoffice: true } });
+  resolveSystem({ model: { name: "model", configured: true }, audit: { name: "audit", configured: true }, search: { name: "search", configured: true }, crawl: { default_enabled: false }, browser: { enabled: false, playwright: false, chromium: false, network_mode: "validated" }, processors: { tesseract: true, ffmpeg: true, whisper: true, libreoffice: true } });
   await waitFor(() => expect(screen.getByRole("checkbox", { name: "启用深度抓取" })).toBeChecked());
 });

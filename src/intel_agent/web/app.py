@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 from importlib.util import find_spec
 from pathlib import Path
@@ -16,11 +17,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from ..browser import browser_runtime_status
 from ..config import Settings, load_config
 from ..models import IntelError
 from .runs import RunRegistry
 from .schemas import (
     ArtifactView,
+    BrowserStatus,
     CrawlStatus,
     ProcessorStatus,
     RunCreate,
@@ -81,6 +84,7 @@ def create_app(
     @app.get("/api/system", response_model=SystemStatus)
     async def system_status() -> SystemStatus:
         audit = settings.audit_model or settings.model
+        browser = await asyncio.to_thread(browser_runtime_status)
         return SystemStatus(
             model=ServiceStatus(
                 name=settings.model.name,
@@ -96,6 +100,12 @@ def create_app(
             ),
             crawl=CrawlStatus(
                 default_enabled=settings.crawl.enabled_by_default
+            ),
+            browser=BrowserStatus(
+                enabled=settings.fetch.enable_browser_fallback,
+                playwright=browser.playwright,
+                chromium=browser.chromium,
+                network_mode=settings.fetch.browser_network_mode,
             ),
             processors=ProcessorStatus(
                 tesseract=which("tesseract") is not None,

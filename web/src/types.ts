@@ -51,6 +51,12 @@ export interface SystemStatus {
   audit: { name: string; configured: boolean };
   search: { name: string; configured: boolean };
   crawl: { default_enabled: boolean };
+  browser: {
+    enabled: boolean;
+    playwright: boolean;
+    chromium: boolean;
+    network_mode: "validated" | "isolated";
+  };
   processors: { tesseract: boolean; ffmpeg: boolean; whisper: boolean; libreoffice: boolean };
 }
 

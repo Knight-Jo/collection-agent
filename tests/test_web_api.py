@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from intel_agent.browser import BrowserAvailability
 from intel_agent.config import Settings
 from intel_agent.models import (
     CrawlEntry,
@@ -66,6 +67,33 @@ def test_system_reports_crawl_default_and_processor_availability(
         "ffmpeg": True,
         "whisper": True,
         "libreoffice": False,
+    }
+
+
+def test_system_reports_browser_runtime_and_network_mode(cwd, monkeypatch):
+    monkeypatch.setattr(
+        "intel_agent.web.app.browser_runtime_status",
+        lambda: BrowserAvailability(playwright=True, chromium=True),
+    )
+    settings = Settings.model_validate(
+        {
+            "fetch": {
+                "enable_browser_fallback": True,
+                "browser_network_mode": "isolated",
+            }
+        }
+    )
+
+    response = TestClient(create_app(cwd=cwd, settings=settings)).get(
+        "/api/system"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["browser"] == {
+        "enabled": True,
+        "playwright": True,
+        "chromium": True,
+        "network_mode": "isolated",
     }
 
 
