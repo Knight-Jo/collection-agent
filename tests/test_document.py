@@ -5,6 +5,7 @@ import asyncio
 import pytest
 
 import intel_agent.fetch as fetch_module
+from intel_agent.browser import RenderedPage
 from intel_agent.fetch import (
     FetchedResponse,
     _read_chunked_body,
@@ -261,6 +262,104 @@ async def test_fetch_saves_document(cwd):
         resolver=_public_resolver,
     )
     assert document2.id == document.id
+
+
+@pytest.mark.asyncio
+async def test_fetch_renders_javascript_shell_and_archives_both_bodies(cwd):
+    shell = '<div id="root"></div><script src="/app.js"></script>'
+    rendered_text = "动态公开信息" * 80
+
+    async def fetcher(_url, _init, _address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=shell.encode(),
+        )
+
+    async def renderer(url: str, max_bytes: int) -> RenderedPage:
+        assert max_bytes == 5 * 1024 * 1024
+        return RenderedPage(
+            final_url=url,
+            html=(
+                f"<html><main>{rendered_text}</main>"
+                '<a href="https://gov.cn/report">report</a></html>'
+            ),
+            downloaded_bytes=512,
+            request_count=3,
+        )
+
+    document, content, links = await fetch_document(
+        cwd,
+        "https://example.com/app",
+        fetcher=fetcher,
+        resolver=_public_resolver,
+        renderer=renderer,
+    )
+
+    assert document.collection_method == "browser"
+    assert document.rendered_path is not None
+    assert (cwd / document.raw_path).read_text() == shell
+    assert rendered_text in content
+    assert links == [{"url": "https://gov.cn/report", "hostname": "gov.cn"}]
+    verify_document_integrity(cwd, document)
+
+
+@pytest.mark.asyncio
+async def test_fetch_does_not_render_useful_static_html(cwd):
+    text = "静态公开信息" * 80
+    html = f"<article>{text}</article><script src='/app.js'></script>"
+    render_calls = 0
+
+    async def fetcher(_url, _init, _address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=html.encode(),
+        )
+
+    async def renderer(_url: str, _max_bytes: int) -> RenderedPage:
+        nonlocal render_calls
+        render_calls += 1
+        raise AssertionError("useful static HTML must not render")
+
+    document, content, _ = await fetch_document(
+        cwd,
+        "https://example.com/static",
+        fetcher=fetcher,
+        resolver=_public_resolver,
+        renderer=renderer,
+    )
+
+    assert document.collection_method == "http"
+    assert text in content
+    assert render_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_fetch_archives_shell_when_browser_challenge_blocks_render(cwd):
+    shell = '<div id="root"></div><script src="/challenge.js"></script>'
+
+    async def fetcher(_url, _init, _address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=shell.encode(),
+        )
+
+    async def renderer(_url: str, _max_bytes: int) -> RenderedPage:
+        raise IntelError("CHALLENGE_REQUIRED", "页面需要人机验证")
+
+    document, _, _ = await fetch_document(
+        cwd,
+        "https://example.com/challenge",
+        fetcher=fetcher,
+        resolver=_public_resolver,
+        renderer=renderer,
+    )
+
+    assert document.extraction_status == "unavailable"
+    assert document.render_error == "CHALLENGE_REQUIRED: 页面需要人机验证"
+    assert (cwd / document.raw_path).read_text() == shell
 
 
 def test_old_document_record_defaults_to_http_collection(cwd):

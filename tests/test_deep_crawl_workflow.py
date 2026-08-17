@@ -366,6 +366,47 @@ async def test_web_fetch_registers_collected_material(monkeypatch, cwd):
 
 
 @pytest.mark.asyncio
+async def test_web_fetch_wires_enabled_browser_renderer(monkeypatch, cwd):
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    document = make_document(cwd, "动态主题材料", "https://example.com/app")
+    document = document.model_copy(update={"collection_method": "browser"})
+    renderer_entered = False
+
+    class FakeRenderer:
+        def __init__(self, _config):
+            pass
+
+        async def __aenter__(self):
+            nonlocal renderer_entered
+            renderer_entered = True
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def render(self, _url, _max_bytes):
+            raise AssertionError("fake fetch_document owns rendering")
+
+    async def fake_fetch(*_args, renderer=None, **_kwargs):
+        assert renderer is not None
+        return document, "动态主题材料", []
+
+    monkeypatch.setattr(agent_module, "BrowserRenderer", FakeRenderer)
+    monkeypatch.setattr(agent_module, "fetch_document", fake_fetch)
+    settings = Settings.model_validate(
+        {"fetch": {"enable_browser_fallback": True}}
+    )
+
+    result = await _tool(build_agent(settings), "web_fetch")(
+        _context(cwd, settings=settings), document.canonical_url, 1024
+    )
+
+    assert renderer_entered is True
+    assert result["fetched_via"] == "browser"
+    assert load_material_digest(cwd, task.id) is not None
+
+
+@pytest.mark.asyncio
 async def test_failed_web_fetch_registers_one_star_material(monkeypatch, cwd):
     task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
 

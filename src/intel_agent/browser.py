@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from importlib.util import find_spec
@@ -52,6 +52,9 @@ class RenderedPage:
     html: str
     downloaded_bytes: int
     request_count: int
+
+
+BrowserRender = Callable[[str, int], Awaitable[RenderedPage]]
 
 
 @dataclass(frozen=True)

@@ -14,6 +14,7 @@ from typing import Literal
 from urllib.parse import parse_qsl, urlencode, urlparse, urlsplit, urlunsplit
 
 from . import document_extract as _document_extract
+from .browser import BrowserRender, should_render_html
 from .document_extract import (
     decode_body,
     extract_docx_text,
@@ -579,6 +580,7 @@ async def fetch_document(
     fetcher: FetchLike | None = None,
     resolver: AddressResolver | None = None,
     max_bytes: int | None = None,
+    renderer: BrowserRender | None = None,
 ) -> tuple[IntelDocument, str, list[dict]]:
     max_bytes = max_bytes or DEFAULT_MAX_BYTES
     fetcher = fetcher or (lambda u, i, a: pinned_fetch(u, i, a, max_bytes))
@@ -648,8 +650,33 @@ async def fetch_document(
             "publish_time": None,
             "publish_time_source": "unknown",
         }
+    extraction_status: Literal["complete", "unavailable", "failed"] = (
+        "complete"
+    )
+    rendered_html: str | None = None
+    render_error: str | None = None
+    if is_html and (
+        render_reason := should_render_html(raw_text, extracted["text"])
+    ):
+        if renderer is None:
+            extraction_status = "unavailable"
+            render_error = f"BROWSER_UNAVAILABLE: browser fallback disabled ({render_reason})"
+        else:
+            try:
+                rendered = await renderer(_url_string(final_url), max_bytes)
+            except IntelError as error:
+                extraction_status = "unavailable"
+                render_error = f"{error.code}: {error}"
+            else:
+                final_url = rendered.final_url
+                rendered_html = rendered.html
+                extracted = extract_html(rendered.html)
+                if not extracted["text"].strip():
+                    extraction_status = "unavailable"
+                    render_error = "RENDER_EMPTY: 渲染后仍无有效正文"
+    link_html = rendered_html if rendered_html is not None else raw_text
     outbound_links = (
-        extract_outbound_links(raw_text, _url_string(final_url))
+        extract_outbound_links(link_html, _url_string(final_url))
         if is_html
         else []
     )
@@ -671,7 +698,9 @@ async def fetch_document(
         mime_type=content_type.split(";")[0],
         raw=raw_bytes,
         text=extracted["text"],
-        extraction_status="complete",
+        extraction_status=extraction_status,
+        rendered_html=rendered_html,
+        render_error=render_error,
         title=extracted["title"] or _url_string(final_url),
         publish_time=extracted["publish_time"],
         publish_time_source=extracted["publish_time_source"],
