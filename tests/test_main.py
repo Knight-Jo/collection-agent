@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 import intel_agent.main as main_module
-from intel_agent.config import Settings
+from intel_agent.config import FetchConfig, Settings
 from intel_agent.task import create_task
 
 
@@ -42,6 +42,17 @@ def test_cli_accepts_optional_research_brief():
     assert args.geography == ["中国"]
     assert args.language == ["zh-CN", "en"]
     assert args.report_depth == "deep"
+
+
+def test_browser_fetch_config_defaults_are_bounded_and_disabled():
+    config = FetchConfig()
+
+    assert config.enable_browser_fallback is False
+    assert config.browser_network_mode == "validated"
+    assert config.browser_timeout_seconds == 15.0
+    assert config.browser_max_requests == 40
+    assert config.browser_max_bytes == 20_971_520
+    assert config.browser_concurrency == 1
 
 
 @pytest.mark.asyncio

@@ -14,7 +14,12 @@ from intel_agent.fetch import (
     parse_http_response,
     pinned_fetch,
 )
-from intel_agent.models import IntelError
+from intel_agent.models import IntelDocument, IntelError
+from intel_agent.storage import (
+    sha256,
+    verify_document_integrity,
+    write_file_atomic,
+)
 
 
 async def _public_resolver(hostname):
@@ -255,6 +260,78 @@ async def test_fetch_saves_document(cwd):
         resolver=_public_resolver,
     )
     assert document2.id == document.id
+
+
+def test_old_document_record_defaults_to_http_collection(cwd):
+    raw = b"legacy raw"
+    text = "legacy text"
+    canonical_url = "https://example.com/legacy"
+    raw_sha256 = sha256(raw)
+    document_id = f"doc-{sha256(f'{canonical_url}\n{raw_sha256}')[:16]}"
+    raw_path = f"data/raw/{document_id}.raw"
+    text_path = f"data/raw/{document_id}.txt"
+    write_file_atomic(cwd, raw_path, raw)
+    write_file_atomic(cwd, text_path, text)
+    record = {
+        "id": document_id,
+        "requested_url": canonical_url,
+        "final_url": canonical_url,
+        "canonical_url": canonical_url,
+        "title": "Legacy",
+        "content_type": "text/html",
+        "collected_at": "2026-01-01T00:00:00+00:00",
+        "source_type": "other",
+        "source_group": "example.com",
+        "raw_path": raw_path,
+        "raw_sha256": raw_sha256,
+        "text_path": text_path,
+        "text_sha256": sha256(text),
+    }
+
+    document = IntelDocument.model_validate(record)
+
+    assert document.collection_method == "http"
+    assert document.rendered_path is None
+    assert document.rendered_sha256 is None
+    verify_document_integrity(cwd, document)
+
+
+def test_rendered_document_integrity_requires_rendered_identity(cwd):
+    raw = b'<div id="root"></div>'
+    text = "rendered text"
+    rendered_html = "<main>rendered text</main>"
+    canonical_url = "https://example.com/app"
+    raw_sha256 = sha256(raw)
+    static_id = f"doc-{sha256(f'{canonical_url}\n{raw_sha256}')[:16]}"
+    raw_path = f"data/raw/{static_id}.raw"
+    text_path = f"data/raw/{static_id}.txt"
+    rendered_path = f"data/raw/{static_id}.rendered.html"
+    write_file_atomic(cwd, raw_path, raw)
+    write_file_atomic(cwd, text_path, text)
+    write_file_atomic(cwd, rendered_path, rendered_html)
+    document = IntelDocument(
+        id=static_id,
+        requested_url=canonical_url,
+        final_url=canonical_url,
+        canonical_url=canonical_url,
+        title="App",
+        content_type="text/html",
+        collected_at="2026-01-01T00:00:00+00:00",
+        source_type="other",
+        source_group="example.com",
+        raw_path=raw_path,
+        raw_sha256=raw_sha256,
+        text_path=text_path,
+        text_sha256=sha256(text),
+        collection_method="browser",
+        rendered_path=rendered_path,
+        rendered_sha256=sha256(rendered_html),
+    )
+
+    with pytest.raises(IntelError) as raised:
+        verify_document_integrity(cwd, document)
+
+    assert raised.value.code == "DOCUMENT_TAMPERED"
 
 
 @pytest.mark.asyncio
