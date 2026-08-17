@@ -1,6 +1,26 @@
 """Dynamic browser fallback tests."""
 
-from intel_agent.browser import challenge_required, should_render_html
+from types import SimpleNamespace
+
+import pytest
+
+import intel_agent.browser as browser_module
+from intel_agent.browser import (
+    BrowserRenderer,
+    BrowserRequestPolicy,
+    challenge_required,
+    should_render_html,
+)
+from intel_agent.config import FetchConfig
+from intel_agent.models import IntelError
+
+
+async def _public_resolver(_hostname: str) -> list[str]:
+    return ["93.184.216.34"]
+
+
+async def _private_resolver(_hostname: str) -> list[str]:
+    return ["127.0.0.1"]
 
 
 def test_static_article_with_scripts_does_not_require_browser():
@@ -47,4 +67,150 @@ def test_interactive_challenge_is_detected():
 
 
 def test_normal_page_is_not_an_interactive_challenge():
-    assert challenge_required("<article>Public report</article>", "Public report") is False
+    assert (
+        challenge_required("<article>Public report</article>", "Public report")
+        is False
+    )
+
+
+@pytest.mark.asyncio
+async def test_browser_policy_blocks_private_request():
+    policy = BrowserRequestPolicy(FetchConfig(), resolver=_private_resolver)
+
+    with pytest.raises(IntelError) as raised:
+        await policy.validate("http://metadata.example/latest", "GET", "xhr")
+
+    assert raised.value.code == "UNSAFE_URL"
+
+
+@pytest.mark.asyncio
+async def test_browser_policy_blocks_mutating_methods():
+    policy = BrowserRequestPolicy(FetchConfig(), resolver=_public_resolver)
+
+    with pytest.raises(IntelError) as raised:
+        await policy.validate("https://example.com/api", "POST", "fetch")
+
+    assert raised.value.code == "UNSAFE_BROWSER_REQUEST"
+
+
+@pytest.mark.asyncio
+async def test_browser_policy_skips_heavy_and_streaming_resources():
+    policy = BrowserRequestPolicy(FetchConfig(), resolver=_public_resolver)
+
+    assert (
+        await policy.validate("https://example.com/image.png", "GET", "image")
+        is False
+    )
+    assert (
+        await policy.validate(
+            "https://example.com/events", "GET", "eventsource"
+        )
+        is False
+    )
+
+
+@pytest.mark.asyncio
+async def test_renderer_reports_missing_playwright(monkeypatch):
+    monkeypatch.setattr(browser_module, "find_spec", lambda _name: None)
+    renderer = BrowserRenderer(
+        FetchConfig(enable_browser_fallback=True), resolver=_public_resolver
+    )
+
+    with pytest.raises(IntelError) as raised:
+        await renderer.render("https://example.com", 1024)
+
+    assert raised.value.code == "BROWSER_UNAVAILABLE"
+
+
+class _FakePage:
+    url = "https://example.com/app"
+
+    def __init__(self):
+        self.handlers = {}
+
+    def on(self, event, handler):
+        self.handlers[event] = handler
+
+    async def goto(self, _url, **_kwargs):
+        return SimpleNamespace(status=200)
+
+    async def wait_for_function(self, _expression, **_kwargs):
+        return None
+
+    async def content(self):
+        return "<html><main>Rendered public report</main></html>"
+
+
+class _FakeContext:
+    def __init__(self):
+        self.closed = False
+
+    async def route(self, _pattern, _handler):
+        return None
+
+    async def route_web_socket(self, _pattern, _handler):
+        return None
+
+    async def add_init_script(self, _script):
+        return None
+
+    async def new_page(self):
+        return _FakePage()
+
+    async def close(self):
+        self.closed = True
+
+
+class _FakeBrowser:
+    def __init__(self):
+        self.contexts = []
+        self.closed = False
+
+    async def new_context(self, **_kwargs):
+        context = _FakeContext()
+        self.contexts.append(context)
+        return context
+
+    async def close(self):
+        self.closed = True
+
+
+class _FakePlaywright:
+    def __init__(self):
+        self.browser = _FakeBrowser()
+        self.launches = 0
+        self.stopped = False
+        self.chromium = self
+
+    async def launch(self, **_kwargs):
+        self.launches += 1
+        return self.browser
+
+    async def stop(self):
+        self.stopped = True
+
+
+@pytest.mark.asyncio
+async def test_renderer_reuses_browser_and_closes_page_contexts(monkeypatch):
+    fake = _FakePlaywright()
+    monkeypatch.setattr(browser_module, "find_spec", lambda _name: object())
+
+    async def start_playwright():
+        return fake
+
+    monkeypatch.setattr(browser_module, "_start_playwright", start_playwright)
+    renderer = BrowserRenderer(
+        FetchConfig(enable_browser_fallback=True), resolver=_public_resolver
+    )
+
+    async with renderer:
+        first = await renderer.render("https://example.com/app", 4096)
+        second = await renderer.render("https://example.com/app", 4096)
+
+    assert first.html == second.html
+    assert first.final_url == "https://example.com/app"
+    assert fake.launches == 1
+    assert len(fake.browser.contexts) == 2
+    assert all(context.closed for context in fake.browser.contexts)
+    assert fake.browser.closed is True
+    assert fake.stopped is True
