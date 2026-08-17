@@ -28,6 +28,14 @@ budgets:
 fetch:
   # pinned_fetch 超时/失败时回退到 httpx 抓取（兼容 WAF/Cloudflare 站点，如投资者关系页）
   enable_httpx_fallback: true
+  # 静态 HTML 无有效正文时按需使用 Playwright；需安装 browser extra 和 Chromium
+  enable_browser_fallback: false
+  # validated 仅执行应用层公网 URL 校验；生产环境应配置隔离网络并设为 isolated
+  browser_network_mode: validated
+  browser_timeout_seconds: 15
+  browser_max_requests: 40
+  browser_max_bytes: 20971520
+  browser_concurrency: 1
 
 crawl:
   max_depth: 2

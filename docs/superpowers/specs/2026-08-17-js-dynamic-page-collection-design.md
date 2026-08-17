@@ -96,7 +96,7 @@
 浏览器请求拦截执行以下检查：
 
 1. 仅允许 `http` 和 `https`，阻断 `file`、`data` 导航、`ftp`、浏览器内部协议和本地文件访问。
-2. 对主文档、iframe、脚本、样式表、XHR、Fetch 和重定向目标调用现有公网地址解析规则。
+2. 对主文档、脚本、样式表、XHR、Fetch 和重定向目标调用现有公网地址解析规则；首版直接阻断 iframe 文档。
 3. 阻断回环、私网、链路本地、保留地址、Unix socket 和云元数据目标。
 4. 禁用 Service Worker，阻断 WebSocket 和 EventSource，避免未纳入首版预算的长连接。
 5. 阻断非安全浏览方法。主文档只允许 GET；页面自动产生的 POST 默认阻断，避免采集过程产生外部写操作。
@@ -147,10 +147,11 @@ fetch:
 `IntelDocument` 增加向后兼容字段：
 
 - `collection_method`: `http` 或 `browser`，默认 `http`；
+- `rendered_url`: 浏览器完成重定向或前端路由后的 URL；
 - `rendered_path`: 可选的渲染 DOM 路径；
 - `rendered_sha256`: 可选的渲染 DOM SHA-256。
 
-`raw_path` 和 `raw_sha256` 始终指向服务器返回的原始主文档。浏览器渲染时，将 `page.content()` 单独写入 `rendered_path`，正文和链接从渲染 DOM 提取。浏览器文档 ID 同时包含规范 URL、原始响应哈希和渲染 DOM 哈希，避免相同 HTML 外壳产生不同动态内容时错误复用。
+`final_url`、`raw_path` 和 `raw_sha256` 始终指向服务器返回的原始主文档。浏览器渲染时，将浏览器最终地址写入 `rendered_url`，将 `page.content()` 单独写入 `rendered_path`，正文和链接从渲染 DOM 提取。浏览器文档 ID 同时包含规范 URL、原始响应哈希、浏览器最终地址和渲染 DOM 哈希，避免浏览器重定向或前端路由后把原始字节错误归因。
 
 `CrawlEntry` 增加可选的 `render_reason` 和 `render_error`，任务详情可以显示为什么启动浏览器以及失败原因。历史 JSON 缺少这些字段时继续使用默认值，无需迁移。
 

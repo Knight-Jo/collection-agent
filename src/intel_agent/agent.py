@@ -14,7 +14,7 @@ import html
 import inspect
 import json
 import re
-from contextlib import suppress
+from contextlib import AsyncExitStack, suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Literal
@@ -27,6 +27,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 
 from .assess import generate_assessment
 from .audit import Judge, audit_task_evidence
+from .browser import BrowserRenderer
 from .challenge import confirm_challenge, start_challenge
 from .config import ModelConfig, Settings
 from .conflicts import resolve_conflict, save_conflict
@@ -556,12 +557,19 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         task = load_task(ctx.deps.cwd, task_id)
         if not task.deep_crawl:
             raise IntelError("INVALID_INPUT", "该任务未启用深度抓取")
-        snapshot = await run_crawl_collect(
-            ctx.deps.cwd,
-            task.id,
-            config=ctx.deps.settings.crawl,
-            on_event=ctx.deps.crawl_event_callback,
-        )
+        async with AsyncExitStack() as stack:
+            browser = None
+            if ctx.deps.settings.fetch.enable_browser_fallback:
+                browser = await stack.enter_async_context(
+                    BrowserRenderer(ctx.deps.settings.fetch)
+                )
+            snapshot = await run_crawl_collect(
+                ctx.deps.cwd,
+                task.id,
+                config=ctx.deps.settings.crawl,
+                on_event=ctx.deps.crawl_event_callback,
+                renderer=browser.render if browser is not None else None,
+            )
         return summarize_crawl(snapshot)
 
     @agent.tool(name="document_search")
@@ -624,26 +632,37 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         task = load_task(ctx.deps.cwd)
         fetched_via = "pinned"
         try:
-            try:
-                document, content, outbound_links = await fetch_document(
-                    ctx.deps.cwd, url, max_bytes=max_bytes
-                )
-            except IntelError as error:
-                if (
-                    not ctx.deps.settings.fetch.enable_httpx_fallback
-                    or error.code
-                    not in ("NETWORK_ERROR", "TIMEOUT", "UNSAFE_URL")
-                ):
-                    raise
-                from .fetch import httpx_fallback_fetch
+            async with AsyncExitStack() as stack:
+                browser = None
+                if ctx.deps.settings.fetch.enable_browser_fallback:
+                    browser = await stack.enter_async_context(
+                        BrowserRenderer(ctx.deps.settings.fetch)
+                    )
+                renderer = browser.render if browser is not None else None
+                try:
+                    document, content, outbound_links = await fetch_document(
+                        ctx.deps.cwd,
+                        url,
+                        max_bytes=max_bytes,
+                        renderer=renderer,
+                    )
+                except IntelError as error:
+                    if (
+                        not ctx.deps.settings.fetch.enable_httpx_fallback
+                        or error.code
+                        not in ("NETWORK_ERROR", "TIMEOUT", "UNSAFE_URL")
+                    ):
+                        raise
+                    from .fetch import httpx_fallback_fetch
 
-                document, content, outbound_links = await fetch_document(
-                    ctx.deps.cwd,
-                    url,
-                    fetcher=httpx_fallback_fetch,
-                    max_bytes=max_bytes,
-                )
-                fetched_via = "httpx-fallback"
+                    document, content, outbound_links = await fetch_document(
+                        ctx.deps.cwd,
+                        url,
+                        fetcher=httpx_fallback_fetch,
+                        max_bytes=max_bytes,
+                        renderer=renderer,
+                    )
+                    fetched_via = "httpx-fallback"
         except IntelError as error:
             register_material(
                 ctx.deps.cwd,
@@ -652,6 +671,10 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                 error=str(error),
             )
             raise
+        if document.collection_method == "browser":
+            fetched_via = "browser"
+        elif document.render_error:
+            fetched_via = "browser-failed"
         register_material(
             ctx.deps.cwd,
             task.id,

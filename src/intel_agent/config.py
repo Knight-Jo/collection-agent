@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -36,6 +37,12 @@ class BudgetConfig(BaseModel):
 
 class FetchConfig(BaseModel):
     enable_httpx_fallback: bool = True
+    enable_browser_fallback: bool = False
+    browser_network_mode: Literal["validated", "isolated"] = "validated"
+    browser_timeout_seconds: float = Field(default=15.0, gt=0)
+    browser_max_requests: int = Field(default=40, ge=1)
+    browser_max_bytes: int = Field(default=20_971_520, ge=1)
+    browser_concurrency: int = Field(default=1, ge=1)
 
 
 class CrawlConfig(BaseModel):

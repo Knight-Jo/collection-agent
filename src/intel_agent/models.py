@@ -81,6 +81,8 @@ class CrawlEntry(BaseModel):
     validators: CrawlValidators = Field(default_factory=CrawlValidators)
     outbound_links: list[str] = Field(default_factory=list)
     outbound_relevance: dict[str, float] = Field(default_factory=dict)
+    render_reason: str | None = None
+    render_error: str | None = None
     created_at: str
     updated_at: str
 
@@ -175,6 +177,11 @@ class IntelDocument(BaseModel):
     extraction_status: Literal["complete", "unavailable", "failed"] = (
         "complete"
     )
+    collection_method: Literal["http", "browser"] = "http"
+    rendered_url: str | None = None
+    rendered_path: str | None = None
+    rendered_sha256: str | None = None
+    render_error: str | None = None
     injection_warnings: list[str] = Field(default_factory=list)
 
 

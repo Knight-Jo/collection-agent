@@ -5,16 +5,23 @@ import asyncio
 import pytest
 
 import intel_agent.fetch as fetch_module
+from intel_agent.browser import RenderedPage
 from intel_agent.fetch import (
     FetchedResponse,
     _read_chunked_body,
     _read_exact_body,
     _read_response_body,
+    archive_document,
     fetch_document,
     parse_http_response,
     pinned_fetch,
 )
-from intel_agent.models import IntelError
+from intel_agent.models import IntelDocument, IntelError
+from intel_agent.storage import (
+    sha256,
+    verify_document_integrity,
+    write_file_atomic,
+)
 
 
 async def _public_resolver(hostname):
@@ -255,6 +262,255 @@ async def test_fetch_saves_document(cwd):
         resolver=_public_resolver,
     )
     assert document2.id == document.id
+
+
+@pytest.mark.asyncio
+async def test_fetch_renders_javascript_shell_and_archives_both_bodies(cwd):
+    shell = '<div id="root"></div><script src="/app.js"></script>'
+    rendered_text = "动态公开信息" * 80
+
+    async def fetcher(_url, _init, _address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=shell.encode(),
+        )
+
+    async def renderer(url: str, max_bytes: int, *_args) -> RenderedPage:
+        assert max_bytes == 5 * 1024 * 1024
+        return RenderedPage(
+            final_url=url,
+            html=(
+                f"<html><main>{rendered_text}</main>"
+                '<a href="https://gov.cn/report">report</a></html>'
+            ),
+            downloaded_bytes=512,
+            request_count=3,
+        )
+
+    document, content, links = await fetch_document(
+        cwd,
+        "https://example.com/app",
+        fetcher=fetcher,
+        resolver=_public_resolver,
+        renderer=renderer,
+    )
+
+    assert document.collection_method == "browser"
+    assert document.rendered_path is not None
+    assert (cwd / document.raw_path).read_text() == shell
+    assert rendered_text in content
+    assert links == [{"url": "https://gov.cn/report", "hostname": "gov.cn"}]
+    verify_document_integrity(cwd, document)
+
+
+@pytest.mark.asyncio
+async def test_browser_archive_keeps_raw_and_rendered_urls_distinct(cwd):
+    shell = '<div id="root"></div><script src="/app.js"></script>'
+
+    async def fetcher(_url, _init, _address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=shell.encode(),
+        )
+
+    async def renderer(_url: str, _max_bytes: int, *_args) -> RenderedPage:
+        return RenderedPage(
+            final_url="https://rendered.example.org/dashboard",
+            html="<main>rendered public report</main>",
+            downloaded_bytes=32,
+            request_count=1,
+        )
+
+    document, _, _ = await fetch_document(
+        cwd,
+        "https://agency.gov.cn/app",
+        fetcher=fetcher,
+        resolver=_public_resolver,
+        renderer=renderer,
+    )
+
+    assert document.final_url == "https://agency.gov.cn/app"
+    assert document.canonical_url == "https://agency.gov.cn/app"
+    assert document.rendered_url == "https://rendered.example.org/dashboard"
+    assert document.source_group == "agency.gov.cn"
+    verify_document_integrity(cwd, document)
+
+
+@pytest.mark.asyncio
+async def test_fetch_does_not_render_useful_static_html(cwd):
+    text = "静态公开信息" * 80
+    html = f"<article>{text}</article><script src='/app.js'></script>"
+    render_calls = 0
+
+    async def fetcher(_url, _init, _address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=html.encode(),
+        )
+
+    async def renderer(_url: str, _max_bytes: int, *_args) -> RenderedPage:
+        nonlocal render_calls
+        render_calls += 1
+        raise AssertionError("useful static HTML must not render")
+
+    document, content, _ = await fetch_document(
+        cwd,
+        "https://example.com/static",
+        fetcher=fetcher,
+        resolver=_public_resolver,
+        renderer=renderer,
+    )
+
+    assert document.collection_method == "http"
+    assert text in content
+    assert render_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_fetch_archives_shell_when_browser_challenge_blocks_render(cwd):
+    shell = '<div id="root"></div><script src="/challenge.js"></script>'
+
+    async def fetcher(_url, _init, _address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=shell.encode(),
+        )
+
+    async def renderer(_url: str, _max_bytes: int, *_args) -> RenderedPage:
+        raise IntelError("CHALLENGE_REQUIRED", "页面需要人机验证")
+
+    document, _, _ = await fetch_document(
+        cwd,
+        "https://example.com/challenge",
+        fetcher=fetcher,
+        resolver=_public_resolver,
+        renderer=renderer,
+    )
+
+    assert document.extraction_status == "unavailable"
+    assert document.render_error == "CHALLENGE_REQUIRED: 页面需要人机验证"
+    assert (cwd / document.raw_path).read_text() == shell
+
+
+def test_old_document_record_defaults_to_http_collection(cwd):
+    raw = b"legacy raw"
+    text = "legacy text"
+    canonical_url = "https://example.com/legacy"
+    raw_sha256 = sha256(raw)
+    document_id = f"doc-{sha256(f'{canonical_url}\n{raw_sha256}')[:16]}"
+    raw_path = f"data/raw/{document_id}.raw"
+    text_path = f"data/raw/{document_id}.txt"
+    write_file_atomic(cwd, raw_path, raw)
+    write_file_atomic(cwd, text_path, text)
+    record = {
+        "id": document_id,
+        "requested_url": canonical_url,
+        "final_url": canonical_url,
+        "canonical_url": canonical_url,
+        "title": "Legacy",
+        "content_type": "text/html",
+        "collected_at": "2026-01-01T00:00:00+00:00",
+        "source_type": "other",
+        "source_group": "example.com",
+        "raw_path": raw_path,
+        "raw_sha256": raw_sha256,
+        "text_path": text_path,
+        "text_sha256": sha256(text),
+    }
+
+    document = IntelDocument.model_validate(record)
+
+    assert document.collection_method == "http"
+    assert document.rendered_path is None
+    assert document.rendered_sha256 is None
+    verify_document_integrity(cwd, document)
+
+
+def test_rendered_document_integrity_requires_rendered_identity(cwd):
+    raw = b'<div id="root"></div>'
+    text = "rendered text"
+    rendered_html = "<main>rendered text</main>"
+    canonical_url = "https://example.com/app"
+    raw_sha256 = sha256(raw)
+    static_id = f"doc-{sha256(f'{canonical_url}\n{raw_sha256}')[:16]}"
+    raw_path = f"data/raw/{static_id}.raw"
+    text_path = f"data/raw/{static_id}.txt"
+    rendered_path = f"data/raw/{static_id}.rendered.html"
+    write_file_atomic(cwd, raw_path, raw)
+    write_file_atomic(cwd, text_path, text)
+    write_file_atomic(cwd, rendered_path, rendered_html)
+    document = IntelDocument(
+        id=static_id,
+        requested_url=canonical_url,
+        final_url=canonical_url,
+        canonical_url=canonical_url,
+        title="App",
+        content_type="text/html",
+        collected_at="2026-01-01T00:00:00+00:00",
+        source_type="other",
+        source_group="example.com",
+        raw_path=raw_path,
+        raw_sha256=raw_sha256,
+        text_path=text_path,
+        text_sha256=sha256(text),
+        collection_method="browser",
+        rendered_path=rendered_path,
+        rendered_sha256=sha256(rendered_html),
+    )
+
+    with pytest.raises(IntelError) as raised:
+        verify_document_integrity(cwd, document)
+
+    assert raised.value.code == "DOCUMENT_TAMPERED"
+
+
+def test_archive_document_preserves_raw_and_rendered_html(cwd):
+    raw = b'<div id="root"></div>'
+    rendered_html = "<main>rendered body</main>"
+
+    document = archive_document(
+        cwd,
+        "https://example.com/app",
+        "https://example.com/app",
+        "text/html",
+        raw,
+        "rendered body",
+        "complete",
+        rendered_html=rendered_html,
+    )
+
+    assert document.collection_method == "browser"
+    assert (cwd / document.raw_path).read_bytes() == raw
+    assert document.rendered_path is not None
+    assert (cwd / document.rendered_path).read_text(
+        encoding="utf-8"
+    ) == rendered_html
+    verify_document_integrity(cwd, document)
+
+
+def test_archive_document_keeps_static_id_formula(cwd):
+    url = "https://example.com/static"
+    raw = b"<main>static body</main>"
+
+    document = archive_document(
+        cwd,
+        url,
+        url,
+        "text/html",
+        raw,
+        "static body",
+        "complete",
+    )
+
+    expected_id = f"doc-{sha256(f'{url}\n{sha256(raw)}')[:16]}"
+    assert document.id == expected_id
+    assert document.collection_method == "http"
+    assert document.rendered_path is None
+    verify_document_integrity(cwd, document)
 
 
 @pytest.mark.asyncio

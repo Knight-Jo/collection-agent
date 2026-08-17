@@ -15,7 +15,9 @@ from typing import Literal
 from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
 
+from .browser import BrowserRender, should_render_html
 from .config import CrawlConfig
+from .document_extract import decode_body
 from .extract import extract_resource_process as extract_resource
 from .extract import (
     is_rejected_resource,
@@ -27,9 +29,9 @@ from .fetch import (
     BodyProgress,
     FetchedResponse,
     FetchLike,
+    archive_document,
     canonicalize_url,
     fetch_with_validated_redirects,
-    injection_warnings,
     pinned_fetch,
 )
 from .models import (
@@ -42,18 +44,13 @@ from .models import (
     utc_now,
 )
 from .search import tokenize_query
-from .security import AddressResolver, source_group_of
-from .source import source_type_for_domain
+from .security import AddressResolver
 from .storage import (
-    intel_path,
     list_crawls,
     load_crawl,
     read_json,
     save_crawl,
-    sha256,
     verify_document_integrity,
-    write_file_atomic,
-    write_json_atomic,
 )
 from .task import load_task
 
@@ -339,105 +336,34 @@ def _deduplicate_entries(snapshot: CrawlSnapshot) -> None:
     snapshot.entries = list(unique.values())
 
 
-def _archive_resource(
-    cwd: Path,
-    requested_url: str,
-    final_url: str,
-    mime_type: str,
-    raw: bytes,
-    text: str,
-    extraction_status: Literal["complete", "unavailable", "failed"],
-    *,
-    title: str = "",
-    publish_time: str | None = None,
-    publish_time_source: Literal["meta", "time-element", "unknown"] = (
-        "unknown"
-    ),
-) -> IntelDocument:
-    canonical_url = canonicalize_url(final_url)
-    raw_hash = sha256(raw)
-    document_id = f"doc-{sha256(f'{canonical_url}\n{raw_hash}')[:16]}"
-    record_path = f"documents/{document_id}.json"
-    if intel_path(cwd, record_path).exists():
-        document = IntelDocument.model_validate(read_json(cwd, record_path))
-        verify_document_integrity(cwd, document)
-        updates: dict[str, object] = {}
-        if (
-            extraction_status == "complete"
-            and document.extraction_status != "complete"
-        ):
-            text_hash = sha256(text)
-            text_path = f"data/raw/{document_id}.{text_hash[:16]}.txt"
-            write_file_atomic(cwd, text_path, text)
-            updates.update(
-                text_path=text_path,
-                text_sha256=text_hash,
-                extraction_status="complete",
-            )
-        if title and not document.title:
-            updates["title"] = title
-        if publish_time and not document.publish_time:
-            updates.update(
-                publish_time=publish_time,
-                publish_time_source=publish_time_source,
-            )
-        if updates:
-            document = document.model_copy(update=updates)
-            write_json_atomic(cwd, record_path, document.model_dump())
-        return document
-    raw_path = f"data/raw/{document_id}.raw"
-    text_path = f"data/raw/{document_id}.txt"
-    write_file_atomic(cwd, raw_path, raw)
-    write_file_atomic(cwd, text_path, text)
-    hostname = urlparse(final_url).hostname or ""
-    try:
-        source_group = source_group_of(final_url)
-    except IntelError:
-        source_group = hostname.lower()
-    document = IntelDocument(
-        id=document_id,
-        requested_url=requested_url,
-        final_url=final_url,
-        canonical_url=canonical_url,
-        title=title or Path(urlparse(final_url).path).name or final_url,
-        content_type=mime_type,
-        publish_time=publish_time,
-        publish_time_source=publish_time_source,
-        collected_at=utc_now(),
-        source_type=source_type_for_domain(hostname),
-        source_group=source_group,
-        raw_path=raw_path,
-        raw_sha256=raw_hash,
-        text_path=text_path,
-        text_sha256=sha256(text),
-        extraction_status=extraction_status,
-        injection_warnings=injection_warnings(text),
-    )
-    write_json_atomic(cwd, record_path, document.model_dump())
-    return document
-
-
 class _RobotsPolicy:
     def __init__(self, fetch: RobotsFetch):
         self.fetch = fetch
         self.parsers: dict[str, RobotFileParser | None] = {}
         self.locks: dict[str, asyncio.Lock] = {}
 
-    async def allowed(self, entry: CrawlEntry, url: str) -> bool:
+    async def allowed(
+        self,
+        entry: CrawlEntry,
+        url: str,
+        fetch: RobotsFetch | None = None,
+    ) -> bool:
         parsed = urlparse(url)
         origin = f"{parsed.scheme}://{parsed.netloc}"
         async with self.locks.setdefault(origin, asyncio.Lock()):
             if origin not in self.parsers:
-                self.parsers[origin] = await self._load(entry, origin)
+                self.parsers[origin] = await self._load(
+                    entry, origin, fetch or self.fetch
+                )
         parser = self.parsers[origin]
         return True if parser is None else parser.can_fetch(USER_AGENT, url)
 
     async def _load(
-        self, entry: CrawlEntry, origin: str
+        self, entry: CrawlEntry, origin: str, fetch: RobotsFetch
     ) -> RobotFileParser | None:
         robots_url = f"{origin}/robots.txt"
         try:
-            response = await self.fetch(entry, robots_url)
+            response = await fetch(entry, robots_url)
         except (IntelError, OSError, TimeoutError):
             return None
         parser = RobotFileParser(robots_url)
@@ -464,6 +390,7 @@ class _CrawlRunner:
         sleep: Sleep,
         on_event: CrawlEventCallback | None,
         relevance_terms: list[str],
+        renderer: BrowserRender | None,
     ):
         self.cwd = cwd
         self.snapshot = snapshot
@@ -479,6 +406,7 @@ class _CrawlRunner:
         self.sleep = sleep
         self.on_event = on_event
         self.relevance_terms = relevance_terms
+        self.renderer = renderer
         self.global_semaphore = asyncio.Semaphore(config.concurrency)
         self.io_semaphore = asyncio.Semaphore(config.concurrency)
         self.host_semaphores: dict[str, asyncio.Semaphore] = {}
@@ -549,80 +477,118 @@ class _CrawlRunner:
         async with self.io_semaphore, host_semaphore:
             await self.rate_limit(hostname)
             async with self.byte_lock:
-                remaining = (
-                    self.config.max_total_bytes
-                    - self.snapshot.downloaded_bytes
+                return await self._fetch_hop_with_budget(
+                    entry, url, request_init, address, body_limit
                 )
-                if remaining <= 0:
-                    raise IntelError("CRAWL_LIMIT", "crawl byte limit reached")
-                attachment_limit = min(
-                    remaining,
-                    body_limit or self.config.max_attachment_bytes,
-                )
-                html_limit = min(attachment_limit, self.config.max_html_bytes)
-                bounded_init = {
-                    **(request_init or {}),
-                    "_max_body_bytes": attachment_limit,
-                    "_max_html_bytes": html_limit,
-                }
-                body_progress = BodyProgress()
-                bounded_init["_body_progress"] = body_progress
-                try:
-                    response = await self.fetcher(url, bounded_init, address)
-                except asyncio.CancelledError:
-                    downloaded = min(
-                        body_progress.downloaded_bytes, attachment_limit
-                    )
-                    if downloaded:
-                        entry.downloaded_bytes += downloaded
-                        self.snapshot.downloaded_bytes += downloaded
-                        await asyncio.shield(self.persist())
-                    raise
-                except IntelError as error:
-                    downloaded = min(
-                        max(
-                            body_progress.downloaded_bytes,
-                            error.downloaded_bytes,
-                            0,
-                        ),
-                        attachment_limit,
-                    )
-                    if downloaded:
-                        entry.downloaded_bytes += downloaded
-                        self.snapshot.downloaded_bytes += downloaded
-                        await self.persist()
-                    raise
-                mime_type = response.headers.get("content-type", "").split(
-                    ";", 1
-                )[0]
-                response_limit = (
-                    html_limit
-                    if mime_type in {"text/html", "application/xhtml+xml"}
-                    else attachment_limit
-                )
-                downloaded = min(len(response.body), response_limit)
-                if downloaded:
-                    entry.downloaded_bytes += downloaded
-                    self.snapshot.downloaded_bytes += downloaded
-                    await self.persist()
-                if len(response.body) > response_limit:
-                    raise IntelError(
-                        "RESPONSE_TOO_LARGE",
-                        f"response exceeded {response_limit} bytes",
-                    )
+
+    async def _fetch_hop_with_budget(
+        self,
+        entry: CrawlEntry,
+        url: str,
+        request_init: dict | None,
+        address: str,
+        body_limit: int | None,
+    ) -> FetchedResponse:
+        """Fetch while the caller owns the crawl byte-budget lock."""
+        remaining = (
+            self.config.max_total_bytes - self.snapshot.downloaded_bytes
+        )
+        if remaining <= 0:
+            raise IntelError("CRAWL_LIMIT", "crawl byte limit reached")
+        attachment_limit = min(
+            remaining,
+            body_limit or self.config.max_attachment_bytes,
+        )
+        html_limit = min(attachment_limit, self.config.max_html_bytes)
+        bounded_init = {
+            **(request_init or {}),
+            "_max_body_bytes": attachment_limit,
+            "_max_html_bytes": html_limit,
+        }
+        body_progress = BodyProgress()
+        bounded_init["_body_progress"] = body_progress
+        try:
+            response = await self.fetcher(url, bounded_init, address)
+        except asyncio.CancelledError:
+            downloaded = min(body_progress.downloaded_bytes, attachment_limit)
+            if downloaded:
+                entry.downloaded_bytes += downloaded
+                self.snapshot.downloaded_bytes += downloaded
+                await asyncio.shield(self.persist())
+            raise
+        except IntelError as error:
+            downloaded = min(
+                max(
+                    body_progress.downloaded_bytes,
+                    error.downloaded_bytes,
+                    0,
+                ),
+                attachment_limit,
+            )
+            if downloaded:
+                entry.downloaded_bytes += downloaded
+                self.snapshot.downloaded_bytes += downloaded
+                await self.persist()
+            raise
+        mime_type = response.headers.get("content-type", "").split(";", 1)[0]
+        response_limit = (
+            html_limit
+            if mime_type in {"text/html", "application/xhtml+xml"}
+            else attachment_limit
+        )
+        downloaded = min(len(response.body), response_limit)
+        if downloaded:
+            entry.downloaded_bytes += downloaded
+            self.snapshot.downloaded_bytes += downloaded
+            await self.persist()
+        if len(response.body) > response_limit:
+            raise IntelError(
+                "RESPONSE_TOO_LARGE",
+                f"response exceeded {response_limit} bytes",
+            )
         return response
 
+    async def _fetch_hop_during_render(
+        self,
+        entry: CrawlEntry,
+        url: str,
+        request_init: dict | None,
+        address: str,
+        *,
+        body_limit: int | None = None,
+        held_hostname: str,
+    ) -> FetchedResponse:
+        hostname = urlparse(url).hostname or ""
+
+        async def fetch() -> FetchedResponse:
+            await self.rate_limit(hostname)
+            return await self._fetch_hop_with_budget(
+                entry, url, request_init, address, body_limit
+            )
+
+        if hostname == held_hostname:
+            return await fetch()
+        host_semaphore = self.host_semaphores.setdefault(
+            hostname, asyncio.Semaphore(self.config.per_host_concurrency)
+        )
+        async with self.io_semaphore, host_semaphore:
+            return await fetch()
+
     async def _fetch_robots(
-        self, entry: CrawlEntry, robots_url: str
+        self,
+        entry: CrawlEntry,
+        robots_url: str,
+        fetch_hop: Callable | None = None,
     ) -> FetchedResponse:
         last_error: Exception | None = None
         response: FetchedResponse | None = None
+        hop = fetch_hop or self._fetch_hop
         for attempt in range(self.config.retries + 1):
             try:
                 async with asyncio.timeout(DEFAULT_TIMEOUT_MS / 1000):
                     response, _ = await fetch_with_validated_redirects(
                         robots_url,
-                        lambda url, init, address: self._fetch_hop(
+                        lambda url, init, address: hop(
                             entry,
                             url,
                             init,
@@ -657,23 +623,140 @@ class _CrawlRunner:
             raise last_error
         raise IntelError("NETWORK_ERROR", "robots.txt fetch failed")
 
-    async def _ensure_robots(self, entry: CrawlEntry, url: str) -> None:
+    async def _ensure_robots(
+        self,
+        entry: CrawlEntry,
+        url: str,
+        fetch: RobotsFetch | None = None,
+    ) -> None:
         if not self.config.obey_robots:
             return
         allowed = (
             await self.robots_allowed(url)
             if self.robots_allowed is not None
-            else await self._default_robots_allowed(entry, url)
+            else await self._default_robots_allowed(entry, url, fetch)
         )
         if not allowed:
             raise IntelError("ROBOTS_DISALLOWED", "blocked by robots.txt")
 
     async def _default_robots_allowed(
-        self, entry: CrawlEntry, url: str
+        self,
+        entry: CrawlEntry,
+        url: str,
+        fetch: RobotsFetch | None = None,
     ) -> bool:
         if self.robots_policy is None:
             raise RuntimeError("default robots policy is unavailable")
-        return await self.robots_policy.allowed(entry, url)
+        return await self.robots_policy.allowed(entry, url, fetch)
+
+    async def _extract(self, raw: bytes, mime_type: str, url: str):
+        cancellation_event = threading.Event()
+        extraction = asyncio.create_task(
+            asyncio.to_thread(
+                extract_resource,
+                raw,
+                mime_type,
+                url,
+                ocr_languages=self.config.ocr_languages,
+                whisper_model=self.config.whisper_model,
+                relevance_terms=self.relevance_terms,
+                cancellation_event=cancellation_event,
+            )
+        )
+        try:
+            return await asyncio.shield(extraction)
+        except asyncio.CancelledError:
+            cancellation_event.set()
+            with suppress(Exception):
+                await extraction
+            raise
+
+    async def _render(self, entry: CrawlEntry, url: str):
+        if self.renderer is None:
+            raise IntelError(
+                "BROWSER_UNAVAILABLE", "browser fallback disabled"
+            )
+        hostname = urlparse(url).hostname or ""
+        host_semaphore = self.host_semaphores.setdefault(
+            hostname, asyncio.Semaphore(self.config.per_host_concurrency)
+        )
+        async with host_semaphore:
+            await self.rate_limit(hostname)
+            async with self.byte_lock:
+                remaining = (
+                    self.config.max_total_bytes
+                    - self.snapshot.downloaded_bytes
+                )
+                if remaining <= 0:
+                    raise IntelError(
+                        "RENDER_LIMIT", "crawl byte limit reached"
+                    )
+                observed = 0
+                charged = 0
+
+                def charge(downloaded: int) -> None:
+                    nonlocal observed, charged
+                    observed += downloaded
+                    available = (
+                        self.config.max_total_bytes
+                        - self.snapshot.downloaded_bytes
+                    )
+                    amount = min(downloaded, max(0, available))
+                    entry.downloaded_bytes += amount
+                    self.snapshot.downloaded_bytes += amount
+                    charged += amount
+                    if amount < downloaded:
+                        raise IntelError(
+                            "RENDER_LIMIT", "crawl byte limit reached"
+                        )
+
+                async def fetch_robots(
+                    robots_entry: CrawlEntry, robots_url: str
+                ) -> FetchedResponse:
+                    async def hop(
+                        hop_entry,
+                        hop_url,
+                        init,
+                        address,
+                        *,
+                        body_limit=None,
+                    ):
+                        return await self._fetch_hop_during_render(
+                            hop_entry,
+                            hop_url,
+                            init,
+                            address,
+                            body_limit=body_limit,
+                            held_hostname=hostname,
+                        )
+
+                    return await self._fetch_robots(
+                        robots_entry, robots_url, hop
+                    )
+
+                async def before_navigation(target_url: str) -> None:
+                    await self._ensure_robots(entry, target_url, fetch_robots)
+
+                try:
+                    rendered = await self.renderer(
+                        url, remaining, before_navigation, charge
+                    )
+                    charge(max(0, rendered.downloaded_bytes - observed))
+                except asyncio.CancelledError:
+                    if charged:
+                        await asyncio.shield(self.persist())
+                    raise
+                except IntelError as error:
+                    try:
+                        charge(max(0, error.downloaded_bytes - observed))
+                    except IntelError as limit_error:
+                        error = limit_error
+                    if charged:
+                        await self.persist()
+                    raise error
+                if charged:
+                    await self.persist()
+                return rendered
 
     async def fetch(self, entry: CrawlEntry) -> list[str]:
         if self.snapshot.downloaded_bytes >= self.config.max_total_bytes:
@@ -695,6 +778,7 @@ class _CrawlRunner:
         cached = _cached_entry(
             self.cwd, self.snapshot.task_id, entry.canonical_url
         )
+        cached_document: IntelDocument | None = None
         if cached:
             cached_document = _load_cached_document(self.cwd, cached)
             age = datetime.now(UTC) - _parse_time(cached_document.collected_at)
@@ -707,7 +791,11 @@ class _CrawlRunner:
             entry.updated_at = utc_now()
             await self.persist()
             headers: dict[str, str] = {}
-            if cached:
+            if (
+                cached
+                and cached_document is not None
+                and cached_document.collection_method != "browser"
+            ):
                 if cached.validators.etag:
                     headers["If-None-Match"] = cached.validators.etag
                 if cached.validators.last_modified:
@@ -796,7 +884,12 @@ class _CrawlRunner:
                 entry.updated_at = utc_now()
                 await self.persist()
                 return []
-            if response.status == 304 and cached:
+            if (
+                response.status == 304
+                and cached
+                and cached_document is not None
+                and cached_document.collection_method != "browser"
+            ):
                 _load_cached_document(self.cwd, cached)
                 _copy_cache(entry, cached)
                 await self.persist()
@@ -849,43 +942,67 @@ class _CrawlRunner:
                 entry.updated_at = utc_now()
                 await self.persist()
                 return []
-            cancellation_event = threading.Event()
-            extraction = asyncio.create_task(
-                asyncio.to_thread(
-                    extract_resource,
-                    response.body,
-                    mime_type,
-                    final_url_string,
-                    ocr_languages=self.config.ocr_languages,
-                    whisper_model=self.config.whisper_model,
-                    relevance_terms=self.relevance_terms,
-                    cancellation_event=cancellation_event,
-                )
+            extracted = await self._extract(
+                response.body, mime_type, final_url_string
             )
-            try:
-                extracted = await asyncio.shield(extraction)
-            except asyncio.CancelledError:
-                cancellation_event.set()
-                with suppress(Exception):
-                    await extraction
-                raise
-            document = _archive_resource(
+            raw_final_url = final_url_string
+            rendered_html: str | None = None
+            rendered_url: str | None = None
+            render_limited = False
+            if is_html:
+                static_html = decode_body(response.body, mime_type)
+                entry.render_reason = should_render_html(
+                    static_html, extracted.text
+                )
+                if entry.render_reason is not None:
+                    try:
+                        rendered = await self._render(entry, final_url_string)
+                    except IntelError as error:
+                        entry.render_error = f"{error.code}: {error}"
+                        render_limited = error.code == "RENDER_LIMIT"
+                        extracted = extracted.model_copy(
+                            update={
+                                "status": "unavailable",
+                                "error": entry.render_error,
+                            }
+                        )
+                    else:
+                        rendered_html = rendered.html
+                        rendered_url = rendered.final_url
+                        extracted = await self._extract(
+                            rendered.html.encode("utf-8"),
+                            "text/html",
+                            rendered_url,
+                        )
+                        if extracted.status == "complete":
+                            extracted = extracted.model_copy(
+                                update={"processor": "html-browser"}
+                            )
+                        else:
+                            entry.render_error = (
+                                extracted.error
+                                or "RENDER_EMPTY: rendered page has no text"
+                            )
+            document = archive_document(
                 self.cwd,
                 entry.canonical_url,
-                final_url_string,
+                raw_final_url,
                 mime_type,
                 response.body,
                 extracted.text,
                 "failed"
                 if extracted.status == "skipped"
                 else extracted.status,
+                rendered_html=rendered_html,
+                rendered_url=rendered_url,
+                render_error=entry.render_error,
                 title=extracted.title,
                 publish_time=extracted.publish_time,
                 publish_time_source=extracted.publish_time_source,
             )
             entry.canonical_url = document.canonical_url
             entry.document_id = document.id
-            entry.status = "complete"
+            entry.status = "skipped_limit" if render_limited else "complete"
             entry.extraction = ExtractionState(
                 status=extracted.status,
                 processor=extracted.processor,
@@ -910,6 +1027,7 @@ async def crawl_collect(
     robots_allowed: RobotsAllowed | None = None,
     sleep: Sleep = asyncio.sleep,
     on_event: CrawlEventCallback | None = None,
+    renderer: BrowserRender | None = None,
 ) -> CrawlSnapshot:
     """Run or resume a task crawl without consuming the agent fetch budget."""
     seeds = seeds or []
@@ -963,6 +1081,7 @@ async def crawl_collect(
         sleep,
         on_event,
         relevance_terms,
+        renderer,
     )
     if on_event is not None:
         await on_event(

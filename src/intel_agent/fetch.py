@@ -10,9 +10,11 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC
 from pathlib import Path
+from typing import Literal
 from urllib.parse import parse_qsl, urlencode, urlparse, urlsplit, urlunsplit
 
 from . import document_extract as _document_extract
+from .browser import BrowserRender, should_render_html
 from .document_extract import (
     decode_body,
     extract_docx_text,
@@ -472,12 +474,116 @@ def _url_string(parsed) -> str:
     return parsed.geturl() if hasattr(parsed, "geturl") else str(parsed)
 
 
+def archive_document(
+    cwd: Path,
+    requested_url: str,
+    final_url: str,
+    mime_type: str,
+    raw: bytes,
+    text: str,
+    extraction_status: Literal["complete", "unavailable", "failed"],
+    *,
+    rendered_html: str | None = None,
+    rendered_url: str | None = None,
+    render_error: str | None = None,
+    title: str = "",
+    publish_time: str | None = None,
+    publish_time_source: Literal["meta", "time-element", "unknown"] = (
+        "unknown"
+    ),
+) -> IntelDocument:
+    """Archive original bytes, extracted text, and optional rendered DOM."""
+    canonical_url = canonicalize_url(final_url)
+    raw_hash = sha256(raw)
+    rendered_hash = (
+        sha256(rendered_html) if rendered_html is not None else None
+    )
+    identity = f"{canonical_url}\n{raw_hash}"
+    if rendered_hash is not None:
+        rendered_url = rendered_url or final_url
+        identity += f"\n{rendered_url}\n{rendered_hash}"
+    document_id = f"doc-{sha256(identity)[:16]}"
+    record_path = f"documents/{document_id}.json"
+    if (cwd / "data/intel" / record_path).exists():
+        document = IntelDocument.model_validate(read_json(cwd, record_path))
+        verify_document_integrity(cwd, document)
+        updates: dict[str, object] = {}
+        if (
+            extraction_status == "complete"
+            and document.extraction_status != "complete"
+        ):
+            text_hash = sha256(text)
+            text_path = f"data/raw/{document_id}.{text_hash[:16]}.txt"
+            write_file_atomic(cwd, text_path, text)
+            updates.update(
+                text_path=text_path,
+                text_sha256=text_hash,
+                extraction_status="complete",
+            )
+        if title and not document.title:
+            updates["title"] = title
+        if publish_time and not document.publish_time:
+            updates.update(
+                publish_time=publish_time,
+                publish_time_source=publish_time_source,
+            )
+        if render_error != document.render_error:
+            updates["render_error"] = render_error
+        if updates:
+            document = document.model_copy(update=updates)
+            write_json_atomic(cwd, record_path, document.model_dump())
+        return document
+    raw_path = f"data/raw/{document_id}.raw"
+    text_path = f"data/raw/{document_id}.txt"
+    rendered_path = (
+        f"data/raw/{document_id}.rendered.html"
+        if rendered_html is not None
+        else None
+    )
+    write_file_atomic(cwd, raw_path, raw)
+    write_file_atomic(cwd, text_path, text)
+    if rendered_path is not None and rendered_html is not None:
+        write_file_atomic(cwd, rendered_path, rendered_html)
+    hostname = urlparse(final_url).hostname or ""
+    try:
+        source_group = source_group_of(final_url)
+    except IntelError:
+        source_group = hostname.lower()
+    document = IntelDocument(
+        id=document_id,
+        requested_url=requested_url,
+        final_url=final_url,
+        canonical_url=canonical_url,
+        title=title or Path(urlparse(final_url).path).name or final_url,
+        content_type=mime_type,
+        publish_time=publish_time,
+        publish_time_source=publish_time_source,
+        collected_at=_now(),
+        source_type=source_type_for_domain(hostname),
+        source_group=source_group,
+        raw_path=raw_path,
+        raw_sha256=raw_hash,
+        text_path=text_path,
+        text_sha256=sha256(text),
+        extraction_status=extraction_status,
+        collection_method=("browser" if rendered_html is not None else "http"),
+        rendered_url=rendered_url,
+        rendered_path=rendered_path,
+        rendered_sha256=rendered_hash,
+        render_error=render_error,
+        injection_warnings=injection_warnings(text),
+    )
+    write_json_atomic(cwd, record_path, document.model_dump())
+    return document
+
+
 async def fetch_document(
     cwd: Path,
     raw_url: str,
     fetcher: FetchLike | None = None,
     resolver: AddressResolver | None = None,
     max_bytes: int | None = None,
+    renderer: BrowserRender | None = None,
 ) -> tuple[IntelDocument, str, list[dict]]:
     max_bytes = max_bytes or DEFAULT_MAX_BYTES
     fetcher = fetcher or (lambda u, i, a: pinned_fetch(u, i, a, max_bytes))
@@ -547,10 +653,37 @@ async def fetch_document(
             "publish_time": None,
             "publish_time_source": "unknown",
         }
+    extraction_status: Literal["complete", "unavailable", "failed"] = (
+        "complete"
+    )
+    rendered_html: str | None = None
+    rendered_url: str | None = None
+    render_error: str | None = None
+    if is_html and (
+        render_reason := should_render_html(raw_text, extracted["text"])
+    ):
+        if renderer is None:
+            extraction_status = "unavailable"
+            render_error = f"BROWSER_UNAVAILABLE: browser fallback disabled ({render_reason})"
+        else:
+            try:
+                rendered = await renderer(
+                    _url_string(final_url), max_bytes, None, None
+                )
+            except IntelError as error:
+                extraction_status = "unavailable"
+                render_error = f"{error.code}: {error}"
+            else:
+                rendered_url = rendered.final_url
+                rendered_html = rendered.html
+                extracted = extract_html(rendered.html)
+                if not extracted["text"].strip():
+                    extraction_status = "unavailable"
+                    render_error = "RENDER_EMPTY: 渲染后仍无有效正文"
+    link_html = rendered_html if rendered_html is not None else raw_text
+    link_base_url = rendered_url or _url_string(final_url)
     outbound_links = (
-        extract_outbound_links(raw_text, _url_string(final_url))
-        if is_html
-        else []
+        extract_outbound_links(link_html, link_base_url) if is_html else []
     )
     if not extracted["publish_time"]:
         url_match = re.search(
@@ -563,42 +696,21 @@ async def fetch_document(
                 f"{url_match.group(1)}-{url_match.group(2)}-{url_match.group(3)}"
             )
             extracted["publish_time_source"] = "unknown"
-    canonical_url = canonicalize_url(_url_string(final_url))
-    raw_hash = sha256(raw_bytes)
-    document_id = f"doc-{sha256(f'{canonical_url}\n{raw_hash}')[:16]}"
-    document_path = f"documents/{document_id}.json"
-    if (cwd / "data/intel" / document_path).exists():
-        existing = IntelDocument.model_validate(read_json(cwd, document_path))
-        verify_document_integrity(cwd, existing)
-        return (
-            existing,
-            f"<untrusted_web_content>\n{extracted['text']}\n</untrusted_web_content>",
-            outbound_links,
-        )
-    raw_path = f"data/raw/{document_id}.raw"
-    text_path = f"data/raw/{document_id}.txt"
-    write_file_atomic(cwd, raw_path, raw_bytes)
-    write_file_atomic(cwd, text_path, extracted["text"])
-    hostname = urlparse(_url_string(final_url)).hostname or ""
-    document = IntelDocument(
-        id=document_id,
+    document = archive_document(
+        cwd,
         requested_url=raw_url,
         final_url=_url_string(final_url),
-        canonical_url=canonical_url,
+        mime_type=content_type.split(";")[0],
+        raw=raw_bytes,
+        text=extracted["text"],
+        extraction_status=extraction_status,
+        rendered_html=rendered_html,
+        rendered_url=rendered_url,
+        render_error=render_error,
         title=extracted["title"] or _url_string(final_url),
-        content_type=content_type.split(";")[0],
         publish_time=extracted["publish_time"],
         publish_time_source=extracted["publish_time_source"],
-        collected_at=_now(),
-        source_type=source_type_for_domain(hostname),
-        source_group=source_group_of(_url_string(final_url)),
-        raw_path=raw_path,
-        raw_sha256=raw_hash,
-        text_path=text_path,
-        text_sha256=sha256(extracted["text"]),
-        injection_warnings=injection_warnings(extracted["text"]),
     )
-    write_json_atomic(cwd, document_path, document.model_dump())
     return (
         document,
         f"<untrusted_web_content>\n{extracted['text']}\n</untrusted_web_content>",

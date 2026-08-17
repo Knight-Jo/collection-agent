@@ -136,7 +136,11 @@ Cover a useful article containing scripts, an empty root shell, an explicit Java
 
 ```python
 def test_static_article_does_not_require_browser():
-    html = "<article>" + "公开信息" * 100 + "</article><script src='/app.js'></script>"
+    html = (
+        "<article>"
+        + "公开信息" * 100
+        + "</article><script src='/app.js'></script>"
+    )
     assert should_render_html(html, "公开信息" * 100) is None
 
 
@@ -151,7 +155,9 @@ def test_javascript_placeholder_requires_browser():
 
 
 def test_interactive_challenge_is_detected():
-    html = '<iframe src="https://challenges.cloudflare.com/turnstile"></iframe>'
+    html = (
+        '<iframe src="https://challenges.cloudflare.com/turnstile"></iframe>'
+    )
     assert challenge_required(html, "Verify you are human") is True
 ```
 
@@ -303,7 +309,9 @@ document = archive_document(
 )
 assert document.collection_method == "browser"
 assert (cwd / document.raw_path).read_bytes() == b'<div id="root"></div>'
-assert (cwd / document.rendered_path).read_text() == "<main>rendered body</main>"
+assert (
+    cwd / document.rendered_path
+).read_text() == "<main>rendered body</main>"
 verify_document_integrity(cwd, document)
 ```
 
@@ -363,6 +371,7 @@ async def renderer(url: str, max_bytes: int) -> RenderedPage:
         downloaded_bytes=512,
         request_count=3,
     )
+
 
 document, content, _ = await fetch_document(
     cwd,
@@ -424,7 +433,9 @@ snapshot = await crawl_collect(
     cwd,
     task.id,
     ["https://example.com/app"],
-    config=CrawlConfig(max_depth=1, obey_robots=False, per_host_delay_seconds=0),
+    config=CrawlConfig(
+        max_depth=1, obey_robots=False, per_host_delay_seconds=0
+    ),
     fetcher=static_shell_fetcher,
     resolver=_public_resolver,
     renderer=fake_renderer,
@@ -433,7 +444,9 @@ entry = snapshot.entries[0]
 assert entry.render_reason == "empty_body"
 assert entry.extraction.status == "complete"
 assert entry.extraction.processor == "html-browser"
-assert any(item.parent_url == entry.canonical_url for item in snapshot.entries[1:])
+assert any(
+    item.parent_url == entry.canonical_url for item in snapshot.entries[1:]
+)
 ```
 
 Add tests for render byte limit, render failure persistence, cancellation, and a useful static page that does not render.
