@@ -346,6 +346,52 @@ async def test_crawl_collect_returns_compact_resource_index(monkeypatch, cwd):
 
 
 @pytest.mark.asyncio
+async def test_crawl_collect_wires_one_enabled_browser_renderer(
+    monkeypatch, cwd
+):
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+        deep_crawl=True,
+    )
+    snapshot = create_crawl(cwd, task.id, [], CrawlConfig())
+    renderer_entered = False
+
+    class FakeRenderer:
+        def __init__(self, _config):
+            pass
+
+        async def __aenter__(self):
+            nonlocal renderer_entered
+            renderer_entered = True
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def render(self, _url, _max_bytes):
+            raise AssertionError("fake crawl owns rendering")
+
+    async def fake_collect(*_args, renderer=None, **_kwargs):
+        assert renderer is not None
+        return snapshot
+
+    monkeypatch.setattr(agent_module, "BrowserRenderer", FakeRenderer)
+    monkeypatch.setattr(agent_module, "run_crawl_collect", fake_collect)
+    settings = Settings.model_validate(
+        {"fetch": {"enable_browser_fallback": True}}
+    )
+
+    await _tool(build_agent(settings), "crawl_collect")(
+        _context(cwd, settings=settings), task.id
+    )
+
+    assert renderer_entered is True
+
+
+@pytest.mark.asyncio
 async def test_web_fetch_registers_collected_material(monkeypatch, cwd):
     task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
     document = make_document(cwd, "主题材料", "https://example.com/source")

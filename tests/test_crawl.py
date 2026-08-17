@@ -11,6 +11,7 @@ import pytest
 
 import intel_agent.crawl as crawl_module
 import intel_agent.fetch as fetch_module
+from intel_agent.browser import RenderedPage
 from intel_agent.config import CrawlConfig
 from intel_agent.crawl import crawl_collect, create_crawl, enqueue_url
 from intel_agent.evidence import load_document
@@ -1179,6 +1180,177 @@ async def test_crawl_archives_html_title_and_publish_time(cwd):
     assert document.title == "Quarterly report"
     assert document.publish_time == "2026-08-12"
     assert document.publish_time_source == "meta"
+
+
+@pytest.mark.asyncio
+async def test_crawl_renders_html_shell_and_enqueues_dynamic_links(cwd):
+    task = new_task(cwd)
+    shell = b'<div id="root"></div><script src="/app.js"></script>'
+    child = b"<article>child static report</article>"
+    rendered_text = "动态调研正文" * 80
+    render_calls = 0
+
+    async def fetcher(url, _init, _address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=child if url.endswith("/next") else shell,
+        )
+
+    async def renderer(url: str, _max_bytes: int) -> RenderedPage:
+        nonlocal render_calls
+        render_calls += 1
+        return RenderedPage(
+            final_url=url,
+            html=(
+                f"<main>{rendered_text}</main>"
+                '<a href="https://example.com/next">next</a>'
+            ),
+            downloaded_bytes=512,
+            request_count=3,
+        )
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/app"],
+        config=CrawlConfig(
+            max_depth=1, obey_robots=False, per_host_delay_seconds=0
+        ),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+        renderer=renderer,
+    )
+
+    entry = next(item for item in snapshot.entries if item.depth == 0)
+    assert entry.render_reason == "empty_body"
+    assert entry.render_error is None
+    assert entry.extraction.status == "complete"
+    assert entry.extraction.processor == "html-browser"
+    assert entry.downloaded_bytes == len(shell) + 512
+    assert render_calls == 1
+    assert any(
+        item.parent_url == entry.canonical_url and item.depth == 1
+        for item in snapshot.entries
+    )
+    document = load_document(cwd, entry.document_id or "")
+    assert document.collection_method == "browser"
+    assert rendered_text in (cwd / document.text_path).read_text()
+
+
+@pytest.mark.asyncio
+async def test_crawl_preserves_shell_when_browser_render_fails(cwd):
+    task = new_task(cwd)
+    shell = b'<div id="root"></div><script src="/app.js"></script>'
+
+    async def fetcher(_url, _init, _address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=shell,
+        )
+
+    async def renderer(_url: str, _max_bytes: int) -> RenderedPage:
+        raise IntelError("CHALLENGE_REQUIRED", "页面需要人机验证")
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/app"],
+        config=CrawlConfig(obey_robots=False, per_host_delay_seconds=0),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+        renderer=renderer,
+    )
+
+    entry = snapshot.entries[0]
+    assert entry.status == "complete"
+    assert entry.extraction.status == "unavailable"
+    assert entry.render_error == "CHALLENGE_REQUIRED: 页面需要人机验证"
+    document = load_document(cwd, entry.document_id or "")
+    assert (cwd / document.raw_path).read_bytes() == shell
+    assert document.extraction_status == "unavailable"
+
+
+@pytest.mark.asyncio
+async def test_crawl_rejects_browser_bytes_beyond_remaining_budget(cwd):
+    task = new_task(cwd)
+    shell = b'<div id="root"></div><script src="/app.js"></script>'
+
+    async def fetcher(_url, _init, _address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=shell,
+        )
+
+    async def renderer(_url: str, max_bytes: int) -> RenderedPage:
+        return RenderedPage(
+            final_url="https://example.com/app",
+            html="<main>too large</main>",
+            downloaded_bytes=max_bytes + 1,
+            request_count=1,
+        )
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/app"],
+        config=CrawlConfig(
+            max_total_bytes=len(shell) + 10,
+            obey_robots=False,
+            per_host_delay_seconds=0,
+        ),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+        renderer=renderer,
+    )
+
+    assert snapshot.entries[0].status == "skipped_limit"
+    assert (
+        snapshot.entries[0].render_error
+        == "RENDER_LIMIT: crawl byte limit reached"
+    )
+
+
+@pytest.mark.asyncio
+async def test_crawl_cancellation_during_browser_render_is_resumable(cwd):
+    task = new_task(cwd)
+    shell = b'<div id="root"></div><script src="/app.js"></script>'
+    render_started = asyncio.Event()
+
+    async def fetcher(_url, _init, _address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=shell,
+        )
+
+    async def renderer(_url: str, _max_bytes: int) -> RenderedPage:
+        render_started.set()
+        await asyncio.Future()
+        raise AssertionError("unreachable")
+
+    running = asyncio.create_task(
+        crawl_collect(
+            cwd,
+            task.id,
+            ["https://example.com/app"],
+            config=CrawlConfig(obey_robots=False, per_host_delay_seconds=0),
+            fetcher=fetcher,
+            resolver=_public_resolver,
+            renderer=renderer,
+        )
+    )
+    await asyncio.wait_for(render_started.wait(), timeout=1)
+    running.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await running
+
+    saved = load_crawl(cwd, task.id)
+    assert saved.status == "paused"
+    assert saved.entries[0].status == "queued"
 
 
 @pytest.mark.asyncio

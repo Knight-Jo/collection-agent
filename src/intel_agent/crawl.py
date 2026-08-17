@@ -15,7 +15,9 @@ from typing import Literal
 from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
 
+from .browser import BrowserRender, should_render_html
 from .config import CrawlConfig
+from .document_extract import decode_body
 from .extract import extract_resource_process as extract_resource
 from .extract import (
     is_rejected_resource,
@@ -381,6 +383,7 @@ class _CrawlRunner:
         sleep: Sleep,
         on_event: CrawlEventCallback | None,
         relevance_terms: list[str],
+        renderer: BrowserRender | None,
     ):
         self.cwd = cwd
         self.snapshot = snapshot
@@ -396,6 +399,7 @@ class _CrawlRunner:
         self.sleep = sleep
         self.on_event = on_event
         self.relevance_terms = relevance_terms
+        self.renderer = renderer
         self.global_semaphore = asyncio.Semaphore(config.concurrency)
         self.io_semaphore = asyncio.Semaphore(config.concurrency)
         self.host_semaphores: dict[str, asyncio.Semaphore] = {}
@@ -592,6 +596,60 @@ class _CrawlRunner:
             raise RuntimeError("default robots policy is unavailable")
         return await self.robots_policy.allowed(entry, url)
 
+    async def _extract(self, raw: bytes, mime_type: str, url: str):
+        cancellation_event = threading.Event()
+        extraction = asyncio.create_task(
+            asyncio.to_thread(
+                extract_resource,
+                raw,
+                mime_type,
+                url,
+                ocr_languages=self.config.ocr_languages,
+                whisper_model=self.config.whisper_model,
+                relevance_terms=self.relevance_terms,
+                cancellation_event=cancellation_event,
+            )
+        )
+        try:
+            return await asyncio.shield(extraction)
+        except asyncio.CancelledError:
+            cancellation_event.set()
+            with suppress(Exception):
+                await extraction
+            raise
+
+    async def _render(self, entry: CrawlEntry, url: str):
+        if self.renderer is None:
+            raise IntelError(
+                "BROWSER_UNAVAILABLE", "browser fallback disabled"
+            )
+        hostname = urlparse(url).hostname or ""
+        host_semaphore = self.host_semaphores.setdefault(
+            hostname, asyncio.Semaphore(self.config.per_host_concurrency)
+        )
+        async with host_semaphore:
+            await self.rate_limit(hostname)
+            async with self.byte_lock:
+                remaining = (
+                    self.config.max_total_bytes
+                    - self.snapshot.downloaded_bytes
+                )
+                if remaining <= 0:
+                    raise IntelError(
+                        "RENDER_LIMIT", "crawl byte limit reached"
+                    )
+                rendered = await self.renderer(url, remaining)
+                charged = min(rendered.downloaded_bytes, remaining)
+                entry.downloaded_bytes += charged
+                self.snapshot.downloaded_bytes += charged
+                if charged:
+                    await self.persist()
+                if rendered.downloaded_bytes > remaining:
+                    raise IntelError(
+                        "RENDER_LIMIT", "crawl byte limit reached"
+                    )
+                return rendered
+
     async def fetch(self, entry: CrawlEntry) -> list[str]:
         if self.snapshot.downloaded_bytes >= self.config.max_total_bytes:
             entry.status = "skipped_limit"
@@ -766,26 +824,45 @@ class _CrawlRunner:
                 entry.updated_at = utc_now()
                 await self.persist()
                 return []
-            cancellation_event = threading.Event()
-            extraction = asyncio.create_task(
-                asyncio.to_thread(
-                    extract_resource,
-                    response.body,
-                    mime_type,
-                    final_url_string,
-                    ocr_languages=self.config.ocr_languages,
-                    whisper_model=self.config.whisper_model,
-                    relevance_terms=self.relevance_terms,
-                    cancellation_event=cancellation_event,
-                )
+            extracted = await self._extract(
+                response.body, mime_type, final_url_string
             )
-            try:
-                extracted = await asyncio.shield(extraction)
-            except asyncio.CancelledError:
-                cancellation_event.set()
-                with suppress(Exception):
-                    await extraction
-                raise
+            rendered_html: str | None = None
+            render_limited = False
+            if is_html:
+                static_html = decode_body(response.body, mime_type)
+                entry.render_reason = should_render_html(
+                    static_html, extracted.text
+                )
+                if entry.render_reason is not None:
+                    try:
+                        rendered = await self._render(entry, final_url_string)
+                    except IntelError as error:
+                        entry.render_error = f"{error.code}: {error}"
+                        render_limited = error.code == "RENDER_LIMIT"
+                        extracted = extracted.model_copy(
+                            update={
+                                "status": "unavailable",
+                                "error": entry.render_error,
+                            }
+                        )
+                    else:
+                        rendered_html = rendered.html
+                        final_url_string = rendered.final_url
+                        extracted = await self._extract(
+                            rendered.html.encode("utf-8"),
+                            "text/html",
+                            final_url_string,
+                        )
+                        if extracted.status == "complete":
+                            extracted = extracted.model_copy(
+                                update={"processor": "html-browser"}
+                            )
+                        else:
+                            entry.render_error = (
+                                extracted.error
+                                or "RENDER_EMPTY: rendered page has no text"
+                            )
             document = archive_document(
                 self.cwd,
                 entry.canonical_url,
@@ -796,13 +873,15 @@ class _CrawlRunner:
                 "failed"
                 if extracted.status == "skipped"
                 else extracted.status,
+                rendered_html=rendered_html,
+                render_error=entry.render_error,
                 title=extracted.title,
                 publish_time=extracted.publish_time,
                 publish_time_source=extracted.publish_time_source,
             )
             entry.canonical_url = document.canonical_url
             entry.document_id = document.id
-            entry.status = "complete"
+            entry.status = "skipped_limit" if render_limited else "complete"
             entry.extraction = ExtractionState(
                 status=extracted.status,
                 processor=extracted.processor,
@@ -827,6 +906,7 @@ async def crawl_collect(
     robots_allowed: RobotsAllowed | None = None,
     sleep: Sleep = asyncio.sleep,
     on_event: CrawlEventCallback | None = None,
+    renderer: BrowserRender | None = None,
 ) -> CrawlSnapshot:
     """Run or resume a task crawl without consuming the agent fetch budget."""
     seeds = seeds or []
@@ -880,6 +960,7 @@ async def crawl_collect(
         sleep,
         on_event,
         relevance_terms,
+        renderer,
     )
     if on_event is not None:
         await on_event(

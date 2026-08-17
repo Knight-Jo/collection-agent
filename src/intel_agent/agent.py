@@ -557,12 +557,19 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         task = load_task(ctx.deps.cwd, task_id)
         if not task.deep_crawl:
             raise IntelError("INVALID_INPUT", "该任务未启用深度抓取")
-        snapshot = await run_crawl_collect(
-            ctx.deps.cwd,
-            task.id,
-            config=ctx.deps.settings.crawl,
-            on_event=ctx.deps.crawl_event_callback,
-        )
+        async with AsyncExitStack() as stack:
+            browser = None
+            if ctx.deps.settings.fetch.enable_browser_fallback:
+                browser = await stack.enter_async_context(
+                    BrowserRenderer(ctx.deps.settings.fetch)
+                )
+            snapshot = await run_crawl_collect(
+                ctx.deps.cwd,
+                task.id,
+                config=ctx.deps.settings.crawl,
+                on_event=ctx.deps.crawl_event_callback,
+                renderer=browser.render if browser is not None else None,
+            )
         return summarize_crawl(snapshot)
 
     @agent.tool(name="document_search")
