@@ -75,6 +75,15 @@ def test_normal_page_is_not_an_interactive_challenge():
     )
 
 
+def test_useful_page_loading_captcha_library_is_not_a_challenge():
+    text = "public intelligence report " * 20
+    html = (
+        f'<article>{text}</article><script src="/recaptcha/api.js"></script>'
+    )
+
+    assert challenge_required(html, text) is False
+
+
 @pytest.mark.asyncio
 async def test_browser_policy_blocks_private_request():
     policy = BrowserRequestPolicy(FetchConfig(), resolver=_private_resolver)
@@ -179,9 +188,17 @@ async def test_real_chromium_renders_local_javascript_fixture(monkeypatch):
     monkeypatch.setattr(renderer.policy, "validate", allow_local_fixture)
     try:
         async with server, renderer:
-            rendered = await renderer.render(
-                f"http://127.0.0.1:{port}/", 1024 * 1024
-            )
+            try:
+                rendered = await renderer.render(
+                    f"http://127.0.0.1:{port}/", 1024 * 1024
+                )
+            except IntelError as error:
+                if (
+                    error.code == "BROWSER_UNAVAILABLE"
+                    and "sandbox" in str(error).lower()
+                ):
+                    pytest.skip("host does not support Chromium sandboxing")
+                raise
     finally:
         server.close()
         await server.wait_closed()
@@ -192,13 +209,21 @@ async def test_real_chromium_renders_local_javascript_fixture(monkeypatch):
 class _FakePage:
     url = "https://example.com/app"
 
-    def __init__(self):
+    def __init__(self, response_bytes: int = 0):
         self.handlers = {}
+        self.response_bytes = response_bytes
+        self.cdp_session = None
+        self.closed = False
 
     def on(self, event, handler):
         self.handlers[event] = handler
 
     async def goto(self, _url, **_kwargs):
+        if self.cdp_session is not None and self.response_bytes:
+            self.cdp_session.handlers["Network.dataReceived"](
+                {"encodedDataLength": self.response_bytes}
+            )
+            await asyncio.sleep(0)
         return SimpleNamespace(status=200)
 
     async def wait_for_function(self, _expression, **_kwargs):
@@ -207,10 +232,32 @@ class _FakePage:
     async def content(self):
         return "<html><main>Rendered public report</main></html>"
 
+    async def close(self):
+        self.closed = True
+
+    def is_closed(self):
+        return self.closed
+
+
+class _FakeCdpSession:
+    def __init__(self):
+        self.handlers = {}
+
+    def on(self, event, handler):
+        self.handlers[event] = handler
+
+    async def send(self, _method):
+        return None
+
+    async def detach(self):
+        return None
+
 
 class _FakeContext:
-    def __init__(self):
+    def __init__(self, response_bytes: int = 0):
         self.closed = False
+        self.page = _FakePage(response_bytes)
+        self.cdp_session = _FakeCdpSession()
 
     async def route(self, _pattern, _handler):
         return None
@@ -222,19 +269,24 @@ class _FakeContext:
         return None
 
     async def new_page(self):
-        return _FakePage()
+        return self.page
+
+    async def new_cdp_session(self, page):
+        page.cdp_session = self.cdp_session
+        return self.cdp_session
 
     async def close(self):
         self.closed = True
 
 
 class _FakeBrowser:
-    def __init__(self):
+    def __init__(self, response_bytes: int = 0):
         self.contexts = []
         self.closed = False
+        self.response_bytes = response_bytes
 
     async def new_context(self, **_kwargs):
-        context = _FakeContext()
+        context = _FakeContext(self.response_bytes)
         self.contexts.append(context)
         return context
 
@@ -243,14 +295,16 @@ class _FakeBrowser:
 
 
 class _FakePlaywright:
-    def __init__(self):
-        self.browser = _FakeBrowser()
+    def __init__(self, response_bytes: int = 0):
+        self.browser = _FakeBrowser(response_bytes)
         self.launches = 0
+        self.launch_options = []
         self.stopped = False
         self.chromium = self
 
     async def launch(self, **_kwargs):
         self.launches += 1
+        self.launch_options.append(_kwargs)
         return self.browser
 
     async def stop(self):
@@ -277,7 +331,34 @@ async def test_renderer_reuses_browser_and_closes_page_contexts(monkeypatch):
     assert first.html == second.html
     assert first.final_url == "https://example.com/app"
     assert fake.launches == 1
+    assert fake.launch_options == [
+        {"headless": True, "chromium_sandbox": True}
+    ]
     assert len(fake.browser.contexts) == 2
     assert all(context.closed for context in fake.browser.contexts)
     assert fake.browser.closed is True
     assert fake.stopped is True
+
+
+@pytest.mark.asyncio
+async def test_renderer_stops_and_reports_streamed_bytes_over_limit(
+    monkeypatch,
+):
+    fake = _FakePlaywright(response_bytes=4097)
+    monkeypatch.setattr(browser_module, "find_spec", lambda _name: object())
+
+    async def start_playwright():
+        return fake
+
+    monkeypatch.setattr(browser_module, "_start_playwright", start_playwright)
+    renderer = BrowserRenderer(
+        FetchConfig(enable_browser_fallback=True), resolver=_public_resolver
+    )
+
+    async with renderer:
+        with pytest.raises(IntelError) as raised:
+            await renderer.render("https://example.com/app", 4096)
+
+    assert raised.value.code == "RENDER_LIMIT"
+    assert raised.value.downloaded_bytes == 4097
+    assert fake.browser.contexts[0].page.closed is True

@@ -484,6 +484,7 @@ def archive_document(
     extraction_status: Literal["complete", "unavailable", "failed"],
     *,
     rendered_html: str | None = None,
+    rendered_url: str | None = None,
     render_error: str | None = None,
     title: str = "",
     publish_time: str | None = None,
@@ -499,7 +500,8 @@ def archive_document(
     )
     identity = f"{canonical_url}\n{raw_hash}"
     if rendered_hash is not None:
-        identity += f"\n{rendered_hash}"
+        rendered_url = rendered_url or final_url
+        identity += f"\n{rendered_url}\n{rendered_hash}"
     document_id = f"doc-{sha256(identity)[:16]}"
     record_path = f"documents/{document_id}.json"
     if (cwd / "data/intel" / record_path).exists():
@@ -565,6 +567,7 @@ def archive_document(
         text_sha256=sha256(text),
         extraction_status=extraction_status,
         collection_method=("browser" if rendered_html is not None else "http"),
+        rendered_url=rendered_url,
         rendered_path=rendered_path,
         rendered_sha256=rendered_hash,
         render_error=render_error,
@@ -654,6 +657,7 @@ async def fetch_document(
         "complete"
     )
     rendered_html: str | None = None
+    rendered_url: str | None = None
     render_error: str | None = None
     if is_html and (
         render_reason := should_render_html(raw_text, extracted["text"])
@@ -663,22 +667,23 @@ async def fetch_document(
             render_error = f"BROWSER_UNAVAILABLE: browser fallback disabled ({render_reason})"
         else:
             try:
-                rendered = await renderer(_url_string(final_url), max_bytes)
+                rendered = await renderer(
+                    _url_string(final_url), max_bytes, None, None
+                )
             except IntelError as error:
                 extraction_status = "unavailable"
                 render_error = f"{error.code}: {error}"
             else:
-                final_url = rendered.final_url
+                rendered_url = rendered.final_url
                 rendered_html = rendered.html
                 extracted = extract_html(rendered.html)
                 if not extracted["text"].strip():
                     extraction_status = "unavailable"
                     render_error = "RENDER_EMPTY: 渲染后仍无有效正文"
     link_html = rendered_html if rendered_html is not None else raw_text
+    link_base_url = rendered_url or _url_string(final_url)
     outbound_links = (
-        extract_outbound_links(link_html, _url_string(final_url))
-        if is_html
-        else []
+        extract_outbound_links(link_html, link_base_url) if is_html else []
     )
     if not extracted["publish_time"]:
         url_match = re.search(
@@ -700,6 +705,7 @@ async def fetch_document(
         text=extracted["text"],
         extraction_status=extraction_status,
         rendered_html=rendered_html,
+        rendered_url=rendered_url,
         render_error=render_error,
         title=extracted["title"] or _url_string(final_url),
         publish_time=extracted["publish_time"],

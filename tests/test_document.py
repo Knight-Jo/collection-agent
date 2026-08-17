@@ -276,7 +276,7 @@ async def test_fetch_renders_javascript_shell_and_archives_both_bodies(cwd):
             body=shell.encode(),
         )
 
-    async def renderer(url: str, max_bytes: int) -> RenderedPage:
+    async def renderer(url: str, max_bytes: int, *_args) -> RenderedPage:
         assert max_bytes == 5 * 1024 * 1024
         return RenderedPage(
             final_url=url,
@@ -305,6 +305,40 @@ async def test_fetch_renders_javascript_shell_and_archives_both_bodies(cwd):
 
 
 @pytest.mark.asyncio
+async def test_browser_archive_keeps_raw_and_rendered_urls_distinct(cwd):
+    shell = '<div id="root"></div><script src="/app.js"></script>'
+
+    async def fetcher(_url, _init, _address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=shell.encode(),
+        )
+
+    async def renderer(_url: str, _max_bytes: int, *_args) -> RenderedPage:
+        return RenderedPage(
+            final_url="https://rendered.example.org/dashboard",
+            html="<main>rendered public report</main>",
+            downloaded_bytes=32,
+            request_count=1,
+        )
+
+    document, _, _ = await fetch_document(
+        cwd,
+        "https://agency.gov.cn/app",
+        fetcher=fetcher,
+        resolver=_public_resolver,
+        renderer=renderer,
+    )
+
+    assert document.final_url == "https://agency.gov.cn/app"
+    assert document.canonical_url == "https://agency.gov.cn/app"
+    assert document.rendered_url == "https://rendered.example.org/dashboard"
+    assert document.source_group == "agency.gov.cn"
+    verify_document_integrity(cwd, document)
+
+
+@pytest.mark.asyncio
 async def test_fetch_does_not_render_useful_static_html(cwd):
     text = "静态公开信息" * 80
     html = f"<article>{text}</article><script src='/app.js'></script>"
@@ -317,7 +351,7 @@ async def test_fetch_does_not_render_useful_static_html(cwd):
             body=html.encode(),
         )
 
-    async def renderer(_url: str, _max_bytes: int) -> RenderedPage:
+    async def renderer(_url: str, _max_bytes: int, *_args) -> RenderedPage:
         nonlocal render_calls
         render_calls += 1
         raise AssertionError("useful static HTML must not render")
@@ -346,7 +380,7 @@ async def test_fetch_archives_shell_when_browser_challenge_blocks_render(cwd):
             body=shell.encode(),
         )
 
-    async def renderer(_url: str, _max_bytes: int) -> RenderedPage:
+    async def renderer(_url: str, _max_bytes: int, *_args) -> RenderedPage:
         raise IntelError("CHALLENGE_REQUIRED", "页面需要人机验证")
 
     document, _, _ = await fetch_document(

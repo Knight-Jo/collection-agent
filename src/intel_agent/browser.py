@@ -55,7 +55,12 @@ class RenderedPage:
     request_count: int
 
 
-BrowserRender = Callable[[str, int], Awaitable[RenderedPage]]
+NavigationCheck = Callable[[str], Awaitable[None]]
+ByteCallback = Callable[[int], None]
+BrowserRender = Callable[
+    [str, int, NavigationCheck | None, ByteCallback | None],
+    Awaitable[RenderedPage],
+]
 
 
 @dataclass(frozen=True)
@@ -70,6 +75,7 @@ class _RenderState:
     request_count: int = 0
     downloaded_bytes: int = 0
     failure: IntelError | None = None
+    close_task: asyncio.Task | None = None
 
 
 class BrowserRequestPolicy:
@@ -160,7 +166,8 @@ class BrowserRenderer:
                 try:
                     self._playwright = await _start_playwright()
                     self._browser = await self._playwright.chromium.launch(
-                        headless=True
+                        headless=True,
+                        chromium_sandbox=True,
                     )
                 except Exception as error:
                     await self.close()
@@ -181,7 +188,11 @@ class BrowserRenderer:
                 await playwright.stop()
 
     async def render(
-        self, url: str, max_bytes: int | None = None
+        self,
+        url: str,
+        max_bytes: int | None = None,
+        before_navigation: NavigationCheck | None = None,
+        on_bytes: ByteCallback | None = None,
     ) -> RenderedPage:
         limit = min(
             max_bytes or self.config.browser_max_bytes,
@@ -196,18 +207,20 @@ class BrowserRenderer:
                 locale="zh-CN",
             )
             state = _RenderState(max_bytes=limit)
-            size_tasks: set[asyncio.Task] = set()
+            cdp_session = None
             try:
-                await context.route("**/*", self._route_handler(state))
+                await context.route(
+                    "**/*", self._route_handler(state, before_navigation)
+                )
                 await context.route_web_socket("**/*", self._websocket_handler)
                 await context.add_init_script(_DOM_QUIET_SCRIPT)
                 page = await context.new_page()
-                page.on(
-                    "requestfinished",
-                    lambda request: self._track_size(
-                        request, state, size_tasks
-                    ),
+                cdp_session = await context.new_cdp_session(page)
+                cdp_session.on(
+                    "Network.dataReceived",
+                    self._data_received_handler(state, page, on_bytes),
                 )
+                await cdp_session.send("Network.enable")
                 try:
                     async with asyncio.timeout(
                         self.config.browser_timeout_seconds
@@ -224,29 +237,41 @@ class BrowserRenderer:
                         html = await page.content()
                 except TimeoutError as error:
                     raise IntelError(
-                        "RENDER_TIMEOUT", f"动态页面渲染超时: {url}"
+                        "RENDER_TIMEOUT",
+                        f"动态页面渲染超时: {url}",
+                        downloaded_bytes=state.downloaded_bytes,
                     ) from error
-                except IntelError:
-                    raise
+                except IntelError as error:
+                    raise self._with_downloaded_bytes(error, state) from error
                 except Exception as error:
+                    if state.failure is not None:
+                        raise self._with_downloaded_bytes(
+                            state.failure, state
+                        ) from error
                     code = (
                         "RENDER_TIMEOUT"
                         if type(error).__name__ == "TimeoutError"
                         else "BROWSER_ERROR"
                     )
                     raise IntelError(
-                        code, f"动态页面渲染失败: {error}"
+                        code,
+                        f"动态页面渲染失败: {error}",
+                        downloaded_bytes=state.downloaded_bytes,
                     ) from error
-                if size_tasks:
-                    await asyncio.gather(*size_tasks, return_exceptions=True)
                 if state.failure is not None:
-                    raise state.failure
+                    raise self._with_downloaded_bytes(state.failure, state)
                 if len(html.encode("utf-8")) > limit:
-                    raise IntelError("RENDER_LIMIT", "渲染 DOM 超过字节限制")
+                    raise IntelError(
+                        "RENDER_LIMIT",
+                        "渲染 DOM 超过字节限制",
+                        downloaded_bytes=state.downloaded_bytes,
+                    )
                 rendered_text = re.sub(r"<[^>]+>", " ", html)
                 if challenge_required(html, rendered_text):
                     raise IntelError(
-                        "CHALLENGE_REQUIRED", "页面需要交互式人机验证"
+                        "CHALLENGE_REQUIRED",
+                        "页面需要交互式人机验证",
+                        downloaded_bytes=state.downloaded_bytes,
                     )
                 return RenderedPage(
                     final_url=page.url,
@@ -255,11 +280,19 @@ class BrowserRenderer:
                     request_count=state.request_count,
                 )
             finally:
-                for task in size_tasks:
-                    task.cancel()
+                if state.close_task is not None:
+                    with suppress(Exception):
+                        await state.close_task
+                if cdp_session is not None:
+                    with suppress(Exception):
+                        await cdp_session.detach()
                 await context.close()
 
-    def _route_handler(self, state: _RenderState) -> Callable:
+    def _route_handler(
+        self,
+        state: _RenderState,
+        before_navigation: NavigationCheck | None,
+    ) -> Callable:
         async def handle(route) -> None:
             request = route.request
             state.request_count += 1
@@ -281,6 +314,13 @@ class BrowserRenderer:
             if not allowed:
                 await route.abort("blockedbyclient")
                 return
+            if request.is_navigation_request() and before_navigation:
+                try:
+                    await before_navigation(request.url)
+                except IntelError as error:
+                    state.failure = error
+                    await route.abort("blockedbyclient")
+                    return
             await route.continue_()
 
         return handle
@@ -288,26 +328,47 @@ class BrowserRenderer:
     async def _websocket_handler(self, route) -> None:
         await route.close(code=1008, reason="WebSocket collection disabled")
 
-    def _track_size(
+    def _data_received_handler(
         self,
-        request,
         state: _RenderState,
-        tasks: set[asyncio.Task],
-    ) -> None:
-        async def track() -> None:
-            try:
-                sizes = await request.sizes()
-                state.downloaded_bytes += int(sizes["responseBodySize"])
-                if state.downloaded_bytes > state.max_bytes:
-                    state.failure = IntelError(
-                        "RENDER_LIMIT", "浏览器下载超过字节限制"
-                    )
-            except Exception:
+        page,
+        on_bytes: ByteCallback | None,
+    ) -> Callable:
+        def handle(event: dict) -> None:
+            downloaded = max(0, int(event.get("encodedDataLength", 0)))
+            if not downloaded:
                 return
+            state.downloaded_bytes += downloaded
+            if on_bytes is not None:
+                try:
+                    on_bytes(downloaded)
+                except IntelError as error:
+                    state.failure = error
+            if (
+                state.downloaded_bytes > state.max_bytes
+                or state.failure is not None
+            ) and state.close_task is None:
+                if state.failure is None:
+                    state.failure = IntelError(
+                        "RENDER_LIMIT",
+                        "浏览器下载超过字节限制",
+                        downloaded_bytes=state.downloaded_bytes,
+                    )
+                state.close_task = asyncio.create_task(page.close())
 
-        task = asyncio.create_task(track())
-        tasks.add(task)
-        task.add_done_callback(tasks.discard)
+        return handle
+
+    @staticmethod
+    def _with_downloaded_bytes(
+        error: IntelError, state: _RenderState
+    ) -> IntelError:
+        return IntelError(
+            error.code,
+            str(error),
+            downloaded_bytes=max(
+                error.downloaded_bytes, state.downloaded_bytes
+            ),
+        )
 
 
 def should_render_html(
@@ -325,4 +386,6 @@ def should_render_html(
 
 def challenge_required(html: str, extracted_text: str) -> bool:
     """Detect an interactive anti-bot challenge that needs user input."""
+    if len("".join(extracted_text.split())) >= 200:
+        return False
     return bool(_CHALLENGE.search(f"{html}\n{extracted_text}"))

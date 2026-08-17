@@ -178,6 +178,7 @@ class IntelDocument(BaseModel):
         "complete"
     )
     collection_method: Literal["http", "browser"] = "http"
+    rendered_url: str | None = None
     rendered_path: str | None = None
     rendered_sha256: str | None = None
     render_error: str | None = None

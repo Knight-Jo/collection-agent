@@ -159,16 +159,20 @@ def verify_document_integrity(cwd: Path, document: IntelDocument) -> None:
         raise IntelError("DOCUMENT_TAMPERED", f"原文哈希不匹配: {document.id}")
     if sha256(text_path.read_bytes()) != document.text_sha256:
         raise IntelError("DOCUMENT_TAMPERED", f"正文哈希不匹配: {document.id}")
-    rendered_pair = (document.rendered_path, document.rendered_sha256)
-    if document.collection_method == "browser" and not all(rendered_pair):
+    rendered_metadata = (
+        document.rendered_url,
+        document.rendered_path,
+        document.rendered_sha256,
+    )
+    if document.collection_method == "browser" and not all(rendered_metadata):
         raise IntelError(
             "DOCUMENT_TAMPERED", f"渲染文档元数据不匹配: {document.id}"
         )
-    if document.collection_method == "http" and any(rendered_pair):
+    if document.collection_method == "http" and any(rendered_metadata):
         raise IntelError(
             "DOCUMENT_TAMPERED", f"渲染文档元数据不匹配: {document.id}"
         )
-    if all(rendered_pair):
+    if document.rendered_path and document.rendered_sha256:
         rendered_path = workspace_path(cwd, document.rendered_path or "")
         if (
             not rendered_path.exists()
@@ -187,7 +191,7 @@ def verify_document_integrity(cwd: Path, document: IntelDocument) -> None:
         ) from error
     identity = f"{document.canonical_url}\n{document.raw_sha256}"
     if document.collection_method == "browser":
-        identity += f"\n{document.rendered_sha256}"
+        identity += f"\n{document.rendered_url}\n{document.rendered_sha256}"
     if (
         document.id != f"doc-{sha256(identity)[:16]}"
         or document.source_group != source_group_of(document.final_url)
