@@ -314,9 +314,15 @@ class BrowserRenderer:
                 )
                 await route.abort("blockedbyclient")
                 return
-            if request.is_navigation_request() and (
-                request.frame.page is not main_page
-                or request.frame is not main_page.main_frame
+            try:
+                frame = request.frame
+                request_page = frame.page
+            except Exception:
+                await route.abort("blockedbyclient")
+                return
+            if request_page is not main_page or (
+                request.is_navigation_request()
+                and frame is not main_page.main_frame
             ):
                 await route.abort("blockedbyclient")
                 return

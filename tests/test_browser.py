@@ -142,9 +142,10 @@ async def test_renderer_route_blocks_popup_and_iframe_documents():
 
     state = browser_module._RenderState(max_bytes=1024)
 
-    for frame in (
-        SimpleNamespace(page=popup_page),
-        SimpleNamespace(page=main_page),
+    for frame, is_navigation in (
+        (SimpleNamespace(page=popup_page), True),
+        (SimpleNamespace(page=popup_page), False),
+        (SimpleNamespace(page=main_page), True),
     ):
         route = Route(
             SimpleNamespace(
@@ -152,12 +153,13 @@ async def test_renderer_route_blocks_popup_and_iframe_documents():
                 method="GET",
                 resource_type="document",
                 frame=frame,
-                is_navigation_request=lambda: True,
+                is_navigation_request=lambda value=is_navigation: value,
             )
         )
         await renderer._route_handler(state, None, main_page)(route)
 
     assert calls == [
+        ("abort", "blockedbyclient"),
         ("abort", "blockedbyclient"),
         ("abort", "blockedbyclient"),
     ]
