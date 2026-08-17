@@ -27,9 +27,9 @@ from .fetch import (
     BodyProgress,
     FetchedResponse,
     FetchLike,
+    archive_document,
     canonicalize_url,
     fetch_with_validated_redirects,
-    injection_warnings,
     pinned_fetch,
 )
 from .models import (
@@ -42,18 +42,13 @@ from .models import (
     utc_now,
 )
 from .search import tokenize_query
-from .security import AddressResolver, source_group_of
-from .source import source_type_for_domain
+from .security import AddressResolver
 from .storage import (
-    intel_path,
     list_crawls,
     load_crawl,
     read_json,
     save_crawl,
-    sha256,
     verify_document_integrity,
-    write_file_atomic,
-    write_json_atomic,
 )
 from .task import load_task
 
@@ -337,84 +332,6 @@ def _deduplicate_entries(snapshot: CrawlSnapshot) -> None:
         ):
             unique[entry.canonical_url] = entry
     snapshot.entries = list(unique.values())
-
-
-def _archive_resource(
-    cwd: Path,
-    requested_url: str,
-    final_url: str,
-    mime_type: str,
-    raw: bytes,
-    text: str,
-    extraction_status: Literal["complete", "unavailable", "failed"],
-    *,
-    title: str = "",
-    publish_time: str | None = None,
-    publish_time_source: Literal["meta", "time-element", "unknown"] = (
-        "unknown"
-    ),
-) -> IntelDocument:
-    canonical_url = canonicalize_url(final_url)
-    raw_hash = sha256(raw)
-    document_id = f"doc-{sha256(f'{canonical_url}\n{raw_hash}')[:16]}"
-    record_path = f"documents/{document_id}.json"
-    if intel_path(cwd, record_path).exists():
-        document = IntelDocument.model_validate(read_json(cwd, record_path))
-        verify_document_integrity(cwd, document)
-        updates: dict[str, object] = {}
-        if (
-            extraction_status == "complete"
-            and document.extraction_status != "complete"
-        ):
-            text_hash = sha256(text)
-            text_path = f"data/raw/{document_id}.{text_hash[:16]}.txt"
-            write_file_atomic(cwd, text_path, text)
-            updates.update(
-                text_path=text_path,
-                text_sha256=text_hash,
-                extraction_status="complete",
-            )
-        if title and not document.title:
-            updates["title"] = title
-        if publish_time and not document.publish_time:
-            updates.update(
-                publish_time=publish_time,
-                publish_time_source=publish_time_source,
-            )
-        if updates:
-            document = document.model_copy(update=updates)
-            write_json_atomic(cwd, record_path, document.model_dump())
-        return document
-    raw_path = f"data/raw/{document_id}.raw"
-    text_path = f"data/raw/{document_id}.txt"
-    write_file_atomic(cwd, raw_path, raw)
-    write_file_atomic(cwd, text_path, text)
-    hostname = urlparse(final_url).hostname or ""
-    try:
-        source_group = source_group_of(final_url)
-    except IntelError:
-        source_group = hostname.lower()
-    document = IntelDocument(
-        id=document_id,
-        requested_url=requested_url,
-        final_url=final_url,
-        canonical_url=canonical_url,
-        title=title or Path(urlparse(final_url).path).name or final_url,
-        content_type=mime_type,
-        publish_time=publish_time,
-        publish_time_source=publish_time_source,
-        collected_at=utc_now(),
-        source_type=source_type_for_domain(hostname),
-        source_group=source_group,
-        raw_path=raw_path,
-        raw_sha256=raw_hash,
-        text_path=text_path,
-        text_sha256=sha256(text),
-        extraction_status=extraction_status,
-        injection_warnings=injection_warnings(text),
-    )
-    write_json_atomic(cwd, record_path, document.model_dump())
-    return document
 
 
 class _RobotsPolicy:
@@ -869,7 +786,7 @@ class _CrawlRunner:
                 with suppress(Exception):
                     await extraction
                 raise
-            document = _archive_resource(
+            document = archive_document(
                 self.cwd,
                 entry.canonical_url,
                 final_url_string,

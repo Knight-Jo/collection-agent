@@ -1222,7 +1222,7 @@ async def test_reprocessing_metadata_failure_preserves_prior_document(
             status="complete", text="new extracted text"
         ),
     )
-    real_write_json = crawl_module.write_json_atomic
+    real_write_json = fetch_module.write_json_atomic
 
     def fail_document_metadata(cwd_arg, path, value):
         if path == f"documents/{document_id}.json":
@@ -1230,7 +1230,7 @@ async def test_reprocessing_metadata_failure_preserves_prior_document(
         return real_write_json(cwd_arg, path, value)
 
     monkeypatch.setattr(
-        crawl_module, "write_json_atomic", fail_document_metadata
+        fetch_module, "write_json_atomic", fail_document_metadata
     )
     second_task = new_task(cwd)
 

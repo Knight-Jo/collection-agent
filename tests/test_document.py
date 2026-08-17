@@ -10,6 +10,7 @@ from intel_agent.fetch import (
     _read_chunked_body,
     _read_exact_body,
     _read_response_body,
+    archive_document,
     fetch_document,
     parse_http_response,
     pinned_fetch,
@@ -332,6 +333,51 @@ def test_rendered_document_integrity_requires_rendered_identity(cwd):
         verify_document_integrity(cwd, document)
 
     assert raised.value.code == "DOCUMENT_TAMPERED"
+
+
+def test_archive_document_preserves_raw_and_rendered_html(cwd):
+    raw = b'<div id="root"></div>'
+    rendered_html = "<main>rendered body</main>"
+
+    document = archive_document(
+        cwd,
+        "https://example.com/app",
+        "https://example.com/app",
+        "text/html",
+        raw,
+        "rendered body",
+        "complete",
+        rendered_html=rendered_html,
+    )
+
+    assert document.collection_method == "browser"
+    assert (cwd / document.raw_path).read_bytes() == raw
+    assert document.rendered_path is not None
+    assert (cwd / document.rendered_path).read_text(
+        encoding="utf-8"
+    ) == rendered_html
+    verify_document_integrity(cwd, document)
+
+
+def test_archive_document_keeps_static_id_formula(cwd):
+    url = "https://example.com/static"
+    raw = b"<main>static body</main>"
+
+    document = archive_document(
+        cwd,
+        url,
+        url,
+        "text/html",
+        raw,
+        "static body",
+        "complete",
+    )
+
+    expected_id = f"doc-{sha256(f'{url}\n{sha256(raw)}')[:16]}"
+    assert document.id == expected_id
+    assert document.collection_method == "http"
+    assert document.rendered_path is None
+    verify_document_integrity(cwd, document)
 
 
 @pytest.mark.asyncio
