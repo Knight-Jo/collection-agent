@@ -94,24 +94,28 @@ def test_frontier_deduplicates_cycles_depth_and_url_limit(cwd):
         "https://example.com/a?utm_source=loop",
         parent_url="https://example.com/a",
         depth=1,
+        relevance=1,
     )
     assert not enqueue_url(
         snapshot,
         "https://example.com/deep",
         parent_url="https://example.com/a",
         depth=2,
+        relevance=1,
     )
     assert enqueue_url(
         snapshot,
         "https://example.com/b",
         parent_url="https://example.com/a",
         depth=1,
+        relevance=1,
     )
     assert not enqueue_url(
         snapshot,
         "https://example.com/c",
         parent_url="https://example.com/a",
         depth=1,
+        relevance=1,
     )
 
 
@@ -688,7 +692,7 @@ async def test_fresh_cache_reuse_preserves_recursive_discovery(cwd):
 
     async def first_fetcher(url, init, address):
         body = (
-            b'<html><a href="/next">next</a>root</html>'
+            b'<html><a href="/next">\xe6\xb5\x8b\xe8\xaf\x95\xe4\xb8\xbb\xe9\xa2\x98</a>root</html>'
             if url.endswith("/root")
             else b"next"
         )
@@ -732,7 +736,7 @@ async def test_fresh_cache_reuse_preserves_recursive_discovery(cwd):
 
 
 @pytest.mark.asyncio
-async def test_crawl_obeys_robots_and_keeps_low_relevance_links_queued(cwd):
+async def test_crawl_obeys_robots_and_drops_zero_relevance_links(cwd):
     task = new_task(cwd)
     fetched: list[str] = []
 
@@ -742,8 +746,9 @@ async def test_crawl_obeys_robots_and_keeps_low_relevance_links_queued(cwd):
             status=200,
             headers={"content-type": "text/html"},
             body=(
-                b'<html><a href="/next">unrelated</a>'
-                b'<a href="/blocked">blocked</a>root</html>'
+                b'<html><a href="/next">\xe6\xb5\x8b\xe8\xaf\x95\xe4\xb8\xbb\xe9\xa2\x98</a>'
+                b'<a href="/blocked">\xe6\xb5\x8b\xe8\xaf\x95\xe4\xb8\xbb\xe9\xa2\x98</a>'
+                b'<a href="/junk">unrelated</a>root</html>'
             ),
         )
 
@@ -764,6 +769,7 @@ async def test_crawl_obeys_robots_and_keeps_low_relevance_links_queued(cwd):
     assert entries["https://example.com/blocked"].status == "skipped_robots"
     assert entries["https://example.com/next"].depth == 1
     assert entries["https://example.com/next"].status == "complete"
+    assert "https://example.com/junk" not in entries
     assert fetched == [
         "https://example.com/root",
         "https://example.com/next",
@@ -771,9 +777,7 @@ async def test_crawl_obeys_robots_and_keeps_low_relevance_links_queued(cwd):
 
 
 @pytest.mark.asyncio
-async def test_anchor_keyword_relevance_prioritizes_links_without_dropping_low(
-    cwd,
-):
+async def test_anchor_keyword_relevance_prioritizes_and_drops_zero(cwd):
     task = new_task(cwd)
     fetched: list[str] = []
 
@@ -808,7 +812,6 @@ async def test_anchor_keyword_relevance_prioritizes_links_without_dropping_low(
     assert fetched == [
         "https://example.com/root",
         "https://example.com/high",
-        "https://example.com/low",
     ]
     children = {
         entry.canonical_url: entry
@@ -816,7 +819,55 @@ async def test_anchor_keyword_relevance_prioritizes_links_without_dropping_low(
         if entry.depth == 1
     }
     assert children["https://example.com/high"].relevance > 0
-    assert children["https://example.com/low"].status == "complete"
+    assert "https://example.com/low" not in children
+
+
+@pytest.mark.asyncio
+async def test_outbound_pdf_needs_term_match_to_enqueue(cwd):
+    task = new_task(cwd)
+    fetched: list[str] = []
+
+    async def fetcher(url, init, address):
+        fetched.append(url)
+        if url.endswith("/root"):
+            return FetchedResponse(
+                status=200,
+                headers={"content-type": "text/html"},
+                body=(
+                    b'<html><a href="/report.pdf">\xe6\xb5\x8b\xe8\xaf\x95\xe4\xb8\xbb\xe9\xa2\x98'
+                    b"\xe6\x94\xbf\xe7\xad\x96</a>"
+                    b'<a href="/other.pdf">unrelated</a></html>'
+                ),
+            )
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "application/pdf"},
+            body=b"%PDF-1.7\n%%EOF",
+        )
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/root"],
+        config=CrawlConfig(
+            max_depth=1,
+            concurrency=1,
+            obey_robots=False,
+            per_host_delay_seconds=0,
+        ),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+    )
+
+    children = {
+        entry.canonical_url: entry
+        for entry in snapshot.entries
+        if entry.depth == 1
+    }
+    assert children["https://example.com/report.pdf"].relevance > 0
+    assert children["https://example.com/report.pdf"].status == "complete"
+    assert "https://example.com/other.pdf" not in children
+    assert "https://example.com/other.pdf" not in fetched
 
 
 @pytest.mark.asyncio
@@ -1334,7 +1385,8 @@ async def test_crawl_renders_html_shell_and_enqueues_dynamic_links(cwd):
             final_url=url,
             html=(
                 f"<main>{rendered_text}</main>"
-                '<a href="https://example.com/next">next</a>'
+                '<a href="https://example.com/next">'
+                "\u6d4b\u8bd5\u4e3b\u9898</a>"
             ),
             downloaded_bytes=512,
             request_count=3,
@@ -1890,6 +1942,7 @@ def test_attachment_replaces_lower_value_navigation_when_frontier_is_full(cwd):
         parent_url=None,
         depth=1,
         source_priority=1,
+        relevance=1,
     )
 
     assert enqueue_url(
@@ -1897,6 +1950,7 @@ def test_attachment_replaces_lower_value_navigation_when_frontier_is_full(cwd):
         "https://example.com/report.pdf",
         parent_url=None,
         depth=1,
+        relevance=1,
     )
     assert [entry.canonical_url for entry in snapshot.entries] == [
         "https://example.com/report.pdf"

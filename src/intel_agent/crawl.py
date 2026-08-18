@@ -221,9 +221,13 @@ def enqueue_url(
         attachment = Path(urlparse(canonical).path).suffix.lower() in (
             _ATTACHMENT_SUFFIXES
         )
+    # Depth≥1 links must earn their slot: zero-relevance outbound links are
+    # portal navigation junk (run 009: 48/48 rel-0 docs were junk), while
+    # term-matched discoveries pass (run 008: the only useful outbound PDF
+    # carried rel 2.0). Seeds (depth 0) are exempt.
+    if depth >= 1 and relevance <= 0:
+        return False
     if Path(urlparse(canonical).path).suffix.lower() in _IMAGE_SUFFIXES:
-        if depth >= 1 and relevance <= 0:
-            return False
         image_cap = max(3, config.max_urls // 10)
         if depth >= 1 and _image_entry_count(snapshot) >= image_cap:
             return False
