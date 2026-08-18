@@ -203,8 +203,8 @@ async def test_web_search_seeds_only_enabled_active_task(monkeypatch, cwd):
     async def fake_search(*_args, **_kwargs):
         return {
             "results": [
-                {"url": "https://example.com/a", "title": "A"},
-                {"url": "https://example.com/b", "title": "B"},
+                {"url": "https://example.com/a", "title": "主题 A"},
+                {"url": "https://example.com/b", "title": "主题 B"},
             ],
             "engineUsed": "fake",
         }
@@ -285,12 +285,12 @@ async def test_web_search_does_not_seed_unfetchable_redirects(
             "results": [
                 {
                     "url": "https://www.baidu.com/link?url=opaque",
-                    "title": "redirect",
+                    "title": "主题 redirect",
                     "fetchable": False,
                 },
                 {
                     "url": "https://example.com/report.pdf?a=1&amp;b=2",
-                    "title": "report",
+                    "title": "主题 report",
                     "fetchable": True,
                 },
             ],
@@ -528,7 +528,7 @@ def test_document_search_finds_crawled_multimedia_text(cwd):
 
 
 @pytest.mark.asyncio
-async def test_web_search_preserves_result_relevance_in_seed_priority(
+async def test_web_search_seed_relevance_ignores_engine_score_and_drops_junk(
     monkeypatch, cwd
 ):
     task = create_task(
@@ -543,14 +543,14 @@ async def test_web_search_preserves_result_relevance_in_seed_priority(
         return {
             "results": [
                 {
-                    "url": "https://example.com/low",
+                    "url": "https://example.com/junk",
                     "title": "unrelated",
-                    "score": 0.1,
+                    "score": 1.0,
                 },
                 {
                     "url": "https://example.com/high",
                     "title": "测试主题进展",
-                    "score": 0.9,
+                    "score": 0.1,
                 },
             ],
             "engineUsed": "fake",
@@ -564,14 +564,42 @@ async def test_web_search_preserves_result_relevance_in_seed_priority(
 
     crawl = load_crawl(cwd, task.id)
     entries = {entry.canonical_url: entry for entry in crawl.entries}
-    assert (
-        entries["https://example.com/high"].relevance
-        > entries["https://example.com/low"].relevance
+    assert set(entries) == {"https://example.com/high"}
+    assert entries["https://example.com/high"].relevance >= 1
+
+
+@pytest.mark.asyncio
+async def test_web_search_seed_relevance_ignores_year_only_url_match(
+    monkeypatch, cwd
+):
+    task = create_task(
+        cwd,
+        "测试主题",
+        ["2026年测试主题进展", "2026年测试主题现状"],
+        DEFAULT_CRITERIA,
+        deep_crawl=True,
     )
-    assert (
-        entries["https://example.com/high"].priority
-        < entries["https://example.com/low"].priority
+
+    async def fake_search(*_args, **_kwargs):
+        return {
+            "results": [
+                {
+                    "url": "https://example.com/2026/08/video.html",
+                    "title": "some unrelated page",
+                },
+            ],
+            "engineUsed": "fake",
+        }
+
+    monkeypatch.setattr(agent_module, "web_search", fake_search)
+
+    await _tool(build_agent(Settings()), "web_search")(
+        _context(cwd), "具体 查询", 5, "general", "zh-CN", None
     )
+
+    with pytest.raises(IntelError) as error:
+        load_crawl(cwd, task.id)
+    assert error.value.code == "NOT_FOUND"
 
 
 @pytest.mark.asyncio

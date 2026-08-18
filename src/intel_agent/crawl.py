@@ -43,7 +43,7 @@ from .models import (
     IntelError,
     utc_now,
 )
-from .search import tokenize_query
+from .search import relevance_tokens
 from .security import AddressResolver
 from .storage import (
     list_crawls,
@@ -1060,7 +1060,7 @@ async def crawl_collect(
     snapshot = create_crawl(cwd, task_id, seeds, config)
     try:
         task = load_task(cwd, task_id)
-        relevance_terms = tokenize_query(
+        relevance_terms = relevance_tokens(
             " ".join(
                 [task.topic, *(question.text for question in task.questions)]
             )

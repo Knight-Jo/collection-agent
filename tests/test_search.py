@@ -8,6 +8,7 @@ from intel_agent.search import (
     industry_terms,
     is_broad_query,
     is_semantic_duplicate,
+    relevance_tokens,
     tokenize_query,
 )
 
@@ -17,6 +18,15 @@ def test_tokenize_query():
     assert "昇腾" in tokens
     assert "芯片" in tokens
     assert "2026" in tokens
+
+
+def test_relevance_tokens_drop_bare_years():
+    tokens = tokenize_query("华为 2026年 昇腾AI芯片 进展")
+    assert relevance_tokens("华为 2026年 昇腾AI芯片 进展") == [
+        token for token in tokens if token != "2026"
+    ]
+    assert "2026" not in relevance_tokens("华为 2026年 昇腾AI芯片 进展")
+    assert "昇腾" in relevance_tokens("华为 2026年 昇腾AI芯片 进展")
 
 
 def test_broad_query_detection():

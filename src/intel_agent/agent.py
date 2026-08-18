@@ -14,7 +14,7 @@ import html
 import inspect
 import json
 import re
-from contextlib import AsyncExitStack, suppress
+from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Literal
@@ -42,6 +42,7 @@ from .models import (
     AssessmentConclusion,
     ClaimType,
     IntelError,
+    IntelTask,
     ReportDepth,
     ResearchReportInput,
     ResearchScope,
@@ -54,7 +55,7 @@ from .report import generate_research_report
 from .search import (
     build_query_variants,
     is_broad_query,
-    tokenize_query,
+    relevance_tokens,
     web_search,
 )
 from .storage import (
@@ -326,6 +327,35 @@ def _archived_urls(cwd: Path) -> set[str]:
     return urls
 
 
+def _seed_relevance(
+    items: list[dict], urls: list[str], task: IntelTask
+) -> dict[str, float]:
+    """Score search results for crawl seeding; drop URLs with no term match.
+
+    Only token matches against title/snippet/url count. Engine-provided
+    scores (Baidu/Bing hits) and bare year tokens are ignored: the former
+    scores junk results 1.0 and the latter matches any URL path containing
+    a year (run 008: 16 CCDI video pages entered via /2026/ URL matches).
+    """
+    terms = relevance_tokens(
+        " ".join(
+            [
+                task.topic,
+                *(question.text for question in task.questions),
+            ]
+        )
+    )
+    relevance: dict[str, float] = {}
+    for item, url in zip(items, urls, strict=True):
+        text = " ".join(
+            str(item.get(key, "")) for key in ("title", "snippet", "url")
+        ).casefold()
+        score = sum(1 for term in terms if term.casefold() in text)
+        if score >= 1:
+            relevance[url] = score
+    return relevance
+
+
 def _seed_active_crawl(cwd: Path, settings: Settings, result: dict) -> None:
     try:
         task = load_task(cwd)
@@ -344,30 +374,15 @@ def _seed_active_crawl(cwd: Path, settings: Settings, result: dict) -> None:
     ]
     urls = [html.unescape(str(item["url"])) for item in items]
     if urls:
-        terms = tokenize_query(
-            " ".join(
-                [task.topic, *(question.text for question in task.questions)]
+        seed_relevance = _seed_relevance(items, urls, task)
+        if seed_relevance:
+            create_crawl(
+                cwd,
+                task.id,
+                list(seed_relevance),
+                settings.crawl,
+                seed_relevance=seed_relevance,
             )
-        )
-        relevance: dict[str, float] = {}
-        for item, url in zip(items, urls, strict=True):
-            scores: list[float] = []
-            for key in ("relevance", "score", "hits"):
-                with suppress(TypeError, ValueError):
-                    scores.append(float(item.get(key, 0)))
-            text = " ".join(
-                str(item.get(key, "")) for key in ("title", "snippet", "url")
-            ).casefold()
-            relevance[url] = max(scores, default=0) + sum(
-                1 for term in terms if term.casefold() in text
-            )
-        create_crawl(
-            cwd,
-            task.id,
-            urls,
-            settings.crawl,
-            seed_relevance=relevance,
-        )
 
 
 def _read_document_lines(

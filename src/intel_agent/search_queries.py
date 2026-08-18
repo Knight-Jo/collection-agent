@@ -101,6 +101,20 @@ def tokenize_query(query: str) -> list[str]:
     return list(tokens)
 
 
+def relevance_tokens(query: str) -> list[str]:
+    """Tokens for relevance scoring: tokenize_query minus bare year tokens.
+
+    A four-digit year matches any URL path or timestamp (e.g. /2026/08/03/),
+    so counting it inflates the relevance of otherwise unrelated links and
+    search results (run 008: 16 CCDI video pages seeded via year-in-URL).
+    """
+    return [
+        token
+        for token in tokenize_query(query)
+        if not re.fullmatch(r"\d{4}", token)
+    ]
+
+
 def is_broad_query(query: str) -> tuple[bool, str | None]:
     """Return whether a query lacks enough identifying terms."""
     text = query.strip()
