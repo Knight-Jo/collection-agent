@@ -29,6 +29,14 @@ def test_relevance_tokens_drop_bare_years():
     assert "昇腾" in relevance_tokens("华为 2026年 昇腾AI芯片 进展")
 
 
+def test_tokenize_query_splits_long_compound_segments():
+    tokens = tokenize_query("低空经济投资与融资趋势及亿航智能商业化进展")
+    assert "低空" in tokens
+    assert "趋势" in tokens
+    assert "亿航智能" in tokens
+    assert "低空经济投资与融资趋势及亿航智能商业化进展" not in tokens
+
+
 def test_broad_query_detection():
     broad, reason = is_broad_query("低空经济")
     assert broad

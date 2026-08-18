@@ -81,6 +81,11 @@ STOP_WORDS = STOP_TERMS | {
     "on",
 }
 
+_LONG_SEGMENT_LEN = 8
+_LONG_SEGMENT_SPLIT_RE = re.compile(
+    "|".join(sorted(GENERIC_TERMS | STOP_WORDS, key=len, reverse=True))
+)
+
 
 def tokenize_query(query: str) -> list[str]:
     """Extract significant English, Chinese, and year tokens."""
@@ -90,11 +95,20 @@ def tokenize_query(query: str) -> list[str]:
         if word not in STOP_WORDS and len(word) >= 3:
             tokens.add(word)
     for segment in re.split(r"[^\u4e00-\u9fa5]+", query):
-        if (
-            len(segment) >= 2
-            and segment not in STOP_WORDS
-            and segment not in GENERIC_TERMS
-        ):
+        if len(segment) < 2 or segment in STOP_WORDS:
+            continue
+        if len(segment) > _LONG_SEGMENT_LEN:
+            # Long CJK runs are compound phrases; one whole-phrase token
+            # never matches result titles/snippets (run 011: intel_plan
+            # merged topic+questions into a 22-char token and crawl
+            # seeding died). Split on generic/stop terms so short,
+            # searchable tokens survive.
+            tokens.update(
+                chunk
+                for chunk in _LONG_SEGMENT_SPLIT_RE.split(segment)
+                if len(chunk) >= 2 and chunk not in STOP_WORDS
+            )
+        elif segment not in GENERIC_TERMS:
             tokens.add(segment)
     for match in re.findall(r"\d{4}", query):
         tokens.add(match)
