@@ -96,7 +96,7 @@ SYSTEM_PROMPT = """\
 8. 不确定或无法获取的信息必须明确说明；发布时间未知不能满足强制时效要求。
 9. 相互冲突的事实或数字分别记录，不得擅自合并；应补检索、消解或在报告中披露差异和口径。
 10. 连续两次 `coverage_eval` 没有降低 `gap_score` 时停止检索，接受并披露缺口。
-11. 搜索和抓取受任务预算限制。预算耗尽后使用已有材料完成审核和报告，不得猜测 URL 或换词循环。
+11. 检索以广度优先：`intel_plan` 返回的 `query_plan` 变体（中文/英文/`site:` 权威站/`filetype:`）应尽量用尽；每个问题至少覆盖两种查询形态。`srcs=1` 的单源事实必须补充独立来源交叉验证，除非检索预算已耗尽。只有预算耗尽后才用已有材料收尾，不得猜测 URL 或换词循环。
 12. 深度抓取时，`web_search` 只负责播种；调用 `crawl_collect` 推进队列，再用 `document_search` 和 `document_read` 阅读已提取正文。
 
 ## 工作流
@@ -529,9 +529,13 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             ctx.deps.cwd,
             limit=ctx.deps.settings.budgets.search_attempts,
         )
+        # The model habitually passes max_results=5; raise the floor so one
+        # search call yields a wider candidate pool for the same budget
+        # (run 011: unbounded-breadth direction).
+        recall = max(max_results, 10)
         result = await web_search(
             query,
-            max_results,
+            recall,
             client=ctx.deps.http,
             searxng_url=ctx.deps.settings.search.searxng_url,
             opts={
@@ -549,7 +553,7 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             # searches returned 0 results and starved the crawl).
             result = await web_search(
                 query,
-                max_results,
+                recall,
                 client=ctx.deps.http,
                 searxng_url=ctx.deps.settings.search.searxng_url,
                 opts={"category": "general", "language": language},

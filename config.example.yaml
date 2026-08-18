@@ -20,10 +20,11 @@ storage:
   output_dir: output
 
 budgets:
-  search_attempts: 6
-  fetch_attempts_since_evidence: 6
+  # 检索广度优先：预算充足时穷尽检索（run 011 起放宽）
+  search_attempts: 40
+  fetch_attempts_since_evidence: 20
   # 主 agent 最大模型请求数（含工具轮次与独立语义审核请求）
-  request_limit: 200
+  request_limit: 400
 
 fetch:
   # pinned_fetch 超时/失败时回退到 httpx 抓取（兼容 WAF/Cloudflare 站点，如投资者关系页）
@@ -38,7 +39,7 @@ fetch:
   browser_concurrency: 1
 
 crawl:
-  max_depth: 2
+  max_depth: 3
   max_urls: 200
   max_total_bytes: 1073741824
   max_html_bytes: 5242880

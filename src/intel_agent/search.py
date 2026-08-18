@@ -328,7 +328,7 @@ async def web_search(
         if len(merged) == 0 or relevant_count < 2:
             variants = [
                 re.sub(r"^site:\S+\s*", "", v, count=1)
-                for v in authoritative_variants(query)[:2]
+                for v in authoritative_variants(query)
             ]
             boosts = (
                 await asyncio.gather(
