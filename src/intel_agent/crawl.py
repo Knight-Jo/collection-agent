@@ -98,6 +98,17 @@ _ATTACHMENT_SUFFIXES = {
     ".xlsx",
 }
 
+_IMAGE_SUFFIXES = {".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
+
+
+def _image_entry_count(snapshot: CrawlSnapshot) -> int:
+    return sum(
+        1
+        for entry in snapshot.entries
+        if Path(urlparse(entry.canonical_url).path).suffix.lower()
+        in _IMAGE_SUFFIXES
+    )
+
 
 def _crawl_counts(snapshot: CrawlSnapshot) -> dict[str, int]:
     counts = Counter(entry.status for entry in snapshot.entries)
@@ -210,6 +221,12 @@ def enqueue_url(
         attachment = Path(urlparse(canonical).path).suffix.lower() in (
             _ATTACHMENT_SUFFIXES
         )
+    if Path(urlparse(canonical).path).suffix.lower() in _IMAGE_SUFFIXES:
+        if depth >= 1 and relevance <= 0:
+            return False
+        image_cap = max(3, config.max_urls // 10)
+        if depth >= 1 and _image_entry_count(snapshot) >= image_cap:
+            return False
     candidate_priority = _priority(
         depth, relevance, source_priority, bool(attachment)
     )

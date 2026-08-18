@@ -214,6 +214,76 @@ def test_frontier_keeps_low_relevance_candidate_when_capacity_exists(cwd):
     assert snapshot.entries[1].status == "queued"
 
 
+def test_image_with_zero_relevance_is_not_enqueued(cwd):
+    snapshot = create_crawl(
+        cwd,
+        "task-image-gate",
+        ["https://example.com/page"],
+        CrawlConfig(max_urls=10),
+    )
+
+    assert not enqueue_url(
+        snapshot,
+        "https://example.com/logo.png",
+        parent_url="https://example.com/page",
+        depth=1,
+        relevance=0,
+    )
+    assert [entry.canonical_url for entry in snapshot.entries] == [
+        "https://example.com/page"
+    ]
+
+
+def test_relevant_image_is_enqueued(cwd):
+    snapshot = create_crawl(
+        cwd,
+        "task-image-relevant",
+        ["https://example.com/page"],
+        CrawlConfig(max_urls=10),
+    )
+
+    assert enqueue_url(
+        snapshot,
+        "https://example.com/eh216.png",
+        parent_url="https://example.com/page",
+        depth=1,
+        relevance=2,
+    )
+    assert snapshot.entries[1].canonical_url == (
+        "https://example.com/eh216.png"
+    )
+
+
+def test_image_queue_cap_rejects_extra_images(cwd):
+    snapshot = create_crawl(
+        cwd,
+        "task-image-cap",
+        ["https://example.com/page"],
+        CrawlConfig(max_urls=30),
+    )
+    for index in range(3):
+        assert enqueue_url(
+            snapshot,
+            f"https://example.com/img{index}.png",
+            parent_url="https://example.com/page",
+            depth=1,
+            relevance=1,
+        )
+    assert not enqueue_url(
+        snapshot,
+        "https://example.com/img4.png",
+        parent_url="https://example.com/page",
+        depth=1,
+        relevance=1,
+    )
+    images = [
+        entry
+        for entry in snapshot.entries
+        if entry.canonical_url.endswith(".png")
+    ]
+    assert len(images) == 3
+
+
 def test_crawl_snapshot_round_trips_for_resume(cwd):
     snapshot = create_crawl(
         cwd,
