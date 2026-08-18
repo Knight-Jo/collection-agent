@@ -11,7 +11,14 @@ from dataclasses import dataclass, field
 from datetime import UTC
 from pathlib import Path
 from typing import Literal
-from urllib.parse import parse_qsl, urlencode, urlparse, urlsplit, urlunsplit
+from urllib.parse import (
+    parse_qsl,
+    quote,
+    urlencode,
+    urlparse,
+    urlsplit,
+    urlunsplit,
+)
 
 from . import document_extract as _document_extract
 from .browser import BrowserRender, should_render_html
@@ -88,7 +95,11 @@ def canonicalize_url(raw: str) -> str:
     )
     host = f"[{hostname}]" if ":" in hostname else hostname
     netloc = host if port is None or default_port else f"{host}:{port}"
-    path = parsed.path or "/"
+    # Percent-encode raw non-ASCII path segments: the pinned TCP fetch
+    # writes the request line as latin-1, which cannot carry UTF-8 bytes
+    # (run 011: a Chinese-character URL seeded into the crawl crashed
+    # crawl_collect with a latin-1 codec error).
+    path = quote(parsed.path or "/", safe="/%!$&'()*+,;=:@-._~")
     if path != "/":
         path = path.rstrip("/") or "/"
     return urlunsplit((scheme, netloc, path, query, ""))
@@ -137,7 +148,12 @@ async def pinned_fetch(
         server_hostname=parsed.hostname if https else None,
     )
     try:
-        path = f"{parsed.path or '/'}{('?' + parsed.query) if parsed.query else ''}"
+        # Encode raw non-ASCII before building the ASCII-only request line
+        # (belt for callers that bypass canonicalize_url).
+        path = quote(
+            f"{parsed.path or '/'}{('?' + parsed.query) if parsed.query else ''}",
+            safe="/?=&%#.,:;+@$!*'()~-",
+        )
         extra_headers = "".join(
             f"{key}: {value}\r\n"
             for key, value in (init or {}).get("headers", {}).items()

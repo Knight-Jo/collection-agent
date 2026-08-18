@@ -50,6 +50,15 @@ def test_canonicalize_url_deduplicates_equivalent_urls():
     )
 
 
+def test_canonicalize_url_percent_encodes_raw_non_ascii_path():
+    assert canonicalize_url(
+        "https://example.com/uploads/微信图片_2025-scaled.jpg"
+    ) == (
+        "https://example.com/uploads/"
+        "%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_2025-scaled.jpg"
+    )
+
+
 def test_oversized_response_error_reports_downloaded_body_bytes():
     raw = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n12345"
 
