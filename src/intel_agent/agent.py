@@ -491,6 +491,10 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         system_prompt=SYSTEM_PROMPT,
         deps_type=AgentDeps,
         name="intel-agent",
+        # run 011: the model once called document_search with a document_id
+        # arg; one retry let the whole run crash. Give it more chances to
+        # self-correct on validation errors before failing the task.
+        retries=3,
     )
 
     @agent.tool(name="web_search")
@@ -610,7 +614,9 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         query: str,
         limit: int = 10,
     ) -> dict:
-        """Search extracted crawl text before spending more network budget."""
+        """Search extracted crawl text before spending more network budget.
+        Params: task_id + query（全文关键词检索，不是按 document_id 读单篇；
+        读单篇用 document_read）。"""
         return _guarded_sync(
             lambda: _document_search(ctx.deps.cwd, task_id, query, limit)
         )
