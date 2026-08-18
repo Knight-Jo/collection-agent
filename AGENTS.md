@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-Production code lives in `src/intel_agent/`; modules are split by responsibility, such as `agent.py`, `models.py`, `storage.py`, and `main.py`. Tests live in `tests/` and generally mirror module names (`test_task.py`, `test_security.py`). Use `scripts/` for experiment utilities and `experiments/` for run manifests and reports. Runtime `data/`, `output/`, and local `config.yaml` are generated or ignored; do not commit them.
+Production code lives in `src/intel_agent/`; modules are split by responsibility, such as `agent.py`, `models.py`, `storage.py`, and `main.py`. Tests live in `tests/` and generally mirror module names (`test_task.py`, `test_security.py`). Use `scripts/` for experiment utilities and `experiments/` for run manifests and reports. `experiments/` holds iterative agent runs (`runs/NNN-name/` with manifest, trace, state snapshot, and report) plus a cross-run `ROADMAP.md`; the operating spec for running and observing experiments lives in `experiments/AGENTS.md`. Runtime `data/`, `output/`, and local `config.yaml` are generated or ignored; do not commit them.
 
 ## Build, Test, and Development Commands
 
