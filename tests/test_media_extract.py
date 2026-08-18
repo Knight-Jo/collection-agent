@@ -185,6 +185,68 @@ def test_html_navigation_links_are_ranked_below_article_links():
     )
 
 
+@pytest.mark.parametrize(
+    ("container", "closer"),
+    [
+        (b"<aside>", b"</aside>"),
+        (b"<div class='related-news'>", b"</div>"),
+        (b"<div id='ad'>", b"</div>"),
+        (b"<div id='recommend'>", b"</div>"),
+    ],
+)
+def test_html_container_links_are_ranked_below_article_links(
+    container, closer
+):
+    result = extract_resource(
+        (
+            container
+            + b"<a href='/junk'>topic report</a>"
+            + closer
+            + b"<main><a href='/article'>topic report</a></main></html>"
+        ),
+        "text/html",
+        "https://example.com/root",
+        relevance_terms=["topic"],
+    )
+
+    assert (
+        result.link_relevance["https://example.com/article"]
+        > result.link_relevance["https://example.com/junk"]
+    )
+
+
+def test_html_container_penalty_survives_nested_plain_div():
+    result = extract_resource(
+        (
+            b"<html><div class='related-news'><div>"
+            b"<a href='/junk'>topic report</a></div></div>"
+            b"<main><a href='/article'>topic report</a></main></html>"
+        ),
+        "text/html",
+        "https://example.com/root",
+        relevance_terms=["topic"],
+    )
+
+    assert (
+        result.link_relevance["https://example.com/article"]
+        > result.link_relevance["https://example.com/junk"]
+    )
+
+
+def test_html_container_signal_does_not_match_address_class():
+    result = extract_resource(
+        (
+            b"<html><div class='address'><a href='/office'>topic report</a>"
+            b"</div><main><a href='/article'>topic report</a></main></html>"
+        ),
+        "text/html",
+        "https://example.com/root",
+        relevance_terms=["topic"],
+    )
+
+    assert result.link_relevance["https://example.com/office"] == 1
+
+
 def test_empty_html_is_unavailable_but_still_discovers_attachments():
     result = extract_resource(
         b'<html><body><a href="/report.pdf">report</a></body></html>',

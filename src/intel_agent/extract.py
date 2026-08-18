@@ -99,6 +99,12 @@ _RESOURCE_WORKER_ACTIVE = False
 
 
 class _LinkParser(HTMLParser):
+    _CONTAINER_TAGS = {"nav", "header", "footer", "aside"}
+    _CONTAINER_SIGNAL_RE = re.compile(
+        r"related|recommend|sidebar|热点|相关|推荐|友情|\bad(?:s)?\b",
+        re.IGNORECASE,
+    )
+
     def __init__(self, base_url: str):
         super().__init__()
         self.base_url = base_url
@@ -109,13 +115,34 @@ class _LinkParser(HTMLParser):
         self._anchor_url: str | None = None
         self._anchor_text: list[str] = []
         self._navigation_depth = 0
+        self._container_stack: list[bool] = []
+
+    def _in_container(
+        self, tag: str, attributes: dict[str, str | None]
+    ) -> bool:
+        if tag in self._CONTAINER_TAGS:
+            return True
+        if tag != "div":
+            return False
+        return bool(
+            self._CONTAINER_SIGNAL_RE.search(
+                " ".join(
+                    value
+                    for key in ("class", "id")
+                    if (value := attributes.get(key))
+                )
+            )
+        )
 
     def handle_starttag(
         self, tag: str, attrs: list[tuple[str, str | None]]
     ) -> None:
         tag = tag.lower()
         attributes = dict(attrs)
-        if tag in {"nav", "header", "footer"}:
+        in_container = self._in_container(tag, attributes)
+        if tag == "div" or in_container:
+            self._container_stack.append(in_container)
+        if in_container:
             self._navigation_depth += 1
         if tag != "a":
             attribute_names = {
@@ -156,7 +183,19 @@ class _LinkParser(HTMLParser):
 
     def handle_endtag(self, tag: str) -> None:
         tag = tag.lower()
-        if tag in {"nav", "header", "footer"}:
+        # End tags carry no attributes, so container divs are tracked on a
+        # per-tag stack: every div pushes its container flag; nav/header/
+        # footer/aside push True. Malformed HTML may drift, but the depth
+        # floor keeps drift penalty-safe (over-, never under-penalizing).
+        if tag == "div":
+            if self._container_stack and self._container_stack.pop():
+                self._navigation_depth = max(0, self._navigation_depth - 1)
+        elif (
+            tag in self._CONTAINER_TAGS
+            and self._container_stack
+            and self._container_stack[-1]
+        ):
+            self._container_stack.pop()
             self._navigation_depth = max(0, self._navigation_depth - 1)
         if tag != "a" or self._anchor_url is None:
             return
