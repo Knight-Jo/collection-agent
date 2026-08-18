@@ -160,6 +160,13 @@ async def run_agent_task(
             setattr(deps, name, getattr(resolved_spec, name))
     if hasattr(deps, "crawl_event_callback"):
         deps.crawl_event_callback = on_event
+
+    import logfire
+
+    logfire.configure()
+    logfire.instrument_system_metrics()
+    logfire.instrument_pydantic_ai()
+
     async with agent.run_stream_events(
         build_task_prompt(resolved_spec),
         deps=deps,
