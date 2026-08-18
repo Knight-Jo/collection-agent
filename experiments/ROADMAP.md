@@ -15,6 +15,7 @@
 | 007 | cross-verify-with-gaps | **stage=done 全程走完**（20 min, exit=0, 58 req） | **首次完整流程**；document_search 调用 8 次；gap=7 历史最优；但语料被 26 张图片（tesseract 缺失）+ 外文垃圾链接淹没，仅 3 事实；completion_status 标签语义错误 | ✅ |
 | 008 | image-gate-ocr | **coverage=sufficient 首次达成**（9.3 min, exit=0, 57 req, gap=0） | 图片门槛+OCR 修复生效：图 26→5 全 complete、事实 3→15、证据 4→18；垃圾换形态：CCDI 视频页 16/41；OCR 质量低（tessdata_fast）；搜索预算仍 6 次耗尽 | ✅ |
 | 009 | container-penalty | **done, sufficient, gap=0**（24 min, exit=0, 96 req） | CCDI 垃圾 16→1；事实 16/证据 18；审计产物补齐；news 引擎全灭→general fallback（009a 作废重跑）；垃圾再换形态：gov.cn 门户导航页 28/44（rel=0 深度链接无门槛） | ✅ |
+| 010 | relevance-gate | **done, sufficient, gap=0**（6.3 min, exit=0, 60 req） | depth≥1 全链接相关性门槛：爬取垃圾 48→0、语料 44→10 全高质量、事实 16→22、证据 18→29、耗时 -74%、token -53%；词匹配出站发现未误伤；搜索预算仍 6 次耗尽 | ✅ |
 
 ## 改进清单（按优先级）
 
@@ -41,7 +42,9 @@
 - [x] **P0** aside/related/ad 容器链接惩罚（**009 验证：CCDI 视频页 16/41→1/44**）
 - [x] **P0** 相关性剔除裸年份 token 与引擎评分（**009 生效**：/2026/ URL 匹配与 score=1.0 垃圾不再入种子）
 - [x] **P1** news 引擎全灭兜底：同次预算内回退 general 搜索（**009a 环境失败后修复，009 重跑通过**）
-- [ ] **P0** depth≥1 全链接 relevance 门槛（009 发现 28/44 垃圾页全部 rel=0.0 深度≥1；现有门槛只挡图片）
+- [x] **P0** depth≥1 全链接 relevance 门槛（**010 验证：爬取 rel-0 条目 48/50→0/9，语料 44→10 全高质量，事实 16→22、证据 18→29、耗时 -74%**）
+- [ ] **P2** 搜索预算按问题数分配: `effective = max(config, 3×问题数)`（008/009/010 三轮均首轮耗尽）
+- [ ] **P3** generate_research_report 防重（009 重试 12 次；010 no_progress_rounds=2 观察）
 - [ ] **P1** OCR 质量: tessdata_best + 纯照片跳过（008 发现 tessdata_fast 输出不可用）
 - [ ] **P2** 搜索预算按问题数分配（008 发现 4 问仍只有 6 次总预算）
 - [ ] **P2** completion_status 语义修正: coverage sufficient 才算 "sufficient"（008 sufficient 路径已自然达成）
@@ -65,3 +68,4 @@
 6. **环境依赖修复能直接改变实验结论**：tesseract 缺失时图片全 unavailable 掩盖了 enqueue 门槛的价值；两者同轮验证缺一不可
 7. **语料垃圾第三次换形态**（007 图片 → 008 CCDI 容器外链接 → 009 gov.cn 门户导航页）：只要 depth≥1 的非图片链接只降优先级不拒入队，frontier 容量富余时垃圾必然占满。阈值型修复要覆盖整条入队路径，不能只修一个资源类型
 8. **搜索引擎降级需要工具级兜底**：searxng news 引擎全灭时模型 6/8 次选择 news 类别导致整轮饿死；同预算内 fallback 是比提示词约束更可靠的韧性修复
+9. **垃圾抓取是双重成本**：010 证明语料质量提升同时带来产出提升（事实 +38%）与成本下降（token -53%）——阈值型入队门槛是投入产出比最高的一类修复
