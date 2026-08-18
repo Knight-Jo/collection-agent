@@ -191,6 +191,39 @@ async def test_runner_deep_crawl_setting_is_authoritative_at_plan_tool(
 
 
 @pytest.mark.asyncio
+async def test_web_search_news_empty_falls_back_to_general(monkeypatch, cwd):
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+        deep_crawl=True,
+    )
+    seen: list[str] = []
+
+    async def fake_search(query, _max, *, client, searxng_url, opts):
+        seen.append(opts["category"])
+        if opts["category"] == "news":
+            return {"results": [], "engineUsed": "fake"}
+        return {
+            "results": [{"url": "https://example.com/a", "title": "主题 A"}],
+            "engineUsed": "fake",
+        }
+
+    monkeypatch.setattr(agent_module, "web_search", fake_search)
+
+    await _tool(build_agent(Settings()), "web_search")(
+        _context(cwd), "具体 查询", 5, "news", "zh-CN", None
+    )
+
+    crawl = load_crawl(cwd, task.id)
+    assert [entry.canonical_url for entry in crawl.entries] == [
+        "https://example.com/a"
+    ]
+    assert seen == ["news", "general"]
+
+
+@pytest.mark.asyncio
 async def test_web_search_seeds_only_enabled_active_task(monkeypatch, cwd):
     task = create_task(
         cwd,

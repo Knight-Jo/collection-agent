@@ -542,6 +542,18 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             if time_range
             else {"category": category, "language": language},
         )
+        if category == "news" and not result.get("results"):
+            # news engines can be entirely down (searxng backends timing
+            # out); retry the same attempt on general search instead of
+            # charging the budget for an empty result (run 009: 6/8 news
+            # searches returned 0 results and starved the crawl).
+            result = await web_search(
+                query,
+                max_results,
+                client=ctx.deps.http,
+                searxng_url=ctx.deps.settings.search.searxng_url,
+                opts={"category": "general", "language": language},
+            )
         _seed_active_crawl(ctx.deps.cwd, ctx.deps.settings, result)
         # 标记已归档 URL：防止模型反复抓取同一批候选，倒逼换词/翻页
         archived = _archived_urls(ctx.deps.cwd)
