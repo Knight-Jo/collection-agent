@@ -1244,6 +1244,23 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             scope=ctx.deps.scope,
             report_depth=ctx.deps.report_depth,
         )
+        # Deployment-configured direct sources enter the crawl frontier as
+        # depth-0 seeds: web_fetch rejects non-HTML/PDF content types, so
+        # multimedia targets (video/audio/images/office) can only be
+        # collected through the crawl (run 018).
+        if ctx.deps.deep_crawl:
+            source_urls = [
+                url
+                for field in ("financial", "ir_company", "policy")
+                for url in getattr(ctx.deps.settings.sources, field, [])
+            ]
+            if source_urls:
+                create_crawl(
+                    ctx.deps.cwd,
+                    task.id,
+                    source_urls,
+                    ctx.deps.settings.crawl,
+                )
         return {
             "task": task.model_dump(),
             "query_plan": [

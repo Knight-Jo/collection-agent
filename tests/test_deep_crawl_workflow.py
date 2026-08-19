@@ -13,7 +13,12 @@ from pydantic_ai import RunContext
 import intel_agent.agent as agent_module
 from intel_agent.agent import AgentDeps, build_agent
 from intel_agent.audit import audit_task_evidence
-from intel_agent.config import BudgetConfig, CrawlConfig, Settings
+from intel_agent.config import (
+    BudgetConfig,
+    CrawlConfig,
+    Settings,
+    SourcesConfig,
+)
 from intel_agent.coverage import eval_coverage
 from intel_agent.crawl import create_crawl
 from intel_agent.evidence import save_evidence
@@ -775,6 +780,36 @@ def test_fact_save_gate_exempts_official_backed_primary_claim(cwd):
         _context(cwd), task.id, task.questions[0].id, "后续事实"
     )
     assert "id" in allowed
+
+
+def test_intel_plan_seeds_configured_sources_into_crawl(cwd):
+    settings = Settings(
+        sources=SourcesConfig(
+            policy=["https://www.gov.cn/policy.pdf"],
+            ir_company=["https://ir.example.com/video.mp4"],
+        )
+    )
+    agent = build_agent(settings)
+    deps = AgentDeps(cwd=cwd, settings=settings, deep_crawl=True)
+
+    result = _tool(agent, "intel_plan")(
+        cast(
+            RunContext[Any],
+            SimpleNamespace(deps=deps),
+        ),
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+        True,
+    )
+
+    task_id = result["task"]["id"]
+    crawl = load_crawl(cwd, task_id)
+    assert {entry.canonical_url for entry in crawl.entries} == {
+        "https://www.gov.cn/policy.pdf",
+        "https://ir.example.com/video.mp4",
+    }
+    assert all(entry.depth == 0 for entry in crawl.entries)
 
 
 def test_coverage_eval_returns_cross_verification_backlog(cwd):
