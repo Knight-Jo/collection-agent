@@ -21,6 +21,15 @@ DEFAULT_CRITERIA = SufficiencyCriteria(
 )
 
 
+@pytest.fixture(autouse=True)
+def _reset_source_registry():
+    from intel_agent.source import clear_first_party_domains
+
+    clear_first_party_domains()
+    yield
+    clear_first_party_domains()
+
+
 @pytest.fixture
 def cwd(tmp_path: Path) -> Path:
     from intel_agent.storage import ensure_intel_dirs

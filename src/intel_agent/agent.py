@@ -63,7 +63,7 @@ from .models import (
     TaskStage,
 )
 from .package import generate_package
-from .report import generate_research_report
+from .report import _fact_ids, generate_research_report
 from .search import (
     build_query_variants,
     is_broad_query,
@@ -76,6 +76,7 @@ from .search_queries import (
     QUERY_MATRIX_PHASE_BUDGET,
     QUERY_MATRIX_SLOTS,
 )
+from .source import register_first_party_domains
 from .storage import (
     ensure_intel_dirs,
     load_crawl,
@@ -781,6 +782,15 @@ def _fact_save_with_gate(
 def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
     settings = settings or Settings()
     api_key = settings.model_api_key()
+    # Deployment-declared sources define first-party domains so corporate
+    # main sites classify as official instead of other (run 013 gap).
+    register_first_party_domains(
+        [
+            url
+            for field in ("financial", "ir_company", "policy")
+            for url in getattr(settings.sources, field, [])
+        ]
+    )
     agent = Agent(
         _build_chat_model(settings.model, api_key),
         system_prompt=SYSTEM_PROMPT,
@@ -1184,6 +1194,28 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         draft: ResearchReportInput,
     ) -> dict:
         """Generate the primary report from verified structured findings."""
+        draft_key = {
+            "questions": sorted(
+                section.question_id for section in draft.sections
+            ),
+            "conclusions": sorted(
+                _fact_ids(conclusion)
+                for section in draft.sections
+                for conclusion in section.conclusions
+            ),
+            "overall": sorted(
+                _fact_ids(conclusion)
+                for conclusion in draft.overall_conclusions
+            ),
+        }
+        block = _block_repetition(
+            ctx, "generate_research_report", draft_key, 4
+        )
+        if block:
+            return {
+                "ok": False,
+                "errors": [{"code": "REPEATED", "message": block}],
+            }
         return _guarded_sync(
             lambda: generate_research_report(ctx.deps.cwd, task_id, draft)
         )

@@ -782,6 +782,40 @@ def test_fact_save_gate_exempts_official_backed_primary_claim(cwd):
     assert "id" in allowed
 
 
+def test_generate_research_report_blocks_repeated_drafts(monkeypatch, cwd):
+    from intel_agent.models import (
+        FactConclusion,
+        ResearchReportInput,
+        ResearchReportSection,
+    )
+
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+
+    def fake_report(_cwd, _task_id, _draft):
+        return {"ok": True, "path": "output/report.md"}
+
+    monkeypatch.setattr(agent_module, "generate_research_report", fake_report)
+    tool = _tool(build_agent(Settings()), "generate_research_report")
+    draft = ResearchReportInput(
+        sections=[
+            ResearchReportSection(
+                question_id=task.questions[0].id,
+                conclusions=[FactConclusion(fact_id="fact-x")],
+            )
+        ],
+        overall_conclusions=[],
+    )
+
+    context = _context(cwd)
+    for _ in range(3):
+        result = tool(context, task.id, draft)
+        assert result["ok"] is True
+    blocked = tool(context, task.id, draft)
+
+    assert blocked["ok"] is False
+    assert blocked["errors"][0]["code"] == "REPEATED"
+
+
 def test_intel_plan_seeds_configured_sources_into_crawl(cwd):
     settings = Settings(
         sources=SourcesConfig(

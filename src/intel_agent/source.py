@@ -6,6 +6,8 @@ import re
 from typing import Literal
 from urllib.parse import urlparse
 
+import tldextract
+
 from .models import SourceType
 
 DomainKind = Literal[
@@ -42,6 +44,31 @@ SOCIAL_DOMAINS = {
 # IR subdomains (ir.<company>) are first-party official sources.
 _IR_HOST_RE = re.compile(r"^ir\.|\.ir\.", re.IGNORECASE)
 
+# Deployment-declared first-party domains: registered at agent startup from
+# settings.sources; corporate main sites (e.g. ehang.com) cannot be derived
+# deterministically otherwise (run 013 gap, fixed for run 020).
+_FIRST_PARTY_DOMAINS: set[str] = set()
+
+
+def register_first_party_domains(urls: list[str]) -> None:
+    """Mark the registered domains of deployment sources as first-party."""
+    for url in urls:
+        host = (urlparse(url).hostname or "").lower()
+        if not host:
+            continue
+        extracted = tldextract.extract(host)
+        domain = (
+            getattr(extracted, "top_domain_under_public_suffix", None)
+            or extracted.registered_domain
+            or host
+        )
+        _FIRST_PARTY_DOMAINS.add(domain.lower())
+
+
+def clear_first_party_domains() -> None:
+    """Reset the registry (test isolation)."""
+    _FIRST_PARTY_DOMAINS.clear()
+
 
 def classify_domain(hostname_or_url: str) -> DomainKind:
     host = hostname_or_url
@@ -61,6 +88,15 @@ def classify_domain(hostname_or_url: str) -> DomainKind:
         return "social"
     if _IR_HOST_RE.search(host):
         return "official"
+    if _FIRST_PARTY_DOMAINS:
+        extracted = tldextract.extract(host)
+        domain = (
+            getattr(extracted, "top_domain_under_public_suffix", None)
+            or extracted.registered_domain
+            or host
+        )
+        if domain.lower() in _FIRST_PARTY_DOMAINS:
+            return "official"
     if any(
         host == domain or host.endswith(f".{domain}")
         for domain in NEWS_DOMAINS
