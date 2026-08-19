@@ -13,7 +13,12 @@ import intel_agent.crawl as crawl_module
 import intel_agent.fetch as fetch_module
 from intel_agent.browser import RenderedPage
 from intel_agent.config import CrawlConfig
-from intel_agent.crawl import crawl_collect, create_crawl, enqueue_url
+from intel_agent.crawl import (
+    _fair_batch,
+    crawl_collect,
+    create_crawl,
+    enqueue_url,
+)
 from intel_agent.evidence import load_document
 from intel_agent.fetch import (
     FetchedResponse,
@@ -74,6 +79,7 @@ def test_crawl_config_uses_documented_defaults():
     assert config.model_dump() == {
         "max_depth": 2,
         "max_urls": 200,
+        "per_domain_cap": None,
         "max_total_bytes": 1_073_741_824,
         "max_html_bytes": 5_242_880,
         "max_attachment_bytes": 52_428_800,
@@ -758,6 +764,8 @@ async def test_crawl_obeys_robots_and_drops_zero_relevance_links(cwd):
                 b'<html><a href="/next">\xe6\xb5\x8b\xe8\xaf\x95\xe4\xb8\xbb\xe9\xa2\x98</a>'
                 b'<a href="/blocked">\xe6\xb5\x8b\xe8\xaf\x95\xe4\xb8\xbb\xe9\xa2\x98</a>'
                 b'<a href="/junk">unrelated</a>root</html>'
+                if url.endswith("/root")
+                else b"next"
             ),
         )
 
@@ -877,6 +885,156 @@ async def test_outbound_pdf_needs_term_match_to_enqueue(cwd):
     assert children["https://example.com/report.pdf"].status == "complete"
     assert "https://example.com/other.pdf" not in children
     assert "https://example.com/other.pdf" not in fetched
+
+
+def test_enqueue_caps_non_first_party_domain_count(cwd):
+    snapshot = create_crawl(cwd, "task-cap", [], CrawlConfig(max_urls=150))
+    for index in range(15):
+        assert enqueue_url(
+            snapshot,
+            f"https://example.com/page-{index}",
+            parent_url=None,
+            depth=0,
+            relevance=1,
+        )
+    assert not enqueue_url(
+        snapshot,
+        "https://example.com/page-16",
+        parent_url=None,
+        depth=0,
+        relevance=1,
+    )
+    assert enqueue_url(
+        snapshot,
+        "https://other.example/page-1",
+        parent_url=None,
+        depth=0,
+        relevance=1,
+    )
+
+
+def test_enqueue_exempts_first_party_domains_from_cap(cwd):
+    snapshot = create_crawl(cwd, "task-party", [], CrawlConfig(max_urls=150))
+    for index in range(20):
+        assert enqueue_url(
+            snapshot,
+            f"https://www.gov.cn/policy-{index}",
+            parent_url=None,
+            depth=0,
+            relevance=1,
+        )
+    for index in range(20):
+        assert enqueue_url(
+            snapshot,
+            f"https://ir.ehang.com/press-{index}",
+            parent_url=None,
+            depth=0,
+            relevance=1,
+        )
+
+
+def test_enqueue_caps_social_domains_to_tenth_of_frontier(cwd):
+    snapshot = create_crawl(cwd, "task-social", [], CrawlConfig(max_urls=150))
+    admitted = 0
+    for index in range(30):
+        if enqueue_url(
+            snapshot,
+            f"https://etbbs.com/thread-{index}",
+            parent_url=None,
+            depth=0,
+            relevance=1,
+        ):
+            admitted += 1
+    assert admitted == 15
+
+
+def test_fair_batch_rotates_across_domains(cwd):
+    snapshot = create_crawl(cwd, "task-fair", [], CrawlConfig(max_urls=150))
+    for index in range(3):
+        assert enqueue_url(
+            snapshot,
+            f"https://example.com/a-{index}",
+            parent_url=None,
+            depth=0,
+            relevance=3,
+        )
+    assert enqueue_url(
+        snapshot,
+        "https://other.example/b-0",
+        parent_url=None,
+        depth=0,
+        relevance=1,
+    )
+    queued = [entry for entry in snapshot.entries if entry.status == "queued"]
+
+    batch = _fair_batch(queued, 2)
+
+    domains = {entry.canonical_url.split("/")[2] for entry in batch}
+    assert domains == {"example.com", "other.example"}
+
+
+@pytest.mark.asyncio
+async def test_crawl_reuses_same_content_republish(cwd):
+    task = new_task(cwd)
+
+    async def fetcher(url, init, address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=b"identical republished article body",
+        )
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/original", "https://other.example/repost"],
+        config=CrawlConfig(
+            max_depth=0,
+            concurrency=1,
+            obey_robots=False,
+            per_host_delay_seconds=0,
+        ),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+    )
+
+    statuses = {
+        entry.canonical_url: entry.status for entry in snapshot.entries
+    }
+    assert statuses["https://example.com/original"] == "complete"
+    assert statuses["https://other.example/repost"] == "reused"
+    documents = list((cwd / "data/intel/documents").glob("*.json"))
+    assert len(documents) == 1
+
+
+@pytest.mark.asyncio
+async def test_crawl_persists_complete_status_when_done(cwd):
+    task = new_task(cwd)
+
+    async def fetcher(url, init, address):
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=b"seed content",
+        )
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/seed"],
+        config=CrawlConfig(
+            max_depth=0,
+            obey_robots=False,
+            per_host_delay_seconds=0,
+        ),
+        fetcher=fetcher,
+        resolver=_public_resolver,
+    )
+
+    assert snapshot.status == "complete"
+    from intel_agent.storage import load_crawl
+
+    assert load_crawl(cwd, task.id).status == "complete"
 
 
 @pytest.mark.asyncio

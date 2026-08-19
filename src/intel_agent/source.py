@@ -23,6 +23,25 @@ NEWS_DOMAINS = {
     "chinanews.com",
 }
 
+# Forums, communities, stock bars, and republish aggregators: low-value
+# reposts get a corpus-wide share cap instead of flooding the frontier
+# (run 013: etbbs.com alone took 103/143 docs in run 011).
+SOCIAL_DOMAINS = {
+    "zhihu.com",
+    "weibo.com",
+    "reddit.com",
+    "youtube.com",
+    "etbbs.com",
+    "xueqiu.com",
+    "taoguba.com.cn",
+    "guba.com.cn",
+    "guba.eastmoney.com",
+    "tieba.baidu.com",
+}
+
+# IR subdomains (ir.<company>) are first-party official sources.
+_IR_HOST_RE = re.compile(r"^ir\.|\.ir\.", re.IGNORECASE)
+
 
 def classify_domain(hostname_or_url: str) -> DomainKind:
     host = hostname_or_url
@@ -35,8 +54,13 @@ def classify_domain(hostname_or_url: str) -> DomainKind:
         return "government"
     if re.fullmatch(r"(?:baike\.baidu\.com|[^.]+\.wikipedia\.org)", host):
         return "encyclopedia"
-    if re.search(r"(^|\.)(zhihu|weibo|reddit|youtube)\.com$", host):
+    if any(
+        host == domain or host.endswith(f".{domain}")
+        for domain in SOCIAL_DOMAINS
+    ):
         return "social"
+    if _IR_HOST_RE.search(host):
+        return "official"
     if any(
         host == domain or host.endswith(f".{domain}")
         for domain in NEWS_DOMAINS
@@ -62,6 +86,6 @@ def source_type_for_domain(hostname: str) -> SourceType:
         r"(?:\.edu(?:\.[a-z]{2})?|\.ac\.[a-z]{2})$", hostname.lower()
     ):
         return "academic"
-    if kind in ("government", "news", "encyclopedia", "social"):
+    if kind in ("government", "news", "encyclopedia", "social", "official"):
         return kind
     return "other"

@@ -48,6 +48,10 @@ class FetchConfig(BaseModel):
 class CrawlConfig(BaseModel):
     max_depth: int = Field(default=2, ge=0)
     max_urls: int = Field(default=200, ge=1)
+    # Cap on queued/fetching/complete entries per registered domain for
+    # non-first-party sources; None = auto max(8, ceil(max_urls * 0.10)).
+    # First-party sources (government/official) are exempt.
+    per_domain_cap: int | None = Field(default=None, ge=1)
     max_total_bytes: int = Field(default=1_073_741_824, ge=1)
     max_html_bytes: int = Field(default=5_242_880, ge=1)
     max_attachment_bytes: int = Field(default=52_428_800, ge=1)

@@ -44,12 +44,15 @@ from .models import (
     utc_now,
 )
 from .search import relevance_tokens
-from .security import AddressResolver
+from .security import AddressResolver, source_group_of
+from .source import source_type_for_domain
 from .storage import (
+    intel_path,
     list_crawls,
     load_crawl,
     read_json,
     save_crawl,
+    sha256,
     verify_document_integrity,
 )
 from .task import load_task
@@ -72,6 +75,94 @@ class CrawlEvent:
 
 
 CrawlEventCallback = Callable[[CrawlEvent], Awaitable[None]]
+# First-party sources keep their frontier slots: a company IR site or a
+# government portal may legitimately contribute many pages (run 013).
+_FIRST_PARTY_TYPES = {"government", "official"}
+_SOCIAL_TYPES = {"social"}
+# Fair-batch rotation order: high-value source types pick first each round.
+_SOURCE_TYPE_RANK = {
+    "government": 0,
+    "official": 1,
+    "news": 2,
+    "academic": 3,
+    "other": 4,
+    "encyclopedia": 5,
+    "social": 6,
+}
+
+
+def _domain_of(url: str) -> str:
+    try:
+        return source_group_of(url)
+    except IntelError:
+        # Synthetic/unknown hosts (tests, private networks) fall back to the
+        # raw hostname so domain accounting never crashes enqueue.
+        return (urlparse(url).hostname or "").lower()
+
+
+def _domain_entry_count(snapshot: CrawlSnapshot, domain: str) -> int:
+    return sum(
+        1
+        for entry in snapshot.entries
+        if _domain_of(entry.canonical_url) == domain
+        and entry.status in {"queued", "fetching", "complete", "reused"}
+    )
+
+
+def _entry_source_type(entry: CrawlEntry) -> str:
+    # Classify on the original hostname: the registered domain loses
+    # subdomain signals such as the ir.* first-party prefix (run 013).
+    return source_type_for_domain(urlparse(entry.canonical_url).hostname or "")
+
+
+def _social_entry_count(snapshot: CrawlSnapshot) -> int:
+    return sum(
+        1
+        for entry in snapshot.entries
+        if _entry_source_type(entry) in _SOCIAL_TYPES
+        and entry.status in {"queued", "fetching", "complete", "reused"}
+    )
+
+
+def _fair_batch(entries: list[CrawlEntry], size: int) -> list[CrawlEntry]:
+    """Round-robin queued entries by source type then registered domain.
+
+    A single priority sort lets one keyword-dense forum domain fill every
+    batch (run 011: etbbs.com took 103/143 docs); rotating domains keeps the
+    crawl broad even when one domain floods the frontier.
+    """
+    by_domain: dict[str, list[CrawlEntry]] = {}
+    for entry in entries:
+        by_domain.setdefault(_domain_of(entry.canonical_url), []).append(entry)
+    for group in by_domain.values():
+        group.sort(key=lambda e: (e.priority, e.created_at))
+    order = sorted(
+        by_domain,
+        key=lambda d: (
+            _SOURCE_TYPE_RANK.get(_entry_source_type(by_domain[d][0]), 5),
+            d,
+        ),
+    )
+    batch: list[CrawlEntry] = []
+    while len(batch) < size and by_domain:
+        advanced = False
+        for domain in order:
+            group = by_domain.get(domain)
+            if not group:
+                continue
+            batch.append(group.pop(0))
+            advanced = True
+            if len(batch) == size:
+                break
+        if not advanced:
+            break
+        by_domain = {
+            domain: group for domain, group in by_domain.items() if group
+        }
+        order = [domain for domain in order if domain in by_domain]
+    return batch
+
+
 _ATTACHMENT_SUFFIXES = {
     ".csv",
     ".doc",
@@ -108,6 +199,26 @@ def _image_entry_count(snapshot: CrawlSnapshot) -> int:
         if Path(urlparse(entry.canonical_url).path).suffix.lower()
         in _IMAGE_SUFFIXES
     )
+
+
+def _find_document_by_text_hash(
+    cwd: Path, text_hash: str
+) -> IntelDocument | None:
+    # ponytail: O(n) scan over the task's documents; fine at frontier scale
+    # (~200 docs), index if the crawl corpus ever grows an order of magnitude.
+    documents_dir = intel_path(cwd, "documents")
+    if not documents_dir.exists():
+        return None
+    for path in documents_dir.glob("*.json"):
+        try:
+            document = IntelDocument.model_validate(
+                read_json(cwd, f"documents/{path.name}")
+            )
+        except Exception:
+            continue
+        if document.text_sha256 == text_hash:
+            return document
+    return None
 
 
 def _crawl_counts(snapshot: CrawlSnapshot) -> dict[str, int]:
@@ -231,6 +342,18 @@ def enqueue_url(
         image_cap = max(3, config.max_urls // 10)
         if depth >= 1 and _image_entry_count(snapshot) >= image_cap:
             return False
+    domain = _domain_of(canonical)
+    source_type = source_type_for_domain(urlparse(canonical).hostname or "")
+    if source_type not in _FIRST_PARTY_TYPES:
+        domain_cap = config.per_domain_cap or max(
+            8, -(-config.max_urls * 10 // 100)
+        )
+        if _domain_entry_count(snapshot, domain) >= domain_cap:
+            return False
+    if source_type in _SOCIAL_TYPES and _social_entry_count(snapshot) >= max(
+        1, config.max_urls // 10
+    ):
+        return False
     candidate_priority = _priority(
         depth, relevance, source_priority, bool(attachment)
     )
@@ -1004,6 +1127,27 @@ class _CrawlRunner:
                                 extracted.error
                                 or "RENDER_EMPTY: rendered page has no text"
                             )
+            if extracted.text.strip():
+                duplicate = _find_document_by_text_hash(
+                    self.cwd, sha256(extracted.text.encode("utf-8"))
+                )
+                if duplicate is not None:
+                    # Same-content republish: keep one source group instead
+                    # of archiving the repost as a new document (run 013).
+                    # Canonical still follows the final URL so redirect
+                    # aliases dedupe into one entry.
+                    entry.status = "reused"
+                    entry.document_id = duplicate.id
+                    entry.canonical_url = canonicalize_url(raw_final_url)
+                    entry.extraction = ExtractionState(
+                        status=extracted.status,
+                        processor=extracted.processor,
+                        text_path=duplicate.text_path,
+                        error=None,
+                    )
+                    entry.updated_at = utc_now()
+                    await self.persist()
+                    return []
             document = archive_document(
                 self.cwd,
                 entry.canonical_url,
@@ -1112,9 +1256,7 @@ async def crawl_collect(
         while queued := [
             entry for entry in snapshot.entries if entry.status == "queued"
         ]:
-            batch = sorted(
-                queued, key=lambda item: (item.priority, item.created_at)
-            )[: config.concurrency]
+            batch = _fair_batch(queued, config.concurrency)
             link_groups = await asyncio.gather(
                 *(runner.fetch(entry) for entry in batch)
             )

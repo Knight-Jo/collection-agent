@@ -41,6 +41,9 @@ fetch:
 crawl:
   max_depth: 3
   max_urls: 200
+  # 非一手域每注册域入队上限；null = 自动 max(8, ceil(max_urls * 0.10))。
+  # 一手来源（政府/官网/IR）豁免；论坛社区类另有总量 10% 上限（run 013）。
+  per_domain_cap: null
   max_total_bytes: 1073741824
   max_html_bytes: 5242880
   max_attachment_bytes: 52428800

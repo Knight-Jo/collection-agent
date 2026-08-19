@@ -353,7 +353,12 @@ async def test_crawl_collect_returns_compact_resource_index(monkeypatch, cwd):
     snapshot = create_crawl(
         cwd,
         task.id,
-        [f"https://example.com/{index}.pdf" for index in range(80)],
+        # Spread across domains: the per-domain cap (run 013) limits a
+        # single non-first-party domain to a fraction of the frontier.
+        [
+            f"https://example{index % 16}.com/{index}.pdf"
+            for index in range(80)
+        ],
         CrawlConfig(max_urls=80),
     )
     for index, entry in enumerate(snapshot.entries):
