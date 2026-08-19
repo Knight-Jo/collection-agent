@@ -717,6 +717,66 @@ def test_document_search_ranks_novel_government_group_above_cited(cwd):
     assert result["results"][0]["novel_group"] is True
 
 
+def test_fact_save_gated_while_single_source_backlog_exists(cwd):
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+    )
+    agent = build_agent(Settings())
+    fact_tool = _tool(agent, "fact_save")
+
+    first = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 A")
+    assert "id" in first
+    first_doc = make_document(cwd, "事实 A 报道", "https://news.cn/a")
+    save_evidence(cwd, first["id"], first_doc.id, "supports", "事实 A 报道")
+
+    blocked = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 B")
+    assert blocked["error"]["code"] == "CROSS_VERIFY_BACKLOG"
+    assert "事实 A" in blocked["error"]["message"]
+
+    second_doc = make_document(cwd, "事实 A 独立报道", "https://caixin.com/a")
+    save_evidence(
+        cwd, first["id"], second_doc.id, "supports", "事实 A 独立报道"
+    )
+
+    reopened = fact_tool(
+        _context(cwd), task.id, task.questions[0].id, "事实 B"
+    )
+    assert "id" in reopened
+
+
+def test_fact_save_gate_exempts_official_backed_primary_claim(cwd):
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+    )
+    agent = build_agent(Settings())
+    fact_tool = _tool(agent, "fact_save")
+
+    primary = fact_tool(
+        _context(cwd),
+        task.id,
+        task.questions[0].id,
+        "政府发布测试主题政策",
+        "primary",
+    )
+    gov_doc = make_document(
+        cwd, "政府发布测试主题政策", "https://www.gov.cn/policy"
+    )
+    save_evidence(
+        cwd, primary["id"], gov_doc.id, "supports", "政府发布测试主题政策"
+    )
+
+    allowed = fact_tool(
+        _context(cwd), task.id, task.questions[0].id, "后续事实"
+    )
+    assert "id" in allowed
+
+
 def test_coverage_eval_returns_cross_verification_backlog(cwd):
     task = create_task(
         cwd,

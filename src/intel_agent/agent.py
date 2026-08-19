@@ -36,8 +36,18 @@ from .conflicts import resolve_conflict, save_conflict
 from .coverage import eval_coverage
 from .crawl import CrawlEventCallback, create_crawl, summarize_crawl
 from .crawl import crawl_collect as run_crawl_collect
-from .evidence import list_evidence_for_task, load_document, save_evidence
-from .fact import load_fact, save_fact, supersede_fact
+from .evidence import (
+    list_evidence_for_fact,
+    list_evidence_for_task,
+    load_document,
+    save_evidence,
+)
+from .fact import (
+    list_active_facts_for_task,
+    load_fact,
+    save_fact,
+    supersede_fact,
+)
 from .fetch import DEFAULT_MAX_BYTES, canonicalize_url, fetch_document
 from .materials import generate_material_digest, register_material
 from .models import (
@@ -711,6 +721,63 @@ def _coverage_eval_with_backlog(cwd: Path, task_id: str) -> dict:
     return data
 
 
+def _single_source_backlog(cwd: Path, task_id: str) -> list[dict]:
+    """Facts whose source groups are below the task's independence bar.
+
+    Judgment-layer gate for fact registration (run 015 follow-up): while a
+    backlog exists, the model must complete second sources for existing
+    facts (evidence_save) instead of registering new ones. Primary claims
+    backed by an official/government document keep their single-source
+    exception, mirroring coverage.py.
+    """
+    task = load_task(cwd, task_id)
+    required = task.criteria.min_independent_sources
+    backlog: list[dict] = []
+    for fact in list_active_facts_for_task(cwd, task_id):
+        groups: set[str] = set()
+        official_backed = False
+        for evidence in list_evidence_for_fact(cwd, fact.id):
+            document = load_document(cwd, evidence.document_id)
+            groups.add(document.source_group)
+            if document.source_type in ("official", "government"):
+                official_backed = True
+        if fact.claim_type == "primary" and official_backed:
+            continue
+        if len(groups) < required:
+            backlog.append(
+                {
+                    "fact_id": fact.id,
+                    "statement": fact.statement[:60],
+                    "source_groups": len(groups),
+                    "required": required,
+                }
+            )
+    return backlog
+
+
+def _fact_save_with_gate(
+    cwd: Path,
+    task_id: str,
+    question_id: str,
+    statement: str,
+    claim_type: ClaimType,
+) -> dict:
+    backlog = _single_source_backlog(cwd, task_id)
+    if backlog:
+        pending = "；".join(
+            f"「{item['statement']}」({item['source_groups']}/{item['required']} 组)"
+            for item in backlog[:3]
+        )
+        raise IntelError(
+            "CROSS_VERIFY_BACKLOG",
+            "存在未完成交叉验证的单源事实，登记新事实前必须先补齐第二独立来源组"
+            f"（evidence_save → evidence_audit）：{pending}",
+        )
+    return save_fact(
+        cwd, task_id, question_id, statement, claim_type
+    ).model_dump()
+
+
 def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
     settings = settings or Settings()
     api_key = settings.model_api_key()
@@ -979,15 +1046,16 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         statement: str,
         claim_type: ClaimType = "corroborated",
     ) -> dict:
-        """在取得候选来源后登记一个规范事实。不同措辞的来源通过同一 fact_id 支撑该事实。"""
+        """在取得候选来源后登记一个规范事实。不同措辞的来源通过同一 fact_id 支撑该事实。
+        存在未完成交叉验证的单源事实时拒绝登记新事实（先 evidence_save 补第二来源组）。"""
         return _guarded_sync(
-            lambda: save_fact(
+            lambda: _fact_save_with_gate(
                 ctx.deps.cwd,
                 task_id,
                 question_id,
                 statement,
                 claim_type,
-            ).model_dump()
+            )
         )
 
     @agent.tool(name="fact_supersede")
