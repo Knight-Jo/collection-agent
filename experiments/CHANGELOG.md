@@ -8,6 +8,37 @@
 
 （无进行中的实验）
 
+## [017-rendered-multimedia-recall] - 2026-08-19
+
+### Changed
+
+- `src/intel_agent/extract.py`：新增 `_minimal_text_quality` 质量门控（≥10 汉字或 ≥8 英文词），应用于图片 OCR、音视频转写、扫描件 PDF OCR；未过门控返回 `unavailable`（原件仍归档，不进证据）。
+- `src/intel_agent/search_queries.py`：查询矩阵 attachment 槽位扩展为 6 类格式查询（pdf/docx/xlsx+pptx/图片/音频/视频）。
+- `tests/test_media_extract.py`：新增 3 个测试（质量门控噪声拒绝、垃圾 OCR 图片 unavailable、垃圾转写 unavailable）；改写 2 个既有测试适配门控。
+- `config.yaml`（本地，不提交）：`fetch.enable_browser_fallback=true`（Playwright+Chromium 已确认可用）。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff format --check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright`：PASS（0 errors）
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest -q`：PASS（348 passed, 1 skipped）
+
+### Experiment result
+
+- 状态：**failed**（3/5 验收达标）
+- 产物：`experiments/runs/017-rendered-multimedia-recall/`
+- 代码版本：ccc3ff8
+- 真实运行：exit_code=0，stage=done，completion_status=with_gaps，elapsed=1144.5s，model_requests=141（18.0M tokens）
+- 关键指标：图片 3 份归档且全部被质量门控正确拦截（0 证据污染 ✅）；失败材料不进证据 ✅；JS 渲染 0 样本 ❌；PDF/Office/音视频 0 命中 ❌；文档证据利用率 47.4%；depth0 产出率 67%；gap_score 18
+- 假设结论：部分成立；质量门控生产验证成功，但控制变量主题的语料构成无法支撑 JS 与多媒体格式命中，专项数据集主题是复测前提
+
+### Known issues
+
+- JS 渲染与 PDF/Office/音视频真实命中为零：需 018 专项主题 + 固定公开目标清单复测。
+- libreoffice 未安装：legacy .doc/.xls/.ppt 转换不可用（已披露）。
+- OCR 门控拦截率 100%（tessdata_fast 质量差）：tessdata_best 环境项待完成。
+
 ## [016-verification-gate] - 2026-08-19
 
 ### Changed
