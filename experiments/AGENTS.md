@@ -15,6 +15,7 @@
 ```
 experiments/
 ├── ROADMAP.md          # 实验记录 + 改进清单 + 跨实验结论
+├── CHANGELOG.md        # 每轮代码/配置变更、验证命令和真实运行结果
 ├── runs/
 │   └── NNN-<name>/
 │       ├── manifest.json   # 配置/主题/问题/标准/耗时/git/exit_code
@@ -100,8 +101,76 @@ python scripts/analyze_run.py experiments/runs/NNN-name --write
 2. **改进清单**：完成的勾选；新问题按 P0–P3 追加待办
 3. **结论沉淀**：跨实验可复用的规律（如"证据链框架零故障""检索质量三杠杆"）追加到结论区
 
+## CHANGELOG 强制维护规范
+
+`CHANGELOG.md` 记录“为了实验改了什么、为什么改、如何验证、真实结果怎样”。`ROADMAP.md` 负责长期优先级和跨轮结论，两者不能互相替代。
+
+### 写入时机
+
+每轮必须按以下顺序执行，不得在实验结束后凭记忆一次性补写：
+
+1. **改代码前**：阅读 `ROADMAP.md` 和 `CHANGELOG.md`，在 `[Unreleased]` 下写本轮实验名称、唯一假设、允许修改文件和预期指标。
+2. **自动化检查后**：记录实际执行的每条命令及 PASS/FAIL。不得只写“测试通过”。
+3. **真实运行后**：把本轮从 `[Unreleased]` 移到带日期的实验标题，填写真实指标、产物路径、结论和遗留问题。失败实验也必须保留。
+4. **更新 ROADMAP 前**：先以 `manifest.json`、`ANALYSIS.md`、state 和 trace 复核 CHANGELOG 数字，再更新 ROADMAP 运行记录。
+
+### 固定模板
+
+开始实验时复制以下内容到 `[Unreleased]`；尖括号内容必须全部替换，禁止保留占位符：
+
+```markdown
+### NNN-<name>
+
+- 状态：planned
+- 唯一假设：<一个可被真实运行证伪的句子>
+- 基线：<上一轮编号及关键指标>
+- 允许修改：`<file-1>`、`<file-2>`
+- 禁止修改：<本轮控制变量>
+- 预期验收：<量化阈值>
+```
+
+真实运行结束后改成：
+
+```markdown
+## [NNN-<name>] - YYYY-MM-DD
+
+### Changed
+
+- `<file>`：<实际行为变化及原因>
+
+### Verification
+
+- `完整命令`：PASS/FAIL（<通过数或错误摘要>）
+
+### Experiment result
+
+- 状态：passed / failed / inconclusive
+- 产物：`experiments/runs/NNN-<name>/`
+- 代码版本：`<manifest 中的 git commit>`
+- 真实运行：exit_code=<N>，stage=<值>，elapsed=<秒>，model_requests=<N>
+- 关键指标：<基线值> → <本轮值>
+- 假设结论：成立 / 不成立 / 无法判断；<证据一句话>
+
+### Known issues
+
+- <仍未解决的问题；没有则写“无新增问题”，不能删除本节>
+```
+
+### 内容规则
+
+- **只写实际变化**：计划中的功能未落地时留在 `[Unreleased]`，不得写进 `Changed`。
+- **计划和结果分开**：预期值不能冒充实测值；实测缺失写“未测量”并说明原因。
+- **一条变更对应具体文件**：禁止只写“优化搜索”“增强稳定性”等无法审计的描述。
+- **数字必须可追溯**：注明来自 manifest、ANALYSIS、state、trace 或 run.log；同一指标沿用 ROADMAP 的计算口径。
+- **失败也追加记录**：崩溃、预算耗尽、环境缺失和验收未达标都要进入 dated entry，不得删除或覆盖历史。
+- **历史只追加不改写**：除修正事实错误外，不修改已完成实验；修正时追加 `Correction` 并说明原值、正确值和证据。
+- **不记录密钥和本地配置值**：不得写 API key、token、cookie、验证码或 `config.yaml` 的敏感内容。
+- **一次只记录一个实验**：012–016 严格按 ROADMAP 顺序；本轮未通过验收时不得提前建立下一轮 completed entry。
+- **提交前检查**：`git diff --check`，并确认 CHANGELOG、REPORT、ANALYSIS 和 ROADMAP 对同一指标没有冲突。
+
 ## 禁止事项
 
 - 不凭印象下结论：每个判断必须能指出 trace/ANALYSIS/run.log 里的具体证据
 - 不伪造指标：对比表数字必须来自 ANALYSIS.md 或 state 快照
 - 不跳过环境检查直接跑：tesseract、ffmpeg、faster-whisper、LibreOffice、浏览器或搜索栈缺失会静默改变实验结果
+- 不把 `[Unreleased]` 中的计划描述成已完成，也不因实验失败删除 CHANGELOG 记录
