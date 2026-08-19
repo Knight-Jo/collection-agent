@@ -8,6 +8,38 @@
 
 （无进行中的实验）
 
+## [014-deterministic-query-matrix] - 2026-08-19
+
+### Changed
+
+- `src/intel_agent/search_queries.py`：新增 `query_matrix(topic, question)` 六槽位确定性查询矩阵（discovery/primary/verify/structured/attachment/adversarial）+ 英文实体查询（问题含拉丁词时）+ 公司（官网/IR/财报）与政策（site:gov.cn）定向 primary 查询；`QUERY_MATRIX_PHASE`/`QUERY_MATRIX_PHASE_BUDGET` 定义 40/40/20 相位划分。
+- `src/intel_agent/search.py`：重导出 `query_matrix`。
+- `src/intel_agent/agent.py`：新增 `_run_query_matrix`——web_search 工具内确定性执行未填槽位（每次 2 条，模块级 asyncio 锁防并发重复，相位预算约束，SEARCH_BUDGET_EXHAUSTED 时优雅停止），结果并入模型可见结果并播种爬取；状态文件 `data/intel/search_matrix.json` 记录 query/slot/phase/question_id/category/language/引擎/排名/URL/新域/归档标志。
+- `scripts/analyze_run.py`：ANALYSIS 增加查询矩阵统计段（执行数/相位分布/槽位分布/新域候选数）。
+- `tests/test_search.py`、`tests/test_deep_crawl_workflow.py`：新增 4 个测试（矩阵槽位结构、英文/公司/政策查询、工具内执行与 trace 字段、相位预算约束）；改写 1 个既有测试（news fallback 调用序列包含矩阵调用）。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff format --check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright`：PASS（0 errors）
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest -q`：PASS（340 passed, 1 skipped）
+
+### Experiment result
+
+- 状态：passed
+- 产物：`experiments/runs/014-deterministic-query-matrix/`
+- 代码版本：fedffaf
+- 真实运行：exit_code=0，stage=done，completion_status=with_gaps，elapsed=793.8s，model_requests=89（8.2M tokens）
+- 关键指标：矩阵执行 22 条（site: 8、filetype: 2、phase 4/16/2）；有效域 5.73 → 7.89（✅ 013 阈值）；政府来源 2 → 7；新域候选 76；文档证据利用率 5.6%（011）→ 46.7%；Authoritative@10（矩阵）= 23.2%；交叉验证双源率仍 0
+- 假设结论：成立；查询广度由程序保证，site:/filetype:/英文/一手/验证槽位全部确定性执行，种子域多样性显著提升。013 剩余阈值部分恢复（有效域达标，最大域 20.0%/前两域 40.0%/社交 13.3% 仍略超）
+
+### Known issues
+
+- 交叉验证闭环未完成（双源率 0）：候选供给已解决，执行层留给 015。
+- 相位预算未满释放未实现（discovery 4/16、adversarial 2/8 保留）。
+- 013 三项域占比阈值需在语料规模提升后复测。
+
 ## [013-source-fairness] - 2026-08-19
 
 ### Changed
