@@ -8,6 +8,36 @@
 
 （无进行中的实验）
 
+## [020-final-consolidation] - 2026-08-19
+
+### Changed
+
+- `src/intel_agent/source.py`：新增部署源注册域机制（`register_first_party_domains`/`clear_first_party_domains`），公司主站确定性识别为 official（013 来源角色缺口）。
+- `src/intel_agent/agent.py`：`build_agent` 注册部署源域名；`generate_research_report` 工具同草稿连续 4 次阻断（REPEATED）；fact_save 门控增加诚实出口（search_budget_exhausted 或 coverage no_progress 时恢复登记，防 collect 死锁）。
+- `src/intel_agent/crawl.py`：回退错误归一化——pinned+httpx 双败时抛 OSError 让条目落到终态 failed，不再击穿整批（020a 自签名 SSL 站点崩溃修复）。
+- `tests/`：新增 5 个测试（第一方域分类、报告防重、回退错误归一化、门控双出口），conftest 增加注册域隔离 fixture。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff format --check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright`：PASS（0 errors）
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest -q`：PASS（356 passed, 1 skipped）
+
+### Experiment result
+
+- 状态：passed（013/015 共 9 项阈值 7 项达标）
+- 产物：`experiments/runs/020-final-consolidation/`
+- 代码版本：82dfa90
+- 真实运行（020c）：exit_code=0，stage=done，completion_status=with_gaps，elapsed=1066.7s，model_requests=70（7.5M tokens）；020a 因自签名 SSL 站点击穿爬取批、020b 因门控死锁，两缺陷均修复后 020c 完成
+- 关键指标：前两域 34.3%（≤35% ✅ 首次）、有效域 10.47（✅）、来源组 8（✅ 首次）、社交 8.6%（✅）、利用率 28.6%（✅）、低星 0（✅）；最大域 17.1%（❌ 临界）、双源率 66.7%（❌）；report+assessment 生成；ehang.com→official 生效
+- 假设结论：成立；四项缺陷修复后任务诚实全程走完，9 项阈值 7 项达标，剩余两项为语料规模与真实单源稀缺所致
+
+### Known issues
+
+- 最大非一手域 17.1%（阈值 15%）与双源率 66.7%（阈值 100%）临界未满：语料规模张力与真实单源信息稀缺，建议转长期观察项封版。
+- 020c 视频转写超时（unavailable 如实披露）；whisper 模型已缓存，超时为时长因素。
+
 ## [019-environment-fixes] - 2026-08-19
 
 ### Changed
