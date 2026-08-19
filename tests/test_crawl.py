@@ -1112,6 +1112,42 @@ async def test_crawl_httpx_fallback_after_pinned_network_failure(
 
 
 @pytest.mark.asyncio
+async def test_crawl_httpx_fallback_normalizes_fallback_errors(
+    monkeypatch, cwd
+):
+    task = new_task(cwd)
+
+    async def failing_pinned(*_args, **_kwargs):
+        raise OSError("pinned connection failed")
+
+    async def failing_httpx(*_args, **_kwargs):
+        raise RuntimeError("tls verification failed")
+
+    monkeypatch.setattr(crawl_module, "pinned_fetch", failing_pinned)
+    monkeypatch.setattr(crawl_module, "httpx_fallback_fetch", failing_httpx)
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/root"],
+        config=CrawlConfig(
+            max_depth=0,
+            obey_robots=False,
+            per_host_delay_seconds=0,
+            retries=0,
+        ),
+        resolver=_public_resolver,
+        httpx_fallback=True,
+    )
+
+    # Both paths failed: the entry must settle into a terminal status so the
+    # queue empties and coverage can proceed (run 020 regression).
+    assert snapshot.entries[0].status == "failed"
+    assert "pinned 与 httpx 回退均失败" in (snapshot.entries[0].error or "")
+    assert snapshot.status == "complete"
+
+
+@pytest.mark.asyncio
 async def test_crawl_httpx_fallback_off_keeps_pinned_error(monkeypatch, cwd):
     task = new_task(cwd)
 

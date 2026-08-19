@@ -1257,9 +1257,19 @@ async def crawl_collect(
                     "NETWORK_ERROR",
                 }:
                     raise
-                return await httpx_fallback_fetch(
-                    url, init, address, max_bytes
-                )
+                try:
+                    return await httpx_fallback_fetch(
+                        url, init, address, max_bytes
+                    )
+                except Exception as fallback_error:
+                    # httpx raises non-OSError classes (e.g. ConnectError for
+                    # TLS failures); normalize so the runner's retry loop
+                    # settles the entry into a terminal status instead of
+                    # crashing the whole batch (run 020: self-signed SSL
+                    # site crashed crawl_collect and blocked coverage).
+                    raise OSError(
+                        f"pinned 与 httpx 回退均失败: {fallback_error}"
+                    ) from error
 
         fetcher = default_fetcher
 
