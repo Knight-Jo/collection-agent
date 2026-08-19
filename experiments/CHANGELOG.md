@@ -8,6 +8,35 @@
 
 （无进行中的实验）
 
+## [016-verification-gate] - 2026-08-19
+
+### Changed
+
+- `src/intel_agent/agent.py`：新增 `_single_source_backlog`（按 criteria.min_independent_sources 计算单源事实清单，primary+官方/政府豁免）与 `_fact_save_with_gate`；`fact_save` 工具在 backlog 存在时返回 `CROSS_VERIFY_BACKLOG` 错误并附清单，强制先 evidence_save 补第二来源组再登记新事实。
+- `tests/test_deep_crawl_workflow.py`：新增 2 个测试（门控阻断与恢复、primary 官方豁免）。
+- `config.yaml`（本地，不提交）：search_attempts 40→60；实跑 --max-turns 250。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff format --check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright`：PASS（0 errors）
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest -q`：PASS（345 passed, 1 skipped）
+
+### Experiment result
+
+- 状态：passed（门控机制验证成功；两项硬阈值临界未满）
+- 产物：`experiments/runs/016-verification-gate/`
+- 代码版本：c71d27c
+- 真实运行：exit_code=0，stage=done，completion_status=with_gaps，elapsed=1029.2s，model_requests=110（13.3M tokens）；首跑在 search_attempts=40 时于 collect 阶段被预算截断（双源率已 4/5），放宽至 60 后完成
+- 关键指标：关键数字双源率 0% → **86.7%**（13/15 事实 ≥2 来源组）；独立来源组 5 → 7；gap_score 25 → 16；文档证据利用率 28.1%（✅）；报告低星材料 0 展开（✅）；depth1 产出率 0% → 18%
+- 假设结论：成立；判定层门控一次性解决四轮供给侧修复未达成的交叉验证闭环，剩余 2 个单源事实为真实检索难度，with_gaps 诚实披露
+
+### Known issues
+
+- 门控与搜索预算耦合：验证消耗搜索次数，预算 40 不足以完成整轮；预算模型需按矩阵槽位+验证需求重标定。
+- 013 域占比阈值（最大域/前两域/社交）与 015 来源组 8 阈值仍临界未满，与语料规模相关。
+
 ## [015-evidence-yield] - 2026-08-19
 
 ### Changed
