@@ -350,8 +350,11 @@ def enqueue_url(
         )
         if _domain_entry_count(snapshot, domain) >= domain_cap:
             return False
+    # Social entries are capped relative to the frontier actually built, not
+    # the configured maximum: a 10%-of-max_urls allowance let a stock bar
+    # flood a small corpus to 36% (run 013a: guba.eastmoney.com).
     if source_type in _SOCIAL_TYPES and _social_entry_count(snapshot) >= max(
-        1, config.max_urls // 10
+        2, -(-len(snapshot.entries) * 10 // 100)
     ):
         return False
     candidate_priority = _priority(
@@ -393,7 +396,6 @@ def create_crawl(
     try:
         snapshot = load_crawl(cwd, task_id)
         snapshot.config = config.model_dump()
-        snapshot.status = "running"
         for entry in snapshot.entries:
             if entry.status == "fetching":
                 entry.status = "queued"
@@ -415,6 +417,14 @@ def create_crawl(
             depth=0,
             relevance=(seed_relevance or {}).get(seed, 0),
         )
+    # The status reflects actual pending work: resuming a completed crawl
+    # with only duplicate seeds must not reopen it (run 013a: a later
+    # web_search re-seed flipped a finished crawl back to running forever).
+    snapshot.status = (
+        "running"
+        if any(entry.status == "queued" for entry in snapshot.entries)
+        else "complete"
+    )
     save_crawl(cwd, snapshot)
     return snapshot
 

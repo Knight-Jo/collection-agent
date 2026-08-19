@@ -945,7 +945,43 @@ def test_enqueue_caps_social_domains_to_tenth_of_frontier(cwd):
             relevance=1,
         ):
             admitted += 1
-    assert admitted == 15
+    # Frontier-relative cap: the social allowance grows with the entries
+    # actually present (run 013a: a 10%-of-max_urls allowance let a stock
+    # bar flood a small corpus to 36%).
+    assert admitted == 2
+
+
+def test_resume_with_duplicate_seeds_keeps_complete_status(cwd):
+    task = create_crawl(
+        cwd, "task-status", ["https://example.com/a"], CrawlConfig()
+    )
+    for entry in task.entries:
+        entry.status = "complete"
+    save_crawl(cwd, task)
+    task.status = "complete"
+    save_crawl(cwd, task)
+
+    resumed = create_crawl(
+        cwd, "task-status", ["https://example.com/a"], CrawlConfig()
+    )
+
+    assert resumed.status == "complete"
+
+
+def test_resume_with_new_seed_reopens_crawl(cwd):
+    task = create_crawl(
+        cwd, "task-reopen", ["https://example.com/a"], CrawlConfig()
+    )
+    for entry in task.entries:
+        entry.status = "complete"
+    task.status = "complete"
+    save_crawl(cwd, task)
+
+    resumed = create_crawl(
+        cwd, "task-reopen", ["https://example.com/b"], CrawlConfig()
+    )
+
+    assert resumed.status == "running"
 
 
 def test_fair_batch_rotates_across_domains(cwd):
