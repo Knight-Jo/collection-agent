@@ -8,6 +8,40 @@
 
 （无进行中的实验）
 
+## [019-environment-fixes] - 2026-08-19
+
+### Changed
+
+- 环境（不在 git）：faster-whisper `small` 模型经 hf-mirror 缓存（`HF_HUB_DISABLE_XET=1`，HuggingFace Hub 直连超时）；tessdata 目录 `chi_sim`/`eng` 替换为 tessdata_best（fast 版本备份为 `*_fast_backup.traineddata`）。
+- `src/intel_agent/crawl.py`：`crawl_collect` 新增 `httpx_fallback` 参数（默认 false）；default_fetcher 在 pinned 连接错误（TimeoutError/OSError/NETWORK_ERROR）后回退 `httpx_fallback_fetch`。
+- `src/intel_agent/agent.py`：`_crawl_collect` 将 `settings.fetch.enable_httpx_fallback` 传入 crawl_collect。
+- `tests/test_crawl.py`：新增 2 个回退确定性测试（pinned 失败→httpx 成功；回退关闭→保留错误）。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff format --check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright`：PASS（0 errors）
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest -q`：PASS（351 passed, 1 skipped）
+
+### Experiment result
+
+- 状态：passed
+- 产物：`experiments/runs/019-environment-fixes/`
+- 代码版本：844a92a
+- 真实运行（019b）：exit_code=0，stage=done，completion_status=with_gaps，elapsed=1048.9s；019a 因 whisper 模型未缓存中断（collect，exit=2）
+- 关键指标：3/3 固定媒体目标提取成功——PDF（pymupdf）、视频（whisper 转写通过质量门控）、图片（tesseract-best OCR 通过质量门控）；logo×2 正确拦截；语料 28 篇
+- 假设结论：成立；多媒体验收瓶颈确在环境层，三项环境修复后全部目标生产提取成功
+
+### Correction（018 根因更正）
+
+- 018 将视频失败归因"DNS 钉扎直连 CDN 超时"——错误。019a 完整错误文本证实真实根因为 faster-whisper 从 HF Hub 下载模型超时（视频本体已成功归档）。原值：CDN 连接失败；正确值：whisper 模型下载失败；证据：019a crawl entry error 全文。
+
+### Known issues
+
+- Office/音频/JS 仍无公开稳定目标（数据集层缺口）。
+- 013/015 剩余阈值（来源组 8、双源率 100%）与语料规模相关，待封版决策。
+
 ## [018-multimedia-recall] - 2026-08-19
 
 ### Changed
