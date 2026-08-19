@@ -136,6 +136,24 @@ def test_report_rejects_unverified_fact(cwd):
     assert result["errors"][0]["code"] == "INSUFFICIENT_EVIDENCE"
 
 
+def test_report_material_guide_excludes_low_rated_materials(cwd):
+    task, facts, documents = seed_reportable_task(cwd)
+    unrelated = make_document(
+        cwd, "与主题无关的内容", "https://example.com/unrelated"
+    )
+    register_material(
+        cwd,
+        task.id,
+        unrelated.canonical_url,
+        document_id=unrelated.id,
+    )
+
+    result = generate_research_report(cwd, task.id, report_draft(task, facts))
+
+    content = Path(result["path"]).read_text(encoding="utf-8")
+    assert "另有 1 份低相关材料未展开" in content
+
+
 def test_report_rejects_reported_fact_as_unattributed_fact(cwd):
     task, facts, _ = seed_reportable_task(cwd)
     reported = save_fact(

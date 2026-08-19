@@ -96,6 +96,24 @@ def analyze(run_dir: Path) -> str:
         lines.append(f"- {tool}: {count}")
     lines.append("")
 
+    # 转化漏斗（015）：搜索 → 归档 → 阅读 → 证据 → 独立事实
+    funnel = _evidence_funnel(run_dir, calls)
+    if funnel:
+        lines.append("## 转化漏斗（搜索→归档→阅读→证据→事实）")
+        lines.append(
+            f"- 搜索次数: {funnel['searches']}（矩阵 {funnel['matrix_queries']}）"
+        )
+        lines.append(f"- 归档文档: {funnel['archived']}")
+        lines.append(
+            f"- 被阅读文档: {funnel['read']}（利用率 {funnel['read_rate']:.1%}）"
+        )
+        lines.append(
+            f"- 被证据引用文档: {funnel['cited']}（利用率 {funnel['cite_rate']:.1%}）"
+        )
+        lines.append(f"- 活跃事实: {funnel['active_facts']}")
+        lines.append(f"- 各深度证据产出率: {funnel['depth_yield']}")
+        lines.append("")
+
     # 重复调用检测
     repeats = _find_repeats(calls)
     if repeats:
@@ -215,6 +233,73 @@ def analyze(run_dir: Path) -> str:
         lines.append(f"- 新域候选: {new_domains}")
         lines.append("")
     return "\n".join(lines)
+
+
+def _evidence_funnel(run_dir: Path, calls: list[dict]) -> dict | None:
+    """搜索 → 归档 → 阅读 → 证据 → 独立事实 的转化漏斗（run 015）。"""
+    try:
+        state_dir = run_dir / "state"
+        documents = list((state_dir / "documents").glob("*.json"))
+        evidence_files = list((state_dir / "evidence").glob("*.json"))
+        facts = [
+            json.loads(path.read_text(encoding="utf-8"))
+            for path in (state_dir / "facts").glob("*.json")
+        ]
+    except OSError:
+        return None
+    searches = sum(1 for c in calls if c["tool"] == "web_search")
+    matrix_queries = 0
+    matrix_path = state_dir / "search_matrix.json"
+    if matrix_path.exists():
+        matrix = json.loads(matrix_path.read_text(encoding="utf-8"))
+        matrix_queries = len(matrix.get("trace", []))
+    read_ids: set[str] = set()
+    for call in calls:
+        if call["tool"] != "document_read":
+            continue
+        try:
+            args = (
+                json.loads(call["args"])
+                if isinstance(call.get("args"), str)
+                else call.get("args", {})
+            )
+        except json.JSONDecodeError:
+            continue
+        if args.get("document_id"):
+            read_ids.add(args["document_id"])
+    cited_ids: set[str] = set()
+    for path in evidence_files:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if record.get("document_id"):
+            cited_ids.add(record["document_id"])
+    active_facts = sum(1 for fact in facts if fact.get("status") == "active")
+    depth_yield: dict[int, str] = {}
+    for crawl_path in (state_dir / "crawls").glob("*.json"):
+        crawl = json.loads(crawl_path.read_text(encoding="utf-8"))
+        by_depth: dict[int, list[str]] = {}
+        for entry in crawl.get("entries", []):
+            by_depth.setdefault(entry.get("depth", 0), []).append(
+                entry.get("document_id")
+            )
+        for depth, ids in sorted(by_depth.items()):
+            doc_ids = [item for item in ids if item]
+            cited = sum(1 for item in doc_ids if item in cited_ids)
+            yield_rate = cited / len(doc_ids) if doc_ids else 0.0
+            depth_yield[depth] = (
+                f"depth={depth}: {cited}/{len(doc_ids)} ({yield_rate:.0%})"
+            )
+    archived = len(documents)
+    return {
+        "searches": searches,
+        "matrix_queries": matrix_queries,
+        "archived": archived,
+        "read": len(read_ids),
+        "read_rate": len(read_ids) / max(1, archived),
+        "cited": len(cited_ids),
+        "cite_rate": len(cited_ids) / max(1, archived),
+        "active_facts": active_facts,
+        "depth_yield": "; ".join(depth_yield.values()) or "不可计算",
+    }
 
 
 def _summarize_args(tool: str, args: dict) -> str:

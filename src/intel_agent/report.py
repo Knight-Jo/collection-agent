@@ -394,10 +394,20 @@ def generate_research_report(
     if digest.key_points:
         lines.extend(["", "### 内容摘要", ""])
         lines.extend(f"- {point}" for point in digest.key_points)
-    for material in digest.materials:
+    # 正文导读只展开高价值材料：≥3 星且最多 20 份；低相关材料只在来源
+    # 目录留名，不污染正文（run 015）。
+    recommended = [
+        material for material in digest.materials if material.rating >= 3
+    ][:20]
+    low_value_count = len(digest.materials) - len(recommended)
+    for material in recommended:
         lines.append(
             f"- {'★' * material.rating}{'☆' * (5 - material.rating)} "
             f"[{material.description}]({material.canonical_url})"
+        )
+    if low_value_count > 0:
+        lines.append(
+            f"- 另有 {low_value_count} 份低相关材料未展开，见来源目录。"
         )
     lines.extend(["", "## 来源目录", ""])
     document_hashes: dict[str, str] = {}

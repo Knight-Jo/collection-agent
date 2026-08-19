@@ -12,9 +12,12 @@ from pydantic_ai import RunContext
 
 import intel_agent.agent as agent_module
 from intel_agent.agent import AgentDeps, build_agent
+from intel_agent.audit import audit_task_evidence
 from intel_agent.config import BudgetConfig, CrawlConfig, Settings
 from intel_agent.coverage import eval_coverage
 from intel_agent.crawl import create_crawl
+from intel_agent.evidence import save_evidence
+from intel_agent.fact import save_fact
 from intel_agent.fetch import FetchedResponse
 from intel_agent.main import _build_parser
 from intel_agent.materials import load_material_digest, register_material
@@ -22,7 +25,7 @@ from intel_agent.models import IntelError, IntelTask
 from intel_agent.runner import TaskRunSpec, build_task_prompt, run_agent_task
 from intel_agent.storage import load_crawl, read_json_object, write_json_atomic
 from intel_agent.task import create_task, load_task, set_task_stage
-from tests.conftest import DEFAULT_CRITERIA, make_document
+from tests.conftest import DEFAULT_CRITERIA, fake_judge, make_document
 
 
 def _context(cwd, *, settings: Settings | None = None) -> RunContext[Any]:
@@ -670,6 +673,83 @@ def test_document_search_finds_crawled_multimedia_text(cwd):
 
     assert [item["document_id"] for item in result["results"]] == [relevant.id]
     assert "270" in result["results"][0]["snippet"]
+
+
+def test_document_search_ranks_novel_government_group_above_cited(cwd):
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+        deep_crawl=True,
+    )
+    cited_doc = make_document(
+        cwd, "订单 270 相关报道", "https://news.cn/order-270"
+    )
+    novel_doc = make_document(
+        cwd, "订单 270 政府文件", "https://www.gov.cn/order-270"
+    )
+    fact = save_fact(cwd, task.id, task.questions[0].id, "订单为 270")
+    save_evidence(cwd, fact.id, cited_doc.id, "supports", "订单 270 相关报道")
+    crawl = create_crawl(
+        cwd,
+        task.id,
+        [cited_doc.final_url, novel_doc.final_url],
+        CrawlConfig(),
+    )
+    for entry, document in zip(
+        crawl.entries, [cited_doc, novel_doc], strict=True
+    ):
+        entry.status = "complete"
+        entry.document_id = document.id
+        entry.extraction.status = "complete"
+    from intel_agent.storage import save_crawl
+
+    save_crawl(cwd, crawl)
+    agent = build_agent(Settings())
+
+    result = _tool(agent, "document_search")(
+        _context(cwd), task.id, "订单 270", 5
+    )
+
+    ids = [item["document_id"] for item in result["results"]]
+    assert ids[0] == novel_doc.id
+    assert result["results"][0]["novel_group"] is True
+
+
+def test_coverage_eval_returns_cross_verification_backlog(cwd):
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+        deep_crawl=True,
+    )
+    document = make_document(
+        cwd, "关于测试主题现状的报道", "https://news.cn/story"
+    )
+    fact = save_fact(cwd, task.id, task.questions[0].id, "测试主题现状为 A")
+    save_evidence(
+        cwd, fact.id, document.id, "supports", "关于测试主题现状的报道"
+    )
+    crawl = create_crawl(cwd, task.id, [document.final_url], CrawlConfig())
+    for entry in crawl.entries:
+        entry.status = "complete"
+        entry.document_id = document.id
+        entry.extraction.status = "complete"
+    from intel_agent.storage import save_crawl
+
+    save_crawl(cwd, crawl)
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+    agent = build_agent(Settings())
+
+    result = _tool(agent, "coverage_eval")(_context(cwd), task.id)
+
+    assert result["pending_cross_verification"]
+    pending = result["pending_cross_verification"][0]
+    assert pending["fact_id"] == fact.id
+    assert pending["independent_sources"] == 1
+    assert "document_search" in result["verification_workflow"]
 
 
 @pytest.mark.asyncio

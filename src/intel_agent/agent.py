@@ -612,6 +612,11 @@ def _document_search(cwd: Path, task_id: str, query: str, limit: int) -> dict:
     ]
     if not terms or not 1 <= limit <= 20:
         raise IntelError("INVALID_INPUT", "query 或 limit 无效")
+    # Source groups already carrying evidence for this task: cross-
+    # verification value means ranking NEW groups above them (run 015).
+    cited_groups: set[str] = set()
+    for evidence in list_evidence_for_task(cwd, task.id):
+        cited_groups.add(load_document(cwd, evidence.document_id).source_group)
     results: list[dict] = []
     for entry in load_crawl(cwd, task.id).entries:
         if not entry.document_id or entry.extraction.status != "complete":
@@ -632,6 +637,13 @@ def _document_search(cwd: Path, task_id: str, query: str, limit: int) -> dict:
             ),
             "",
         )
+        type_bonus = {
+            "government": 3,
+            "official": 2,
+            "news": 1,
+            "academic": 1,
+        }.get(document.source_type, 0)
+        novel_group = document.source_group not in cited_groups
         results.append(
             {
                 "document_id": document.id,
@@ -639,7 +651,14 @@ def _document_search(cwd: Path, task_id: str, query: str, limit: int) -> dict:
                 "url": document.final_url,
                 "mime_type": document.content_type,
                 "publish_time": document.publish_time,
-                "score": sum(normalized.count(term) for term in terms),
+                "source_group": document.source_group,
+                "source_type": document.source_type,
+                "novel_group": novel_group,
+                "score": (
+                    sum(normalized.count(term) for term in terms)
+                    + type_bonus
+                    + (2 if novel_group else 0)
+                ),
                 "snippet": matching_line[:500],
             }
         )
@@ -649,6 +668,47 @@ def _document_search(cwd: Path, task_id: str, query: str, limit: int) -> dict:
         "count": len(results[:limit]),
         "results": results[:limit],
     }
+
+
+def _coverage_eval_with_backlog(cwd: Path, task_id: str) -> dict:
+    snapshot = eval_coverage(cwd, task_id)
+    data = snapshot.model_dump()
+    # Verification backlog: single-source facts that must complete a second
+    # independent source before coverage can improve. The model should
+    # resolve these via document_search (local corpus first), then targeted
+    # web_search — not register new facts (run 015).
+    pending: list[dict] = []
+    for question in snapshot.per_question:
+        for fact in question.facts:
+            if (
+                fact.independent_sources < 2
+                and fact.status in ("covered", "partial")
+                and fact.supports_count > 0
+            ):
+                pending.append(
+                    {
+                        "fact_id": fact.fact_id,
+                        "statement": fact.statement[:60],
+                        "independent_sources": fact.independent_sources,
+                        "suggestion": next(
+                            (
+                                note
+                                for note in fact.notes
+                                if note.startswith("建议搜索")
+                            ),
+                            "先用 document_search 在本地语料补证，"
+                            "无果再 web_search 定向补证",
+                        ),
+                    }
+                )
+    data["pending_cross_verification"] = pending[:10]
+    if pending:
+        data["verification_workflow"] = (
+            "存在单源事实：先 document_search 本地语料补证，"
+            "无果再 web_search 定向补证；补齐第二独立来源组前，"
+            "优先解决 backlog 而不是登记新事实。"
+        )
+    return data
 
 
 def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
@@ -1027,7 +1087,7 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
     def coverage_eval_tool(ctx: RunContext[AgentDeps], task_id: str) -> dict:
         """按 Question→Fact 评估独立来源、质量、时效和矛盾。覆盖缺口连续两轮未下降即停止检索。"""
         return _guarded_sync(
-            lambda: eval_coverage(ctx.deps.cwd, task_id).model_dump()
+            lambda: _coverage_eval_with_backlog(ctx.deps.cwd, task_id)
         )
 
     @agent.tool(name="generate_package")
