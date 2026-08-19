@@ -32,6 +32,7 @@ from .fetch import (
     archive_document,
     canonicalize_url,
     fetch_with_validated_redirects,
+    httpx_fallback_fetch,
     pinned_fetch,
 )
 from .models import (
@@ -1203,6 +1204,7 @@ async def crawl_collect(
     sleep: Sleep = asyncio.sleep,
     on_event: CrawlEventCallback | None = None,
     renderer: BrowserRender | None = None,
+    httpx_fallback: bool = False,
 ) -> CrawlSnapshot:
     """Run or resume a task crawl without consuming the agent fetch budget."""
     seeds = seeds or []
@@ -1233,16 +1235,31 @@ async def crawl_collect(
             url: str, init: dict | None, address: str
         ) -> FetchedResponse:
             limits = init or {}
-            return await pinned_fetch(
-                url,
-                init,
-                address,
-                int(
-                    limits.get("_max_body_bytes", config.max_attachment_bytes)
-                ),
-                int(limits.get("_max_html_bytes", config.max_html_bytes)),
-                limits.get("_body_progress"),
+            max_bytes = int(
+                limits.get("_max_body_bytes", config.max_attachment_bytes)
             )
+            try:
+                return await pinned_fetch(
+                    url,
+                    init,
+                    address,
+                    max_bytes,
+                    int(limits.get("_max_html_bytes", config.max_html_bytes)),
+                    limits.get("_body_progress"),
+                )
+            except (TimeoutError, OSError, IntelError) as error:
+                # DNS-pinned direct IPs can miss CDN edges entirely; retry
+                # through httpx like web_fetch does (run 019: news.cn vodpub
+                # reachable via httpx but not via the pinned connection).
+                if not httpx_fallback:
+                    raise
+                if isinstance(error, IntelError) and error.code not in {
+                    "NETWORK_ERROR",
+                }:
+                    raise
+                return await httpx_fallback_fetch(
+                    url, init, address, max_bytes
+                )
 
         fetcher = default_fetcher
 

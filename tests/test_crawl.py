@@ -1074,6 +1074,71 @@ async def test_crawl_persists_complete_status_when_done(cwd):
 
 
 @pytest.mark.asyncio
+async def test_crawl_httpx_fallback_after_pinned_network_failure(
+    monkeypatch, cwd
+):
+    task = new_task(cwd)
+    calls: list[str] = []
+
+    async def failing_pinned(*_args, **_kwargs):
+        calls.append("pinned")
+        raise OSError("pinned connection failed")
+
+    async def fake_httpx(url, _init, _address, max_bytes):
+        calls.append("httpx")
+        return FetchedResponse(
+            status=200,
+            headers={"content-type": "text/html"},
+            body=b"fallback content",
+        )
+
+    monkeypatch.setattr(crawl_module, "pinned_fetch", failing_pinned)
+    monkeypatch.setattr(crawl_module, "httpx_fallback_fetch", fake_httpx)
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/root"],
+        config=CrawlConfig(
+            max_depth=0, obey_robots=False, per_host_delay_seconds=0
+        ),
+        resolver=_public_resolver,
+        httpx_fallback=True,
+    )
+
+    assert calls == ["pinned", "httpx"]
+    assert snapshot.entries[0].status == "complete"
+    assert snapshot.entries[0].document_id
+
+
+@pytest.mark.asyncio
+async def test_crawl_httpx_fallback_off_keeps_pinned_error(monkeypatch, cwd):
+    task = new_task(cwd)
+
+    async def failing_pinned(*_args, **_kwargs):
+        raise OSError("pinned connection failed")
+
+    monkeypatch.setattr(crawl_module, "pinned_fetch", failing_pinned)
+
+    snapshot = await crawl_collect(
+        cwd,
+        task.id,
+        ["https://example.com/root"],
+        config=CrawlConfig(
+            max_depth=0,
+            obey_robots=False,
+            per_host_delay_seconds=0,
+            retries=0,
+        ),
+        resolver=_public_resolver,
+        httpx_fallback=False,
+    )
+
+    assert snapshot.entries[0].status == "failed"
+    assert "pinned connection failed" in (snapshot.entries[0].error or "")
+
+
+@pytest.mark.asyncio
 async def test_default_robots_policy_uses_crawler_user_agent(cwd):
     task = new_task(cwd)
     fetched: list[str] = []

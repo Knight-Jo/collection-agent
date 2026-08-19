@@ -913,6 +913,7 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                 config=ctx.deps.settings.crawl,
                 on_event=ctx.deps.crawl_event_callback,
                 renderer=browser.render if browser is not None else None,
+                httpx_fallback=ctx.deps.settings.fetch.enable_httpx_fallback,
             )
         return summarize_crawl(snapshot)
 
