@@ -8,6 +8,37 @@
 
 （无进行中的实验）
 
+## [013-source-fairness] - 2026-08-19
+
+### Changed
+
+- `src/intel_agent/source.py`：论坛/社区/股吧域名（etbbs/xueqiu/guba/tieba/taoguba）归入 social；`ir.*` 子域识别为 first-party official；政府/新闻/学术分类保持。
+- `src/intel_agent/crawl.py`：非一手域按注册域配额（默认 `max(8, ceil(max_urls×0.10))`，`CrawlConfig.per_domain_cap` 可配，government/official 豁免）；social 总量上限改为相对已建 frontier 的 10%；队列批次改为按"来源类型→注册域"轮转（`_fair_batch`）；正文 SHA-256 同稿转载合并（`reused` 状态、不重复建档）；`create_crawl` 状态改为按实际 queued 计算（重复种子不再把已完成队列永久翻回 running）。
+- `src/intel_agent/config.py`：`CrawlConfig.per_domain_cap: int | None = None`。
+- `config.example.yaml`：补充 `per_domain_cap` 说明。
+- `tests/test_crawl.py`、`tests/test_source.py`、`tests/test_deep_crawl_workflow.py`：新增 11 个确定性测试（域配额/一手豁免/social 上限/轮转/转载合并/状态持久化/来源分类），改写 1 个受域配额影响的既有测试。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff format --check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright`：PASS（0 errors）
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest -q`：PASS（336 passed, 1 skipped）
+
+### Experiment result
+
+- 状态：**failed**（013a/013b/013c 三轮；013a/013b 因实现缺陷与配额未达验收作废，013c 为最终判定）
+- 产物：`experiments/runs/013-source-fairness/`
+- 代码版本：2392cd7（013c 运行时）
+- 真实运行（013c）：exit_code=0，stage=done，completion_status=with_gaps，elapsed=788.5s，model_requests=90（6.5M tokens）
+- 关键指标（013c，per_domain_cap=6）：最大非一手域 23.1%（阈值 ≤15%，❌）；前两域 46.2%（≤35%，❌）；有效域 5.73（≥6，❌）；论坛/社区 7.7%（≤10%，✅）；近重复 7.7%（≤10%，✅）；crawl.status=complete（✅）；013a→013c 改善：social 36.4%→7.7%、转载 12.5%→7.7%、状态持久化修复
+- 假设结论：不成立；公平机制（配额/轮转/转载合并）生效，但最大域占比与有效域数量在现有搜索种子域多样性下无法达标——公平调度无法凭空创造域多样性，缺口指向 014 确定性查询矩阵
+
+### Known issues
+
+- 主域名公司官网（如 ehang.com 主站）仍归 other：013 只覆盖 `ir.*` 子域信号，无域名清单时无法确定性识别公司主站。
+- 013 剩余三项阈值需在 014 提高种子域多样性后复测。
+
 ## [012-truthful-coverage] - 2026-08-19
 
 ### Changed
