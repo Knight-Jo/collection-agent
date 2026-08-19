@@ -8,6 +8,36 @@
 
 （无进行中的实验）
 
+## [018-multimedia-recall] - 2026-08-19
+
+### Changed
+
+- `src/intel_agent/agent.py`：`_intel_plan` 将 `sources.financial/ir_company/policy` 配置的直连来源作为 depth-0 种子注入深爬队列（web_fetch 拒绝非 HTML/PDF 内容类型，多媒体只能走爬取）。
+- `tests/test_deep_crawl_workflow.py`：新增部署源种子注入确定性测试。
+- `config.yaml`（本地，不提交）：配置 3 个手工验证的固定公开目标（文本层 PDF/新华网 mp4/新闻图）。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff format --check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright`：PASS（0 errors）
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest -q`：PASS（349 passed, 1 skipped）
+
+### Experiment result
+
+- 状态：**failed**（2/6 格式提取成功；报告实际值）
+- 产物：`experiments/runs/018-multimedia-recall/`
+- 代码版本：725c9ff
+- 真实运行：exit_code=0，stage=done，completion_status=with_gaps，elapsed=1440.0s，model_requests=99（11.7M tokens）
+- 关键指标：PDF 生产提取首次成功（pymupdf，43KB 文本，017→018 从 0→1）；视频 mp4 归档但提取失败（DNS 钉扎直连 CDN 超时，httpx 直连可达）；图片 4 份归档全部质量门控拦截；Office/音频/JS 零命中；gap_score 18→6
+- 假设结论：部分成立；部署源种子机制生效、PDF 生产提取打通，剩余缺口在环境与数据集层（CDN 可达性、tessdata_best、公开直链稀缺），管线代码未暴露新缺陷
+
+### Known issues
+
+- 爬取路径缺 httpx 回退（web_fetch 有）：018 视频失败的直接原因，019 候选。
+- tessdata_best 环境项未完成（008 遗留）：OCR 门控拦截率高的根因。
+- Office/音频公开直链稀缺：专项验收建议自建固定数据集。
+
 ## [017-rendered-multimedia-recall] - 2026-08-19
 
 ### Changed
