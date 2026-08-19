@@ -24,6 +24,7 @@ extract_keywords = _search_queries.extract_keywords
 industry_terms = _search_queries.industry_terms
 is_broad_query = _search_queries.is_broad_query
 is_semantic_duplicate = _search_queries.is_semantic_duplicate
+query_matrix = _search_queries.query_matrix
 query_similarity = _search_queries.query_similarity
 relevance_tokens = _search_queries.relevance_tokens
 tokenize_query = _search_queries.tokenize_query

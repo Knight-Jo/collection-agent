@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -191,6 +192,110 @@ async def test_runner_deep_crawl_setting_is_authoritative_at_plan_tool(
 
 
 @pytest.mark.asyncio
+async def test_web_search_executes_query_matrix_slots(monkeypatch, cwd):
+    create_task(
+        cwd,
+        "测试主题",
+        ["问题甲：测试主题的现状如何", "问题乙：测试主题的进展如何"],
+        DEFAULT_CRITERIA,
+        deep_crawl=True,
+    )
+    calls: list[str] = []
+
+    async def fake_search(query, _max, *, client, searxng_url, opts):
+        calls.append(query)
+        return {
+            "results": [
+                {
+                    "url": f"https://example.com/result-{len(calls)}",
+                    "title": "测试主题 结果",
+                }
+            ],
+            "engineUsed": "fake",
+        }
+
+    monkeypatch.setattr(agent_module, "web_search", fake_search)
+
+    await _tool(build_agent(Settings()), "web_search")(
+        _context(cwd), "具体 查询", 5, "general", "zh-CN", None
+    )
+
+    # First call is the model's own query; the next two are deterministic
+    # matrix slots executed in the same tool call (run 014).
+    assert calls[0] == "具体 查询"
+    assert len(calls) == 3
+    state = json.loads(
+        (cwd / "data/intel/search_matrix.json").read_text(encoding="utf-8")
+    )
+    assert len(state["executed"]) == 2
+    assert len(state["trace"]) == 2
+    record = state["trace"][0]
+    assert {
+        "query",
+        "slot",
+        "phase",
+        "question_id",
+        "engines",
+        "results",
+    } <= set(record)
+    assert record["results"][0]["url"].startswith("https://example.com/")
+    assert record["results"][0]["rank"] == 1
+    assert record["results"][0]["new_domain"] is True
+
+
+@pytest.mark.asyncio
+async def test_query_matrix_respects_phase_budgets(monkeypatch, cwd):
+    create_task(
+        cwd,
+        "测试主题",
+        ["问题甲：测试主题的现状如何", "问题乙：测试主题的进展如何"],
+        DEFAULT_CRITERIA,
+        deep_crawl=True,
+    )
+
+    async def fake_search(query, _max, *, client, searxng_url, opts):
+        return {
+            "results": [
+                {
+                    "url": f"https://example.com/{hash(query) % 10000}",
+                    "title": "测试主题 结果",
+                }
+            ],
+            "engineUsed": "fake",
+        }
+
+    monkeypatch.setattr(agent_module, "web_search", fake_search)
+    settings = Settings(budgets=BudgetConfig(search_attempts=6))
+    tool = _tool(build_agent(settings), "web_search")
+
+    await tool(
+        _context(cwd, settings=settings),
+        "具体 查询",
+        5,
+        "general",
+        "zh-CN",
+        None,
+    )
+    await tool(
+        _context(cwd, settings=settings),
+        "另一 查询",
+        5,
+        "general",
+        "zh-CN",
+        None,
+    )
+
+    state = json.loads(
+        (cwd / "data/intel/search_matrix.json").read_text(encoding="utf-8")
+    )
+    # Budget 6 → phase caps: discovery 2, verify 2, adversarial 1.
+    assert state["phase_used"]["discovery"] <= 2
+    assert state["phase_used"]["verify"] <= 2
+    assert state["phase_used"]["adversarial"] <= 1
+    assert sum(state["phase_used"].values()) >= 2
+
+
+@pytest.mark.asyncio
 async def test_web_search_news_empty_falls_back_to_general(monkeypatch, cwd):
     task = create_task(
         cwd,
@@ -220,7 +325,9 @@ async def test_web_search_news_empty_falls_back_to_general(monkeypatch, cwd):
     assert [entry.canonical_url for entry in crawl.entries] == [
         "https://example.com/a"
     ]
-    assert seen == ["news", "general"]
+    # The tool's own calls come first (news, then the general fallback);
+    # trailing calls belong to the deterministic query matrix (run 014).
+    assert seen[:2] == ["news", "general"]
 
 
 @pytest.mark.asyncio

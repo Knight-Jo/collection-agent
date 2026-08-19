@@ -10,6 +10,7 @@ were added to curb LLM re-fetch loops observed in experiments.
 
 from __future__ import annotations
 
+import asyncio
 import html
 import inspect
 import json
@@ -18,6 +19,7 @@ from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Literal
+from urllib.parse import urlparse
 
 import httpx
 from pydantic import BaseModel, Discriminator, Field, Tag
@@ -55,14 +57,22 @@ from .report import generate_research_report
 from .search import (
     build_query_variants,
     is_broad_query,
+    query_matrix,
     relevance_tokens,
     web_search,
+)
+from .search_queries import (
+    QUERY_MATRIX_PHASE,
+    QUERY_MATRIX_PHASE_BUDGET,
+    QUERY_MATRIX_SLOTS,
 )
 from .storage import (
     ensure_intel_dirs,
     load_crawl,
+    read_json,
     verify_document_integrity,
     workspace_path,
+    write_json_atomic,
 )
 from .task import (
     create_task,
@@ -385,6 +395,164 @@ def _seed_active_crawl(cwd: Path, settings: Settings, result: dict) -> None:
             )
 
 
+_MATRIX_FILE = "search_matrix.json"
+_MATRIX_QUERIES_PER_CALL = 2
+_matrix_lock = asyncio.Lock()
+
+
+def _matrix_state(cwd: Path) -> dict:
+    try:
+        state = read_json(cwd, _MATRIX_FILE)
+        if not isinstance(state, dict):
+            raise IntelError("STORAGE_CORRUPT", f"格式错误: {_MATRIX_FILE}")
+        return state
+    except IntelError as error:
+        if error.code != "NOT_FOUND":
+            raise
+        return {
+            "phase_used": {"discovery": 0, "verify": 0, "adversarial": 0},
+            "executed": {},
+            "trace": [],
+            "task_id": None,
+        }
+
+
+async def _run_query_matrix(
+    cwd: Path,
+    settings: Settings,
+    client: httpx.AsyncClient,
+    result: dict,
+    task: IntelTask,
+) -> dict:
+    """Deterministically execute pending query-matrix slots (run 014).
+
+    Runs inside the web_search tool; breadth no longer depends on the model
+    following query_plan hints. Each executed slot charges one search
+    attempt, respects the 40/40/20 phase budget, is seeded into the crawl,
+    and is recorded in data/intel/search_matrix.json (query, category,
+    language, engine, ranked URLs, new-domain and archived flags).
+    """
+    if not task.questions:
+        return result
+    async with _matrix_lock:
+        state = _matrix_state(cwd)
+        if state.get("task_id") != task.id:
+            state = {
+                "phase_used": {"discovery": 0, "verify": 0, "adversarial": 0},
+                "executed": {},
+                "trace": [],
+                "task_id": task.id,
+            }
+        total_budget = settings.budgets.search_attempts
+        phase_caps = {
+            phase: max(1, int(total_budget * share))
+            for phase, share in QUERY_MATRIX_PHASE_BUDGET.items()
+        }
+        archived = _archived_urls(cwd)
+        seen_domains: set[str] = set()
+        for entry in state["trace"]:
+            for item in entry.get("results", []):
+                url = item.get("url") or ""
+                host = (urlparse(url).hostname or "").lower()
+                if host:
+                    seen_domains.add(host)
+        system_queries: list[str] = []
+        executed_any = False
+        for question in task.questions:
+            matrix = query_matrix(task.topic, question.text)
+            for slot in QUERY_MATRIX_SLOTS:
+                phase = QUERY_MATRIX_PHASE[slot]
+                if state["phase_used"].get(phase, 0) >= phase_caps.get(
+                    phase, 1
+                ):
+                    continue
+                for index, matrix_query in enumerate(matrix.get(slot, [])):
+                    key = f"{question.id}:{slot}:{index}"
+                    if key in state["executed"]:
+                        continue
+                    try:
+                        record_search_attempt(
+                            cwd, limit=settings.budgets.search_attempts
+                        )
+                    except IntelError as error:
+                        if error.code == "SEARCH_BUDGET_EXHAUSTED":
+                            return result
+                        raise
+                    try:
+                        matrix_result = await web_search(
+                            matrix_query,
+                            10,
+                            client=client,
+                            searxng_url=settings.search.searxng_url,
+                            opts={"category": "general", "language": "zh-CN"},
+                        )
+                    except Exception:
+                        matrix_result = {"results": [], "engineUsed": "error"}
+                    for item in matrix_result.get("results", []):
+                        host = (
+                            urlparse(str(item.get("url", ""))).hostname or ""
+                        ).lower()
+                        item["new_domain"] = (
+                            bool(host) and host not in seen_domains
+                        )
+                        if host:
+                            seen_domains.add(host)
+                        item["already_archived"] = (
+                            str(item.get("url", "")).rstrip("/") in archived
+                        )
+                    state["executed"][key] = True
+                    state["phase_used"][phase] = (
+                        state["phase_used"].get(phase, 0) + 1
+                    )
+                    state["trace"].append(
+                        {
+                            "query": matrix_query,
+                            "slot": slot,
+                            "phase": phase,
+                            "question_id": question.id,
+                            "category": "general",
+                            "language": "zh-CN",
+                            "time_range": None,
+                            "engines": matrix_result.get("engineUsed", ""),
+                            "results": [
+                                {
+                                    "url": item.get("url"),
+                                    "rank": position,
+                                    "engine": item.get("engine"),
+                                    "kind": item.get("kind"),
+                                    "new_domain": item.get("new_domain"),
+                                    "archived": item.get("already_archived"),
+                                }
+                                for position, item in enumerate(
+                                    matrix_result.get("results", []), start=1
+                                )
+                            ],
+                        }
+                    )
+                    system_queries.append(matrix_query)
+                    executed_any = True
+                    _seed_active_crawl(cwd, settings, matrix_result)
+                    seen_urls = {
+                        item.get("url") for item in result.get("results", [])
+                    }
+                    result["results"].extend(
+                        item
+                        for item in matrix_result.get("results", [])
+                        if item.get("url") not in seen_urls
+                    )
+                    if len(system_queries) >= _MATRIX_QUERIES_PER_CALL:
+                        break
+                if len(system_queries) >= _MATRIX_QUERIES_PER_CALL:
+                    break
+            if len(system_queries) >= _MATRIX_QUERIES_PER_CALL:
+                break
+        if executed_any:
+            write_json_atomic(cwd, _MATRIX_FILE, state)
+        if system_queries:
+            result["system_queries"] = system_queries
+        return result
+
+
 def _read_document_lines(
     cwd: Path, document_id: str, start_line: int, end_line: int
 ) -> dict:
@@ -563,6 +731,20 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                 opts={"category": "general", "language": language},
             )
         _seed_active_crawl(ctx.deps.cwd, ctx.deps.settings, result)
+        try:
+            task = load_task(ctx.deps.cwd)
+        except IntelError as error:
+            if error.code != "NOT_FOUND":
+                raise
+            task = None
+        if task is not None:
+            await _run_query_matrix(
+                ctx.deps.cwd,
+                ctx.deps.settings,
+                ctx.deps.http,
+                result,
+                task,
+            )
         # 标记已归档 URL：防止模型反复抓取同一批候选，倒逼换词/翻页
         archived = _archived_urls(ctx.deps.cwd)
         for item in result.get("results", []):

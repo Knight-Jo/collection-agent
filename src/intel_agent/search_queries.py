@@ -244,3 +244,68 @@ def build_query_variants(topic: str, question: str) -> list[str]:
         for variant in variants
         if len(variant.split()) >= 2 or variant.startswith("EN:")
     ]
+
+
+QUERY_MATRIX_SLOTS = (
+    "discovery",
+    "primary",
+    "verify",
+    "structured",
+    "attachment",
+    "adversarial",
+)
+
+# Budget split by phase (run 014): discovery 40%, verification 40%,
+# adversarial + recency 20%.
+QUERY_MATRIX_PHASE: dict[str, str] = {
+    "discovery": "discovery",
+    "primary": "verify",
+    "verify": "verify",
+    "structured": "verify",
+    "attachment": "verify",
+    "adversarial": "adversarial",
+}
+QUERY_MATRIX_PHASE_BUDGET = {
+    "discovery": 0.4,
+    "verify": 0.4,
+    "adversarial": 0.2,
+}
+
+
+def query_matrix(topic: str, question: str) -> dict[str, list[str]]:
+    """Deterministic six-slot query matrix for one question (run 014).
+
+    Slots: broad discovery, first-party sources, independent verification,
+    structured data, attachments, adversarial/controversy. English entity
+    queries are added to discovery when the question carries Latin tokens;
+    company questions get an IR/regulatory primary query, policy questions
+    get the authoritative original text.
+    """
+    keywords = extract_keywords(question)
+    english_terms = " ".join(
+        re.findall(r"[a-zA-Z][a-zA-Z0-9-]{2,}", question)
+    ).lower()
+    slots: dict[str, list[str]] = {
+        "discovery": [f"{topic} {keywords}", f"{keywords} 最新 数据"],
+        "primary": authoritative_variants(question),
+        "verify": [
+            f"{keywords} 官方 公告",
+            f"{keywords} 同比 增长 统计",
+        ],
+        "structured": [f"{keywords} filetype:xlsx OR filetype:pptx"],
+        "attachment": [f"{keywords} filetype:pdf"],
+        "adversarial": [f"{keywords} 争议 质疑 负面"],
+    }
+    if english_terms:
+        slots["discovery"].append(f"{english_terms} {keywords}")
+    if re.search(r"投资|融资|商业化|订单|营收|公司|企业", question):
+        slots["primary"].append(f"{keywords} 官网 OR 投资者关系 OR 财报")
+    if re.search(r"政策|法规|条例|监管|标准", question):
+        slots["primary"].append(f"site:gov.cn {keywords}")
+    slots = {
+        slot: list(dict.fromkeys(queries)) for slot, queries in slots.items()
+    }
+    return {
+        slot: [query for query in queries if len(query.split()) >= 2]
+        for slot, queries in slots.items()
+    }

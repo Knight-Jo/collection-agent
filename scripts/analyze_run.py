@@ -188,6 +188,32 @@ def analyze(run_dir: Path) -> str:
         for f in active:
             lines.append(f"- {f['statement'][:70]}")
         lines.append("")
+
+    # 确定性查询矩阵（014）
+    matrix_path = run_dir / "state" / "search_matrix.json"
+    if matrix_path.exists():
+        matrix = json.loads(matrix_path.read_text(encoding="utf-8"))
+        trace = matrix.get("trace", [])
+        by_slot: dict[str, int] = {}
+        by_phase: dict[str, int] = {}
+        for entry in trace:
+            by_slot[entry.get("slot", "?")] = (
+                by_slot.get(entry.get("slot", "?"), 0) + 1
+            )
+            by_phase[entry.get("phase", "?")] = (
+                by_phase.get(entry.get("phase", "?"), 0) + 1
+            )
+        lines.append("## 查询矩阵（系统确定性执行）")
+        lines.append(f"- 已执行 {len(trace)} 条；phase 分布: {by_phase}")
+        lines.append(f"- slot 分布: {by_slot}")
+        new_domains = sum(
+            1
+            for entry in trace
+            for item in entry.get("results", [])
+            if item.get("new_domain")
+        )
+        lines.append(f"- 新域候选: {new_domains}")
+        lines.append("")
     return "\n".join(lines)
 
 

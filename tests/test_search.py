@@ -8,6 +8,7 @@ from intel_agent.search import (
     industry_terms,
     is_broad_query,
     is_semantic_duplicate,
+    query_matrix,
     relevance_tokens,
     tokenize_query,
 )
@@ -98,3 +99,31 @@ def test_query_plan_includes_document_and_media_discovery():
     assert any("filetype:png" in variant for variant in variants)
     assert any("filetype:mp3" in variant for variant in variants)
     assert any("filetype:mp4" in variant for variant in variants)
+
+
+def test_query_matrix_has_six_slots_with_expected_content():
+    matrix = query_matrix("低空经济", "2026年低空经济投资与融资趋势")
+
+    assert set(matrix) == {
+        "discovery",
+        "primary",
+        "verify",
+        "structured",
+        "attachment",
+        "adversarial",
+    }
+    assert any("site:" in query for query in matrix["primary"])
+    assert any(
+        "filetype:" in query
+        for query in matrix["attachment"] + matrix["structured"]
+    )
+    assert any("争议" in query for query in matrix["adversarial"])
+
+
+def test_query_matrix_adds_english_company_and_policy_queries():
+    company = query_matrix("低空经济", "EHang 亿航智能商业化进展与订单情况")
+    assert any("ehang" in query.lower() for query in company["discovery"])
+    assert any("官网" in query for query in company["primary"])
+
+    policy = query_matrix("低空经济", "低空经济政策与监管环境现状")
+    assert any("site:gov.cn" in query for query in policy["primary"])
