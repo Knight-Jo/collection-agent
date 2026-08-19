@@ -8,6 +8,36 @@
 
 （无进行中的实验）
 
+## [015-evidence-yield] - 2026-08-19
+
+### Changed
+
+- `src/intel_agent/agent.py`：`_document_search` 排序升级（术语匹配 + 来源类型权重 + 新来源组加成，返回 novel_group/source_group）；`coverage_eval` 工具新增 `pending_cross_verification`（单源事实 backlog）与 `verification_workflow` 指令（本地补证 → 定向补证 → 再评估）。
+- `src/intel_agent/report.py`：材料导读只展开 ≥3 星且 ≤20 份材料，低相关材料仅计数不展开。
+- `scripts/analyze_run.py`：ANALYSIS 新增转化漏斗段（搜索/矩阵/归档/阅读/引用/活跃事实/各深度证据产出率）。
+- `tests/test_deep_crawl_workflow.py`、`tests/test_report.py`：新增 3 个测试（新来源组排序、cross-verification backlog、报告低星材料排除）。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff format --check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright`：PASS（0 errors）
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest -q`：PASS（343 passed, 1 skipped）
+
+### Experiment result
+
+- 状态：**failed**（2/4 验收达标）
+- 产物：`experiments/runs/015-evidence-yield/`
+- 代码版本：3545fd9
+- 真实运行：exit_code=0，stage=done，completion_status=with_gaps，elapsed=792.7s，model_requests=85（8.5M tokens）
+- 关键指标：文档证据利用率 37.5%（≥20% ✅）；报告 1–2 星材料展开 0%（≤30% ✅）；独立来源组 5（≥8 ❌）；关键数字双源率 0%（100% ❌）；转化漏斗首次可观测（归档 24→阅读 11→引用 9→事实 13；depth0 21%/depth1 0%/depth2 75%）
+- 假设结论：部分成立；排序驱动与报告裁剪生效，但"本地补证→定向补证"闭环未发生——backlog 供给后模型行为不变，双源率仍 0
+
+### Known issues
+
+- 交叉验证闭环是模型行为缺口：012–015 供给侧修复（判定/配额/矩阵/backlog）均未改变"优先登记新事实而非补证"的行为；需要判定层强制执行（如 fact_save 门控）或接受现状。
+- 来源组 5/8 与语料规模（24 篇）相关；016 前需人工决策是否补判定层强制项。
+
 ## [014-deterministic-query-matrix] - 2026-08-19
 
 ### Changed
