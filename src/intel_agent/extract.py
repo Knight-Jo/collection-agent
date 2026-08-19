@@ -385,6 +385,18 @@ def _run_process(
     return completed
 
 
+def _minimal_text_quality(text: str) -> bool:
+    """Minimal quality gate for OCR/transcription output (run 017).
+
+    Machine output like "5: FER 7: o--BKANG" must not become evidence. Pass
+    when the text carries at least 10 CJK characters or 8 real words — short
+    noisy ASCII with numbers does not count.
+    """
+    if len(re.findall(r"[\u4e00-\u9fff]", text)) >= 10:
+        return True
+    return len(re.findall(r"[A-Za-z]{3,}", text)) >= 8
+
+
 def _ocr_image(
     raw: bytes,
     languages: str,
@@ -751,6 +763,11 @@ def extract_resource(
             text, links, processor = _extract_pdf(
                 raw, ocr_languages, url, cancellation_event
             )
+            if processor == "tesseract" and not _minimal_text_quality(text):
+                return ExtractionResult(
+                    status="unavailable",
+                    error="扫描件 OCR 文本质量不足，原件已归档但不进入证据",
+                )
             return ExtractionResult(
                 status="complete",
                 text=text,
@@ -814,13 +831,19 @@ def extract_resource(
         if mime in _IMAGE_MIMES or (
             mime in _GENERIC_MIMES and suffix in _IMAGE_SUFFIXES
         ):
+            ocr_text = (
+                _ocr_image(raw, ocr_languages)
+                if cancellation_event is None
+                else _ocr_image(raw, ocr_languages, cancellation_event)
+            )
+            if not _minimal_text_quality(ocr_text):
+                return ExtractionResult(
+                    status="unavailable",
+                    error="OCR 文本质量不足，原件已归档但不进入证据",
+                )
             return ExtractionResult(
                 status="complete",
-                text=_number_lines(
-                    _ocr_image(raw, ocr_languages)
-                    if cancellation_event is None
-                    else _ocr_image(raw, ocr_languages, cancellation_event)
-                ),
+                text=_number_lines(ocr_text),
                 processor="tesseract",
             )
         if mime in _AUDIO_MIMES | _VIDEO_MIMES or (
@@ -838,6 +861,11 @@ def extract_resource(
                 f"[{_timestamp(start)} --> {_timestamp(end)}] {segment}"
                 for start, end, segment in segments
             )
+            if not _minimal_text_quality(text):
+                return ExtractionResult(
+                    status="unavailable",
+                    error="转写文本质量不足，原件已归档但不进入证据",
+                )
             return ExtractionResult(
                 status="complete", text=text, processor="faster-whisper"
             )

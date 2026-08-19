@@ -247,6 +247,56 @@ def test_html_container_signal_does_not_match_address_class():
     assert result.link_relevance["https://example.com/office"] == 1
 
 
+def test_minimal_text_quality_rejects_ocr_noise():
+    from intel_agent.extract import _minimal_text_quality
+
+    assert _minimal_text_quality("5: FER 7: o--BKANG") is False
+    assert _minimal_text_quality("") is False
+    assert (
+        _minimal_text_quality("低空经济产业规模预计2026年突破万亿元") is True
+    )
+    assert (
+        _minimal_text_quality(
+            "the low altitude economy market keeps growing rapidly"
+        )
+        is True
+    )
+
+
+def test_garbage_ocr_image_is_unavailable_not_evidence(monkeypatch):
+    import intel_agent.extract as extract_module
+
+    monkeypatch.setattr(
+        extract_module, "_ocr_image", lambda raw, *args, **kwargs: "5: FER 7"
+    )
+    result = extract_resource(
+        b"not-a-real-image",
+        "image/png",
+        "https://example.com/photo.png",
+    )
+
+    assert result.status == "unavailable"
+    assert "质量不足" in (result.error or "")
+
+
+def test_garbage_transcript_is_unavailable_not_evidence(monkeypatch):
+    import intel_agent.extract as extract_module
+
+    monkeypatch.setattr(
+        extract_module,
+        "_transcribe_media",
+        lambda raw, *args, **kwargs: [(0.0, 1.0, "7: FER 7")],
+    )
+    result = extract_resource(
+        b"not-a-real-audio",
+        "audio/mp4",
+        "https://example.com/interview.mp4",
+    )
+
+    assert result.status == "unavailable"
+    assert "质量不足" in (result.error or "")
+
+
 def test_empty_html_is_unavailable_but_still_discovers_attachments():
     result = extract_resource(
         b'<html><body><a href="/report.pdf">report</a></body></html>',
@@ -485,24 +535,37 @@ def test_heavy_extraction_cancellation_terminates_parser_children(
 def test_ocr_text_has_line_numbers(monkeypatch):
     monkeypatch.setattr(
         "intel_agent.extract._ocr_image",
-        lambda raw, languages: "first\nsecond",
+        lambda raw, languages: (
+            "低空经济市场规模持续增长超过万亿\n产业投资活跃"
+        ),
     )
     result = extract_resource(
         b"image", "image/png", "https://example.com/image.png"
     )
-    assert result.text == "1: first\n2: second"
+    assert (
+        result.text == "1: 低空经济市场规模持续增长超过万亿\n2: 产业投资活跃"
+    )
     assert result.processor == "tesseract"
 
 
 def test_transcript_has_timestamps(monkeypatch):
     monkeypatch.setattr(
         "intel_agent.extract._transcribe_media",
-        lambda raw, suffix, model: [(0.0, 1.25, "hello")],
+        lambda raw, suffix, model: [
+            (
+                0.0,
+                1.25,
+                "低空经济市场规模持续增长 产业投资活跃 发展前景广阔 多地区加快布局",
+            )
+        ],
     )
     result = extract_resource(
         b"audio", "audio/mpeg", "https://example.com/clip.mp3"
     )
-    assert result.text == "[00:00:00.000 --> 00:00:01.250] hello"
+    assert result.text == (
+        "[00:00:00.000 --> 00:00:01.250] "
+        "低空经济市场规模持续增长 产业投资活跃 发展前景广阔 多地区加快布局"
+    )
     assert result.processor == "faster-whisper"
 
 

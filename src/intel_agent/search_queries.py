@@ -293,7 +293,16 @@ def query_matrix(topic: str, question: str) -> dict[str, list[str]]:
             f"{keywords} 同比 增长 统计",
         ],
         "structured": [f"{keywords} filetype:xlsx OR filetype:pptx"],
-        "attachment": [f"{keywords} filetype:pdf"],
+        # Attachment queries cover the full media matrix so the crawl can
+        # discover PDFs, Office files, images, audio and video (run 017).
+        "attachment": [
+            f"{keywords} filetype:pdf",
+            f"{keywords} filetype:docx",
+            f"{keywords} filetype:xlsx OR filetype:pptx",
+            f"{keywords} filetype:png OR filetype:jpg OR filetype:webp",
+            f"{keywords} filetype:mp3 OR filetype:wav OR filetype:m4a",
+            f"{keywords} filetype:mp4 OR filetype:webm OR filetype:mov",
+        ],
         "adversarial": [f"{keywords} 争议 质疑 负面"],
     }
     if english_terms:
