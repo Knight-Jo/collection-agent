@@ -33,7 +33,7 @@ from .browser import BrowserRenderer
 from .challenge import confirm_challenge, start_challenge
 from .config import ModelConfig, Settings
 from .conflicts import resolve_conflict, save_conflict
-from .coverage import eval_coverage
+from .coverage import eval_coverage, latest_coverage
 from .crawl import CrawlEventCallback, create_crawl, summarize_crawl
 from .crawl import crawl_collect as run_crawl_collect
 from .evidence import (
@@ -765,15 +765,26 @@ def _fact_save_with_gate(
 ) -> dict:
     backlog = _single_source_backlog(cwd, task_id)
     if backlog:
-        pending = "；".join(
-            f"「{item['statement']}」({item['source_groups']}/{item['required']} 组)"
-            for item in backlog[:3]
+        # Honest escape hatches: verification can genuinely be exhausted
+        # (search budget gone, or coverage already declared no progress).
+        # Registration then resumes so the run can finish with_gaps
+        # instead of deadlocking in collect (run 020).
+        task = load_task(cwd, task_id)
+        search_exhausted = task.collection.search_stop_reason is not None
+        coverage = latest_coverage(cwd, task_id)
+        no_progress = (
+            coverage is not None and coverage.stop_reason == "no_progress"
         )
-        raise IntelError(
-            "CROSS_VERIFY_BACKLOG",
-            "存在未完成交叉验证的单源事实，登记新事实前必须先补齐第二独立来源组"
-            f"（evidence_save → evidence_audit）：{pending}",
-        )
+        if not (search_exhausted or no_progress):
+            pending = "；".join(
+                f"「{item['statement']}」({item['source_groups']}/{item['required']} 组)"
+                for item in backlog[:3]
+            )
+            raise IntelError(
+                "CROSS_VERIFY_BACKLOG",
+                "存在未完成交叉验证的单源事实，登记新事实前必须先补齐第二独立来源组"
+                f"（evidence_save → evidence_audit）：{pending}",
+            )
     return save_fact(
         cwd, task_id, question_id, statement, claim_type
     ).model_dump()

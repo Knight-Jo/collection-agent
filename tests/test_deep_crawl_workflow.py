@@ -752,6 +752,55 @@ def test_fact_save_gated_while_single_source_backlog_exists(cwd):
     assert "id" in reopened
 
 
+def test_fact_save_gate_opens_after_search_budget_exhausted(cwd):
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+    )
+    agent = build_agent(Settings())
+    fact_tool = _tool(agent, "fact_save")
+
+    first = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 A")
+    first_doc = make_document(cwd, "事实 A 报道", "https://news.cn/a")
+    save_evidence(cwd, first["id"], first_doc.id, "supports", "事实 A 报道")
+
+    blocked = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 B")
+    assert blocked["error"]["code"] == "CROSS_VERIFY_BACKLOG"
+
+    # Mark the search budget exhausted: the honest escape hatch opens.
+    loaded = load_task(cwd, task.id)
+    loaded.collection.search_stop_reason = "search_budget_exhausted"
+    from intel_agent.task import save_task
+
+    save_task(cwd, loaded)
+
+    allowed = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 B")
+    assert "id" in allowed
+
+
+def test_fact_save_gate_opens_after_coverage_no_progress(cwd):
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+    )
+    agent = build_agent(Settings())
+    fact_tool = _tool(agent, "fact_save")
+
+    first = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 A")
+    first_doc = make_document(cwd, "事实 A 报道", "https://news.cn/a")
+    save_evidence(cwd, first["id"], first_doc.id, "supports", "事实 A 报道")
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+    for _ in range(3):
+        eval_coverage(cwd, task.id)
+
+    allowed = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 B")
+    assert "id" in allowed
+
+
 def test_fact_save_gate_exempts_official_backed_primary_claim(cwd):
     task = create_task(
         cwd,
