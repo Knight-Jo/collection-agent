@@ -8,8 +8,9 @@ import pytest
 from pydantic import ValidationError
 
 from intel_agent.config import BudgetConfig, Settings
-from intel_agent.models import SufficiencyCriteria
+from intel_agent.models import ResearchScope, SufficiencyCriteria
 from intel_agent.runner import TaskRunSpec, build_task_prompt, run_agent_task
+from intel_agent.task import create_task, load_task, parse_time_range
 
 
 def make_spec() -> TaskRunSpec:
@@ -23,6 +24,52 @@ def make_spec() -> TaskRunSpec:
             require_recency=False,
         ),
     )
+
+
+def test_parse_time_range_recognizes_single_year_and_ranges():
+    assert parse_time_range("2026年低空经济投资与融资趋势") == "2026"
+    assert parse_time_range("低空经济 2024-2026 发展情况") == "2024-2026"
+    assert parse_time_range("低空经济 2024年至2026年 发展情况") == "2024-2026"
+    assert parse_time_range("低空经济投资与融资趋势") == ""
+    assert parse_time_range("") == ""
+
+
+def test_create_task_copies_explicit_scope_time_range_to_every_question(cwd):
+    task = create_task(
+        cwd,
+        "测试主题",
+        ["2026年测试主题的现状如何", "测试主题的进展如何"],
+        SufficiencyCriteria(
+            min_independent_sources=2,
+            min_high_quality_sources=1,
+            recency_days=90,
+            require_recency=False,
+        ),
+        scope=ResearchScope(time_range="2024-2026"),
+    )
+
+    assert [q.time_range for q in task.questions] == [
+        "2024-2026",
+        "2024-2026",
+    ]
+
+
+def test_create_task_parses_year_per_question_without_scope(cwd):
+    task = create_task(
+        cwd,
+        "测试主题",
+        ["2026年测试主题的现状如何", "测试主题的进展如何"],
+        SufficiencyCriteria(
+            min_independent_sources=2,
+            min_high_quality_sources=1,
+            recency_days=90,
+            require_recency=False,
+        ),
+    )
+
+    assert [q.time_range for q in task.questions] == ["2026", ""]
+    persisted = load_task(cwd, task.id)
+    assert [q.time_range for q in persisted.questions] == ["2026", ""]
 
 
 def test_task_run_spec_validates_run_limits():

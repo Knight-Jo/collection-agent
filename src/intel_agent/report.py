@@ -11,6 +11,7 @@ from .evidence import load_document
 from .fact import list_active_facts_for_task
 from .materials import generate_material_digest
 from .models import (
+    CoverageSnapshot,
     EvidenceSupport,
     ResearchConclusion,
     ResearchReportInput,
@@ -41,6 +42,42 @@ def _statement(conclusion: ResearchConclusion, fact_by_id: dict) -> str:
     if conclusion.kind == "inference":
         return normalized_statement(conclusion.statement)
     return fact_by_id[conclusion.fact_id].statement
+
+
+def _report_limitations(coverage: CoverageSnapshot) -> list[str]:
+    """Mandatory limitation entries derived from the coverage snapshot.
+
+    Single-source facts, uncovered questions, time-scope gaps, unresolved
+    conflicts, and source over-concentration must surface in the report
+    (run 012: truthful coverage); "未发现额外局限" is only valid when this
+    list is empty.
+    """
+    limitations: list[str] = []
+    group_counts: dict[str, int] = {}
+    for question in coverage.per_question:
+        if question.status != "covered":
+            limitations.append(f"问题未完全覆盖：「{question.question}」")
+            limitations.extend(question.notes)
+        for fact in question.facts:
+            if fact.independent_sources == 1 and fact.status != "gap":
+                limitations.append(f"单源事实：「{fact.statement}」")
+            if fact.time_scope_gap > 0:
+                limitations.append(
+                    f"时间缺口：「{fact.statement}」缺少时间范围内来源"
+                )
+            if (
+                fact.unresolved_conflicts > 0
+                or fact.unresolved_contradictions > 0
+            ):
+                limitations.append(f"未解决冲突：「{fact.statement}」")
+            for group in fact.source_groups:
+                group_counts[group] = group_counts.get(group, 0) + 1
+    fact_total = sum(q.fact_count for q in coverage.per_question)
+    if fact_total >= 3 and group_counts:
+        dominant_count = max(group_counts.values())
+        if dominant_count / fact_total > 0.5:
+            limitations.append("来源过度集中：超过半数事实来自同一来源组")
+    return list(dict.fromkeys(limitations))
 
 
 def generate_research_report(
@@ -351,17 +388,7 @@ def generate_research_report(
         f"- {item}" for item in (uncertainties or ["未发现已登记的重大分歧。"])
     )
     lines.extend(["", "## 局限", ""])
-    limitations = list(
-        dict.fromkeys(
-            [
-                note
-                for question in coverage.per_question
-                if question.status != "covered"
-                for note in question.notes
-            ]
-            + digest.gaps
-        )
-    )
+    limitations = _report_limitations(coverage) + list(digest.gaps)
     lines.extend(f"- {item}" for item in (limitations or ["未发现额外局限。"]))
     lines.extend(["", "## 材料导读", "", digest.overview])
     if digest.key_points:

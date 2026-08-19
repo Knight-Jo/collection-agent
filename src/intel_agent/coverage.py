@@ -28,7 +28,7 @@ from .storage import (
     verify_document_integrity,
     write_json_atomic,
 )
-from .task import load_task, require_crawl_complete
+from .task import load_task, parse_time_range, require_crawl_complete
 
 HIGH_QUALITY: set[SourceType] = {"official", "government", "news", "academic"}
 
@@ -41,12 +41,27 @@ def _is_recent(value: str | None, now: datetime, recency_days: int) -> bool:
     return timedelta(0) <= age <= timedelta(days=recency_days)
 
 
+def _within_time_range(value: str | None, time_range: str) -> bool:
+    """True when the publish date's year falls inside a YYYY or YYYY-YYYY range."""
+    if not time_range or not value or not is_valid_calendar_date(value):
+        return False
+    year = int(value[:4])
+    parsed = parse_time_range(time_range)
+    if not parsed:
+        return False
+    if "-" in parsed:
+        start, _, end = parsed.partition("-")
+        return int(start) <= year <= int(end)
+    return year == int(parsed)
+
+
 def _evaluate_fact(
     cwd: Path,
     fact: Fact,
     criteria,
     conflicts: list[EvidenceConflict],
     now: datetime,
+    time_range: str = "",
 ) -> FactCoverage:
     evidence = list_evidence_for_fact(cwd, fact.id)
     candidate_supports = [e for e in evidence if e.relation == "supports"]
@@ -101,31 +116,52 @@ def _evaluate_fact(
     # gap_score is a plain sum of independent deficits; each term is 0 when
     # satisfied, so score 0 == fully covered. Contradictions and unresolved
     # conflicts count directly because a covered fact must not sit on a
-    # contested base.
-    requires_corroboration = fact.claim_type == "corroborated"
-    min_sources = (
-        criteria.min_independent_sources if requires_corroboration else 1
+    # contested base. Every claim type except a primary claim backed by an
+    # official/government document must meet the task-level source and
+    # quality thresholds; reported single-source facts no longer pass
+    # (run 012: truthful coverage).
+    primary_exception = fact.claim_type == "primary" and any(
+        document.source_type in ("official", "government")
+        for document in documents
     )
-    min_quality = (
-        criteria.min_high_quality_sources if requires_corroboration else 0
-    )
+    if primary_exception:
+        min_sources = 1
+        min_quality = 0
+    else:
+        min_sources = criteria.min_independent_sources
+        min_quality = criteria.min_high_quality_sources
     source_gap = max(0, min_sources - len(source_groups))
     quality_gap = max(0, min_quality - len(high_quality_groups))
     recency_gap = 1 if criteria.require_recency and recent_count == 0 else 0
+    in_scope_sources = (
+        sum(
+            1
+            for d in documents
+            if _within_time_range(d.publish_time, time_range)
+        )
+        if time_range
+        else 0
+    )
+    time_scope_gap = 1 if time_range and in_scope_sources == 0 else 0
     gap_score = (
         source_gap
         + quality_gap
         + recency_gap
+        + time_scope_gap
         + unresolved_conflicts
         + unresolved_contradictions
     )
     notes: list[str] = []
+    if primary_exception:
+        notes.append("单一一手来源，尚未独立验证")
     if source_gap > 0:
         notes.append("独立来源组不足")
     if quality_gap > 0:
         notes.append("高质量独立来源组不足")
     if recency_gap > 0:
         notes.append("无可确认的时效窗口内证据")
+    if time_scope_gap > 0:
+        notes.append(f"缺少时间范围 {time_range} 内的证据")
     if unresolved_conflicts > 0:
         notes.append("存在未消解矛盾")
     if unresolved_contradictions > 0:
@@ -165,6 +201,8 @@ def _evaluate_fact(
         high_quality_sources=len(high_quality_groups),
         recent_count=recent_count,
         unknown_publish_time=unknown_publish_time,
+        in_scope_sources=in_scope_sources,
+        time_scope_gap=time_scope_gap,
         unresolved_conflicts=unresolved_conflicts,
         unresolved_contradictions=unresolved_contradictions,
         gap_score=gap_score,
@@ -182,7 +220,9 @@ def _evaluate_question(
     task = load_task(cwd, task_id)
     question = next(q for q in task.questions if q.id == question_id)
     facts = [
-        _evaluate_fact(cwd, f, task.criteria, conflicts, now)
+        _evaluate_fact(
+            cwd, f, task.criteria, conflicts, now, question.time_range
+        )
         for f in list_active_facts_for_question(cwd, task.id, question.id)
     ]
     covered_count = sum(1 for f in facts if f.status == "covered")
@@ -197,7 +237,7 @@ def _evaluate_question(
     elif has_conflict:
         status = "partial"
         notes = ["存在未消解矛盾"]
-    elif covered_count > 0:
+    elif covered_count == len(facts):
         status = "covered"
         notes = []
     else:

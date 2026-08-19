@@ -15,6 +15,7 @@ from pydantic_ai.usage import UsageLimits
 from .agent import build_agent, build_deps
 from .config import Settings
 from .models import ReportDepth, ResearchScope, SufficiencyCriteria
+from .task import parse_time_range
 
 EventCallback = Callable[[object], Awaitable[None]]
 
@@ -109,15 +110,35 @@ def build_task_prompt(spec: TaskRunSpec) -> str:
         )
         if value
     ]
+    # Per-question year constraints are parsed deterministically by the task
+    # layer; surface them so the model fetches in-scope sources. Task scope
+    # wins and is already shown above, so only list parsed question years
+    # when no task-level range exists.
+    question_time_parts = (
+        [
+            f"「{question}」时间范围={parsed}"
+            for question in spec.questions
+            if not spec.scope.time_range
+            and (parsed := parse_time_range(question))
+        ]
+        if spec.questions
+        else []
+    )
+    time_constraint_line = (
+        f"；逐问题时间约束：{'；'.join(question_time_parts)}。"
+        if question_time_parts
+        else "。"
+    )
     return (
         f"请围绕主题「{spec.topic}」执行公开信息调研并形成正式报告。\n"
         f"【调研目标】{spec.objective or '围绕主题形成公开信息调研报告'}。\n"
-        f"【调研范围】{'；'.join(scope_parts) or '未限定'}；报告深度={spec.report_depth}。\n"
+        f"【调研范围】{'；'.join(scope_parts) or '未限定'}{time_constraint_line}报告深度={spec.report_depth}。\n"
         f"【关键问题】{question_instruction}"
-        f"【交叉验证标准】corroborated 声明使用 min_independent_sources={criteria.min_independent_sources}，"
+        f"【交叉验证标准】corroborated 和 reported 声明均使用 min_independent_sources={criteria.min_independent_sources}，"
         f"min_high_quality_sources={criteria.min_high_quality_sources}，recency_days={criteria.recency_days}，"
         f"require_recency={str(criteria.require_recency).lower()}（{recency_required}）；"
-        "primary 和 attributed reported 声明可由一个审核通过的一手来源支持。\n"
+        "primary 声明仅当至少一个审核通过的支持文档来自官方或政府来源时才可由单一来源支持；"
+        "含年份的问题必须用该时间范围内的来源取证，范围外或发布时间未知的来源不满足时间要求。\n"
         f"【深度抓取】调用 intel_plan 时必须设置 deep_crawl={str(bool(spec.deep_crawl)).lower()}。"
         f"{deep_crawl_instruction}"
         "【检索纪律】围绕每个问题制定不同查询，优先获取与声明类型匹配的一手或高质量公开来源；"

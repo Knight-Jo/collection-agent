@@ -5,7 +5,14 @@ import asyncio
 from intel_agent.audit import audit_task_evidence
 from intel_agent.coverage import eval_coverage, latest_coverage
 from intel_agent.fact import save_fact
-from tests.conftest import fake_judge, make_document, new_task, save_evidence
+from intel_agent.task import create_task
+from tests.conftest import (
+    DEFAULT_CRITERIA,
+    fake_judge,
+    make_document,
+    new_task,
+    save_evidence,
+)
 
 
 def _seed_covered_task(cwd, recency_days=90, high_quality=1):
@@ -65,7 +72,81 @@ def test_coverage_sufficient(cwd):
     assert all(q.status == "covered" for q in snapshot.per_question)
 
 
-def test_answered_question_does_not_regress_for_an_extra_partial_fact(cwd):
+def test_reported_claim_single_source_is_not_covered(cwd):
+    task = new_task(cwd)
+    question = task.questions[0]
+    document = make_document(
+        cwd, "媒体报道测试主题现状", "https://news.cn/story"
+    )
+    fact = save_fact(
+        cwd,
+        task.id,
+        question.id,
+        "测试主题现状为 A",
+        claim_type="reported",
+    )
+    save_evidence(cwd, fact.id, document, "supports", "媒体报道测试主题现状")
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+
+    coverage = eval_coverage(cwd, task.id)
+
+    fact_coverage = coverage.per_question[0].facts[0]
+    assert fact_coverage.status == "partial"
+    assert fact_coverage.independent_sources == 1
+    assert "独立来源组不足" in fact_coverage.notes
+
+
+def test_primary_claim_single_non_official_source_is_not_covered(cwd):
+    task = new_task(cwd)
+    question = task.questions[0]
+    document = make_document(
+        cwd, "企业官网发布测试主题公告", "https://example.com/corp"
+    )
+    fact = save_fact(
+        cwd,
+        task.id,
+        question.id,
+        "企业官网发布测试主题公告",
+        claim_type="primary",
+    )
+    save_evidence(
+        cwd, fact.id, document, "supports", "企业官网发布测试主题公告"
+    )
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+
+    coverage = eval_coverage(cwd, task.id)
+
+    assert coverage.per_question[0].facts[0].status == "partial"
+
+
+def test_question_time_scope_gap_blocks_coverage(cwd):
+    task = create_task(
+        cwd,
+        "测试主题",
+        ["2026年测试主题的现状如何", "测试主题的进展如何"],
+        DEFAULT_CRITERIA,
+    )
+    question = task.questions[0]
+    document = make_document(
+        cwd,
+        "关于测试主题现状的报道 A",
+        "https://news.cn/x1",
+        publish_time="2024-07-01",
+    )
+    fact = save_fact(cwd, task.id, question.id, "测试主题现状为 A")
+    save_evidence(
+        cwd, fact.id, document.id, "supports", "关于测试主题现状的报道 A"
+    )
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+
+    coverage = eval_coverage(cwd, task.id)
+
+    fact_coverage = coverage.per_question[0].facts[0]
+    assert fact_coverage.time_scope_gap == 1
+    assert fact_coverage.status != "covered"
+
+
+def test_question_is_not_covered_while_any_active_fact_is_partial(cwd):
     task = _seed_covered_task(cwd)
     initial = eval_coverage(cwd, task.id)
     extra = save_fact(
@@ -84,9 +165,10 @@ def test_answered_question_does_not_regress_for_an_extra_partial_fact(cwd):
 
     updated = eval_coverage(cwd, task.id)
 
-    assert initial.level == updated.level == "sufficient"
-    assert initial.gap_score == updated.gap_score == 0
-    assert updated.per_question[0].answer_status == "answered"
+    assert initial.level == "sufficient"
+    assert updated.per_question[0].status == "partial"
+    assert updated.per_question[0].answer_status == "partial"
+    assert updated.level != "sufficient"
     extra_coverage = next(
         fact
         for fact in updated.per_question[0].facts

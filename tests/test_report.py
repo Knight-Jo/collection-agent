@@ -14,7 +14,7 @@ from intel_agent.models import (
     ResearchReportInput,
     ResearchReportSection,
 )
-from intel_agent.report import generate_research_report
+from intel_agent.report import _report_limitations, generate_research_report
 from tests.conftest import fake_judge, make_document, new_task, save_evidence
 
 
@@ -80,6 +80,35 @@ def test_report_has_question_sections_citations_digest_and_no_internal_ids(
     assert documents[0].final_url in content
     assert "fact-" not in content
     assert "doc-" not in content
+
+
+def test_report_limitations_list_single_source_and_time_gaps(cwd):
+    task = new_task(
+        cwd,
+        ["2026年测试主题的现状如何", "测试主题的进展如何"],
+    )
+    fact = save_fact(
+        cwd,
+        task.id,
+        task.questions[0].id,
+        "媒体报道测试主题现状为 A",
+        claim_type="reported",
+    )
+    document = make_document(
+        cwd,
+        "媒体报道测试主题现状为 A",
+        "https://news.cn/story",
+        publish_time="2024-07-01",
+    )
+    save_evidence(cwd, fact.id, document, "supports", fact.statement)
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+    snapshot = eval_coverage(cwd, task.id)
+
+    limitations = _report_limitations(snapshot)
+
+    assert any("单源事实" in item for item in limitations)
+    assert any("时间缺口" in item for item in limitations)
+    assert any("问题未完全覆盖" in item for item in limitations)
 
 
 def test_report_rejects_unverified_fact(cwd):

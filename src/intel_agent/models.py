@@ -113,6 +113,7 @@ class ResearchScope(BaseModel):
 class IntelQuestion(BaseModel):
     id: str
     text: str
+    time_range: str = ""
 
 
 class TaskOutputBinding(BaseModel):
@@ -282,6 +283,8 @@ class FactCoverage(BaseModel):
     high_quality_sources: int
     recent_count: int
     unknown_publish_time: int
+    in_scope_sources: int = 0
+    time_scope_gap: int = 0
     unresolved_conflicts: int
     unresolved_contradictions: int
     gap_score: int

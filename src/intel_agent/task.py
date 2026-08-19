@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from .models import (
@@ -38,6 +39,32 @@ STAGE_ORDER: list[TaskStage] = ["collect", "assess", "challenge", "done"]
 FETCH_ATTEMPT_LIMIT = 6
 SEARCH_ATTEMPT_LIMIT = 6
 
+_YEAR_RE = re.compile(r"(?<!\d)(\d{4})(?!\d)")
+_YEAR_RANGE_RE = re.compile(
+    r"(?<!\d)(\d{4})年?\s*(?:至|到|[-—])\s*(\d{4})年?(?!\d)"
+)
+
+
+def parse_time_range(text: str) -> str:
+    """Parse an explicit year constraint: YYYY or YYYY-YYYY / YYYY至YYYY.
+
+    Returns the canonical range string or "" when no plausible year exists.
+    Only deterministic formats are recognized (run 012: explicit years must
+    enter the task scope instead of living in free-form question text).
+    """
+    if not text:
+        return ""
+    range_match = _YEAR_RANGE_RE.search(text)
+    if range_match:
+        start, end = int(range_match.group(1)), int(range_match.group(2))
+        if 1900 <= start <= end <= 2100:
+            return f"{start}-{end}"
+    for match in _YEAR_RE.finditer(text):
+        year = int(match.group(1))
+        if 1900 <= year <= 2100:
+            return f"{year}"
+    return ""
+
 
 def create_task(
     cwd: Path,
@@ -69,16 +96,26 @@ def create_task(
     ):
         raise IntelError("INVALID_INPUT", "充分性标准必须是有效正整数")
     now = utc_now()
+    resolved_scope = scope or ResearchScope()
     task = IntelTask(
         id=new_id("task"),
         topic=topic,
         stage="collect",
         questions=[
-            IntelQuestion(id=new_id("q"), text=text) for text in question_texts
+            IntelQuestion(
+                id=new_id("q"),
+                text=text,
+                # Explicit task scope wins and is copied to every question;
+                # otherwise each question parses its own explicit year. A
+                # question without a year must not inherit another
+                # question's constraint (run 012: truthful coverage).
+                time_range=resolved_scope.time_range or parse_time_range(text),
+            )
+            for text in question_texts
         ],
         criteria=criteria,
         objective=objective.strip(),
-        scope=scope or ResearchScope(),
+        scope=resolved_scope,
         report_depth=report_depth,
         deep_crawl=deep_crawl,
         created_at=now,
