@@ -442,7 +442,7 @@ def summarize_task(cwd: Path, task_id: str | None = None) -> dict:
             ):
                 next_action = (
                     "已完成两轮红队复审且仍有缺口。请基于最新覆盖重新生成"
-                    "证据包和研判，再调用 intel_status(stage=done) 以 with_gaps"
+                    "正式调研报告，再调用 intel_status(stage=done) 以 with_gaps"
                     " 终态完成，并向用户披露结论、置信度、矛盾和缺口。"
                 )
     return {"task": task.model_dump(), "next_action": next_action}

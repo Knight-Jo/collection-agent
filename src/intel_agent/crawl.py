@@ -44,7 +44,7 @@ from .models import (
     IntelError,
     utc_now,
 )
-from .search import relevance_tokens
+from .search_queries import relevance_tokens
 from .security import AddressResolver, source_group_of
 from .source import source_type_for_domain
 from .storage import (

@@ -146,7 +146,7 @@ def build_task_prompt(spec: TaskRunSpec) -> str:
         "【事实纪律】fact_save 仅保存原子、可核验的命题，并正确选择 primary、corroborated 或 reported；"
         "引文必须逐字覆盖主体、动作、范围、时间和数量，partial 时缩窄事实或补充引文。冲突数字分别记录并披露口径。\n"
         "【报告要求】先运行 material_digest 生成材料集合摘要和 1–5 星阅读推荐；正式报告只使用"
-        "审核通过的结构化结论，逐问题回答并披露分歧、局限和未回答内容。证据包和红队复审是可选审计步骤。\n"
+        "审核通过的结构化结论，逐问题回答并披露分歧、局限和未回答内容。\n"
         "按主流程推进：intel_plan → 定向 web_search/web_fetch → fact_save/evidence_save → "
         "evidence_audit → coverage_eval（充分或 no_progress 停止）→ intel_status(assess) → "
         "material_digest → generate_research_report → intel_status(done)，最后返回报告路径和核心发现。"
@@ -181,12 +181,6 @@ async def run_agent_task(
             setattr(deps, name, getattr(resolved_spec, name))
     if hasattr(deps, "crawl_event_callback"):
         deps.crawl_event_callback = on_event
-
-    import logfire
-
-    logfire.configure()
-    logfire.instrument_system_metrics()
-    logfire.instrument_pydantic_ai()
 
     async with agent.run_stream_events(
         build_task_prompt(resolved_spec),

@@ -168,8 +168,6 @@ def test_prompt_is_generic_and_report_first():
 
     assert "material_digest" in prompt
     assert "generate_research_report" in prompt
-    assert "generate_package + intel_assess" not in prompt
-    assert "intel_challenge_start/confirm" not in prompt
     assert "亿航" not in prompt
     assert "caixin.com" not in prompt
 

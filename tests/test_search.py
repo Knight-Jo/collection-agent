@@ -1,11 +1,9 @@
 """Search query analysis tests."""
 
-from intel_agent.search import (
-    _result,
+from intel_agent.search import _result, strip_tags
+from intel_agent.search_queries import (
     authoritative_variants,
-    build_query_variants,
     extract_keywords,
-    industry_terms,
     is_broad_query,
     is_semantic_duplicate,
     query_matrix,
@@ -60,19 +58,6 @@ def test_extract_keywords():
     assert "低空经济2026年投资规模" in kw or "低空经济" in kw
 
 
-def test_build_query_variants():
-    variants = build_query_variants("低空经济", "2026年低空经济投资规模如何")
-    assert len(variants) >= 3
-    assert any("官方 公告" in v for v in variants)
-
-
-def test_industry_terms_injection():
-    extra = industry_terms("低空经济的融资轮次如何")
-    assert any("融资 轮次 金额" in v for v in extra)
-    extra = industry_terms("低空经济的技术进展如何")
-    assert any("突破 技术" in v for v in extra)
-
-
 def test_authoritative_variants():
     variants = authoritative_variants("低空经济 亿航智能")
     assert any("site:gov.cn" in v for v in variants)
@@ -91,8 +76,16 @@ def test_search_result_decodes_url_entities():
     assert result.url == "https://example.com/report.pdf?a=1&b=2"
 
 
+def test_strip_tags_decodes_standard_html_entities():
+    assert strip_tags("<p>A&nbsp;&amp;&#x20AC;&#39;</p>") == "A &€'"
+
+
 def test_query_plan_includes_document_and_media_discovery():
-    variants = build_query_variants("低空经济", "亿航智能订单情况")
+    variants = [
+        query
+        for queries in query_matrix("低空经济", "亿航智能订单情况").values()
+        for query in queries
+    ]
 
     assert any("filetype:pdf" in variant for variant in variants)
     assert any("filetype:docx" in variant for variant in variants)

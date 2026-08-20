@@ -3,38 +3,14 @@
 from __future__ import annotations
 
 import re
+from html import unescape
 from urllib.parse import urljoin, urlparse
 
 from .models import is_valid_calendar_date
 
 
 def _decode_entities(value: str) -> str:
-    value = (
-        value.replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", '"')
-        .replace("&#39;", "'")
-        .replace("&apos;", "'")
-        .replace("&nbsp;", " ")
-        .replace("&#160;", " ")
-    )
-
-    def decode_decimal(match: re.Match) -> str:
-        try:
-            return chr(int(match.group(1)))
-        except ValueError:
-            return ""
-
-    value = re.sub(r"&#(\d+);", decode_decimal, value)
-
-    def decode_hexadecimal(match: re.Match) -> str:
-        try:
-            return chr(int(match.group(1), 16))
-        except ValueError:
-            return ""
-
-    return re.sub(r"&#x([0-9a-f]+);", decode_hexadecimal, value, flags=re.I)
+    return unescape(value).replace("\xa0", " ")
 
 
 def decode_body(body: bytes, content_type: str) -> str:

@@ -9,10 +9,6 @@ const toolLabels: Record<string, [string, string]> = {
   evidence_save: ["正在绑定原文证据", "原文证据已保存"],
   evidence_audit: ["正在进行语义审核", "语义审核已完成"],
   coverage_eval: ["正在评估证据覆盖度", "覆盖度评估已完成"],
-  intel_assess: ["正在形成综合研判", "综合研判已完成"],
-  intel_challenge_start: ["正在发起红队复审", "红队复审已启动"],
-  intel_challenge_confirm: ["正在确认复审结论", "复审结论已确认"],
-  generate_package: ["正在生成证据包", "证据包已生成"],
   material_digest: ["正在整理材料导读", "材料导读已生成"],
   generate_research_report: ["正在生成调研报告", "调研报告已生成"],
 };

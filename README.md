@@ -4,7 +4,7 @@
 
 ## 特性
 
-- **报告优先**：主产物为带编号引用、材料导读、局限和来源目录的 `research-report.md`；证据包和红队复审为可选审计步骤
+- **报告优先**：主产物为带编号引用、材料导读、局限和来源目录的 `research-report.md`
 - **主题驱动**：只输入主题即可运行，也可附加调研目标、问题、时间、地区、语言和报告深度
 - **材料导读**：每份材料提供唯一的 1–5 星阅读推荐和一句话评价，并按任务生成内容摘要与优先阅读清单；不重复增加可信度标签
 - **完整工具链**：除检索、事实、证据、审核和覆盖工具外，提供 `crawl_collect` 运行持久化抓取队列、`document_search` 检索归档语料、`document_read` 分页读取已校验正文
@@ -80,7 +80,7 @@ intel-agent-web --config config.yaml
 运行结束后产物位于：
 - `data/intel/` — 任务/材料导读/抓取队列/事实/证据/审核/覆盖等状态（JSON，原子写入）
 - `data/raw/` — 文档原文（.raw）与提取正文（.txt）
-- `output/` — 正式调研报告，以及可选的证据包和旧研判产物（Markdown）
+- `output/` — 正式调研报告；升级前生成的证据包和旧研判产物仍可只读访问
 
 主报告路径为 `output/{topic}-research-report.md`。材料推荐按当前任务存储：5 星表示直接支撑审核通过的核心发现，4 星表示已用于候选证据，3 星表示与主题相关，2 星表示阅读关联有限，1 星表示正文不可用或采集失败。
 
@@ -113,7 +113,7 @@ intel-agent-web --config config.yaml
 
 ```
 src/intel_agent/
-├── agent.py        # pydantic-ai Agent：15 工具注册 + 系统提示词（AGENTS.md 移植）
+├── agent.py        # pydantic-ai Agent：16 个调研工具与系统提示词
 ├── models.py       # 全部 Pydantic 数据模型（Task/Fact/Evidence/Review/Coverage...）
 ├── storage.py      # 原子 JSON I/O + SHA-256 完整性校验
 ├── security.py     # URL 校验、私有地址拦截、DNS 解析
@@ -132,9 +132,7 @@ src/intel_agent/
 ├── coverage.py     # 覆盖评估 + 停止条件（sufficient/no_progress）
 ├── materials.py    # 任务级材料星级、内容摘要和阅读导引
 ├── report.py       # 带验证引用的正式公开信息调研报告
-├── package.py      # 证据包 Markdown 生成
-├── assess.py       # 结构化研判（fact/reported/inference）
-├── challenge.py    # 可选红队挑战（最多两轮）
+├── challenge.py    # 读取旧版本留下的红队复审记录
 ├── task.py         # 任务生命周期、预算、阶段门控
 ├── main.py         # CLI 入口
 ├── runner.py       # CLI 与 Web 共用的 Agent 运行器

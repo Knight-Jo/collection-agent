@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from datetime import date
 
 PUNCT_RE = re.compile(r"[？?。.!！,，;；:：\"'“”‘’()（）]")
 STOP_TERMS = {
@@ -186,23 +185,6 @@ def authoritative_variants(query: str) -> list[str]:
     ]
 
 
-def industry_terms(question: str) -> list[str]:
-    """Add domain-specific search phrases inferred from a question."""
-    keywords = extract_keywords(question, 12)
-    variants: list[str] = []
-    if re.search(r"投资|融资|商业化|市场|估值|商业", question):
-        variants += [
-            f"{keywords} 融资 轮次 金额",
-            f"{keywords} 基金 投资 规模",
-            f"{keywords} IPO 上市 订单",
-        ]
-    if re.search(r"政策|法规|条例|监管|标准", question):
-        variants += [f"{keywords} 条例 意见稿", f"{keywords} 标准 体系"]
-    if re.search(r"进展|发展|突破|技术", question):
-        variants += [f"{keywords} 里程碑 进展", f"{keywords} 突破 技术"]
-    return variants
-
-
 def extract_keywords(question: str, max_len: int = 14) -> str:
     """Remove question prefixes and generic punctuation from a query."""
     keywords = re.sub(
@@ -217,33 +199,6 @@ def extract_keywords(question: str, max_len: int = 14) -> str:
     ]
     result = " ".join(terms)
     return result[:max_len] or question[:max_len]
-
-
-def build_query_variants(topic: str, question: str) -> list[str]:
-    """Build general, current, authoritative, and industry query variants."""
-    keywords = extract_keywords(question)
-    year = date.today().year
-    variants = [
-        f"{topic} {keywords}",
-        f"{keywords} {year}",
-        f"{keywords} 最新 数据",
-        f"{keywords} 官方 公告",
-        f"{keywords} 争议 质疑",
-        f"{keywords} 同比 增长 统计",
-        f"EN:{keywords} {year} official update（将关键词译为英文后搜索）",
-        f"{keywords} filetype:pdf",
-        f"{keywords} filetype:docx",
-        f"{keywords} filetype:xlsx OR filetype:pptx",
-        f"{keywords} filetype:png OR filetype:jpg OR filetype:webp",
-        f"{keywords} filetype:mp3 OR filetype:wav OR filetype:m4a",
-        f"{keywords} filetype:mp4 OR filetype:webm OR filetype:mov",
-    ]
-    variants.extend(industry_terms(question))
-    return [
-        variant
-        for variant in variants
-        if len(variant.split()) >= 2 or variant.startswith("EN:")
-    ]
 
 
 QUERY_MATRIX_SLOTS = (

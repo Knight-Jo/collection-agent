@@ -9,25 +9,12 @@ import re
 import httpx
 from pydantic import BaseModel
 
-from . import search_queries as _search_queries
 from .search_queries import (
     PUNCT_RE,
     STOP_TERMS,
     authoritative_variants,
 )
 from .source import DomainKind, classify_domain, domain_kind_label
-
-GENERIC_TERMS = _search_queries.GENERIC_TERMS
-STOP_WORDS = _search_queries.STOP_WORDS
-build_query_variants = _search_queries.build_query_variants
-extract_keywords = _search_queries.extract_keywords
-industry_terms = _search_queries.industry_terms
-is_broad_query = _search_queries.is_broad_query
-is_semantic_duplicate = _search_queries.is_semantic_duplicate
-query_matrix = _search_queries.query_matrix
-query_similarity = _search_queries.query_similarity
-relevance_tokens = _search_queries.relevance_tokens
-tokenize_query = _search_queries.tokenize_query
 
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -72,19 +59,7 @@ def strip_tags(s: str) -> str:
     s = re.sub(r"<script[\s\S]*?</script>", " ", s, flags=re.I)
     s = re.sub(r"<style[\s\S]*?</style>", " ", s, flags=re.I)
     s = re.sub(r"<[^>]+>", " ", s)
-    s = s.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
-    s = (
-        s.replace("&quot;", '"')
-        .replace("&#39;", "'")
-        .replace("&apos;", "'")
-        .replace("&nbsp;", " ")
-    )
-
-    def decode_num(m: re.Match) -> str:
-        c = int(m.group(1))
-        return chr(c) if 0 < c < 0x10FFFF else ""
-
-    s = re.sub(r"&#(\d+);", decode_num, s)
+    s = html.unescape(s).replace("\xa0", " ")
     s = s.replace("\u200b", "").replace("\u200c", "").replace("\ufeff", "")
     return " ".join(s.split()).strip()
 

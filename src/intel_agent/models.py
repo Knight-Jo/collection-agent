@@ -326,26 +326,6 @@ class FactConclusion(BaseModel):
     fact_id: str
 
 
-class ReportedConclusion(BaseModel):
-    kind: Literal["reported"] = "reported"
-    fact_id: str
-    attribution: str
-
-
-class InferenceConclusion(BaseModel):
-    kind: Literal["inference"] = "inference"
-    statement: str
-    rationale: str
-    confidence: Literal["high", "medium", "low"]
-    fact_ids: list[str]
-
-
-AssessmentConclusion = Annotated[
-    FactConclusion | ReportedConclusion | InferenceConclusion,
-    Field(discriminator="kind"),
-]
-
-
 class ResearchReportedConclusion(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

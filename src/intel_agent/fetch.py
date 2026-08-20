@@ -20,7 +20,6 @@ from urllib.parse import (
     urlunsplit,
 )
 
-from . import document_extract as _document_extract
 from .browser import BrowserRender, should_render_html
 from .document_extract import (
     decode_body,
@@ -39,8 +38,6 @@ from .storage import (
     write_file_atomic,
     write_json_atomic,
 )
-
-publication_date = _document_extract.publication_date
 
 # 5MB comfortably covers long-form articles/reports while bounding memory and
 # the attack surface for hostile servers; 25s balances slow sites against the

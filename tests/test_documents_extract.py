@@ -2,13 +2,12 @@
 
 import pytest
 
-from intel_agent.fetch import (
-    FetchedResponse,
+from intel_agent.document_extract import (
     extract_docx_text,
     extract_outbound_links,
     extract_pdf_text,
-    fetch_document,
 )
+from intel_agent.fetch import FetchedResponse, fetch_document
 
 PDF_RAW = b"""%PDF-1.4
 1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj

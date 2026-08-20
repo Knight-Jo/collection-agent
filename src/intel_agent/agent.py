@@ -18,19 +18,17 @@ import re
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Literal
 from urllib.parse import urlparse
 
 import httpx
-from pydantic import BaseModel, Discriminator, Field, Tag
+from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from .assess import generate_assessment
 from .audit import Judge, audit_task_evidence
 from .browser import BrowserRenderer
-from .challenge import confirm_challenge, start_challenge
 from .config import ModelConfig, Settings
 from .conflicts import resolve_conflict, save_conflict
 from .coverage import eval_coverage, latest_coverage
@@ -51,7 +49,6 @@ from .fact import (
 from .fetch import DEFAULT_MAX_BYTES, canonicalize_url, fetch_document
 from .materials import generate_material_digest, register_material
 from .models import (
-    AssessmentConclusion,
     ClaimType,
     IntelError,
     IntelTask,
@@ -60,21 +57,16 @@ from .models import (
     ResearchScope,
     SufficiencyCriteria,
     SupportVerdict,
-    TaskStage,
 )
-from .package import generate_package
 from .report import _fact_ids, generate_research_report
-from .search import (
-    build_query_variants,
-    is_broad_query,
-    query_matrix,
-    relevance_tokens,
-    web_search,
-)
+from .search import web_search
 from .search_queries import (
     QUERY_MATRIX_PHASE,
     QUERY_MATRIX_PHASE_BUDGET,
     QUERY_MATRIX_SLOTS,
+    is_broad_query,
+    query_matrix,
+    relevance_tokens,
 )
 from .source import register_first_party_domains
 from .storage import (
@@ -117,7 +109,7 @@ SYSTEM_PROMPT = """\
 8. 不确定或无法获取的信息必须明确说明；发布时间未知不能满足强制时效要求。
 9. 相互冲突的事实或数字分别记录，不得擅自合并；应补检索、消解或在报告中披露差异和口径。
 10. 连续两次 `coverage_eval` 没有降低 `gap_score` 时停止检索，接受并披露缺口。
-11. 检索以广度优先：`intel_plan` 返回的 `query_plan` 变体（中文/英文/`site:` 权威站/`filetype:`）应尽量用尽；每个问题至少覆盖两种查询形态。`srcs=1` 的单源事实必须补充独立来源交叉验证，除非检索预算已耗尽。只有预算耗尽后才用已有材料收尾，不得猜测 URL 或换词循环。
+11. 检索以广度优先：`intel_plan` 返回的六槽 `query_plan`（发现、一手来源、交叉验证、结构化数据、附件、反向检索）应尽量覆盖；每个问题至少使用两种查询形态。`srcs=1` 的单源事实必须补充独立来源交叉验证，除非检索预算已耗尽。只有预算耗尽后才用已有材料收尾，不得猜测 URL 或换词循环。
 12. 深度抓取时，`web_search` 只负责播种；调用 `crawl_collect` 推进队列，再用 `document_search` 和 `document_read` 阅读已提取正文。
 
 ## 工作流
@@ -132,9 +124,9 @@ SYSTEM_PROMPT = """\
    - `stop_reason="no_progress"`：立即停止，接受并披露缺口。
 6. 停止检索后推进到 `assess`，调用 `material_digest` 生成材料摘要、1–5 星推荐和阅读顺序。
 7. 调用 `generate_research_report`。事实和转述使用 `fact_id`，推断使用 `fact_ids`；引用和来源目录由系统生成。
-8. 报告生成成功后推进到 `done`，向用户返回报告路径和核心发现。证据包、旧研判和红队挑战只在需要审计或处理重大矛盾时选用，不是完成条件。
+8. 报告生成成功后推进到 `done`，向用户返回报告路径和核心发现。
 
-主路径：`collect → assess → done`；可选复审路径：`collect → assess → challenge → done`。
+主路径：`collect → assess → done`。
 
 ## 操作纪律
 
@@ -168,33 +160,6 @@ class JudgeVerdict(BaseModel):
 
 class SupportJudgeResult(BaseModel):
     verdicts: list[JudgeVerdict]
-
-
-class ChallengePointInput(BaseModel):
-    question_ids: list[str]
-    category: str
-    challenge: str
-    gap_action: str
-
-
-class DismissResolution(BaseModel):
-    point_id: str
-    status: Literal["dismissed"]
-    reason: str
-
-
-class AddressResolution(BaseModel):
-    point_id: str
-    status: Literal["addressed"]
-    reason: str
-    new_evidence_ids: list[str]
-
-
-Resolution = Annotated[
-    Annotated[DismissResolution, Tag("dismissed")]
-    | Annotated[AddressResolution, Tag("addressed")],
-    Discriminator("status"),
-]
 
 
 @dataclass
@@ -1180,24 +1145,6 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             lambda: _coverage_eval_with_backlog(ctx.deps.cwd, task_id)
         )
 
-    @agent.tool(name="generate_package")
-    def generate_package_tool(
-        ctx: RunContext[AgentDeps], task_id: str
-    ) -> dict:
-        """从已验证证据生成含来源、哈希和行号的标准化 Markdown 证据包。"""
-        return _guarded_sync(lambda: generate_package(ctx.deps.cwd, task_id))
-
-    @agent.tool(name="intel_assess")
-    def intel_assess_tool(
-        ctx: RunContext[AgentDeps],
-        task_id: str,
-        conclusions: list[AssessmentConclusion],
-    ) -> dict:
-        """从本地 Fact 生成结构化研判；事实、单源转述和推断分离，引用由系统自动生成。"""
-        return _guarded_sync(
-            lambda: generate_assessment(ctx.deps.cwd, task_id, conclusions)
-        )
-
     @agent.tool(name="generate_research_report")
     def generate_research_report_tool(
         ctx: RunContext[AgentDeps],
@@ -1229,39 +1176,6 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             }
         return _guarded_sync(
             lambda: generate_research_report(ctx.deps.cwd, task_id, draft)
-        )
-
-    @agent.tool(name="intel_challenge_start")
-    def intel_challenge_start_tool(
-        ctx: RunContext[AgentDeps],
-        task_id: str,
-        round: int,
-        points: list[ChallengePointInput],
-    ) -> dict:
-        """启动一轮红队复审，最多两轮。"""
-        return _guarded_sync(
-            lambda: start_challenge(
-                ctx.deps.cwd, task_id, round, [p.model_dump() for p in points]
-            ).model_dump()
-        )
-
-    @agent.tool(name="intel_challenge_confirm")
-    def intel_challenge_confirm_tool(
-        ctx: RunContext[AgentDeps],
-        task_id: str,
-        round: int,
-        resolutions: list[Resolution],
-        accepted_partial_questions: list[dict] | None = None,
-    ) -> dict:
-        """确认红队复审结果；addressed 必须引用本轮后新增且相关的证据。"""
-        return _guarded_sync(
-            lambda: confirm_challenge(
-                ctx.deps.cwd,
-                task_id,
-                round,
-                [r.model_dump() for r in resolutions],
-                accepted_partial_questions or [],
-            ).model_dump()
         )
 
     @agent.tool(name="intel_plan")
@@ -1310,7 +1224,13 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             "query_plan": [
                 {
                     "question_id": q.id,
-                    "queries": build_query_variants(task.topic, q.text),
+                    "queries": [
+                        query
+                        for queries in query_matrix(
+                            task.topic, q.text
+                        ).values()
+                        for query in queries
+                    ],
                 }
                 for q in task.questions
             ],
@@ -1323,9 +1243,9 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
     def intel_status_tool(
         ctx: RunContext[AgentDeps],
         task_id: str | None = None,
-        stage: TaskStage | None = None,
+        stage: Literal["assess", "done"] | None = None,
     ) -> dict:
-        """查看任务或推进 collect→assess→done；challenge 是可选复审阶段。"""
+        """查看任务或推进 collect→assess→done。"""
         return _guarded_sync(lambda: _intel_status(ctx, task_id, stage))
 
     def _intel_status(ctx, task_id, stage) -> dict:

@@ -17,7 +17,6 @@ from intel_agent.models import (
     IntelError,
     utc_now,
 )
-from intel_agent.package import generate_package
 from intel_agent.report import generate_research_report
 from intel_agent.storage import save_crawl
 from intel_agent.web.views import (
@@ -125,19 +124,19 @@ def test_get_task_view_includes_every_crawl_resource_and_source_chain(cwd):
 
 
 def test_get_artifact_verifies_bound_content(cwd):
-    task = new_task(cwd)
-    eval_coverage(cwd, task.id)
-    generate_package(cwd, task.id)
+    from tests.test_report import report_draft, seed_reportable_task
 
-    artifact = get_artifact(cwd, task.id, "package")
+    task, facts, _ = seed_reportable_task(cwd)
+    generate_research_report(cwd, task.id, report_draft(task, facts))
 
-    assert artifact.content.startswith("# 证据包")
-    assert artifact.path == "output/测试主题-evidence-package.md"
+    artifact = get_artifact(cwd, task.id, "report")
 
-    path = cwd / "output/测试主题-evidence-package.md"
+    assert artifact.content.startswith("# 公开信息调研报告")
+
+    path = cwd / artifact.path
     path.write_text("tampered", encoding="utf-8")
     with pytest.raises(IntelError) as error:
-        get_artifact(cwd, task.id, "package")
+        get_artifact(cwd, task.id, "report")
     assert error.value.code == "OUTPUT_TAMPERED"
 
 
