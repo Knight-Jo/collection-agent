@@ -1,14 +1,30 @@
 model:
-  provider: deepseek
   name: deepseek-chat
   base_url: https://api.deepseek.com/v1
   api_key_env: DEEPSEEK_API_KEY
+
+# 本机 llama-server（OpenAI 兼容接口）示例；使用时替换上面的 model 块：
+# model:
+#   name: Qwen3.5-9B/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-Q4_K_M.gguf
+#   base_url: http://127.0.0.1:9876/v1
+#   api_key_env: null
 
 # 语义审核专用模型（可选；默认与主 agent 相同）
 # audit_model:
 #   name: deepseek-chat
 #   base_url: https://api.deepseek.com/v1
 #   api_key_env: DEEPSEEK_API_KEY
+
+context:
+  # 可选档位：16384 / 32768 / 65536 / 131072 / 262144，必须与模型服务实际 n_ctx 一致。
+  context_window_tokens: 32768
+  # 主 Agent 与语义审核分别限制单次生成，避免本地推理模型长思考耗尽窗口。
+  main_output_tokens: 1024
+  audit_output_tokens: 512
+  # llama-server 的 Qwen thinking 模型建议设为 true；远程接口默认保持 false。
+  disable_thinking: false
+  # 已连续获得候选但未抓取时，强制从搜索切换到阅读和取证。
+  max_search_calls_before_fetch: 3
 
 search:
   # 本地 SearXNG 实例地址；设为 null 则跳过，只用 Bing/Baidu 直连

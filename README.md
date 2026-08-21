@@ -21,7 +21,7 @@
 ## 快速开始
 
 ```bash
-# 环境（详见 Agent.md）
+# 环境
 mamba activate collection-agent-pydantic
 export DEEPSEEK_API_KEY=<your-key>
 
@@ -56,6 +56,33 @@ CLI 的 `--max-turns` 限制单次运行的模型请求数，`--max-tool-calls` 
 核心问题均得到回答时任务以 `completion_status=sufficient` 完成；仍有明确缺口时以
 `completion_status=with_gaps` 完成并在报告中披露，不要求先完成红队挑战。
 
+使用本机 llama-server 时无需设置 API key，将 `config.yaml` 的模型块改为：
+
+```yaml
+model:
+  name: Qwen3.5-9B/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-Q4_K_M.gguf
+  base_url: http://127.0.0.1:9876/v1
+  api_key_env: null
+context:
+  context_window_tokens: 32768
+  main_output_tokens: 1024
+  audit_output_tokens: 512
+  disable_thinking: true
+```
+
+`name` 应与 `GET /v1/models` 返回的模型 ID 一致。`api_key_env: null`
+仅适用于无需认证的本机 OpenAI 兼容服务；远程模型仍应配置密钥环境变量。
+
+`context.context_window_tokens` 支持 `16384`、`32768`、`65536`、`131072`、
+`262144` 四档，必须与模型服务实际窗口一致。系统据此自动限制消息历史和
+单次工具正文；事实、证据和原始材料仍保存在本地，不依赖对话历史记忆。
+Qwen thinking 模型使用 llama-server 时可设置 `disable_thinking: true`，
+避免工具调用和语义审核被长推理占满输出预算。
+
+长任务会从本地任务、文档、事实、证据、审核和覆盖状态重建阶段快照；
+模型提前返回“稍后继续”时，runner 会在同一累计请求预算内自动续跑。
+因此进程重启后也可复用未完成任务，不需要把完整网页长期塞进模型上下文。
+
 等价的最小 API 请求为：
 
 ```json
@@ -88,10 +115,11 @@ intel-agent-web --config config.yaml
 
 | 配置项 | 说明 |
 |--------|------|
-| `model` | 主 agent 模型（默认 DeepSeek deepseek-chat，OpenAI 兼容 API） |
+| `model` | 主 Agent 的 OpenAI 兼容接口；`api_key_env: null` 表示本机免密服务 |
 | `audit_model` | 语义审核独立模型（默认同主模型） |
 | `search.searxng_url` | 本地 SearXNG 地址；`null` 则只用 Bing/Baidu 直连 |
 | `budgets` | 搜索/抓取/模型请求预算（request_limit 默认 200） |
+| `context` | 32K/64K/128K/256K 上下文档位、输出上限和搜索转抓取门控 |
 | `fetch.enable_httpx_fallback` | 单次 `web_fetch` 的 pinned 抓取失败时回退 httpx（兼容 WAF/Cloudflare 站点）；递归 crawler 始终仅使用 pinned fetch |
 | `fetch.enable_browser_fallback` | 静态 HTML 无有效正文时是否按需执行 Chromium（默认 `false`） |
 | `fetch.browser_network_mode` | `validated` 表示应用层公网 URL 校验；生产隔离部署声明为 `isolated` |
@@ -168,6 +196,6 @@ UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest
 
 ## 架构说明
 
-- **模型**：DeepSeek（OpenAI 兼容 API，`OpenAIChatModel` + 自定义 `OpenAIProvider`），key 从环境变量读取
+- **模型**：支持 DeepSeek 和 llama-server 等 OpenAI 兼容 API；远程密钥从环境变量读取，本机服务可免密
 - **信任模型**：网页内容是不可信数据，搜索摘要不是证据；只有归档 + 精确引文 + 语义审核通过的才算证据
 - **审计隔离**：`evidence_audit` 使用独立 Agent 与独立 prompt，杜绝主上下文污染

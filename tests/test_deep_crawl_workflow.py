@@ -15,6 +15,7 @@ from intel_agent.agent import AgentDeps, build_agent
 from intel_agent.audit import audit_task_evidence
 from intel_agent.config import (
     BudgetConfig,
+    ContextConfig,
     CrawlConfig,
     Settings,
     SourcesConfig,
@@ -29,7 +30,7 @@ from intel_agent.materials import load_material_digest, register_material
 from intel_agent.models import IntelError, IntelTask
 from intel_agent.runner import TaskRunSpec, build_task_prompt, run_agent_task
 from intel_agent.storage import load_crawl, read_json_object, write_json_atomic
-from intel_agent.task import create_task, load_task, set_task_stage
+from intel_agent.task import create_task, load_task, save_task, set_task_stage
 from tests.conftest import DEFAULT_CRITERIA, fake_judge, make_document
 
 
@@ -164,6 +165,8 @@ async def test_runner_deep_crawl_setting_is_authoritative_at_plan_tool(
                 model_argument,
             )
             assert tool_result["task"]["deep_crawl"] is expected
+            task = load_task(self.deps.cwd)
+            save_task(self.deps.cwd, task.model_copy(update={"stage": "done"}))
             return self
 
         async def __aexit__(self, *_args):
@@ -197,6 +200,75 @@ async def test_runner_deep_crawl_setting_is_authoritative_at_plan_tool(
     )
 
     assert load_task(cwd).deep_crawl is expected
+
+
+@pytest.mark.asyncio
+async def test_runner_continues_an_incomplete_task(monkeypatch, cwd):
+    calls: list[tuple[str, dict]] = []
+    first = SimpleNamespace(
+        output="接下来继续",
+        all_messages=lambda: ["first-history"],
+    )
+    completed = SimpleNamespace(
+        output="完成",
+        all_messages=lambda: ["complete-history"],
+    )
+
+    class FakeEvents:
+        def __init__(self, call_number):
+            self.call_number = call_number
+            self.result = first if call_number == 1 else completed
+
+        async def __aenter__(self):
+            if self.call_number == 1:
+                create_task(
+                    cwd,
+                    "主题",
+                    ["问题甲", "问题乙"],
+                    DEFAULT_CRITERIA,
+                )
+            else:
+                task = load_task(cwd)
+                save_task(cwd, task.model_copy(update={"stage": "done"}))
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            raise StopAsyncIteration
+
+    class FakeAgent:
+        def run_stream_events(self, prompt, **kwargs):
+            calls.append((prompt, kwargs))
+            return FakeEvents(len(calls))
+
+    monkeypatch.setattr(
+        "intel_agent.runner.build_agent", lambda _settings: FakeAgent()
+    )
+    monkeypatch.setattr(
+        "intel_agent.runner.build_deps",
+        lambda *_args, **_kwargs: SimpleNamespace(),
+    )
+
+    result = await run_agent_task(
+        cwd,
+        Settings(),
+        TaskRunSpec(
+            topic="主题",
+            questions=["问题甲", "问题乙"],
+            criteria=DEFAULT_CRITERIA,
+        ),
+    )
+
+    assert result is completed
+    assert len(calls) == 2
+    assert "任务尚未完成" in calls[1][0]
+    assert calls[1][1]["message_history"] == ["first-history"]
+    assert calls[1][1]["usage"] is calls[0][1]["usage"]
 
 
 @pytest.mark.asyncio
@@ -565,6 +637,28 @@ async def test_web_fetch_registers_collected_material(monkeypatch, cwd):
 
 
 @pytest.mark.asyncio
+async def test_web_fetch_bounds_preview_and_outbound_links(monkeypatch, cwd):
+    create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    document = make_document(cwd, "主题材料", "https://example.com/source")
+    content = "界" * 10_000
+    links = [f"https://example.org/{number}" for number in range(50)]
+
+    async def fake_fetch(*_args, **_kwargs):
+        return document, content, links
+
+    settings = Settings(context=ContextConfig(context_window_tokens=32_768))
+    monkeypatch.setattr(agent_module, "fetch_document", fake_fetch)
+
+    result = await _tool(build_agent(settings), "web_fetch")(
+        _context(cwd, settings=settings), document.canonical_url, 100_000
+    )
+
+    assert len(result["preview"].encode("utf-8")) <= 8_192
+    assert result["preview"].endswith("[正文预览已截断]")
+    assert len(result["outbound_links"]) == 20
+
+
+@pytest.mark.asyncio
 async def test_web_fetch_wires_enabled_browser_renderer(monkeypatch, cwd):
     task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
     document = make_document(cwd, "动态主题材料", "https://example.com/app")
@@ -865,6 +959,48 @@ def test_generate_research_report_blocks_repeated_drafts(monkeypatch, cwd):
     assert blocked["errors"][0]["code"] == "REPEATED"
 
 
+def test_generate_research_report_accepts_json_encoded_draft(monkeypatch, cwd):
+    from intel_agent.models import ResearchReportInput, ResearchReportSection
+
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    draft = ResearchReportInput(
+        sections=[ResearchReportSection(question_id=task.questions[0].id)],
+        overall_conclusions=[],
+    )
+    captured = []
+
+    def fake_report(_cwd, _task_id, parsed_draft):
+        captured.append(parsed_draft)
+        return {"ok": True, "path": "output/report.md"}
+
+    monkeypatch.setattr(agent_module, "generate_research_report", fake_report)
+    tool = _tool(build_agent(Settings()), "generate_research_report")
+
+    result = tool(_context(cwd), task.id, draft.model_dump_json())
+
+    assert result["ok"] is True
+    assert captured == [draft]
+
+
+def test_generate_research_report_falls_back_to_verified_facts(cwd):
+    from intel_agent.models import ResearchReportInput
+
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    fact = save_fact(cwd, task.id, task.questions[0].id, "已审核的公开事实")
+    document = make_document(cwd, "已审核的公开事实")
+    save_evidence(cwd, fact.id, document.id, "supports", fact.statement)
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+    for _ in range(3):
+        eval_coverage(cwd, task.id)
+
+    result = _tool(build_agent(Settings()), "generate_research_report")(
+        _context(cwd), task.id, ResearchReportInput()
+    )
+
+    assert result["ok"] is True
+    assert result["path"].endswith("主题-research-report.md")
+
+
 def test_intel_plan_seeds_configured_sources_into_crawl(cwd):
     settings = Settings(
         sources=SourcesConfig(
@@ -893,6 +1029,45 @@ def test_intel_plan_seeds_configured_sources_into_crawl(cwd):
         "https://ir.example.com/video.mp4",
     }
     assert all(entry.depth == 0 for entry in crawl.entries)
+
+
+def test_intel_plan_reuses_an_active_task(cwd):
+    agent = build_agent(Settings())
+    context = _context(cwd)
+    plan = _tool(agent, "intel_plan")
+
+    first = plan(
+        context,
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+        False,
+    )
+    second = plan(
+        context,
+        "另一个主题",
+        ["另一个问题甲", "另一个问题乙"],
+        DEFAULT_CRITERIA,
+        False,
+    )
+
+    assert second["task"]["id"] == first["task"]["id"]
+    assert second["reused_existing_task"] is True
+    assert load_task(cwd).topic == "主题"
+
+
+def test_intel_plan_accepts_json_encoded_criteria(cwd):
+    plan = _tool(build_agent(Settings()), "intel_plan")
+
+    result = plan(
+        _context(cwd),
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA.model_dump_json(),
+        False,
+    )
+
+    assert result["task"]["criteria"] == DEFAULT_CRITERIA.model_dump()
 
 
 def test_coverage_eval_returns_cross_verification_backlog(cwd):
@@ -1080,6 +1255,10 @@ def test_document_read_returns_bounded_numbered_verified_lines(cwd):
             "</untrusted_web_content>"
         ),
         "injection_warnings": ["网页包含疑似提示注入文本"],
+        "next_action": (
+            "从本次 content 选择一个逐字引文，立即调用 fact_save，"
+            "再调用 evidence_save；不要重复读取相同行号。"
+        ),
     }
 
     invalid = tool(_context(cwd), document.id, 0, 2)
@@ -1120,6 +1299,75 @@ def test_document_read_caps_each_call_at_16_kib_of_utf8(cwd):
     assert result["end_line"] < 100
     assert result["has_more"] is True
     assert result["next_start_line"] == result["end_line"] + 1
+
+
+def test_document_read_uses_context_window_payload_limit(cwd):
+    document = make_document(cwd, "\n".join(["界" * 100] * 100))
+    settings = Settings(context=ContextConfig(context_window_tokens=32_768))
+    context = _context(cwd, settings=settings)
+
+    result = _tool(build_agent(settings), "document_read")(
+        context, document.id, 1, 100
+    )
+
+    assert len(result["content"].encode("utf-8")) <= 8_192
+    assert result["has_more"] is True
+    assert document.id in context.deps.read_document_ids
+    assert "fact_save" in result["next_action"]
+
+
+@pytest.mark.asyncio
+async def test_search_requires_fetch_after_repeated_candidate_batches(
+    monkeypatch, cwd
+):
+    create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    document = make_document(cwd, "主题材料", "https://example.com/source")
+
+    async def fake_search(query, *_args, **_kwargs):
+        return {
+            "results": [
+                {
+                    "url": f"https://example.org/{query}",
+                    "title": f"主题 {query}",
+                }
+            ],
+            "engineUsed": "fake",
+        }
+
+    async def fake_fetch(*_args, **_kwargs):
+        return document, "主题材料", []
+
+    settings = Settings(
+        budgets=BudgetConfig(search_attempts=40),
+        context=ContextConfig(max_search_calls_before_fetch=3),
+    )
+    context = _context(cwd, settings=settings)
+    agent = build_agent(settings)
+    search = _tool(agent, "web_search")
+    monkeypatch.setattr(agent_module, "web_search", fake_search)
+    monkeypatch.setattr(agent_module, "fetch_document", fake_fetch)
+
+    for number in range(3):
+        result = await search(
+            context,
+            f"具体 查询 {number}",
+            5,
+            "general",
+            "zh-CN",
+            None,
+        )
+        assert result["fresh_count"] > 0
+
+    blocked = await search(context, "具体 查询 4", 5, "general", "zh-CN", None)
+    assert blocked["error"]["code"] == "FETCH_REQUIRED"
+    candidate_urls = {item["url"] for item in blocked["candidates"]}
+    assert "https://example.org/具体 查询 0" in candidate_urls
+    assert "https://example.org/具体 查询 1" in candidate_urls
+    assert len(blocked["candidates"]) <= 10
+
+    await _tool(agent, "web_fetch")(context, document.canonical_url, 1_024)
+    resumed = await search(context, "具体 查询 5", 5, "general", "zh-CN", None)
+    assert resumed["fresh_count"] > 0
 
 
 def test_document_read_requires_complete_extraction(cwd):

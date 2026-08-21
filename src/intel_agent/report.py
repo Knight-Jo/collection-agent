@@ -14,7 +14,9 @@ from .models import (
     CoverageSnapshot,
     EvidenceSupport,
     ResearchConclusion,
+    ResearchReportedConclusion,
     ResearchReportInput,
+    ResearchReportSection,
     normalized_statement,
 )
 from .storage import verify_document_integrity, write_file_atomic
@@ -80,6 +82,30 @@ def _report_limitations(coverage: CoverageSnapshot) -> list[str]:
     return list(dict.fromkeys(limitations))
 
 
+def build_verified_report_draft(
+    cwd: Path, task_id: str
+) -> ResearchReportInput:
+    """Build an honest report draft from facts with verified support."""
+    task = load_task(cwd, task_id)
+    facts_by_question: dict[str, list[ResearchConclusion]] = {
+        question.id: [] for question in task.questions
+    }
+    for fact in list_active_facts_for_task(cwd, task.id):
+        if verified_support_evidence(cwd, fact.id):
+            facts_by_question[fact.question_id].append(
+                ResearchReportedConclusion(fact_id=fact.id)
+            )
+    return ResearchReportInput(
+        sections=[
+            ResearchReportSection(
+                question_id=question.id,
+                conclusions=facts_by_question[question.id],
+            )
+            for question in task.questions
+        ]
+    )
+
+
 def generate_research_report(
     cwd: Path,
     task_id: str,
@@ -120,6 +146,29 @@ def generate_research_report(
                 }
             ],
         }
+    for section in draft.sections:
+        section.conclusions = [
+            ResearchReportedConclusion(fact_id=conclusion.fact_id)
+            if conclusion.kind == "fact"
+            and conclusion.fact_id in fact_by_id
+            and (
+                fact_by_id[conclusion.fact_id].claim_type == "reported"
+                or fact_coverage[conclusion.fact_id].status != "covered"
+            )
+            else conclusion
+            for conclusion in section.conclusions
+        ]
+    draft.overall_conclusions = [
+        ResearchReportedConclusion(fact_id=conclusion.fact_id)
+        if conclusion.kind == "fact"
+        and conclusion.fact_id in fact_by_id
+        and (
+            fact_by_id[conclusion.fact_id].claim_type == "reported"
+            or fact_coverage[conclusion.fact_id].status != "covered"
+        )
+        else conclusion
+        for conclusion in draft.overall_conclusions
+    ]
     question_ids = {question.id for question in task.questions}
     indexed: list[tuple[int, str | None, ResearchConclusion]] = []
     index = 0
@@ -242,27 +291,25 @@ def generate_research_report(
                     }
                 )
     section_question_ids = [section.question_id for section in draft.sections]
+    coverage_by_question = {
+        question.question_id: question for question in coverage.per_question
+    }
     if (
         set(section_question_ids) != question_ids
         or len(section_question_ids) != len(question_ids)
-        or any(not section.conclusions for section in draft.sections)
+        or any(
+            not section.conclusions
+            and coverage_by_question[section.question_id].answer_status
+            not in {"unanswered", "conflicted"}
+            for section in draft.sections
+            if section.question_id in coverage_by_question
+        )
     ):
         errors.append(
             {
                 "index": -1,
                 "code": "INVALID_INPUT",
                 "message": "报告必须完整且逐一回答所有核心问题",
-            }
-        )
-    if any(
-        question.answer_status not in {"answered", "partial"}
-        for question in coverage.per_question
-    ):
-        errors.append(
-            {
-                "index": -1,
-                "code": "INSUFFICIENT_EVIDENCE",
-                "message": "核心问题仍有未回答或存在冲突的内容",
             }
         )
     if indexed and not any(evidence_by_conclusion):
@@ -302,6 +349,12 @@ def generate_research_report(
     ]
     summary_offset = 0
     for section in draft.sections:
+        if not section.conclusions:
+            lines.append(
+                f"- {question_by_id[section.question_id].text}："
+                "未形成可验证结论，详见局限。"
+            )
+            continue
         conclusion = section.conclusions[0]
         prefix = (
             "据以下公开来源，"
@@ -334,6 +387,9 @@ def generate_research_report(
         lines.extend(
             ["", f"## {question_by_id[section.question_id].text}", ""]
         )
+        if not section.conclusions:
+            lines.append("- 未形成可验证结论，详见局限。")
+            continue
         for conclusion in section.conclusions:
             statement = _statement(conclusion, fact_by_id)
             prefix = (

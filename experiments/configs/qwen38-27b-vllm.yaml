@@ -1,0 +1,26 @@
+model:
+  name: qwen3.8-27b-int4
+  base_url: http://10.108.25.82:8001/v1
+  api_key_env: null
+
+context:
+  context_window_tokens: 32768
+  main_output_tokens: 1024
+  audit_output_tokens: 512
+  disable_thinking: false
+  max_search_calls_before_fetch: 3
+
+search:
+  searxng_url: http://127.0.0.1:8888
+
+budgets:
+  search_attempts: 40
+  fetch_attempts_since_evidence: 20
+  request_limit: 200
+
+fetch:
+  enable_httpx_fallback: true
+  enable_browser_fallback: false
+
+crawl:
+  enabled_by_default: false

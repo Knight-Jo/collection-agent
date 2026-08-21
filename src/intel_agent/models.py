@@ -5,7 +5,7 @@ from __future__ import annotations
 import unicodedata
 import uuid
 from datetime import UTC, date, datetime
-from typing import Annotated, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -342,10 +342,9 @@ class ResearchInferenceConclusion(BaseModel):
     fact_ids: list[str]
 
 
-ResearchConclusion = Annotated[
-    FactConclusion | ResearchReportedConclusion | ResearchInferenceConclusion,
-    Field(discriminator="kind"),
-]
+ResearchConclusion = (
+    FactConclusion | ResearchReportedConclusion | ResearchInferenceConclusion
+)
 
 
 class ResearchReportSection(BaseModel):

@@ -37,6 +37,28 @@ def test_system_and_task_endpoints(cwd, monkeypatch):
     assert detail.json()["task"]["topic"] == "测试主题"
 
 
+def test_system_reports_keyless_local_model_as_configured(cwd):
+    settings = Settings.model_validate(
+        {
+            "model": {
+                "name": "Qwen3.5-9B",
+                "base_url": "http://127.0.0.1:9876/v1",
+                "api_key_env": None,
+            }
+        }
+    )
+
+    response = TestClient(create_app(cwd=cwd, settings=settings)).get(
+        "/api/system"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["model"] == {
+        "name": "Qwen3.5-9B",
+        "configured": True,
+    }
+
+
 def test_system_reports_crawl_default_and_processor_availability(
     cwd, monkeypatch
 ):

@@ -82,6 +82,54 @@ def test_report_has_question_sections_citations_digest_and_no_internal_ids(
     assert "doc-" not in content
 
 
+def test_report_accepts_omitted_fact_kind_and_unanswered_section(cwd):
+    task = new_task(cwd)
+    statement = "测试主题已有一项公开进展"
+    document = make_document(
+        cwd,
+        statement,
+        "https://www.gov.cn/report",
+    )
+    fact = save_fact(
+        cwd,
+        task.id,
+        task.questions[0].id,
+        statement,
+        claim_type="primary",
+    )
+    save_evidence(cwd, fact.id, document, "supports", statement)
+    register_material(
+        cwd,
+        task.id,
+        document.canonical_url,
+        document_id=document.id,
+    )
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+    for _ in range(3):
+        eval_coverage(cwd, task.id)
+    draft = ResearchReportInput.model_validate(
+        {
+            "sections": [
+                {
+                    "question_id": task.questions[0].id,
+                    "conclusions": [{"fact_id": fact.id}],
+                },
+                {
+                    "question_id": task.questions[1].id,
+                    "conclusions": [],
+                },
+            ],
+            "overall_conclusions": [{"fact_id": fact.id}],
+        }
+    )
+
+    result = generate_research_report(cwd, task.id, draft)
+
+    assert result["ok"] is True, result
+    content = Path(result["path"]).read_text(encoding="utf-8")
+    assert "未形成可验证结论" in content
+
+
 def test_report_limitations_list_single_source_and_time_gaps(cwd):
     task = new_task(
         cwd,
@@ -154,7 +202,7 @@ def test_report_material_guide_excludes_low_rated_materials(cwd):
     assert "另有 1 份低相关材料未展开" in content
 
 
-def test_report_rejects_reported_fact_as_unattributed_fact(cwd):
+def test_report_auto_attributes_reported_fact(cwd):
     task, facts, _ = seed_reportable_task(cwd)
     reported = save_fact(
         cwd,
@@ -176,8 +224,9 @@ def test_report_rejects_reported_fact_as_unattributed_fact(cwd):
 
     result = generate_research_report(cwd, task.id, draft)
 
-    assert result["ok"] is False
-    assert any(error["code"] == "INVALID_INPUT" for error in result["errors"])
+    assert result["ok"] is True
+    content = Path(result["path"]).read_text(encoding="utf-8")
+    assert "据以下公开来源" in content
 
 
 def test_report_rejects_coverage_that_predates_active_fact(cwd):

@@ -135,8 +135,7 @@ async def _run(args: argparse.Namespace) -> int:
     settings = load_config(args.config)
     if not settings.model_api_key():
         print(
-            "错误: 缺少模型 API key，请设置环境变量 "
-            + settings.model.api_key_env,
+            f"错误: 缺少模型 API key，请设置环境变量 {settings.model.api_key_env}",
             file=sys.stderr,
         )
         return 1

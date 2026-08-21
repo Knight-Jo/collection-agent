@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 class ModelConfig(BaseModel):
     name: str = "deepseek-chat"
     base_url: str = "https://api.deepseek.com/v1"
-    api_key_env: str = "DEEPSEEK_API_KEY"
+    api_key_env: str | None = "DEEPSEEK_API_KEY"
 
 
 class SearchConfig(BaseModel):
@@ -33,6 +33,27 @@ class BudgetConfig(BaseModel):
     search_attempts: int = 6
     fetch_attempts_since_evidence: int = 6
     request_limit: int = 200
+
+
+class ContextConfig(BaseModel):
+    """Bounds for one model request in long-running research tasks."""
+
+    enabled: bool = True
+    context_window_tokens: Literal[
+        16_384, 32_768, 65_536, 131_072, 262_144
+    ] = 32_768
+    main_output_tokens: int = Field(default=1_024, ge=128)
+    audit_output_tokens: int = Field(default=512, ge=128)
+    disable_thinking: bool = False
+    max_search_calls_before_fetch: int = Field(default=3, ge=1)
+
+    def history_max_bytes(self) -> int:
+        """Return a conservative serialized-history budget for the window."""
+        return self.context_window_tokens * 3 // 2
+
+    def tool_content_max_bytes(self) -> int:
+        """Scale one tool payload from 4 KiB to 64 KiB by window size."""
+        return min(65_536, self.context_window_tokens // 4)
 
 
 class FetchConfig(BaseModel):
@@ -87,17 +108,22 @@ class Settings(BaseModel):
     search: SearchConfig = Field(default_factory=SearchConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
     budgets: BudgetConfig = Field(default_factory=BudgetConfig)
+    context: ContextConfig = Field(default_factory=ContextConfig)
     fetch: FetchConfig = Field(default_factory=FetchConfig)
     crawl: CrawlConfig = Field(default_factory=CrawlConfig)
     web: WebConfig = Field(default_factory=WebConfig)
     sources: SourcesConfig = Field(default_factory=SourcesConfig)
 
     def model_api_key(self) -> str | None:
-        return os.environ.get(self.model.api_key_env)
+        return (
+            os.environ.get(self.model.api_key_env)
+            if self.model.api_key_env
+            else "local"
+        )
 
     def audit_api_key(self) -> str | None:
         cfg = self.audit_model or self.model
-        return os.environ.get(cfg.api_key_env)
+        return os.environ.get(cfg.api_key_env) if cfg.api_key_env else "local"
 
 
 def load_config(path: str | Path | None = None) -> Settings:

@@ -6,7 +6,405 @@
 
 ## [Unreleased]
 
-（无进行中的实验）
+无计划中的实验。
+
+## [033-qwen38-27b-verified-report-fallback] - 2026-08-21
+
+### Changed
+
+- `src/intel_agent/report.py`：从持久状态确定性构建安全草稿，每题一节，只纳入具有 full 审核支持的事实，未回答问题保留空章节。
+- `src/intel_agent/agent.py`：模型报告草稿未通过业务校验时使用安全草稿调用同一报告生成器，不放宽证据、覆盖或引用校验。
+- `src/intel_agent/runner.py`：done 后用持久状态生成 CLI/Web 共用的完成摘要，不再转发模型可能夸大的自由文本。
+- `tests/test_deep_crawl_workflow.py`、`tests/test_runner.py`：覆盖安全报告回退和确定性完成摘要。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pytest -q tests/test_report.py tests/test_deep_crawl_workflow.py -k 'report or json_encoded'`：PASS（17 passed）。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pytest -q tests/test_runner.py -k 'done_task_replaces or streams_events'`：PASS（2 passed）。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff format --check .`：PASS（76 files）。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff check .`：PASS。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pyright`：PASS（0 errors）。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pytest -q`：PASS（364 passed, 1 skipped）。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv build`：PASS（sdist + wheel）。
+- 从 030 assess 状态原地续跑：PASS（3 requests，21,110 tokens，正式报告生成并到达 done/with_gaps）。
+
+### Experiment result
+
+- 状态：passed
+- 产物：`experiments/runs/030-qwen38-27b-vllm-criteria-compat/`、`experiments/runs/033-qwen38-27b-verified-report-fallback/`
+- 代码版本：`b6a00f3`（改动尚未提交）
+- 真实运行：exit_code=0，stage=done，completion_status=with_gaps，model_requests=3，total_tokens=21,110；续跑墙钟未单独记录
+- 关键指标：搜索保持 40；归档 4；活跃事实 2，其中 full 审核支持事实 1；证据 1；coverage gap=10/no_progress；报告 1；0 上下文溢出。正式报告只纳入 1 条 full 事实，4 个未回答问题保持空章节。
+- 假设结论：成立；确定性安全草稿让 Qwen3.8-27B/16K 完成报告并诚实以 with_gaps 收尾。
+
+### Known issues
+
+- 搜索质量较弱：两个用户原始问题均未回答，4 份归档中有两份年份关键词误召回。
+- 模型最终自由文本曾夸大为“2 条已核验事实 + 推断”；正式报告未受污染，runner 已改为持久状态摘要（已验证事实数=1）。
+- 030 主运行失败路径仍无增量 trace；033 成功续跑保留 `resume-trace-033.jsonl`。
+
+
+## [032-qwen38-27b-report-draft-compat] - 2026-08-21
+
+### Changed
+
+- `src/intel_agent/agent.py`：`generate_research_report.draft` 接受对象或 JSON 字符串，并统一通过 `ResearchReportInput` 校验。
+- `tests/test_deep_crawl_workflow.py`：新增字符串化报告草稿回归测试。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pytest -q tests/test_deep_crawl_workflow.py -k 'json_encoded or generate_research_report'`：PASS（3 passed）。
+- 从 030 assess 状态原地续跑：ABORTED（约 17 分钟内十余次模型请求持续返回业务校验失败草稿，人工终止）。
+
+### Experiment result
+
+- 状态：failed（参数类型兼容通过，报告业务内容未收敛）
+- 产物：`experiments/runs/030-qwen38-27b-vllm-criteria-compat/`、`experiments/runs/032-qwen38-27b-report-draft-compat/`
+- 代码版本：`b6a00f3`
+- 真实运行：exit_code=130（主动终止），stage=assess，elapsed=约 17 分钟；精确 model_requests 未测量
+- 关键指标：搜索保持 40、事实/证据保持 1/1、0 上下文溢出；字符串 draft 已进入报告业务校验，但模型未在合理时间内修正为合法章节/事实组合。
+- 假设结论：部分成立；工具协议兼容完成，但把诚实报告收尾完全交给模型仍不稳定。
+
+### Known issues
+
+- 合法报告可以由持久状态确定性构建：每题一节，只纳入 full 审核事实，未回答题留空；033 验证该安全回退。
+- 主动终止仍没有增量 trace/usage。
+
+
+## [031-qwen38-27b-report-resume] - 2026-08-21
+
+### Changed
+
+- `experiments/configs/qwen38-27b-vllm-16k-report2k.yaml`：16K 历史边界不变，主输出由 1024 提高至 2048 token。
+
+### Verification
+
+- 从 `experiments/runs/030-qwen38-27b-vllm-criteria-compat/` 原地续跑：FAIL（报告 `draft` 类型校验重试耗尽）。
+- 服务健康检查：PASS（续跑期间 HTTP 200，无排队）。
+
+### Experiment result
+
+- 状态：failed（输出截断已解决，嵌套参数类型仍不兼容）
+- 产物：`experiments/runs/030-qwen38-27b-vllm-criteria-compat/`、`experiments/runs/031-qwen38-27b-report-resume/`
+- 代码版本：`b6a00f3`
+- 真实运行：exit_code=1，stage=assess，elapsed=未精确测量（人工观察约 10 分钟），model_requests=4（初次 + 3 次工具校验重试）
+- 关键指标：搜索保持 40、事实/证据保持 1/1、0 上下文溢出；报告参数不再 EOF，而是完整生成后因 `draft` 为 JSON 字符串被拒绝。
+- 假设结论：部分成立；2048 token 解决截断，但 Qwen3.8 的嵌套对象编码兼容仍阻止报告落盘。
+
+### Known issues
+
+- `generate_research_report.draft` 需兼容对象或 JSON 字符串，同时保持 `ResearchReportInput` 业务校验；032 单独验证。
+- 续跑失败仍未增量保存 trace/usage。
+
+
+## [030-qwen38-27b-vllm-criteria-compat] - 2026-08-21
+
+### Changed
+
+- `src/intel_agent/agent.py`：`intel_plan.criteria` 接受模型原生对象或 JSON 字符串，并统一通过 `SufficiencyCriteria` 严格校验。
+- `tests/test_deep_crawl_workflow.py`：新增 Qwen3.8 字符串化嵌套条件的回归测试。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pytest -q tests/test_deep_crawl_workflow.py -k 'intel_plan or runner_deep_crawl_setting'`：PASS（5 passed）。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff format --check src/intel_agent/agent.py tests/test_deep_crawl_workflow.py`：PASS。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff check src/intel_agent/agent.py tests/test_deep_crawl_workflow.py`：PASS。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pyright src/intel_agent/agent.py tests/test_deep_crawl_workflow.py`：PASS（0 errors）。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run python scripts/run_experiment.py --name qwen38-27b-vllm-criteria-compat --topic "低空经济" --questions "2026年低空经济投资与融资趋势" "亿航智能商业化进展与订单情况" --recency 120 --min-sources 2 --min-quality 1 --max-turns 200 --config experiments/configs/qwen38-27b-vllm-16k.yaml`：FAIL（报告参数 4 次在 1024 token 处截断）。
+
+### Experiment result
+
+- 状态：failed（采集与审核链路通过，报告收尾失败）
+- 产物：`experiments/runs/030-qwen38-27b-vllm-criteria-compat/`
+- 代码版本：`b6a00f3`
+- 真实运行：exit_code=1，stage=assess，elapsed=2225.5s；服务 metrics 为共享值，不声明精确 model_requests
+- 关键指标：搜索预算 40、查询矩阵 26、归档 4、活跃事实 1、证据 1、full 审核 1、证据文档利用率 25%；coverage gap=6/no_progress；0 上下文溢出；报告 4 次均生成满 1024 token 后以 JSON EOF 失败。
+- 假设结论：部分成立；`intel_plan` 一次成功并完整走通 search→fetch→read→fact/evidence→audit→coverage→assess，但 1024-token 主输出不足以容纳五章节报告参数。
+
+### Known issues
+
+- 两个用户原始问题均未形成事实；检索材料存在“2026 半年报/节假日”年份污染，最终必须如实 with-gaps。
+- 异常退出仍无增量 trace，ANALYSIS 的工具调用数为 0，只能用持久 state 和服务 metrics 分析。
+
+
+## [029-qwen38-27b-vllm-16k] - 2026-08-20
+
+### Changed
+
+- `src/intel_agent/config.py`：新增 16K 上下文档位，对应 24,576-byte 历史与 4,096-byte 单工具结果预算。
+- `README.md`、`config.example.yaml`、`experiments/configs/qwen38-27b-vllm-16k.yaml`：记录并启用服务实际声明的 16K 边界。
+- `tests/test_config.py`：覆盖 16K 派生预算与 8K 非法档位。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pytest -q tests/test_config.py tests/test_context.py`：PASS（14 passed）。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff format --check src/intel_agent/config.py tests/test_config.py`：PASS。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff check src/intel_agent/config.py tests/test_config.py`：PASS。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pyright src/intel_agent/config.py tests/test_config.py`：PASS（0 errors）。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run python scripts/run_experiment.py --name qwen38-27b-vllm-16k --topic "低空经济" --questions "2026年低空经济投资与融资趋势" "亿航智能商业化进展与订单情况" --recency 120 --min-sources 2 --min-quality 1 --max-turns 200 --config experiments/configs/qwen38-27b-vllm-16k.yaml`：FAIL（工具参数校验重试耗尽）。
+
+### Experiment result
+
+- 状态：failed
+- 产物：`experiments/runs/029-qwen38-27b-vllm-16k/`
+- 代码版本：`b6a00f3`
+- 真实运行：exit_code=1，stage=未建立，elapsed=138.6s，model_requests=4（由初次调用及 3 次工具校验重试推断）
+- 关键指标：上下文溢出=0，后端健康=200；模型调用 `intel_plan` 时把 `criteria` 对象编码为 JSON 字符串，工具调用 4 次均未通过 Pydantic 校验。
+- 假设结论：部分成立；16K 配置和服务稳定性通过，但 Qwen3.8 的嵌套工具参数编码不兼容阻断了任务建立。
+
+### Known issues
+
+- `intel_plan.criteria` 需要在保持业务模型校验的前提下兼容 JSON 字符串；030 单独验证。
+- 异常退出仍未增量保存 trace，工具重试次数只能由错误栈和 `retries=3` 推断。
+
+## [028-qwen38-27b-vllm-no-thinking] - 2026-08-20
+
+### Changed
+
+- `experiments/configs/qwen38-27b-vllm-no-thinking.yaml`：保持 Qwen3.8-27B、32K 和 Agent 预算不变，仅关闭思考以隔离 027 的停滞原因。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run python -c <load_config>`：PASS（模型 `qwen3.8-27b-int4`，32K，免密接口）。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run python scripts/run_experiment.py --name qwen38-27b-vllm-no-thinking --topic "低空经济" --questions "2026年低空经济投资与融资趋势" "亿航智能商业化进展与订单情况" --recency 120 --min-sources 2 --min-quality 1 --max-turns 200 --config experiments/configs/qwen38-27b-vllm-no-thinking.yaml`：ABORTED（首请求 422.9 秒无工具调用或状态进展）。
+- 完整系统提示 + 单个 `intel_plan` 工具 + 128 输出 token：FAIL（约 34 秒后 HTTP 502）。
+- 后端恢复探测：FAIL（连续 3 次 `/health` 均为 HTTP 502）。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run python scripts/analyze_run.py experiments/runs/028-qwen38-27b-vllm-no-thinking --write`：PASS（0 次工具调用、0 份归档文档）。
+- `git diff --check`：PASS。
+
+### Experiment result
+
+- 状态：failed
+- 产物：`experiments/runs/028-qwen38-27b-vllm-no-thinking/`
+- 代码版本：`b6a00f3`
+- 真实运行：exit_code=130（主动终止），stage=未建立，elapsed=422.9s，model_requests=1
+- 关键指标：工具调用=0、搜索=0、归档文档=0、事实/证据=0、上下文溢出=0；关闭思考未改善首请求停滞，诊断后服务健康从 200 变为 502。
+- 假设结论：不成立；瓶颈不只是思考模式，当前远程推理服务无法稳定承载真实 Agent 工具负载。
+
+### Known issues
+
+- 服务端需先修复真实工具请求触发的 502；本地 Agent 无状态产物可供搜索质量评价。
+- vLLM metrics 为共享全局累计值，未取得独占测试窗口前不能把总 token 增量精确归因到本实验。
+
+## [027-qwen38-27b-vllm] - 2026-08-20
+
+### Changed
+
+- `experiments/configs/qwen38-27b-vllm.yaml`：接入远程 `qwen3.8-27b-int4`，按服务声明使用 32K 上下文并开启思考。
+
+### Verification
+
+- `curl http://10.108.25.82:8001/health`：PASS（HTTP 200）。
+- `curl http://10.108.25.82:8001/v1/models`：PASS（模型 `qwen3.8-27b-int4`，`max_model_len=32768`）。
+- 关闭思考的普通对话与 ping 工具调用：PASS（3.7 秒；ping 参数为 `ok`）。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run python scripts/run_experiment.py --name qwen38-27b-vllm --topic "低空经济" --questions "2026年低空经济投资与融资趋势" "亿航智能商业化进展与订单情况" --recency 120 --min-sources 2 --min-quality 1 --max-turns 200 --config experiments/configs/qwen38-27b-vllm.yaml`：ABORTED（首请求 400 秒无工具调用或状态进展）。
+
+### Experiment result
+
+- 状态：failed
+- 产物：`experiments/runs/027-qwen38-27b-vllm/`
+- 代码版本：`b6a00f3`
+- 真实运行：exit_code=130（主动终止），stage=未建立，elapsed=400.0s，model_requests=1
+- 关键指标：服务指标显示本请求 prompt=4,203 tokens、终止时 generation=475 tokens，约 1.49 token/s；工具调用=0，归档文档=0，上下文溢出=0。
+- 假设结论：不成立；开启思考在当前服务吞吐和 1024-token 输出边界下无法及时进入第一个工具动作。
+
+### Known issues
+
+- vLLM 当前单请求思考生成吞吐约 1.49 token/s，远低于此前预期，需用关闭思考的 028 区分模型能力与思考开销。
+- 主动终止时 harness 不会自动补写 manifest 终态，本轮根据进程退出码、墙钟和服务 metrics 补记。
+
+## [026-stage-aware-resume] - 2026-08-20
+
+### Changed
+
+- `src/intel_agent/context.py`：快照按任务及研判子阶段给出唯一动作：待审证据→审核、审核更新→覆盖、覆盖停止→assess、导读→报告、报告→done。
+- `src/intel_agent/models.py`、`src/intel_agent/report.py`：事实型报告结论可省略可推导的 `kind`；系统按事实与覆盖状态自动添加来源归属，并允许未回答问题以空结论章节诚实写入 with-gaps 报告。
+- `tests/test_context.py`、`tests/test_report.py`：覆盖 assess 防回跳、导读后转报告、无 kind 事实结论和未回答章节。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff format --check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pyright`：PASS（0 errors）
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pytest -q`：PASS（359 passed, 1 skipped）
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv build`：PASS
+- 从 `experiments/runs/025-small-model-continuation/` 原地恢复：PASS；3/3 证据完成审核，collect→assess→done，搜索次数保持 40。
+
+### Experiment result
+
+- 状态：passed
+- 产物：`experiments/runs/025-small-model-continuation/`（`resume-trace-4.jsonl` 与 `output/低空经济-research-report.md`）
+- 代码版本：`b6a00f3`（改动尚未提交，原 manifest 记录运行时 HEAD）
+- 真实运行：最终 stage=done，completion_status=with_gaps；最后一次恢复 model_requests=3，total_tokens=16,566
+- 关键指标：审核 0→3，stage collect→done，正式报告 0→1，新增搜索 0；报告明确披露 Q2 未形成可验证结论及 2026 时间缺口
+- 假设结论：成立；阶段感知快照和简化报告契约让 32K Qwen3.5-9B 从中断状态恢复并完成正式报告，未靠扩大上下文或伪造缺失结论。
+
+### Known issues
+
+- 首次 025 主运行和两个中间恢复因主动终止未写 trace/usage，异常路径增量观测仍待单独解决。
+- 本轮语料质量有限：仅 1 个活跃事实，Q2 未回答；这是搜索结果质量缺口，不是上下文溢出。
+
+## [025-small-model-continuation] - 2026-08-20
+
+### Changed
+
+- `src/intel_agent/agent.py`、`src/intel_agent/context.py`：记录本轮已读文档，`document_read` 返回明确的 `fact_save → evidence_save` 下一动作，快照不再要求重复读取。
+- `src/intel_agent/runner.py`：模型在任务未完成时返回自然语言会自动续跑；所有续跑共享依赖、消息历史和累计请求预算。
+- `tests/test_context.py`、`tests/test_deep_crawl_workflow.py`：覆盖已读状态、工具下一动作和未完成任务自动续跑。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff format --check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pyright`：PASS（0 errors）
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pytest -q`：PASS（356 passed, 1 skipped）
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv build`：PASS
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run python scripts/run_experiment.py --name small-model-continuation --topic "低空经济" --questions "2026年低空经济投资与融资趋势" "亿航智能商业化进展与订单情况" --recency 120 --min-sources 2 --min-quality 1 --max-turns 200 --config experiments/configs/qwen35-9b-llama-server.yaml`：ABORTED（达到本轮闭环验收后，因重复 coverage_eval 主动终止）
+
+### Experiment result
+
+- 状态：inconclusive（核心假设成立，完整任务未完成）
+- 产物：`experiments/runs/025-small-model-continuation/`
+- 代码版本：`b6a00f3`（本轮改动尚未提交，manifest 记录运行时 HEAD）
+- 真实运行：exit_code=-15（主动终止），stage=collect，elapsed=858.1s；异常终止未写 usage/trace，model_requests 不可计算
+- 关键指标：事实 0→1、证据 0→3、被证据引用文档 0→2，首次完成 32K/9B 的 fetch→read→fact→evidence；搜索预算 40 次耗尽，审核 0，coverage gap=5/no_progress
+- 假设结论：核心成立；已读状态和自动续跑解决了 024 的提前退出并形成证据闭环，但快照未区分待审核证据，模型在 coverage_eval 重复 16 轮，完整终态仍未达成。
+
+### Known issues
+
+- 有 pending evidence 时快照仍返回通用 collect 动作，未强制 `evidence_audit`。
+- 自动续跑会忠实放大错误 next_action；必须先让持久快照按阶段给出唯一动作。
+- 主动终止路径仍无 trace/usage，异常增量观测问题未解决。
+
+## [024-archive-state-recovery] - 2026-08-20
+
+### Changed
+
+- `src/intel_agent/context.py`：压缩快照加入最多 8 份最近归档文档的 ID、标题和 URL；无证据时明确要求停止检索并调用 `document_read → fact_save → evidence_save`。
+- `tests/test_context.py`：增加归档文档状态恢复回归测试。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff format --check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pyright`：PASS（0 errors）
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pytest -q`：PASS（355 passed, 1 skipped）
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv build`：PASS
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run python scripts/run_experiment.py --name archive-state-recovery --topic "低空经济" --questions "2026年低空经济投资与融资趋势" "亿航智能商业化进展与订单情况" --recency 120 --min-sources 2 --min-quality 1 --max-turns 200 --config experiments/configs/qwen35-9b-llama-server.yaml`：FAIL（模型提前返回，exit=2）
+
+### Experiment result
+
+- 状态：failed
+- 产物：`experiments/runs/024-archive-state-recovery/`
+- 代码版本：`b6a00f3`（本轮改动尚未提交，manifest 记录运行时 HEAD）
+- 真实运行：exit_code=2，stage=collect，elapsed=45.8s，model_requests=10，total_tokens=98,135
+- 关键指标：`document_read` 0→4、被阅读文档 0→1；事实和证据仍为 0；无上下文溢出且单任务保持正确
+- 假设结论：部分成立；归档状态使模型正确进入 document_read，但快照没有“已读”状态，模型重复读取后以承诺继续的自然语言提前结束。
+
+### Known issues
+
+- `document_read` 阶段未记录在运行上下文，压缩快照持续要求再次读取同一文档。
+- runner 把未完成任务中的自然语言回复当作本轮终点，不会基于持久化 stage 自动续跑。
+- trace 只保留 4 次工具调用，少于 usage 的 10 次模型请求。
+
+## [023-context-gate-recovery] - 2026-08-20
+
+### Changed
+
+- `src/intel_agent/agent.py`：`FETCH_REQUIRED` 返回最多 10 个具体候选 URL 和下一动作；成功抓取后清空待抓候选；`intel_plan` 复用未完成的活动任务。
+- `tests/test_deep_crawl_workflow.py`：增加候选恢复和任务规划幂等回归测试。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff format --check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pyright`：PASS（0 errors）
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pytest -q`：PASS（354 passed, 1 skipped）
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv build`：PASS
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run python scripts/run_experiment.py --name context-gate-recovery --topic "低空经济" --questions "2026年低空经济投资与融资趋势" "亿航智能商业化进展与订单情况" --recency 120 --min-sources 2 --min-quality 1 --max-turns 200 --config experiments/configs/qwen35-9b-llama-server.yaml`：FAIL（模型提前返回，exit=2）
+
+### Experiment result
+
+- 状态：failed
+- 产物：`experiments/runs/023-context-gate-recovery/`
+- 代码版本：`b6a00f3`（本轮改动尚未提交，manifest 记录运行时 HEAD）
+- 真实运行：exit_code=2，stage=collect，elapsed=249.2s，model_requests=38，total_tokens=453,018
+- 关键指标：任务数 2→1，归档文档 2→6，显式 `web_fetch` 0→11；证据和事实仍为 0；无上下文溢出
+- 假设结论：部分成立；具体候选和规划幂等使模型完成 search→fetch，但压缩快照没有归档文档 ID，最终仍指示继续抓取，未进入 evidence。
+
+### Known issues
+
+- 压缩快照只恢复任务、事实和覆盖，不恢复已归档文档；历史裁剪后小模型不知道可调用 `document_read` 的 ID。
+- 模型对 `https://www.lowaltitude.cn/` 的自签名证书失败反复调用，现有连续重复门禁不足以完成阶段转换。
+- trace 仍只反映裁剪后 14 次工具调用，少于 usage 的 38 次模型请求。
+
+## [022-bounded-context-qwen35-9b] - 2026-08-20
+
+### Changed
+
+- `src/intel_agent/config.py`、`src/intel_agent/context.py`：新增 32K/64K/128K/256K 上下文档位、按档位派生的历史与工具结果上限，以及基于持久化任务状态的消息历史裁剪。
+- `src/intel_agent/agent.py`：主 Agent 与审核 Agent 分别限制输出，支持关闭 Qwen thinking，并增加连续搜索转抓取门禁。
+- `config.example.yaml`、`README.md`、`experiments/configs/qwen35-9b-llama-server.yaml`：记录并启用本地 32K 小模型配置。
+- `tests/test_config.py`、`tests/test_context.py`、`tests/test_deep_crawl_workflow.py`：覆盖档位校验、历史压缩、状态恢复、输出限制和搜索门禁。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff format --check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pyright`：PASS（0 errors）
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pytest`：PASS（353 passed, 1 skipped）
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv build`：PASS
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run python scripts/run_experiment.py --name bounded-context-qwen35-9b --topic "低空经济" --questions "2026年低空经济投资与融资趋势" "亿航智能商业化进展与订单情况" --recency 120 --min-sources 2 --min-quality 1 --max-turns 200 --config experiments/configs/qwen35-9b-llama-server.yaml`：FAIL（模型提前返回，exit=2）
+
+### Experiment result
+
+- 状态：failed
+- 产物：`experiments/runs/022-bounded-context-qwen35-9b/`
+- 代码版本：`b6a00f3`（上下文管理改动尚未提交，manifest 记录运行时 HEAD）
+- 真实运行：exit_code=2，stage=collect，elapsed=106.8s，model_requests=18，total_tokens=203,137
+- 关键指标：上下文溢出 1→0；搜索 40→15，文档 3→2，证据 1→0，事实 1→0；活动任务错误地从原任务切换为重复规划的新任务
+- 假设结论：部分成立；32K 历史与输出边界消除了溢出，但门禁只返回错误、不返回候选 URL，小模型持续搜索并重复调用 `intel_plan`，未进入证据闭环。
+
+### Known issues
+
+- `FETCH_REQUIRED` 缺少具体候选 URL 和明确下一工具参数，小模型无法恢复到 `web_fetch`。
+- `intel_plan` 非幂等，压缩后模型重复调用会覆盖活动任务。
+- trace 只保存最终压缩后的消息，工具统计 12 次与 usage 的 18 次请求不一致，仍不能完整还原压缩前轨迹。
+
+## [021-qwen35-9b-local-baseline] - 2026-08-20
+
+### Changed
+
+- `src/intel_agent/config.py`、`src/intel_agent/main.py`：允许 `api_key_env: null`，使本机免密 OpenAI 兼容服务可被 Agent 和模型连通性检查共同使用。
+- `config.example.yaml`、`README.md`：记录免密本地 llama-server 配置方式。
+- `tests/test_config.py`、`tests/test_web_api.py`：覆盖免密配置解析和系统接口模型探测。
+- `experiments/configs/qwen35-9b-llama-server.yaml`：固定本轮模型地址、模型 ID、搜索预算和关闭 deep crawl 的控制变量。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff format --check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run ruff check .`：PASS
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pyright`：PASS（0 errors）
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run pytest`：PASS（342 passed, 1 skipped，coverage 85%）
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv build`：PASS
+- 本地 `build_agent` 冒烟：PASS；Qwen 调用 `intel_status` 1 次并返回 `LOCAL_AGENT_OK`。
+- `UV_PROJECT_ENVIRONMENT=/home/guandewei/.conda/envs/collection-agent-pydantic uv run python scripts/run_experiment.py --name qwen35-9b-local-baseline --topic "低空经济" --questions "2026年低空经济投资与融资趋势" "亿航智能商业化进展与订单情况" --recency 120 --min-sources 2 --min-quality 1 --max-turns 200 --config experiments/configs/qwen35-9b-llama-server.yaml`：FAIL（上下文 32,870 > 32,768，exit=1）
+
+### Experiment result
+
+- 状态：failed
+- 产物：`experiments/runs/021-qwen35-9b-local-baseline/`
+- 代码版本：`b6a00f3`（模型接口改动尚未提交，manifest 仅记录当时 HEAD）
+- 真实运行：exit_code=1，stage=collect，elapsed=1094.0s；失败时未写 `trace.jsonl`，model_requests 和总 token 无法准确测量
+- 关键指标：40 次搜索；矩阵 26 条中 5 条有结果；归档 3、证据 1、活跃事实 1、审核记录 0；0/5 问题 covered；无最终报告
+- 假设结论：不成立；免密接口和 tool calling 冒烟成功，但真实任务在语义审核阶段生成失控并超过 32K 上下文，未完成研究主流程
+
+### Known issues
+
+- 审核角色缺少输出上限和历史压缩；现场 `/slots` 观测到一次约 32K 的生成（未持久化），run.log 可复核的后续请求因 32,870-token prompt 超限退出。
+- 40 次搜索仅转化 3 篇文档和 1 条证据；9B 模型缺少可靠的 search → fetch → evidence 阶段转换。
+- SearXNG/Bing 多次返回相同的节假日、日历和世界杯结果，并归档一篇无关政府页面。
+- harness 仅在成功返回时写 trace，失败实验的请求数、token 和工具序列不可恢复；服务端也未启用 metrics。
 
 ## [020-final-consolidation] - 2026-08-19
 

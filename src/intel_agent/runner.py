@@ -9,13 +9,23 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_ai import (
     AgentRunResult,
     CancellationToken,
+    ModelMessage,
 )
-from pydantic_ai.usage import UsageLimits
+from pydantic_ai.usage import RunUsage, UsageLimits
 
 from .agent import build_agent, build_deps
+from .audit import verified_support_evidence
 from .config import Settings
-from .models import ReportDepth, ResearchScope, SufficiencyCriteria
-from .task import parse_time_range
+from .coverage import latest_coverage
+from .fact import list_active_facts_for_task
+from .models import (
+    IntelError,
+    IntelTask,
+    ReportDepth,
+    ResearchScope,
+    SufficiencyCriteria,
+)
+from .task import load_task, parse_time_range
 
 EventCallback = Callable[[object], Awaitable[None]]
 
@@ -153,6 +163,25 @@ def build_task_prompt(spec: TaskRunSpec) -> str:
     )
 
 
+def build_completion_output(cwd: Path, task: IntelTask) -> str:
+    """Return a deterministic completion summary from persisted evidence."""
+    verified_count = sum(
+        bool(verified_support_evidence(cwd, fact.id))
+        for fact in list_active_facts_for_task(cwd, task.id)
+    )
+    coverage = latest_coverage(cwd, task.id)
+    report_path = task.outputs.report.path if task.outputs.report else "未生成"
+    return "\n".join(
+        [
+            "任务已完成。",
+            f"completion_status={task.completion_status}",
+            f"报告路径={report_path}",
+            f"已验证事实数={verified_count}",
+            f"coverage_gap={coverage.gap_score if coverage else '未评估'}",
+        ]
+    )
+
+
 async def run_agent_task(
     cwd: Path,
     settings: Settings,
@@ -182,22 +211,42 @@ async def run_agent_task(
     if hasattr(deps, "crawl_event_callback"):
         deps.crawl_event_callback = on_event
 
-    async with agent.run_stream_events(
-        build_task_prompt(resolved_spec),
-        deps=deps,
-        usage_limits=UsageLimits(
-            request_limit=min(
-                settings.budgets.request_limit,
-                resolved_spec.max_requests or settings.budgets.request_limit,
-            ),
-            tool_calls_limit=resolved_spec.max_tool_calls,
+    limits = UsageLimits(
+        request_limit=min(
+            settings.budgets.request_limit,
+            resolved_spec.max_requests or settings.budgets.request_limit,
         ),
-        cancellation_token=cancellation_token,
-    ) as events:
-        async for event in events:
-            if on_event is not None:
-                await on_event(event)
-        result = events.result
-    if result is None:
-        raise RuntimeError("Agent run completed without a result")
-    return result
+        tool_calls_limit=resolved_spec.max_tool_calls,
+    )
+    usage = RunUsage()
+    prompt = build_task_prompt(resolved_spec)
+    message_history: list[ModelMessage] | None = None
+    while True:
+        async with agent.run_stream_events(
+            prompt,
+            deps=deps,
+            message_history=message_history,
+            usage_limits=limits,
+            usage=usage,
+            cancellation_token=cancellation_token,
+        ) as events:
+            async for event in events:
+                if on_event is not None:
+                    await on_event(event)
+            result = events.result
+        if result is None:
+            raise RuntimeError("Agent run completed without a result")
+        try:
+            task = load_task(cwd)
+        except IntelError as error:
+            if error.code != "NOT_FOUND":
+                raise
+            return result
+        if task.stage == "done":
+            result.output = build_completion_output(cwd, task)
+            return result
+        message_history = result.all_messages()
+        prompt = (
+            "任务尚未完成。不要解释、总结或承诺下一步；"
+            "立即依据最新 CONTEXT_SNAPSHOT 的 next_action 调用一个工具继续。"
+        )

@@ -10,7 +10,12 @@ from pydantic import ValidationError
 from intel_agent.config import BudgetConfig, Settings
 from intel_agent.models import ResearchScope, SufficiencyCriteria
 from intel_agent.runner import TaskRunSpec, build_task_prompt, run_agent_task
-from intel_agent.task import create_task, load_task, parse_time_range
+from intel_agent.task import (
+    create_task,
+    load_task,
+    parse_time_range,
+    save_task,
+)
 
 
 def make_spec() -> TaskRunSpec:
@@ -228,6 +233,56 @@ async def test_run_agent_task_streams_events(monkeypatch, cwd):
 
     assert actual is result
     assert received == ["tool-started", "tool-completed"]
+
+
+@pytest.mark.asyncio
+async def test_done_task_replaces_untrusted_model_summary(monkeypatch, cwd):
+    task = create_task(
+        cwd, "低空经济", ["问题甲", "问题乙"], make_spec().criteria
+    )
+    save_task(
+        cwd,
+        task.model_copy(
+            update={"stage": "done", "completion_status": "with_gaps"}
+        ),
+    )
+    result = SimpleNamespace(output="模型声称有未验证的第二条事实")
+
+    class FakeEvents:
+        def __init__(self):
+            self.result = result
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            raise StopAsyncIteration
+
+    class FakeAgent:
+        def run_stream_events(self, _prompt, **_kwargs):
+            return FakeEvents()
+
+    monkeypatch.setattr(
+        "intel_agent.runner.build_agent", lambda _s: FakeAgent()
+    )
+    monkeypatch.setattr(
+        "intel_agent.runner.build_deps",
+        lambda _cwd, _settings, *, deep_crawl: SimpleNamespace(
+            crawl_event_callback=None
+        ),
+    )
+
+    actual = await run_agent_task(cwd, Settings(), make_spec())
+
+    assert "模型声称" not in actual.output
+    assert "completion_status=with_gaps" in actual.output
+    assert "已验证事实数=0" in actual.output
 
 
 @pytest.mark.asyncio

@@ -24,13 +24,18 @@ from urllib.parse import urlparse
 import httpx
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.capabilities import ProcessHistory
+from pydantic_ai.models.openai import (
+    OpenAIChatModel,
+    OpenAIChatModelSettings,
+)
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from .audit import Judge, audit_task_evidence
 from .browser import BrowserRenderer
-from .config import ModelConfig, Settings
+from .config import ContextConfig, ModelConfig, Settings
 from .conflicts import resolve_conflict, save_conflict
+from .context import make_history_processor
 from .coverage import eval_coverage, latest_coverage
 from .crawl import CrawlEventCallback, create_crawl, summarize_crawl
 from .crawl import crawl_collect as run_crawl_collect
@@ -58,7 +63,11 @@ from .models import (
     SufficiencyCriteria,
     SupportVerdict,
 )
-from .report import _fact_ids, generate_research_report
+from .report import (
+    _fact_ids,
+    build_verified_report_draft,
+    generate_research_report,
+)
 from .search import web_search
 from .search_queries import (
     QUERY_MATRIX_PHASE,
@@ -89,6 +98,8 @@ from .task import (
 
 _DOCUMENT_READ_MAX_LINES = 200
 _DOCUMENT_READ_MAX_BYTES = 16 * 1024
+_MAX_OUTBOUND_LINKS = 20
+_MAX_SEARCH_RESULTS = 10
 _UNTRUSTED_OPEN = "<untrusted_web_content>\n"
 _UNTRUSTED_CLOSE = "\n</untrusted_web_content>"
 
@@ -176,6 +187,11 @@ class AgentDeps:
     judge_provider: str = ""
     judge_model: str = ""
     previous_call: dict | None = None
+    search_calls_with_candidates: int = 0
+    pending_fetch_candidates: list[dict[str, str]] = field(
+        default_factory=list
+    )
+    read_document_ids: set[str] = field(default_factory=set)
 
 
 def _build_chat_model(cfg: ModelConfig, api_key: str | None):
@@ -185,14 +201,33 @@ def _build_chat_model(cfg: ModelConfig, api_key: str | None):
     return OpenAIChatModel(cfg.name, provider=provider)
 
 
+def _bounded_model_settings(
+    context: ContextConfig, max_tokens: int
+) -> OpenAIChatModelSettings:
+    settings = OpenAIChatModelSettings(max_tokens=max_tokens)
+    if context.disable_thinking:
+        settings["extra_body"] = {
+            "chat_template_kwargs": {"enable_thinking": False}
+        }
+    return settings
+
+
 class JudgeAgent:
     """Isolated entailment judge: its own agent and model, never sharing the main context."""
 
-    def __init__(self, cfg: ModelConfig, api_key: str | None):
+    def __init__(
+        self,
+        cfg: ModelConfig,
+        api_key: str | None,
+        context: ContextConfig,
+    ):
         self.agent = Agent(
             _build_chat_model(cfg, api_key),
             system_prompt=SUPPORT_JUDGE_PROMPT,
             output_type=SupportJudgeResult,
+            model_settings=_bounded_model_settings(
+                context, context.audit_output_tokens
+            ),
         )
         self.provider_name = (
             "deepseek"
@@ -221,6 +256,15 @@ class JudgeAgent:
 
 def _error_text(error: object) -> str:
     return str(error) or type(error).__name__
+
+
+def _truncate_utf8(text: str, max_bytes: int, suffix: str = "") -> str:
+    encoded = text.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return text
+    suffix_bytes = suffix.encode("utf-8")
+    available = max(0, max_bytes - len(suffix_bytes))
+    return encoded[:available].decode("utf-8", errors="ignore") + suffix
 
 
 def _failure(error: object) -> dict:
@@ -530,7 +574,11 @@ async def _run_query_matrix(
 
 
 def _read_document_lines(
-    cwd: Path, document_id: str, start_line: int, end_line: int
+    cwd: Path,
+    document_id: str,
+    start_line: int,
+    end_line: int,
+    max_bytes: int = _DOCUMENT_READ_MAX_BYTES,
 ) -> dict:
     document = load_document(cwd, document_id)
     verify_document_integrity(cwd, document)
@@ -554,7 +602,7 @@ def _read_document_lines(
     for number in range(start_line, capped_end + 1):
         candidate = numbered_lines + [f"{number}: {lines[number - 1]}"]
         content = _UNTRUSTED_OPEN + "\n".join(candidate) + _UNTRUSTED_CLOSE
-        if len(content.encode("utf-8")) > _DOCUMENT_READ_MAX_BYTES:
+        if len(content.encode("utf-8")) > max_bytes:
             break
         numbered_lines = candidate
     if not numbered_lines:
@@ -772,6 +820,14 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         system_prompt=SYSTEM_PROMPT,
         deps_type=AgentDeps,
         name="intel-agent",
+        model_settings=_bounded_model_settings(
+            settings.context, settings.context.main_output_tokens
+        ),
+        capabilities=(
+            [ProcessHistory(make_history_processor(settings.context))]
+            if settings.context.enabled
+            else []
+        ),
         # run 011: the model once called document_search with a document_id
         # arg; one retry let the whole run crash. Give it more chances to
         # self-correct on validation errors before failing the task.
@@ -809,6 +865,19 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                 "results": [],
                 "engineUsed": "blocked",
                 "error": f"查询过宽：{reason}",
+            }
+        if (
+            ctx.deps.search_calls_with_candidates
+            >= ctx.deps.settings.context.max_search_calls_before_fetch
+        ):
+            return {
+                "ok": False,
+                "error": {
+                    "code": "FETCH_REQUIRED",
+                    "message": "已有多批可抓取候选；继续搜索前必须先调用 web_fetch。",
+                },
+                "candidates": ctx.deps.pending_fetch_candidates,
+                "next_action": "从 candidates 选择一个 URL 调用 web_fetch；不要再次调用 web_search 或 intel_plan。",
             }
         record_search_attempt(
             ctx.deps.cwd,
@@ -868,6 +937,29 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             if not item.get("already_archived")
         )
         result["fresh_count"] = fresh
+        if fresh:
+            ctx.deps.search_calls_with_candidates += 1
+            known_urls = {
+                candidate["url"]
+                for candidate in ctx.deps.pending_fetch_candidates
+            }
+            for item in result.get("results", []):
+                url = item.get("url")
+                if (
+                    not url
+                    or item.get("already_archived")
+                    or url in known_urls
+                ):
+                    continue
+                ctx.deps.pending_fetch_candidates.append(
+                    {"url": url, "title": item.get("title", "")}
+                )
+                known_urls.add(url)
+            ctx.deps.pending_fetch_candidates = (
+                ctx.deps.pending_fetch_candidates[:_MAX_SEARCH_RESULTS]
+            )
+        result["candidate_count"] = len(result.get("results", []))
+        result["results"] = result.get("results", [])[:_MAX_SEARCH_RESULTS]
         result["hint"] = (
             "本批结果已全部归档过；请换用更具体的查询（公司名/年份/事件），"
             "或搜索英文来源，不要重复抓取。"
@@ -925,11 +1017,23 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         end_line: int,
     ) -> dict:
         """按 1-based 行号读取已校验且完整提取的归档正文。"""
-        return _guarded_sync(
-            lambda: _read_document_lines(
-                ctx.deps.cwd, document_id, start_line, end_line
+
+        def read() -> dict:
+            result = _read_document_lines(
+                ctx.deps.cwd,
+                document_id,
+                start_line,
+                end_line,
+                ctx.deps.settings.context.tool_content_max_bytes(),
             )
-        )
+            ctx.deps.read_document_ids.add(document_id)
+            result["next_action"] = (
+                "从本次 content 选择一个逐字引文，立即调用 fact_save，"
+                "再调用 evidence_save；不要重复读取相同行号。"
+            )
+            return result
+
+        return _guarded_sync(read)
 
     @agent.tool(name="material_digest")
     def material_digest_tool(ctx: RunContext[AgentDeps], task_id: str) -> dict:
@@ -1014,15 +1118,20 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             document.canonical_url,
             document_id=document.id,
         )
-        preview = content[:20_000]
+        preview = _truncate_utf8(
+            content,
+            ctx.deps.settings.context.tool_content_max_bytes(),
+            "\n[正文预览已截断]",
+        )
+        ctx.deps.search_calls_with_candidates = 0
+        ctx.deps.pending_fetch_candidates.clear()
         return {
             "document": document.model_dump(),
             "fetched_via": fetched_via,
             "remaining_fetch_budget": ctx.deps.settings.budgets.fetch_attempts_since_evidence
             - collection["fetch_attempts_since_evidence"],
-            "preview": preview
-            + ("\n[正文预览已截断]" if len(content) > len(preview) else ""),
-            "outbound_links": outbound_links,
+            "preview": preview,
+            "outbound_links": outbound_links[:_MAX_OUTBOUND_LINKS],
         }
 
     @agent.tool(name="fact_save")
@@ -1149,9 +1258,11 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
     def generate_research_report_tool(
         ctx: RunContext[AgentDeps],
         task_id: str,
-        draft: ResearchReportInput,
+        draft: ResearchReportInput | str,
     ) -> dict:
         """Generate the primary report from verified structured findings."""
+        if isinstance(draft, str):
+            draft = ResearchReportInput.model_validate_json(draft)
         draft_key = {
             "questions": sorted(
                 section.question_id for section in draft.sections
@@ -1174,39 +1285,56 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                 "ok": False,
                 "errors": [{"code": "REPEATED", "message": block}],
             }
-        return _guarded_sync(
-            lambda: generate_research_report(ctx.deps.cwd, task_id, draft)
-        )
+
+        def generate_with_fallback():
+            result = generate_research_report(ctx.deps.cwd, task_id, draft)
+            if result.get("ok"):
+                return result
+            fallback = build_verified_report_draft(ctx.deps.cwd, task_id)
+            return generate_research_report(ctx.deps.cwd, task_id, fallback)
+
+        return _guarded_sync(generate_with_fallback)
 
     @agent.tool(name="intel_plan")
     def intel_plan_tool(
         ctx: RunContext[AgentDeps],
         topic: str,
         questions: list[str],
-        criteria: SufficiencyCriteria,
+        criteria: SufficiencyCriteria | str,
         deep_crawl: bool = False,
     ) -> dict:
-        """创建情报任务、稳定的问题 ID、充分性标准和检索词建议。每次调用创建新任务。"""
+        """创建情报任务并返回稳定的问题 ID；未完成的活动任务会直接复用。"""
         return _guarded_sync(
             lambda: _intel_plan(ctx, topic, questions, criteria)
         )
 
     def _intel_plan(ctx, topic, questions, criteria) -> dict:
-        task = create_task(
-            ctx.deps.cwd,
-            topic,
-            questions,
-            criteria,
-            deep_crawl=ctx.deps.deep_crawl,
-            objective=ctx.deps.objective,
-            scope=ctx.deps.scope,
-            report_depth=ctx.deps.report_depth,
-        )
+        if isinstance(criteria, str):
+            criteria = SufficiencyCriteria.model_validate_json(criteria)
+        reused_existing_task = False
+        try:
+            task = load_task(ctx.deps.cwd)
+            reused_existing_task = task.stage != "done"
+        except IntelError as error:
+            if error.code != "NOT_FOUND":
+                raise
+            task = None
+        if task is None or not reused_existing_task:
+            task = create_task(
+                ctx.deps.cwd,
+                topic,
+                questions,
+                criteria,
+                deep_crawl=ctx.deps.deep_crawl,
+                objective=ctx.deps.objective,
+                scope=ctx.deps.scope,
+                report_depth=ctx.deps.report_depth,
+            )
         # Deployment-configured direct sources enter the crawl frontier as
         # depth-0 seeds: web_fetch rejects non-HTML/PDF content types, so
         # multimedia targets (video/audio/images/office) can only be
         # collected through the crawl (run 018).
-        if ctx.deps.deep_crawl:
+        if ctx.deps.deep_crawl and not reused_existing_task:
             source_urls = [
                 url
                 for field in ("financial", "ir_company", "policy")
@@ -1221,6 +1349,7 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                 )
         return {
             "task": task.model_dump(),
+            "reused_existing_task": reused_existing_task,
             "query_plan": [
                 {
                     "question_id": q.id,
@@ -1271,6 +1400,7 @@ def build_deps(
         judge = JudgeAgent(
             settings.audit_model or settings.model,
             settings.audit_api_key(),
+            settings.context,
         )
         deps.judge = judge
         deps.judge_provider = judge.provider_name
