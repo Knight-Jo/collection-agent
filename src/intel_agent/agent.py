@@ -698,6 +698,18 @@ def _coverage_eval_with_backlog(cwd: Path, task_id: str) -> dict:
     snapshot = eval_coverage(cwd, task_id)
     data = snapshot.model_dump()
     task = load_task(cwd, task_id)
+    if snapshot.stop_reason == "no_progress" and task.stage == "collect":
+        # WP4: terminal transitions are the system's job. Two stable rounds
+        # without improvement mean collection is exhausted; advance to
+        # assess deterministically instead of waiting for the model to
+        # notice. An executable crawl frontier keeps collection going.
+        try:
+            set_task_stage(cwd, task_id, "assess")
+        except IntelError as error:
+            if error.code != "CRAWL_INCOMPLETE":
+                raise
+        else:
+            task = load_task(cwd, task_id)
     if (
         snapshot.stop_reason == "no_progress"
         and task.stage == "assess"
@@ -1247,8 +1259,9 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                     "message": "语义审核缺少 judge API key（检查配置中的 audit_model.api_key_env）",
                 },
             }
-        return await _guarded(
-            lambda: audit_task_evidence(
+
+        async def run() -> dict:
+            summary = await audit_task_evidence(
                 ctx.deps.cwd,
                 task_id,
                 ctx.deps.judge,
@@ -1257,7 +1270,15 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                 concurrency=ctx.deps.settings.context.audit_concurrency,
                 timeout_seconds=ctx.deps.settings.context.audit_timeout_seconds,
             )
-        )
+            if summary["reviewed"]:
+                # Deterministic chain (WP4): fresh reviews must reach the
+                # coverage snapshot immediately, not on the model's schedule.
+                summary["coverage"] = _coverage_eval_with_backlog(
+                    ctx.deps.cwd, task_id
+                )
+            return summary
+
+        return await _guarded(run)
 
     @agent.tool(name="evidence_conflict_create")
     def evidence_conflict_create_tool(

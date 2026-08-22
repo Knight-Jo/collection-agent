@@ -1165,6 +1165,49 @@ def test_coverage_eval_assess_no_progress_generates_terminal_report(cwd):
     assert load_task(cwd, task.id).outputs.report is not None
 
 
+def test_coverage_eval_collect_no_progress_advances_to_assess_and_report(cwd):
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    fact = save_fact(cwd, task.id, task.questions[0].id, "已审核的公开事实")
+    document = make_document(cwd, "已审核的公开事实")
+    save_evidence(cwd, fact.id, document.id, "supports", fact.statement)
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+    for _ in range(3):
+        eval_coverage(cwd, task.id)
+    assert load_task(cwd, task.id).stage == "collect"
+
+    result = _tool(build_agent(Settings()), "coverage_eval")(
+        _context(cwd), task.id
+    )
+
+    assert result["terminal_report"]
+    task = load_task(cwd, task.id)
+    assert task.stage == "assess"
+    assert task.outputs.report is not None
+
+
+@pytest.mark.asyncio
+async def test_evidence_audit_tool_refreshes_coverage(cwd):
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    fact = save_fact(cwd, task.id, task.questions[0].id, "已审核的公开事实")
+    document = make_document(cwd, "已审核的公开事实")
+    save_evidence(cwd, fact.id, document.id, "supports", fact.statement)
+    deps = AgentDeps(
+        cwd=cwd,
+        settings=Settings(),
+        judge=fake_judge,
+        judge_provider="test",
+        judge_model="fake",
+    )
+    context = cast(RunContext[Any], SimpleNamespace(deps=deps))
+    tool = _tool(build_agent(Settings()), "evidence_audit")
+
+    result = await tool(context, task.id)
+
+    assert result["reviewed"] == 1
+    assert "coverage" in result
+    assert "stop_reason" in result["coverage"]
+
+
 def test_coverage_eval_assess_no_verified_facts_still_terminates(cwd):
     async def partial_judge(fact, evidence):
         return [
