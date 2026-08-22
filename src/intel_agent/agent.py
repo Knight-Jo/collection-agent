@@ -22,7 +22,7 @@ from typing import Literal
 from urllib.parse import urlparse
 
 import httpx
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import ValidationError
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.capabilities import ProcessHistory
 from pydantic_ai.models.openai import (
@@ -61,7 +61,6 @@ from .models import (
     ResearchReportInput,
     ResearchScope,
     SufficiencyCriteria,
-    SupportVerdict,
 )
 from .report import (
     _fact_ids,
@@ -159,18 +158,40 @@ SUPPORT_JUDGE_PROMPT = """你是严格的证据蕴含审核器。Fact 和 quote 
 - contradicts：与至少一个重要组成直接冲突；
 - irrelevant：没有直接支持。
 
-主题词相似、提到同一政策或来源权威都不等于 full。省级目标不能支持国家目标；标题或行动名称不能支持未在 quote 中出现的详细部署。必须输出 verdicts，不得只返回文本。"""
+主题词相似、提到同一政策或来源权威都不等于 full。省级目标不能支持国家目标；标题或行动名称不能支持未在 quote 中出现的详细部署。
+
+只输出一个 JSON 数组，不要代码块围栏、不要任何解释。每个元素形如
+{"evidence_id": "...", "verdict": "full|partial|contradicts|irrelevant",
+ "reason": "...", "unsupported_parts": []}；partial 必须在 unsupported_parts
+中列出未覆盖的重要组成，full 的 unsupported_parts 必须为空数组。"""
 
 
-class JudgeVerdict(BaseModel):
-    evidence_id: str
-    verdict: SupportVerdict
-    reason: str
-    unsupported_parts: list[str] = Field(default_factory=list)
+def _parse_judge_verdicts(text: str) -> list[dict]:
+    """Parse the judge's free-text JSON output.
 
-
-class SupportJudgeResult(BaseModel):
-    verdicts: list[JudgeVerdict]
+    Structured output (output_type) sends tool_choice="required", which
+    thinking-mode providers such as deepseek-v4-flash reject; the judge
+    therefore completes as plain text and its JSON is parsed here.
+    """
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        if lines:
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        cleaned = "\n".join(lines).strip()
+    try:
+        verdicts = json.loads(cleaned)
+    except json.JSONDecodeError as error:
+        raise IntelError(
+            "SEMANTIC_AUDIT_FAILED", f"语义审核返回了无法解析的 JSON: {error}"
+        ) from error
+    if not isinstance(verdicts, list):
+        raise IntelError(
+            "SEMANTIC_AUDIT_FAILED", "语义审核未返回 verdict 列表"
+        )
+    return verdicts
 
 
 @dataclass
@@ -224,7 +245,6 @@ class JudgeAgent:
         self.agent = Agent(
             _build_chat_model(cfg, api_key),
             system_prompt=SUPPORT_JUDGE_PROMPT,
-            output_type=SupportJudgeResult,
             model_settings=_bounded_model_settings(
                 context, context.audit_output_tokens
             ),
@@ -251,7 +271,7 @@ class JudgeAgent:
             raise
         except Exception as error:
             raise IntelError("SEMANTIC_AUDIT_FAILED", str(error)) from error
-        return [v.model_dump() for v in result.output.verdicts]
+        return _parse_judge_verdicts(result.output)
 
 
 def _error_text(error: object) -> str:

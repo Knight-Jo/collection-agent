@@ -1,9 +1,11 @@
 """Semantic audit tests."""
 
 import asyncio
+import json
 
 import pytest
 
+from intel_agent.agent import _parse_judge_verdicts
 from intel_agent.audit import (
     audit_task_evidence,
     is_full_support,
@@ -12,6 +14,50 @@ from intel_agent.audit import (
 from intel_agent.fact import save_fact
 from intel_agent.models import IntelError
 from tests.conftest import make_document, new_task, save_evidence
+
+
+def test_parse_judge_verdicts_accepts_plain_json():
+    parsed = _parse_judge_verdicts(
+        json.dumps(
+            [
+                {
+                    "evidence_id": "ev-1",
+                    "verdict": "full",
+                    "reason": "完整支持",
+                    "unsupported_parts": [],
+                }
+            ],
+            ensure_ascii=False,
+        )
+    )
+
+    assert parsed == [
+        {
+            "evidence_id": "ev-1",
+            "verdict": "full",
+            "reason": "完整支持",
+            "unsupported_parts": [],
+        }
+    ]
+
+
+def test_parse_judge_verdicts_strips_fences():
+    parsed = _parse_judge_verdicts(
+        '```json\n[{"evidence_id": "ev-1", "verdict": "irrelevant", '
+        '"reason": "无关", "unsupported_parts": []}]\n```'
+    )
+
+    assert parsed[0]["verdict"] == "irrelevant"
+
+
+def test_parse_judge_verdicts_rejects_garbage():
+    with pytest.raises(IntelError) as e:
+        _parse_judge_verdicts("这不是 JSON")
+    assert e.value.code == "SEMANTIC_AUDIT_FAILED"
+
+    with pytest.raises(IntelError) as e:
+        _parse_judge_verdicts('{"verdicts": []}')
+    assert e.value.code == "SEMANTIC_AUDIT_FAILED"
 
 
 @pytest.mark.asyncio
