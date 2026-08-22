@@ -54,3 +54,9 @@ Tests use `pytest`; async tests use `pytest-asyncio` auto mode. Name files `test
 ## Commit & Pull Request Guidelines
 
 Follow the repository’s concise Conventional Commit pattern: `feat(run5): ...`, `fix(run2): ...`, `docs: ...`, or `chore: ...`. Keep commits scoped and imperative. Pull requests should explain the problem and solution, link relevant issues, list verification commands, and call out configuration, security, or generated-output changes. Never commit API keys or populated local configuration.
+
+## Agent skills
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
