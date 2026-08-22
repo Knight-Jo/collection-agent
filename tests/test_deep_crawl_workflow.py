@@ -982,6 +982,47 @@ def test_generate_research_report_accepts_json_encoded_draft(monkeypatch, cwd):
     assert captured == [draft]
 
 
+def test_generate_research_report_strips_trailing_xml_noise(monkeypatch, cwd):
+    from intel_agent.models import ResearchReportInput, ResearchReportSection
+
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    draft = ResearchReportInput(
+        sections=[ResearchReportSection(question_id=task.questions[0].id)],
+        overall_conclusions=[],
+    )
+    captured = []
+
+    def fake_report(_cwd, _task_id, parsed_draft):
+        captured.append(parsed_draft)
+        return {"ok": True, "path": "output/report.md"}
+
+    monkeypatch.setattr(agent_module, "generate_research_report", fake_report)
+    tool = _tool(build_agent(Settings()), "generate_research_report")
+    noisy = draft.model_dump_json() + "</draft>\n</invoke>\n"
+
+    result = tool(_context(cwd), task.id, noisy)
+
+    assert result["ok"] is True
+    assert captured == [draft]
+
+
+def test_generate_research_report_garbage_draft_uses_verified_facts(cwd):
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    fact = save_fact(cwd, task.id, task.questions[0].id, "已审核的公开事实")
+    document = make_document(cwd, "已审核的公开事实")
+    save_evidence(cwd, fact.id, document.id, "supports", fact.statement)
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+    for _ in range(3):
+        eval_coverage(cwd, task.id)
+
+    result = _tool(build_agent(Settings()), "generate_research_report")(
+        _context(cwd), task.id, '{"sections": [{"question_id": 未闭合的垃圾'
+    )
+
+    assert result["ok"] is True
+    assert result["path"].endswith("主题-research-report.md")
+
+
 def test_generate_research_report_falls_back_to_verified_facts(cwd):
     from intel_agent.models import ResearchReportInput
 
@@ -1103,6 +1144,58 @@ def test_coverage_eval_returns_cross_verification_backlog(cwd):
     assert pending["fact_id"] == fact.id
     assert pending["independent_sources"] == 1
     assert "document_search" in result["verification_workflow"]
+
+
+def test_coverage_eval_assess_no_progress_generates_terminal_report(cwd):
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    fact = save_fact(cwd, task.id, task.questions[0].id, "已审核的公开事实")
+    document = make_document(cwd, "已审核的公开事实")
+    save_evidence(cwd, fact.id, document.id, "supports", fact.statement)
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+    for _ in range(3):
+        eval_coverage(cwd, task.id)
+    set_task_stage(cwd, task.id, "assess")
+
+    result = _tool(build_agent(Settings()), "coverage_eval")(
+        _context(cwd), task.id
+    )
+
+    assert result["terminal_report"]
+    assert result["pending_cross_verification"] == []
+    assert load_task(cwd, task.id).outputs.report is not None
+
+
+def test_coverage_eval_assess_no_verified_facts_still_terminates(cwd):
+    async def partial_judge(fact, evidence):
+        return [
+            {
+                "evidence_id": item.id,
+                "verdict": "partial",
+                "reason": "引文部分支持",
+                "unsupported_parts": ["未覆盖部分"],
+            }
+            for item in evidence
+        ]
+
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    fact = save_fact(cwd, task.id, task.questions[0].id, "已审核的公开事实")
+    document = make_document(cwd, "已审核的公开事实")
+    save_evidence(cwd, fact.id, document.id, "supports", fact.statement)
+    asyncio.run(audit_task_evidence(cwd, task.id, partial_judge, "t", "f"))
+    for _ in range(3):
+        eval_coverage(cwd, task.id)
+    set_task_stage(cwd, task.id, "assess")
+
+    result = _tool(build_agent(Settings()), "coverage_eval")(
+        _context(cwd), task.id
+    )
+
+    assert result["terminal_report"]
+    binding = load_task(cwd, task.id).outputs.report
+    assert binding is not None
+    content = (cwd / binding.path).read_text(encoding="utf-8")
+    assert "未形成可验证结论" in content
+    assert "## 局限" in content
 
 
 @pytest.mark.asyncio

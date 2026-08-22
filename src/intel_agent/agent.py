@@ -22,7 +22,7 @@ from typing import Literal
 from urllib.parse import urlparse
 
 import httpx
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.capabilities import ProcessHistory
 from pydantic_ai.models.openai import (
@@ -697,6 +697,38 @@ def _document_search(cwd: Path, task_id: str, query: str, limit: int) -> dict:
 def _coverage_eval_with_backlog(cwd: Path, task_id: str) -> dict:
     snapshot = eval_coverage(cwd, task_id)
     data = snapshot.model_dump()
+    task = load_task(cwd, task_id)
+    if (
+        snapshot.stop_reason == "no_progress"
+        and task.stage == "assess"
+        and task.outputs.report is None
+    ):
+        # Terminal switch (run 036): once collection is exhausted, the report
+        # is generated deterministically from verified facts instead of
+        # leaving the transition to the model (small models loop here).
+        draft = build_verified_report_draft(cwd, task_id)
+        result = generate_research_report(cwd, task_id, draft)
+        if result.get("ok"):
+            data["pending_cross_verification"] = []
+            data["terminal_report"] = (
+                "检索与补证均已达到停止条件，正式报告已由系统确定性生成。"
+                "立即调用 intel_status(task_id='"
+                f"{task_id}', stage='done')；禁止再搜索、抓取、审核或评估覆盖。"
+            )
+            return data
+    if (
+        snapshot.stop_reason == "no_progress"
+        and task.stage == "assess"
+        and task.outputs.report is not None
+    ):
+        # Report already generated on an earlier eval; keep pushing the model
+        # to done instead of re-injecting cross-verification work.
+        data["pending_cross_verification"] = []
+        data["terminal_report"] = (
+            "正式报告已生成。立即调用 intel_status(task_id='"
+            f"{task_id}', stage='done')；禁止再搜索、抓取、审核或评估覆盖。"
+        )
+        return data
     # Verification backlog: single-source facts that must complete a second
     # independent source before coverage can improve. The model should
     # resolve these via document_search (local corpus first), then targeted
@@ -1262,7 +1294,17 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
     ) -> dict:
         """Generate the primary report from verified structured findings."""
         if isinstance(draft, str):
-            draft = ResearchReportInput.model_validate_json(draft)
+            try:
+                draft = ResearchReportInput.model_validate_json(draft)
+            except ValidationError:
+                # qwen3_xml tool-call tags can leak into the JSON argument
+                # (trailing </draft> etc.); keep the draft if only tail noise,
+                # otherwise fall back to the verified-facts draft (033).
+                cut = draft.rpartition("}")[0] + "}"
+                try:
+                    draft = ResearchReportInput.model_validate_json(cut)
+                except ValidationError:
+                    draft = build_verified_report_draft(ctx.deps.cwd, task_id)
         draft_key = {
             "questions": sorted(
                 section.question_id for section in draft.sections

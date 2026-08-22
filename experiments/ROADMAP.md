@@ -39,6 +39,10 @@
 | 031 | qwen38-27b-report-resume | **2048 token 解决截断，draft 类型失败** | 完整报告参数生成成功，但 draft 被编码为 JSON 字符串，4 次校验失败 | ❌ |
 | 032 | qwen38-27b-report-draft-compat | **类型兼容通过，业务草稿不收敛**（约 17min，主动终止） | 十余次请求未形成合法章节/事实组合；未重复搜索、无上下文溢出 | ❌ |
 | 033 | qwen38-27b-verified-report-fallback | **真实任务完成，done/with_gaps**（3 req / 21,110 tokens） | 安全草稿只纳入 1 条 full 事实；报告落盘；确定性完成摘要阻止模型夸大；主要缺口转为搜索质量 | ✅ |
+| 034 | local-awq-baseline | **未达终态，实验失败**（11 min, exit=1；续跑 30 min 主动终止） | 本地 AWQ 部署全链路跑通（工具调用/搜索→事实→assess），服务负载验收通过；1024 报告截断→参数层崩溃绕过 033 安全回退；2048 续跑 assess 死循环；trace 丢失复现 | ❌ |
+| 035 | local-awq-report2k | **未达终态，实验失败**（20 min, exit=1） | 2048 输出消除截断，但 qwen3_xml 闭合标签泄漏进草稿尾部（`</draft></invoke>`）→ 工具参数层解析失败 ×3 | ❌ |
+| 036 | local-awq-report-param-fallback | **未达终态，实验失败**（续跑 90 min 主动终止） | 参数层兜底（尾部噪声剥离+verified 回退）修复崩溃；续跑在 assess 死循环（backlog 注入使模型反复 audit↔coverage_eval，搜索耗尽无法补证） | ❌ |
+| 037 | local-awq-assess-terminal-switch | **真实任务完成，done/with_gaps**（3 req / 20,935 tokens） | coverage_eval 判定层硬切换：no_progress 时系统确定性生成报告并推送 done；零 full 事实时允许诚实空章节报告；3 请求即达终态 | ✅ |
 
 ## 011 产物复盘（012 的事实基线）
 
@@ -147,6 +151,12 @@
 - [x] **P0** 16K 上下文档位与远程服务边界对齐（**029–033：0 上下文溢出，最终 done**）
 - [x] **P0** Qwen 嵌套工具参数兼容：criteria/draft 对象或 JSON 字符串均统一严格校验（**030/032 验证**）
 - [x] **P0** 证据安全报告回退与确定性完成摘要（**033：报告只纳入 1 条 full 事实，模型夸大的第二事实未进入交付**）
+- [x] **P0** 本地 vLLM 工具调用协议：`vllm.config` EXTRA_ARGS 增加 `--enable-auto-tool-choice --tool-call-parser qwen3_xml --reasoning-parser qwen3`（**034：缺失时 `tool_choice:"auto"` 被 400 拒绝；补齐后 pydantic-ai 全链路可用**）
+- [x] **P0** generate_research_report 参数层兜底：非法 JSON/尾部噪声剥离，仍失败回退确定性安全草稿（**036 验证：尾部 `</draft></invoke>` 噪声草稿可恢复，垃圾草稿不再崩溃**）
+- [x] **P1** assess→report 判定层硬切换：no_progress 时系统确定性生成报告并推送 done（**037 验证：90 分钟死循环 → 3 请求 done/with_gaps**）
+- [x] **P1** no_progress 零结论报告豁免：允许诚实空章节 with_gaps 报告（**037 验证：0 full 事实仍能如实交付，不伪造结论**）
+- [ ] **P0** trace 按事件增量持久化（**021 标记，034/036 两度复现：死循环轨迹丢失，根因取证依赖状态文件推断**）
+- [ ] 口径确认：零 full 事实的 with_gaps 全空报告是否满足交付标准（037 遗留，人工确认）
 
 ## 012–016 顺序实施计划
 
@@ -326,3 +336,7 @@ UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright
 30. **模型工具调用成功仍需兼容嵌套对象编码**：029/031 中 Qwen3.8 会把 criteria/draft 对象编码为 JSON 字符串；边界兼容必须在解析后继续走原 Pydantic 模型，不能用宽松 dict 绕过校验。
 31. **低吞吐模型需要按角色分配输出预算**：030 的普通工具调用在 1024 token 内可用，但五章节报告连续截断；报告使用 2048 token 后完整生成，16K 历史窗口无需扩大。
 32. **报告与完成摘要必须以持久证据为最终权威**：033 中模型自由文本夸大为 2 条事实和推断，但安全草稿只写入 1 条 full 事实；CLI/Web 完成摘要也必须从 state 生成，不能转发模型自述。
+33. **参数层失败先于业务回退，兜底必须覆盖整条失败链**：034 中 1024 token 截断使草稿在 pydantic-ai 工具参数层就解析失败（重试 3 次 → UnexpectedModelBehavior），033 的业务校验安全回退完全未触发——确定性兜底要挂在参数层与业务层两处，或直接提高报告输出上限为默认。
+34. **模型端点迁移需要实测验证而非配置替换**：034 中远程配置的模型名 `qwen3.8-27b-int4` 在本地 vLLM 上直接 404；本地服务还缺失工具调用解析器——端点替换必须包含 /v1/models 探测、单轮工具调用探针和健康检查三重验证，之后才能实跑。
+35. **终态转换不能留给模型**：025/034/036 三次死循环的共同根因是"报告转换权在模型手里"——backlog 注入、审核快照时序与补证不可达组合出 audit↔coverage_eval 环。037 把转换收归判定层（coverage_eval 在 no_progress 时确定性生成报告并推送 done）后 3 请求即达终态。判断模型"何时应该停"的责任必须与执行分离，小模型只执行不决策。
+36. **诚实终态优先于产出数量**：037 允许 no_progress 下的零结论报告后，任务以 0 验证事实、全空章节、完整局限披露收尾——对比 025 的 16 轮循环和 034/036 的 90 分钟死循环，披露空结果比假装在推进更接近交付。报告层必须给"没有可验证结论"留合法出口。

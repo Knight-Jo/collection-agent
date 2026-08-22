@@ -6,7 +6,128 @@
 
 ## [Unreleased]
 
-无计划中的实验。
+Correction（端点与配置名变更）：
+- 034/035 使用的本地 vLLM（127.0.0.1:8001）已停止，改由远程 vLLM 服务 `http://10.108.25.128:8001/v1` 提供同一 AWQ 模型（`/home/nas928/guandewei/project/qwen3.8-27B-AWQ-4bit`，16K）。
+- 配置文件重命名为部署无关名：`qwen38-27b-local-awq-16k.yaml` → `qwen38-27b-awq-16k.yaml`、`qwen38-27b-local-awq-16k-report2k.yaml` → `qwen38-27b-awq-16k-report2k.yaml`，base_url 指向新端点。
+
+## [037-local-awq-assess-terminal-switch] - 2026-08-22
+
+### Changed
+
+- `src/intel_agent/agent.py`：`_coverage_eval_with_backlog` 增加终态切换——task 处于 assess 且最新覆盖评估 `stop_reason=no_progress` 时，系统用 `build_verified_report_draft` 确定性生成报告并返回 `terminal_report` 指令（推送 intel_status(done)），不再注入 pending_cross_verification；报告已存在时同样只推送 done。
+- `src/intel_agent/report.py`：`generate_research_report` 在 `coverage.stop_reason=no_progress` 时允许零结论草稿（跳过 NO_REPORTABLE_FINDINGS 与空章节的"必须逐一回答"检查），输出诚实 with_gaps 报告（全章节"未形成可验证结论"+ 局限披露）。
+- `tests/test_deep_crawl_workflow.py`：新增 2 个回归测试（full 审核下终态报告生成；partial 审核零验证事实下空结论报告仍可生成且披露局限）。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest -q tests/test_deep_crawl_workflow.py -k 'coverage_eval'`：PASS（3 passed）。
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest -q`：PASS（368 passed, 1 skipped）。
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff format --check .` / `ruff check .`：PASS。
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright`：PASS（0 errors）。
+- 从 035 assess 状态原地续跑：PASS（3 requests，20,935 tokens，报告落盘，stage=done）。
+
+### Experiment result
+
+- 状态：passed
+- 产物：`experiments/runs/035-local-awq-report2k/`（状态与报告）、`experiments/runs/037-local-awq-assess-terminal-switch/`（README+REPORT）、`resume-trace-037.jsonl`
+- 代码版本：`6b90f50`（改动尚未提交）
+- 真实运行：exit_code=0，stage=done，completion_status=with_gaps，model_requests=3，total_tokens=20,935；无上下文溢出
+- 关键指标：coverage gap=12（no_progress）；活跃事实 3（全部 partial 审核）；已验证事实 0；报告 4 章节全空 + 局限披露。036 死循环（90 分钟 90+ 请求未收敛）→ 037 三请求到达诚实终态。
+- 假设结论：成立；报告转换的判定层硬切换 + no_progress 空报告豁免使 done 从不可达变为确定性可达，且未妥协诚实性（0 结论 0 伪造，摘要由持久状态生成）
+
+### Known issues
+
+- 零 full 事实的 with_gaps 报告（全空章节）是否满足交付口径需人工确认。
+- 搜索/取证质量仍是主瓶颈：本地模型 5 条证据审核全 partial/irrelevant，无一条 full（对比 033 远程 1 full）。
+- trace 事件级增量持久化（P0 #138）未修；036 死循环轨迹永久缺失。
+
+## [036-local-awq-report-param-fallback] - 2026-08-22
+
+### Changed
+
+- `src/intel_agent/agent.py`：`generate_research_report` 的 `draft` 字符串解析增加兜底——先完整解析，失败则截断尾部噪声（`rpartition("}")`）再解析，仍失败回退到 `build_verified_report_draft` 确定性草稿（034/035 参数层崩溃的根因修复）。
+- `tests/test_deep_crawl_workflow.py`：新增 2 个回归测试（尾部 XML 噪声剥离、垃圾草稿回退 verified facts）。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest -q tests/test_deep_crawl_workflow.py -k 'generate_research_report'`：PASS（5 passed）。
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff format --check .`：PASS。
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff check .`：PASS。
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright`：PASS（0 errors）。
+- 从 035 assess 状态原地续跑：主动终止（约 90 分钟、约 90 次模型请求后，stage 停在 assess、无报告落盘；trace 因主动终止再次丢失）。
+
+### Experiment result
+
+- 状态：failed
+- 产物：`experiments/runs/035-local-awq-report2k/`（续跑状态与 `resume-trace-036.jsonl` 未落盘）
+- 代码版本：`6b90f50`（改动未提交）
+- 真实运行：主动终止，未达终态；stage=assess，search=40/search_budget_exhausted，evidence=4，facts=3，coverage gap=9、no_progress_rounds=12、stop_reason=no_progress
+- 关键指标：请求预算未耗尽；状态文件自 06:22 UTC 后除 coverage 快照外零变化
+- 假设结论：无法判断参数层兜底对终态的作用——续跑过程中模型从未调用 generate_research_report（无报告落盘、无崩溃），真实阻塞点转移到 assess 阶段行为死循环；根因定位见 Known issues
+
+### Known issues
+
+- assess 死循环根因（第三次复现，025/034/036）：`_coverage_eval_with_backlog` 在单源事实存在时持续注入 pending_cross_verification，模型反复 audit↔coverage_eval；搜索预算已耗尽使补证永远无法完成，而 history processor 的 assess 分支因 reviews 始终比 coverage 新而永远不被触发。
+- 死循环期间 trace 丢失（P0 #138 未修），工具序列无法直接取证，结论来自状态文件与请求计数。
+
+## [035-local-awq-report2k] - 2026-08-22
+
+### Changed
+
+- 仅运行配置：全程使用 `experiments/configs/qwen38-27b-local-awq-16k-report2k.yaml`（`main_output_tokens` 2048）。
+
+### Verification
+
+- 冒烟 `--dry 5`：PASS（5 轮工具调用后按 dry 上限中止，冒烟目录已清理）。
+- `ruff format --check .` / `ruff check .` / `pyright`：PASS（035 无代码改动，沿用 034 基线）。
+
+### Experiment result
+
+- 状态：failed
+- 产物：`experiments/runs/035-local-awq-report2k/`
+- 代码版本：`6b90f50`
+- 真实运行：exit_code=1，stage=assess，elapsed=1202.7s，model_requests≈99（vLLM POST 计数 575→674）
+- 关键指标：搜索 40/矩阵 26（推断，沿用口径）；归档 3；活跃事实 1；证据 2；coverage insufficient；0 上下文溢出
+- 失败模式：2048 输出下草稿 JSON 完整（1024 截断消除），但 `qwen3_xml` 工具调用闭合标签泄漏进参数字符串尾部（`...]}</draft>\n</invoke>`），`ResearchReportInput.model_validate_json` 报 "trailing characters at column 1181"，Agent retries 3 次耗尽 → `UnexpectedModelBehavior`
+- 假设结论：不成立；2048 消除了截断，但暴露了新的参数层污染——兜底必须挂在工具内部而非依赖模型输出干净
+
+### Known issues
+
+- 034 已预判的参数层兜底缺口未在本轮修复（本轮为纯配置实验，禁止改代码）。
+- 解析失败发生在工具函数体 `model_validate_json`（异常被 pydantic-ai retries 重试 3 次后升级为 UnexpectedModelBehavior），033 的业务层回退同样被绕过。
+
+## [034-local-awq-baseline] - 2026-08-22
+
+### Changed
+
+- `experiments/configs/qwen38-27b-local-awq-16k.yaml`（新增）：base_url 改为本地 127.0.0.1:8001/v1，模型名改为 vLLM 实际服务名 `/home/nas928/guandewei/project/qwen3.8-27B-AWQ-4bit`（vLLM 对未知模型名返回 404，远程配置的 `qwen3.8-27b-int4` 不可复用）。
+- `experiments/configs/qwen38-27b-local-awq-16k-report2k.yaml`（新增）：同上，`main_output_tokens` 1024→2048（031 证明 2048 解决报告截断）。
+- `/home/nas928/guandewei/project/qwen3.8-27B-AWQ-4bit/vllm.config`（环境修复）：EXTRA_ARGS 增加 `--enable-auto-tool-choice --tool-call-parser qwen3_xml --reasoning-parser qwen3`（模型 README 推荐组合；缺失时 pydantic-ai 的 `tool_choice:"auto"` 被 400 拒绝，vLLM 无法解析工具调用）。
+- 未修改任何运行代码（本轮为配置+环境实验）。
+
+### Verification
+
+- `curl http://127.0.0.1:8001/v1/models`：PASS（qwen3.8-27B-AWQ-4bit，max_model_len=16384）
+- 单轮工具调用探针（get_weather + tool_choice:auto）：PASS（`<tool_call>` 解析成功）
+- 冒烟 `python3 scripts/run_experiment.py --dry 5`：PASS（5 轮工具调用后按 dry 上限中止，模型/工具链正常；冒烟目录已清理）
+- `vllm serve` 重启后 `/health`：200（全程）
+- `python3 scripts/analyze_run.py experiments/runs/034-local-awq-baseline --write`：PASS（ANALYSIS.md 已生成）
+
+### Experiment result
+
+- 状态：failed
+- 产物：`experiments/runs/034-local-awq-baseline/`
+- 代码版本：`6b90f50`
+- 真实运行（阶段一，1024 输出）：exit_code=1，stage=assess，elapsed=660.4s，model_requests≈75（vLLM 日志 POST 计数）；`generate_research_report` 草稿在 1024 token 截断（"EOF while parsing a string at column 3214"），工具参数层 JSON 解析失败重试 3 次耗尽 → `UnexpectedModelBehavior`
+- 真实运行（阶段二，2048 输出续跑）：原地续跑约 30 分钟、169 次请求后主动终止；stage 停在 assess，文档/事实/证据/审核零变化；trace 未落盘（异常终止，P0 #138 复现）
+- 关键指标：搜索 40/矩阵 26；归档 3；活跃事实 3（全部 srcs=0）；证据 1；coverage insufficient（gap=15，no_progress=4）；0 上下文溢出
+- 假设结论：不成立；本地部署全链路可用（搜索→事实→审核→assess）且服务负载验收通过（60s 返回/health 200/无溢出），但报告截断与 assess 死循环未达成 done/with_gaps
+
+### Known issues
+
+- 报告参数层截断绕过 033 安全草稿回退（回退只覆盖业务校验，不覆盖工具参数层非法 JSON）；report2k 配置已建但续跑未走到报告阶段，2048 修复效果未验证。
+- assess→report 死循环根因因 trace 丢失不可追溯（025 同型）。
+- 三事实全部 srcs=0：本地模型补源能力与远程同弱，搜索质量缺口仍是主要瓶颈。
 
 ## [033-qwen38-27b-verified-report-fallback] - 2026-08-21
 
