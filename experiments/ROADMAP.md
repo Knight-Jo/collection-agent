@@ -43,6 +43,7 @@
 | 035 | local-awq-report2k | **未达终态，实验失败**（20 min, exit=1） | 2048 输出消除截断，但 qwen3_xml 闭合标签泄漏进草稿尾部（`</draft></invoke>`）→ 工具参数层解析失败 ×3 | ❌ |
 | 036 | local-awq-report-param-fallback | **未达终态，实验失败**（续跑 90 min 主动终止） | 参数层兜底（尾部噪声剥离+verified 回退）修复崩溃；续跑在 assess 死循环（backlog 注入使模型反复 audit↔coverage_eval，搜索耗尽无法补证） | ❌ |
 | 037 | local-awq-assess-terminal-switch | **真实任务完成，done/with_gaps**（3 req / 20,935 tokens） | coverage_eval 判定层硬切换：no_progress 时系统确定性生成报告并推送 done；零 full 事实时允许诚实空章节报告；3 请求即达终态 | ✅ |
+| 038 | frozen-flash-wp1-4 | **冻结材料复验一次通过**（233.3s, exit=0, done/with_gaps, 30 req / 1.61M tokens） | WP1 问题冻结 + WP2 审核并发/超时 + WP3 增量 trace + WP4 collect 确定性收敛全部生效；附加修复：judge 改纯文本完成（thinking 模式拒绝 tool_choice=required，首跑 191 次审核静默失败）；基线 586s 中断 → 233s done | ✅ |
 
 ## 011 产物复盘（012 的事实基线）
 
@@ -155,8 +156,13 @@
 - [x] **P0** generate_research_report 参数层兜底：非法 JSON/尾部噪声剥离，仍失败回退确定性安全草稿（**036 验证：尾部 `</draft></invoke>` 噪声草稿可恢复，垃圾草稿不再崩溃**）
 - [x] **P1** assess→report 判定层硬切换：no_progress 时系统确定性生成报告并推送 done（**037 验证：90 分钟死循环 → 3 请求 done/with_gaps**）
 - [x] **P1** no_progress 零结论报告豁免：允许诚实空章节 with_gaps 报告（**037 验证：0 full 事实仍能如实交付，不伪造结论**）
-- [ ] **P0** trace 按事件增量持久化（**021 标记，034/036 两度复现：死循环轨迹丢失，根因取证依赖状态文件推断**）
+- [x] **P0** trace 按事件增量持久化（**038 验证：41 条工具事件 + usage 行落盘，异常路径写 terminated；analyze_run 兼容新旧格式**）
+- [x] **P0** 用户问题冻结：显式问题不得新增/删除/合并/改写（**038 验证：2 问保持 2 问，基线被扩成 4–5 问**）
+- [x] **P0** 审核并发限制与超时：`audit_concurrency=2`/`audit_timeout_seconds=60`，逐批落盘，超时返回 SEMANTIC_AUDIT_TIMEOUT（**038 验证：4 次审核无长尾阻塞**）
+- [x] **P0** collect 阶段确定性收敛：no_progress 时判定层推进 assess（**038 验证：gap=6 no_progress → 报告 → done/with_gaps**）
+- [x] **P0** judge 结构化输出兼容 thinking 模型：改纯文本 JSON 完成 + 解析（**038 验证：deepseek-v4-flash thinking 模式审核返回 full**）
 - [ ] 口径确认：零 full 事实的 with_gaps 全空报告是否满足交付标准（037 遗留，人工确认）
+- [ ] **P1** 搜索候选修复（WP5）：SearXNG 真实查询健康检查、Bing 新端点、候选相关性门禁（038 冻结材料未覆盖）
 
 ## 012–016 顺序实施计划
 
@@ -340,3 +346,5 @@ UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright
 34. **模型端点迁移需要实测验证而非配置替换**：034 中远程配置的模型名 `qwen3.8-27b-int4` 在本地 vLLM 上直接 404；本地服务还缺失工具调用解析器——端点替换必须包含 /v1/models 探测、单轮工具调用探针和健康检查三重验证，之后才能实跑。
 35. **终态转换不能留给模型**：025/034/036 三次死循环的共同根因是"报告转换权在模型手里"——backlog 注入、审核快照时序与补证不可达组合出 audit↔coverage_eval 环。037 把转换收归判定层（coverage_eval 在 no_progress 时确定性生成报告并推送 done）后 3 请求即达终态。判断模型"何时应该停"的责任必须与执行分离，小模型只执行不决策。
 36. **诚实终态优先于产出数量**：037 允许 no_progress 下的零结论报告后，任务以 0 验证事实、全空章节、完整局限披露收尾——对比 025 的 16 轮循环和 034/036 的 90 分钟死循环，披露空结果比假装在推进更接近交付。报告层必须给"没有可验证结论"留合法出口。
+37. **结构化输出不是所有模型都支持**：deepseek-v4-flash 的 thinking 模式拒绝 tool_choice=required 且 json_schema 不可用，038 首跑 191 次审核静默失败耗尽预算——judge 这类内部结构化调用必须走"纯文本完成 + 确定性解析"，不能依赖 provider 的结构化输出能力；静默失败必须能通过 trace 的工具调用分布诊断。
+38. **冻结材料复验证明修复链闭环**：WP1（问题冻结）→ WP2（审核约束）→ WP3（增量 trace）→ WP4（collect 收敛）四个 P0 包一次验证通过，基线 586s 中断变为 233s done/with_gaps；判定层收敛 + 诚实报告 + 可观测性三者缺一不可。

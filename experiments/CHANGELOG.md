@@ -6,9 +6,39 @@
 
 ## [Unreleased]
 
+无计划中的实验。
+
 Correction（端点与配置名变更）：
 - 034/035 使用的本地 vLLM（127.0.0.1:8001）已停止，改由远程 vLLM 服务 `http://10.108.25.128:8001/v1` 提供同一 AWQ 模型（`/home/nas928/guandewei/project/qwen3.8-27B-AWQ-4bit`，16K）。
 - 配置文件重命名为部署无关名：`qwen38-27b-local-awq-16k.yaml` → `qwen38-27b-awq-16k.yaml`、`qwen38-27b-local-awq-16k-report2k.yaml` → `qwen38-27b-awq-16k-report2k.yaml`，base_url 指向新端点。
+
+## [038-frozen-flash-wp1-4] - 2026-08-22
+
+### Changed
+
+- `src/intel_agent/agent.py`（judge 自由文本修复，随 WP4 提交 22624fa）：`JudgeAgent` 放弃 `output_type=SupportJudgeResult`，改为纯文本完成 + `_parse_judge_verdicts` 解析 JSON。根因：deepseek-v4-flash thinking 模式拒绝结构化输出的 `tool_choice="required"`（400）且 `response_format=json_schema` 不可用，038 首跑中 191 次 evidence_audit 全部静默失败耗尽 200 请求预算。
+- `tests/test_audit.py`：新增 3 个解析测试（纯 JSON、围栏剥离、垃圾拒绝）。
+
+### Verification
+
+- `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest -q`：PASS（395 passed, 1 skipped）。
+- `ruff format --check .` / `ruff check .` / `pyright`：PASS。
+- 实时 API 探针：thinking 模式 judge 单次审核返回 verdict=full：PASS。
+
+### Experiment result
+
+- 状态：passed
+- 产物：`experiments/runs/038-frozen-flash-wp1-4/`（manifest/trace/ANALYSIS/REPORT/output）
+- 代码版本：`22624fa`
+- 真实运行：exit_code=0，stage=done，completion_status=with_gaps，elapsed=233.3s，model_requests=30，total_tokens=1,612,449
+- 关键指标：问题 2（冻结）；归档 5；事实 4；审核 6（3 full / 3 partial）；覆盖 insufficient（gap=6，no_progress）；报告 1（with_gaps，只纳入 full 事实）；trace 41 条工具事件 + usage 行完整落盘
+- 基线对比：Flash 基线 586.4s 被 10 分钟截止中断、停在 collect、0 覆盖、0 报告、trace 丢失 → 本轮 233.3s 到达 done/with_gaps
+- 假设结论：成立；WP1–WP4 + judge 自由文本修复使冻结材料复验一次通过
+
+### Known issues
+
+- 搜索未启用（冻结材料模式），搜索质量指标留待 WP5。
+- 038 首跑（judge 修复前）为无效运行：191 次 evidence_audit 静默失败耗尽预算；该次运行目录已清理，trace 证据保留在分析记录中。
 
 ## [037-local-awq-assess-terminal-switch] - 2026-08-22
 
