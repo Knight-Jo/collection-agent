@@ -951,9 +951,9 @@ def test_generate_research_report_blocks_repeated_drafts(monkeypatch, cwd):
 
     context = _context(cwd)
     for _ in range(3):
-        result = tool(context, task.id, draft)
+        result = tool(context, task.id, draft.model_dump_json())
         assert result["ok"] is True
-    blocked = tool(context, task.id, draft)
+    blocked = tool(context, task.id, draft.model_dump_json())
 
     assert blocked["ok"] is False
     assert blocked["errors"][0]["code"] == "REPEATED"
@@ -1035,7 +1035,7 @@ def test_generate_research_report_falls_back_to_verified_facts(cwd):
         eval_coverage(cwd, task.id)
 
     result = _tool(build_agent(Settings()), "generate_research_report")(
-        _context(cwd), task.id, ResearchReportInput()
+        _context(cwd), task.id, ResearchReportInput().model_dump_json()
     )
 
     assert result["ok"] is True
