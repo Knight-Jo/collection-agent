@@ -1,5 +1,7 @@
 """Semantic audit tests."""
 
+import asyncio
+
 import pytest
 
 from intel_agent.audit import (
@@ -127,3 +129,82 @@ async def test_audit_requires_judge_info(cwd):
     with pytest.raises(IntelError) as e:
         await audit_task_evidence(cwd, task.id, None, "", "")
     assert e.value.code == "SEMANTIC_AUDIT_FAILED"
+
+
+def _full_verdicts(evidence):
+    return [
+        {
+            "evidence_id": item.id,
+            "verdict": "full",
+            "reason": "完整支持",
+            "unsupported_parts": [],
+        }
+        for item in evidence
+    ]
+
+
+@pytest.mark.asyncio
+async def test_audit_concurrency_never_exceeds_limit(cwd):
+    task = new_task(cwd)
+    question = task.questions[0]
+    for index in range(10):
+        doc = make_document(cwd, f"关于测试主题的句子 {index}")
+        fact = save_fact(cwd, task.id, question.id, f"测试主题事实 {index}")
+        save_evidence(
+            cwd, fact.id, doc.id, "supports", f"关于测试主题的句子 {index}"
+        )
+
+    active = 0
+    max_active = 0
+
+    async def judge(fact_obj, evidence):
+        nonlocal active, max_active
+        active += 1
+        max_active = max(max_active, active)
+        await asyncio.sleep(0.05)
+        active -= 1
+        return _full_verdicts(evidence)
+
+    summary = await audit_task_evidence(
+        cwd, task.id, judge, "test", "fake", concurrency=2
+    )
+
+    assert summary["reviewed"] == 10
+    assert max_active <= 2
+
+
+@pytest.mark.asyncio
+async def test_audit_timeout_keeps_completed_reviews(cwd):
+    task = new_task(cwd)
+    question = task.questions[0]
+    fast_doc = make_document(cwd, "关于测试主题的快速句子")
+    fast_fact = save_fact(cwd, task.id, question.id, "快速事实")
+    fast_evidence = save_evidence(
+        cwd, fast_fact.id, fast_doc.id, "supports", "关于测试主题的快速句子"
+    )
+    slow_doc = make_document(cwd, "关于测试主题的慢速句子")
+    slow_fact = save_fact(cwd, task.id, question.id, "慢速事实")
+    slow_evidence = save_evidence(
+        cwd, slow_fact.id, slow_doc.id, "supports", "关于测试主题的慢速句子"
+    )
+
+    async def judge(fact_obj, evidence):
+        if fact_obj.id == slow_fact.id:
+            await asyncio.Event().wait()
+        return _full_verdicts(evidence)
+
+    with pytest.raises(IntelError) as error:
+        await audit_task_evidence(
+            cwd,
+            task.id,
+            judge,
+            "test",
+            "fake",
+            concurrency=2,
+            timeout_seconds=0.2,
+        )
+
+    assert error.value.code == "SEMANTIC_AUDIT_TIMEOUT"
+    fast_review = review_for_evidence(cwd, fast_evidence.id)
+    assert fast_review is not None and fast_review.verdict == "full"
+    assert review_for_evidence(cwd, slow_evidence.id) is None

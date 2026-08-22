@@ -30,6 +30,18 @@ def test_context_window_rejects_unsupported_size():
         ContextConfig.model_validate({"context_window_tokens": 8_192})
 
 
+def test_context_audit_bounds_have_sane_defaults():
+    config = ContextConfig()
+
+    assert config.audit_concurrency == 2
+    assert config.audit_timeout_seconds == 60.0
+
+    with pytest.raises(ValidationError):
+        ContextConfig.model_validate({"audit_concurrency": 0})
+    with pytest.raises(ValidationError):
+        ContextConfig.model_validate({"audit_timeout_seconds": 0})
+
+
 def test_keyless_openai_compatible_model_is_configured():
     settings = Settings.model_validate(
         {

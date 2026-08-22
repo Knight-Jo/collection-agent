@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import cast
 
 from .evidence import list_evidence_for_fact, load_evidence
 from .fact import list_active_facts_for_task, load_fact
@@ -165,6 +166,9 @@ async def audit_task_evidence(
     judge: Judge | None,
     judge_provider: str,
     judge_model: str,
+    *,
+    concurrency: int = 2,
+    timeout_seconds: float = 60.0,
 ) -> dict:
     task = load_task(cwd, task_id)
     if judge is None or not judge_provider.strip() or not judge_model.strip():
@@ -183,43 +187,68 @@ async def audit_task_evidence(
         if pending:
             batches.append((fact, pending))
 
-    results: list[tuple[Fact, list[dict]]] = []
+    semaphore = asyncio.Semaphore(concurrency)
+    timed_out: list[str] = []
+
+    async def judge_one(
+        fact: Fact, evidence: list[EvidenceSupport]
+    ) -> tuple[str, list[SupportReview] | list[str]]:
+        async with semaphore:
+            try:
+                verdicts = await asyncio.wait_for(
+                    judge(fact, evidence), timeout=timeout_seconds
+                )
+            except TimeoutError:
+                return ("timeout", [item.id for item in evidence])
+            validated = validate_batch(evidence, verdicts)
+            reviews = [
+                SupportReview(
+                    id=review_id(fact.id, verdict["evidence_id"]),
+                    task_id=task.id,
+                    fact_id=fact.id,
+                    evidence_id=verdict["evidence_id"],
+                    verdict=verdict["verdict"],
+                    reason=verdict["reason"],
+                    unsupported_parts=verdict["unsupported_parts"],
+                    judge_provider=judge_provider.strip(),
+                    judge_model=judge_model.strip(),
+                    prompt_version=SUPPORT_REVIEW_PROMPT_VERSION,
+                    created_at=utc_now(),
+                )
+                for verdict in validated
+            ]
+            for review in reviews:
+                write_json_atomic(
+                    cwd, f"reviews/{review.id}.json", review.model_dump()
+                )
+            return ("ok", reviews)
+
+    results: list[SupportReview] = []
     try:
         judged = await asyncio.gather(
-            *(judge(fact, evidence) for fact, evidence in batches),
+            *(judge_one(fact, evidence) for fact, evidence in batches),
             return_exceptions=True,
         )
-        for (fact, evidence), verdicts in zip(batches, judged, strict=True):
-            if isinstance(verdicts, BaseException):
-                if isinstance(verdicts, IntelError):
-                    raise verdicts
-                raise IntelError("SEMANTIC_AUDIT_FAILED", str(verdicts))
-            results.append((fact, validate_batch(evidence, verdicts)))
+        for outcome in judged:
+            if isinstance(outcome, BaseException):
+                if isinstance(outcome, IntelError):
+                    raise outcome
+                raise IntelError("SEMANTIC_AUDIT_FAILED", str(outcome))
+            status, payload = outcome
+            if status == "timeout":
+                timed_out.extend(cast(list[str], payload))
+            else:
+                results.extend(cast(list[SupportReview], payload))
     except IntelError:
         raise
     except Exception as error:
         raise IntelError("SEMANTIC_AUDIT_FAILED", str(error)) from error
 
-    reviews = [
-        SupportReview(
-            id=review_id(fact.id, verdict["evidence_id"]),
-            task_id=task.id,
-            fact_id=fact.id,
-            evidence_id=verdict["evidence_id"],
-            verdict=verdict["verdict"],
-            reason=verdict["reason"],
-            unsupported_parts=verdict["unsupported_parts"],
-            judge_provider=judge_provider.strip(),
-            judge_model=judge_model.strip(),
-            prompt_version=SUPPORT_REVIEW_PROMPT_VERSION,
-            created_at=utc_now(),
-        )
-        for fact, verdicts in results
-        for verdict in verdicts
-    ]
-    for review in reviews:
-        write_json_atomic(
-            cwd, f"reviews/{review.id}.json", review.model_dump()
+    if timed_out:
+        raise IntelError(
+            "SEMANTIC_AUDIT_TIMEOUT",
+            "语义审核超时，已完成 review 已保留；超时证据: "
+            + ", ".join(timed_out[:5]),
         )
 
     counts = {"full": 0, "partial": 0, "irrelevant": 0, "contradicts": 0}
@@ -227,7 +256,7 @@ async def audit_task_evidence(
         counts[review.verdict] += 1
     return {
         "task_id": task.id,
-        "reviewed": len(reviews),
+        "reviewed": len(results),
         "cached": cached,
         "verdict_counts": counts,
         "judge_provider": judge_provider.strip(),

@@ -46,6 +46,8 @@ class ContextConfig(BaseModel):
     audit_output_tokens: int = Field(default=512, ge=128)
     disable_thinking: bool = False
     max_search_calls_before_fetch: int = Field(default=3, ge=1)
+    audit_concurrency: int = Field(default=2, ge=1)
+    audit_timeout_seconds: float = Field(default=60.0, gt=0)
 
     def history_max_bytes(self) -> int:
         """Return a conservative serialized-history budget for the window."""

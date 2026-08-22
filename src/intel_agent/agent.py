@@ -1254,6 +1254,8 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                 ctx.deps.judge,
                 ctx.deps.judge_provider,
                 ctx.deps.judge_model,
+                concurrency=ctx.deps.settings.context.audit_concurrency,
+                timeout_seconds=ctx.deps.settings.context.audit_timeout_seconds,
             )
         )
 

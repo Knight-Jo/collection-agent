@@ -25,6 +25,9 @@ context:
   disable_thinking: false
   # 已连续获得候选但未抓取时，强制从搜索切换到阅读和取证。
   max_search_calls_before_fetch: 3
+  # 语义审核并发上限与单次超时；超时返回 SEMANTIC_AUDIT_TIMEOUT，已完成审核不回滚。
+  audit_concurrency: 2
+  audit_timeout_seconds: 60
 
 search:
   # 本地 SearXNG 实例地址；设为 null 则跳过，只用 Bing/Baidu 直连
