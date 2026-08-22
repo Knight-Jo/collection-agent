@@ -1,4 +1,4 @@
-import { Brain, GitBranch, Sparkles } from "lucide-react";
+import { Brain, CheckCircle2, Eye, GitBranch, PlayCircle, RefreshCw, Sparkles } from "lucide-react";
 import type { RunEvent, TrajectoryEnvelope } from "../types";
 
 const reasonLabels: Record<string, string> = {
@@ -105,6 +105,7 @@ function EventRow({ env }: { env: TrajectoryEnvelope }) {
       const p = payload as { tool?: string; result?: Record<string, unknown> };
       return (
         <li className="dt-observation">
+          <Eye size={16} />
           <div><strong>观察：{p.tool}</strong></div>
         </li>
       );
@@ -114,6 +115,7 @@ function EventRow({ env }: { env: TrajectoryEnvelope }) {
       const delta = deltaSummary(payload);
       return (
         <li className="dt-state">
+          <RefreshCw size={16} />
           <div>
             <strong>状态更新：{p.state_scope}</strong>
             {delta && <p className="dt-summary">{delta}</p>}
@@ -122,9 +124,9 @@ function EventRow({ env }: { env: TrajectoryEnvelope }) {
       );
     }
     case "run_started":
-      return <li className="dt-run"><div><strong>运行开始</strong></div></li>;
+      return <li className="dt-run"><PlayCircle size={16} /><div><strong>运行开始</strong></div></li>;
     case "run_finished":
-      return <li className="dt-run"><div><strong>运行结束</strong></div></li>;
+      return <li className="dt-run"><CheckCircle2 size={16} /><div><strong>运行结束</strong></div></li>;
     default:
       return null;
   }
