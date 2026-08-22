@@ -96,8 +96,7 @@ def build_task_prompt(spec: TaskRunSpec) -> str:
         "调用 intel_plan 时根据主题、目标和范围生成 3–6 个可独立回答的调研问题。\n"
         if not spec.questions
         else (
-            "调用 intel_plan 时必须原样保留下列用户问题，并补充必要问题，"
-            "使最终问题总数为 2–6 个：\n"
+            "调用 intel_plan 时必须且只能使用以下问题，不得新增、删除、合并或改写：\n"
             f"{questions}\n"
         )
     )

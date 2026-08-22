@@ -153,10 +153,20 @@ def test_prompt_preserves_optional_research_brief():
     prompt = build_task_prompt(spec)
     assert "了解产业现状" in prompt
     assert "政策如何变化？" in prompt
-    assert "补充" in prompt
+    assert "不得新增" in prompt
+    assert "补充必要问题" not in prompt
     assert "2024-2026" in prompt
     assert "中国" in prompt
     assert "zh-CN、en" in prompt
+
+
+def test_explicit_questions_are_frozen_not_extended():
+    prompt = build_task_prompt(make_spec())
+
+    assert "必须且只能使用以下问题" in prompt
+    assert "不得新增、删除、合并或改写" in prompt
+    assert "补充必要问题" not in prompt
+    assert "投资进展如何？；商业化进展如何？" in prompt
 
 
 def test_build_task_prompt_preserves_user_input_and_criteria():
