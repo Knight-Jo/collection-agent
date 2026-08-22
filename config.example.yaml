@@ -18,8 +18,8 @@ model:
 context:
   # 可选档位：16384 / 32768 / 65536 / 131072 / 262144，必须与模型服务实际 n_ctx 一致。
   context_window_tokens: 32768
-  # 主 Agent 与语义审核分别限制单次生成，避免本地推理模型长思考耗尽窗口。
-  main_output_tokens: 1024
+  # 主 Agent 单次生成上限；报告草案 JSON 较大，1024 会被截断导致 generate_research_report 参数校验失败，故放宽。
+  main_output_tokens: 8192
   audit_output_tokens: 512
   # llama-server 的 Qwen thinking 模型建议设为 true；远程接口默认保持 false。
   disable_thinking: false
