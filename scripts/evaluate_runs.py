@@ -119,6 +119,7 @@ class EvaluationInput(StrictModel):
     run_id: str
     run_dir: str
     repeat: int = Field(ge=1)
+    evaluation_mode: Literal["frozen", "live"]
     model: ModelInfo
     metrics: dict[str, MetricObservation]
     gates: dict[str, GateObservation]
@@ -161,6 +162,7 @@ class SelectionPolicy(StrictModel):
 
 class EvaluationPolicy(StrictModel):
     schema_version: Literal["1.0"]
+    mode: Literal["frozen", "live"] = "live"
     groups: dict[str, MetricGroupPolicy] = Field(min_length=1)
     gates: dict[str, GatePolicy] = Field(min_length=1)
     selection: SelectionPolicy
@@ -210,6 +212,11 @@ def score_evaluation(
     """Calculate quality groups and non-compensable hard gates."""
     if evaluation.benchmark_id != benchmark.benchmark_id:
         raise ValueError("evaluation benchmark_id does not match benchmark")
+    if evaluation.evaluation_mode != policy.mode:
+        raise ValueError(
+            f"evaluation mode {evaluation.evaluation_mode} does not match "
+            f"policy mode {policy.mode}"
+        )
     cases = {case.case_id: case for case in benchmark.cases}
     if evaluation.case_id not in cases:
         raise ValueError(f"unknown benchmark case: {evaluation.case_id}")
@@ -253,6 +260,7 @@ def score_evaluation(
         "run_id": evaluation.run_id,
         "run_dir": evaluation.run_dir,
         "repeat": evaluation.repeat,
+        "evaluation_mode": evaluation.evaluation_mode,
         "model": evaluation.model.model_dump(),
         "quality_score": _rounded(quality_score * 100),
         "group_scores": group_scores,
@@ -282,6 +290,17 @@ def compare_scores(
     baseline_model_id: str,
 ) -> dict:
     """Aggregate paired benchmark cases and assess local model retention."""
+    modes = {score.get("evaluation_mode") for score in scores}
+    if len(modes) > 1:
+        raise ValueError(
+            "cannot compare scores across evaluation modes: "
+            f"{sorted(str(mode) for mode in modes)}"
+        )
+    if modes and next(iter(modes)) != policy.mode:
+        raise ValueError(
+            f"score mode {next(iter(modes))} does not match "
+            f"policy mode {policy.mode}"
+        )
     by_model: dict[str, dict[tuple[str, int], dict]] = defaultdict(dict)
     for score in scores:
         model_id = score["model"]["model_id"]
@@ -341,6 +360,7 @@ def compare_scores(
     return {
         "schema_version": SCHEMA_VERSION,
         "baseline_model_id": baseline_model_id,
+        "evaluation_mode": policy.mode,
         "models": summaries,
     }
 

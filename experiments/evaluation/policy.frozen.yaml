@@ -1,37 +1,31 @@
 schema_version: "1.0"
-mode: live
+mode: frozen
 
+# 冻结材料模式：搜索关闭，不评价搜索召回。权重为 live 政策去掉
+# search_quality(0.20) 后按比例归一（0.25/0.25/0.20/0.10 → /0.80）。
 groups:
   question_coverage:
-    weight: 0.25
+    weight: 0.3125
     metrics:
       core_question_coverage: 0.60
       key_fact_recall: 0.40
   evidence_quality:
-    weight: 0.25
+    weight: 0.3125
     metrics:
       claim_support_rate: 0.25
       citation_precision: 0.25
       independent_verification_rate: 0.20
       key_numeric_double_source_rate: 0.15
       conflict_handling_rate: 0.15
-  search_quality:
-    weight: 0.20
-    metrics:
-      precision_at_10: 0.25
-      must_find_recall_at_50: 0.35
-      source_role_coverage: 0.20
-      source_diversity: 0.10
-      duplicate_control: 0.10
   report_quality:
-    weight: 0.20
+    weight: 0.25
     metrics:
       factual_accuracy: 0.35
       answer_completeness: 0.25
       evidence_alignment: 0.20
       expert_usefulness: 0.20
   robustness:
-    weight: 0.10
+    weight: 0.125
     metrics:
       valid_completion: 0.30
       tool_call_validity: 0.25

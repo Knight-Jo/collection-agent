@@ -93,6 +93,7 @@ def _evaluation(
     metric_value: float = 1.0,
     unsupported_claims: float = 0,
     cost: float = 10,
+    evaluation_mode: str = "live",
 ) -> EvaluationInput:
     return EvaluationInput.model_validate(
         {
@@ -102,6 +103,7 @@ def _evaluation(
             "run_id": run_id,
             "run_dir": f"experiments/runs/{run_id}",
             "repeat": repeat,
+            "evaluation_mode": evaluation_mode,
             "model": {
                 "model_id": model_id,
                 "provider": "test",
@@ -267,6 +269,114 @@ def test_compare_accepts_repeated_runs_for_the_same_case():
 
     assert local["paired_cases"] == 1
     assert local["paired_runs"] == 2
+    assert local["valid_run_rate"] == 1
+
+
+def _frozen_policy() -> EvaluationPolicy:
+    return EvaluationPolicy.model_validate(
+        {
+            "schema_version": "1.0",
+            "mode": "frozen",
+            "groups": {
+                "coverage": {
+                    "weight": 0.5,
+                    "metrics": {
+                        "question_coverage": 0.5,
+                        "key_fact_recall": 0.5,
+                    },
+                },
+                "evidence": {
+                    "weight": 0.5,
+                    "metrics": {"citation_precision": 1.0},
+                },
+            },
+            "gates": {
+                "unsupported_major_claims": {
+                    "operator": "max",
+                    "threshold": 0,
+                },
+                "traceability_rate": {
+                    "operator": "min",
+                    "threshold": 1,
+                },
+                "valid_completion": {
+                    "operator": "min",
+                    "threshold": 1,
+                },
+            },
+            "selection": {
+                "quality_retention_min": 0.9,
+                "category_retention_min": 0.85,
+                "valid_run_rate_min": 0.9,
+                "efficiency_metric": "monetary_cost",
+                "efficiency_gain_min": 0.3,
+            },
+        }
+    )
+
+
+def test_frozen_policy_rejects_live_evaluation():
+    with pytest.raises(ValueError, match="evaluation mode"):
+        score_evaluation(
+            _frozen_policy(),
+            _benchmark(),
+            _evaluation(evaluation_mode="live"),
+        )
+
+
+def test_live_policy_rejects_frozen_evaluation():
+    with pytest.raises(ValueError, match="evaluation mode"):
+        score_evaluation(
+            _policy(),
+            _benchmark(),
+            _evaluation(evaluation_mode="frozen"),
+        )
+
+
+def test_frozen_policy_scores_without_search_metrics():
+    result = score_evaluation(
+        _frozen_policy(),
+        _benchmark(),
+        _evaluation(evaluation_mode="frozen"),
+    )
+
+    assert result["evaluation_mode"] == "frozen"
+    assert result["quality_score"] == 100
+    assert result["hard_gates_passed"] is True
+
+
+def test_compare_rejects_mixed_evaluation_modes():
+    policy = _policy()
+    benchmark = _benchmark()
+    live = score_evaluation(policy, benchmark, _evaluation())
+    frozen = score_evaluation(
+        _frozen_policy(),
+        benchmark,
+        _evaluation(
+            run_id="run-frozen",
+            evaluation_mode="frozen",
+        ),
+    )
+
+    with pytest.raises(ValueError, match="evaluation modes"):
+        compare_scores(_frozen_policy(), [live, frozen], "cloud")
+
+
+def test_repo_frozen_policy_has_no_search_metrics_and_sums_to_one():
+    policy = EvaluationPolicy.model_validate(
+        __import__("yaml").safe_load(
+            (
+                PROJECT_ROOT / "experiments/evaluation/policy.frozen.yaml"
+            ).read_text(encoding="utf-8")
+        )
+    )
+
+    assert policy.mode == "frozen"
+    metric_names = {
+        name for group in policy.groups.values() for name in group.metrics
+    }
+    assert "precision_at_10" not in metric_names
+    assert "must_find_recall_at_50" not in metric_names
 
 
 def test_cli_validates_scores_and_compares_examples(monkeypatch, tmp_path):

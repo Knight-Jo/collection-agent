@@ -5,6 +5,7 @@
   "run_id": "example-local-r1",
   "run_dir": "experiments/runs/NNN-example-local-r1",
   "repeat": 1,
+  "evaluation_mode": "live",
   "model": {
     "model_id": "qwen-local-27b",
     "provider": "local-openai-compatible",

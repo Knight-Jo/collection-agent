@@ -5,6 +5,7 @@
   "run_id": "example-cloud-r1",
   "run_dir": "experiments/runs/NNN-example-cloud-r1",
   "repeat": 1,
+  "evaluation_mode": "live",
   "model": {
     "model_id": "cloud-large",
     "provider": "cloud-provider",
