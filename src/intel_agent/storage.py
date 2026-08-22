@@ -10,7 +10,6 @@ from pathlib import Path
 
 from .models import CrawlSnapshot, IntelDocument, IntelError
 from .security import source_group_of
-from .source import source_type_for_domain
 
 INTEL_ROOT = Path("data/intel")
 
@@ -147,9 +146,9 @@ def verify_document_integrity(cwd: Path, document: IntelDocument) -> None:
 
     Files on disk must match the recorded SHA-256s (content tamper), the
     document ID must be reproducible from canonical_url + raw hash (metadata
-    tamper), and source_group/source_type must still derive from the final URL
-    (classification tamper). Any mismatch means the record or its files were
-    modified outside the fetch pipeline.
+    tamper), and source_group must still derive from the final URL. Any
+    mismatch means the record or its files were modified outside the fetch
+    pipeline.
     """
     raw_path = workspace_path(cwd, document.raw_path)
     text_path = workspace_path(cwd, document.text_path)
@@ -181,22 +180,18 @@ def verify_document_integrity(cwd: Path, document: IntelDocument) -> None:
             raise IntelError(
                 "DOCUMENT_TAMPERED", f"渲染正文哈希不匹配: {document.id}"
             )
-    try:
-        from urllib.parse import urlparse
-
-        parsed = urlparse(document.final_url)
-    except Exception as error:
-        raise IntelError(
-            "DOCUMENT_TAMPERED", f"文档元数据不匹配: {document.id}"
-        ) from error
     identity = f"{document.canonical_url}\n{document.raw_sha256}"
     if document.collection_method == "browser":
         identity += f"\n{document.rendered_url}\n{document.rendered_sha256}"
+    # source_type is intentionally NOT re-derived here: it depends on the
+    # runtime first-party-domain registry (register_first_party_domains), which
+    # varies per deployment config. A document collected under one config's
+    # sources would otherwise read as "tampered" under another. Content hashes,
+    # ID reproducibility, and the deterministic source_group remain the
+    # tamper evidence.
     if (
         document.id != f"doc-{sha256(identity)[:16]}"
         or document.source_group != source_group_of(document.final_url)
-        or document.source_type
-        != source_type_for_domain(parsed.hostname or "")
     ):
         raise IntelError(
             "DOCUMENT_TAMPERED", f"文档元数据不匹配: {document.id}"

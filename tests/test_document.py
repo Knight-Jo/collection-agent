@@ -430,6 +430,37 @@ def test_old_document_record_defaults_to_http_collection(cwd):
     verify_document_integrity(cwd, document)
 
 
+def test_verify_tolerates_registry_dependent_source_type(cwd):
+    raw = b"body"
+    text = "正文"
+    canonical_url = "https://singlewindow.cn/report/1"
+    raw_sha256 = sha256(raw)
+    document_id = f"doc-{sha256(f'{canonical_url}\n{raw_sha256}')[:16]}"
+    raw_path = f"data/raw/{document_id}.raw"
+    text_path = f"data/raw/{document_id}.txt"
+    write_file_atomic(cwd, raw_path, raw)
+    write_file_atomic(cwd, text_path, text)
+    document = IntelDocument(
+        id=document_id,
+        requested_url=canonical_url,
+        final_url=canonical_url,
+        canonical_url=canonical_url,
+        title="Report",
+        content_type="application/pdf",
+        collected_at="2026-01-01T00:00:00+00:00",
+        source_type="official",
+        source_group="singlewindow.cn",
+        raw_path=raw_path,
+        raw_sha256=raw_sha256,
+        text_path=text_path,
+        text_sha256=sha256(text),
+    )
+
+    # source_type 记录为 "official"（first-party 注册表下的采集结果），
+    # 但当前进程未注册该域，重派生为 "other"；校验不应误报篡改。
+    verify_document_integrity(cwd, document)
+
+
 def test_rendered_document_integrity_requires_rendered_identity(cwd):
     raw = b'<div id="root"></div>'
     text = "rendered text"
