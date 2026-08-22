@@ -52,6 +52,7 @@ from .fact import (
     supersede_fact,
 )
 from .fetch import DEFAULT_MAX_BYTES, canonicalize_url, fetch_document
+from .logging import get_logger
 from .materials import generate_material_digest, register_material
 from .models import (
     ClaimType,
@@ -103,6 +104,8 @@ _MAX_OUTBOUND_LINKS = 20
 _MAX_SEARCH_RESULTS = 10
 _UNTRUSTED_OPEN = "<untrusted_web_content>\n"
 _UNTRUSTED_CLOSE = "\n</untrusted_web_content>"
+
+logger = get_logger(__name__)
 
 # Deterministic query-matrix slots carry a fixed gap rationale (rule, not model).
 _MATRIX_PHASE_REASON = {
@@ -298,6 +301,7 @@ def _truncate_utf8(text: str, max_bytes: int, suffix: str = "") -> str:
 
 def _failure(error: object) -> dict:
     code = error.code if isinstance(error, IntelError) else "UNKNOWN"
+    logger.error("tool failed code=%s message=%s", code, _error_text(error))
     return {
         "ok": False,
         "error": {"code": code, "message": _error_text(error)},
@@ -1199,6 +1203,7 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                         renderer=renderer,
                     )
                     fetched_via = "httpx-fallback"
+                    logger.warning("fetch fell back to httpx: %s", url)
         except IntelError as error:
             register_material(
                 ctx.deps.cwd,
@@ -1211,6 +1216,7 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             fetched_via = "browser"
         elif document.render_error:
             fetched_via = "browser-failed"
+            logger.warning("browser render failed: %s", url)
         register_material(
             ctx.deps.cwd,
             task.id,

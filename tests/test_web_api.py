@@ -273,7 +273,9 @@ def test_main_uses_web_binding_from_config(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(
         "intel_agent.web.app.uvicorn.run",
-        lambda _app, *, host, port: captured.update(host=host, port=port),
+        lambda _app, *, host, port, **kwargs: captured.update(
+            host=host, port=port
+        ),
     )
 
     main()
@@ -307,7 +309,9 @@ def test_main_cli_binding_overrides_config(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(
         "intel_agent.web.app.uvicorn.run",
-        lambda _app, *, host, port: captured.update(host=host, port=port),
+        lambda _app, *, host, port, **kwargs: captured.update(
+            host=host, port=port
+        ),
     )
 
     main()

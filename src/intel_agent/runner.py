@@ -27,6 +27,7 @@ from .audit import verified_support_evidence
 from .config import Settings
 from .coverage import latest_coverage
 from .fact import list_active_facts_for_task
+from .logging import get_logger
 from .models import (
     IntelError,
     IntelTask,
@@ -49,6 +50,8 @@ from .trajectory import (
 )
 
 EventCallback = Callable[[object], Awaitable[None]]
+
+logger = get_logger(__name__)
 
 _SENSITIVE_KEY_RE = re.compile(
     r"key|token|authorization|cookie|secret|password", re.IGNORECASE
@@ -345,6 +348,11 @@ async def run_agent_task(
                 layer="evaluation",
             )
         )
+    logger.info(
+        "run started topic=%s questions=%d",
+        spec.topic,
+        len(spec.questions),
+    )
 
     step_index = 0
     requests_seen = 0
@@ -357,7 +365,20 @@ async def run_agent_task(
 
     def close_call(finish_reason: str) -> None:
         nonlocal call_open
-        if recorder is not None and call_open:
+        if not call_open:
+            return
+        latency_ms = int((time.monotonic() - call_started) * 1000)
+        input_tokens = usage.input_tokens - call_input_before
+        output_tokens = usage.output_tokens - call_output_before
+        logger.info(
+            "model_call #%d in=%d out=%d latency=%dms finish=%s",
+            step_index,
+            input_tokens,
+            output_tokens,
+            latency_ms,
+            finish_reason,
+        )
+        if recorder is not None:
             trajectory.emit(
                 make_event(
                     "model_call",
@@ -365,17 +386,15 @@ async def run_agent_task(
                     ModelCallPayload(
                         request_index=step_index,
                         model=settings.model.name,
-                        input_tokens=usage.input_tokens - call_input_before,
-                        output_tokens=usage.output_tokens - call_output_before,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
                         finish_reason=finish_reason,
-                        latency_ms=int(
-                            (time.monotonic() - call_started) * 1000
-                        ),
+                        latency_ms=latency_ms,
                     ),
                     layer="technical",
                 )
             )
-            call_open = False
+        call_open = False
 
     def open_call() -> None:
         nonlocal step_index, call_open, call_started
@@ -437,8 +456,18 @@ async def run_agent_task(
                 "任务尚未完成。不要解释、总结或承诺下一步；"
                 "立即依据最新 CONTEXT_SNAPSHOT 的 next_action 调用一个工具继续。"
             )
+    except Exception:
+        logger.exception("run aborted")
+        raise
     finally:
         close_call("aborted")
+        logger.info(
+            "run finished stage=%s requests=%d tool_calls=%d tokens=%d",
+            final_stage or "none",
+            usage.requests,
+            usage.tool_calls,
+            usage.total_tokens,
+        )
         if recorder is not None:
             coverage: dict = {}
             try:

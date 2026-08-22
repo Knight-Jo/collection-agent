@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 from .config import load_config
+from .logging import configure_logging
 from .models import ResearchScope, SufficiencyCriteria
 from .runner import TaskRunSpec, run_agent_task
 from .task import load_task
@@ -73,6 +74,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--trace", default=None, help="保存完整消息轨迹到 JSONL 文件"
     )
+    parser.add_argument(
+        "--log-level",
+        choices=("DEBUG", "INFO", "WARNING", "ERROR"),
+        default=None,
+        help="日志级别（默认读取 config.yaml 的 logging.level）",
+    )
     return parser
 
 
@@ -90,6 +97,7 @@ async def _run_trace(args, settings, spec):
 
 async def _run(args: argparse.Namespace) -> int:
     settings = load_config(args.config)
+    configure_logging(Path(args.cwd), settings, args.log_level)
     configure_logfire()
     if not settings.model_api_key():
         print(

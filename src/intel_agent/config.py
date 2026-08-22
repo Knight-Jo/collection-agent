@@ -94,6 +94,11 @@ class WebConfig(BaseModel):
     port: int = Field(default=6780, ge=1, le=65_535)
 
 
+class LoggingConfig(BaseModel):
+    level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    dir: str = "data/logs"
+
+
 class SourcesConfig(BaseModel):
     """Optional deployment-specific sources returned as direct-fetch hints."""
 
@@ -114,6 +119,7 @@ class Settings(BaseModel):
     fetch: FetchConfig = Field(default_factory=FetchConfig)
     crawl: CrawlConfig = Field(default_factory=CrawlConfig)
     web: WebConfig = Field(default_factory=WebConfig)
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
     sources: SourcesConfig = Field(default_factory=SourcesConfig)
 
     def model_api_key(self) -> str | None:

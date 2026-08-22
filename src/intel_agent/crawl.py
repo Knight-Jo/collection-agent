@@ -35,6 +35,7 @@ from .fetch import (
     httpx_fallback_fetch,
     pinned_fetch,
 )
+from .logging import get_logger
 from .models import (
     CrawlEntry,
     CrawlSnapshot,
@@ -57,6 +58,8 @@ from .storage import (
     verify_document_integrity,
 )
 from .task import load_task
+
+logger = get_logger(__name__)
 
 RobotsAllowed = Callable[[str], Awaitable[bool]]
 RobotsFetch = Callable[[CrawlEntry, str], Awaitable[FetchedResponse]]
@@ -594,6 +597,10 @@ class _CrawlRunner:
                 previous = self.resource_statuses.get(id(entry))
                 self.resource_statuses[id(entry)] = entry.status
                 if entry.status in terminal and entry.status != previous:
+                    if entry.status == "skipped_robots":
+                        logger.warning(
+                            "robots disallowed %s", entry.canonical_url
+                        )
                     await self.on_event(
                         CrawlEvent(
                             "crawl.resource",
@@ -1289,6 +1296,7 @@ async def crawl_collect(
         await on_event(
             CrawlEvent("crawl.started", _crawl_event_data(snapshot))
         )
+    logger.info("crawl started task=%s", snapshot.task_id)
     try:
         while queued := [
             entry for entry in snapshot.entries if entry.status == "queued"
@@ -1330,4 +1338,5 @@ async def crawl_collect(
         await on_event(
             CrawlEvent("crawl.completed", _crawl_event_data(snapshot))
         )
+    logger.info("crawl completed task=%s", snapshot.task_id)
     return snapshot

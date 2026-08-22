@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from .logging import get_logger
 from .models import (
     ChallengeRound,
     CoverageHistory,
@@ -45,6 +46,8 @@ STAGE_ORDER: list[TaskStage] = ["collect", "assess", "challenge", "done"]
 # new evidence, so the agent is never hard-stopped mid-progress.
 FETCH_ATTEMPT_LIMIT = 6
 SEARCH_ATTEMPT_LIMIT = 6
+
+logger = get_logger(__name__)
 
 _YEAR_RE = re.compile(r"(?<!\d)(\d{4})(?!\d)")
 _YEAR_RANGE_RE = re.compile(
@@ -200,6 +203,9 @@ def record_fetch_attempt(
                 layer="business",
             )
         )
+        logger.warning(
+            "fetch budget exhausted (%d consecutive fetches)", limit
+        )
         raise IntelError(
             "COLLECTION_BUDGET_EXHAUSTED",
             f"连续抓取未新增证据已达 {limit} 次；请先保存现有文档中的有效证据并运行审核/覆盖评估，或接受缺口停止检索。",
@@ -258,6 +264,7 @@ def record_search_attempt(
                 layer="business",
             )
         )
+        logger.warning("search budget exhausted (%d searches)", limit)
         raise IntelError(
             "SEARCH_BUDGET_EXHAUSTED",
             f"搜索预算已用完（{limit} 次）；请使用已有候选来源，或接受并披露检索缺口。",
@@ -457,6 +464,7 @@ def set_task_stage(cwd: Path, task_id: str, stage: TaskStage) -> IntelTask:
         )
     updated = task.model_copy(update=updates)
     save_task(cwd, updated)
+    logger.info("stage %s -> %s", task.stage, updated.stage)
     emit_state_updated(
         "task", updated.id, {"stage": task.stage}, {"stage": updated.stage}
     )

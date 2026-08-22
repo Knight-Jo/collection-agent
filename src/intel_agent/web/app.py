@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 
 from ..browser import browser_runtime_status
 from ..config import Settings, load_config
+from ..logging import configure_logging
 from ..models import IntelError
 from .runs import RunRegistry
 from .schemas import (
@@ -212,8 +213,10 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=None)
     args = parser.parse_args()
     settings = load_config(args.config)
+    configure_logging(Path(args.cwd), settings)
     uvicorn.run(
         create_app(cwd=Path(args.cwd), settings=settings),
         host=args.host if args.host is not None else settings.web.host,
         port=args.port if args.port is not None else settings.web.port,
+        log_level=settings.logging.level.lower(),
     )
