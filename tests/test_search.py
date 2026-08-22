@@ -1,6 +1,8 @@
 """Search query analysis tests."""
 
-from intel_agent.search import _result, strip_tags
+import httpx
+
+from intel_agent.search import _result, bing_search, strip_tags
 from intel_agent.search_queries import (
     authoritative_variants,
     extract_keywords,
@@ -78,6 +80,28 @@ def test_search_result_decodes_url_entities():
 
 def test_strip_tags_decodes_standard_html_entities():
     assert strip_tags("<p>A&nbsp;&amp;&#x20AC;&#39;</p>") == "A &€'"
+
+
+async def test_bing_search_uses_direct_endpoint_and_cjk_language():
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.host == "www.bing.com"
+        assert request.url.params["setlang"] == "zh-CN"
+        assert request.headers["accept-language"].startswith("zh-CN")
+        return httpx.Response(
+            200,
+            text=(
+                '<li class="b_algo"><h2><a href="https://www.gov.cn/policy">'
+                "低空经济政策</a></h2><p>国家层面政策原文</p></li>"
+            ),
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler)
+    ) as client:
+        results = await bing_search(client, "低空经济 政策", 5)
+
+    assert len(results) == 1
+    assert results[0].url == "https://www.gov.cn/policy"
 
 
 def test_query_plan_includes_document_and_media_discovery():

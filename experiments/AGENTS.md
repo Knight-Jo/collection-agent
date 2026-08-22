@@ -69,6 +69,36 @@ python scripts/analyze_run.py experiments/runs/NNN-name --write
 - gap_score 下降可能是"事实稀少"的假象——语料越干净事实越少、分数越低
 - 挑战收敛（converged）≠ 证据充分；completion_status 曾误标 sufficient
 
+## 云端/本地模型评测规范
+
+模型评测必须使用 `experiments/evaluation/` 中的版本化 benchmark、policy 和评分表，不得根据单次运行印象给模型排名。
+
+### 固定顺序
+
+1. 运行前校验格式：`python scripts/evaluate_runs.py validate --policy ... --benchmark ...`。
+2. 用 `scripts/run_benchmark.py` 为每个模型生成命令；先不传 `--execute` 检查控制变量。
+3. 每个模型、每个 `case_id` 至少运行3次；manifest必须包含 benchmark、case、model和repeat。
+4. 先运行 `analyze_run.py`，再盲审核心事实、引用、Top10结果和必查来源。
+5. 每次运行单独填写一份 evaluation JSON；所有指标必须给出 `evidence` 定位。
+6. 用 `evaluate_runs.py score` 生成单次评分，再用 `compare` 做相同case的配对比较。
+7. 将失败运行保留在统计中；不得删除失败样本后重新计算有效运行率。
+
+### 控制变量
+
+- 同批比较固定代码提交、提示词、工具、搜索服务、运行时间窗口和采集预算。
+- `--max-turns 200`保持一致；上下文、思考模式和输出上限如有差异，必须在模型信息和REPORT中说明。
+- 实时互联网实验与冻结材料实验分开统计，禁止混为一个质量保持率。
+- 云端教师不是金标准；蒸馏前后模型都必须对同一人工标注事实和证据评分。
+- 样例evaluation中的数字只验证脚本，禁止复制到正式结果。
+
+### 结论规则
+
+- 任一硬门槛失败时，该运行不是有效报告；质量分只用于定位问题。
+- 小模型选型同时报告质量保持率、最低分类保持率、有效运行率和有效报告成本。
+- 成本缺失时结论只能是`incomplete`，不得口头估算成“更便宜”。
+- `compare`只统计双方共有的case和repeat；必须核对`paired_cases`是否等于计划任务数、`paired_runs`是否等于任务数乘以重复次数。
+- 评分口径、阈值和人工审核方法见 `docs/情报搜集智能体评估指标与模型对比方案.md`。
+
 ## 报告规范（REPORT.md 模板）
 
 ```markdown

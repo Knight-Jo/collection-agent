@@ -73,9 +73,23 @@ def main() -> int:
     parser.add_argument(
         "--deep-crawl", action="store_true", help="启用深度抓取（BFS 爬虫）"
     )
+    parser.add_argument("--benchmark-id")
+    parser.add_argument("--case-id")
+    parser.add_argument("--model-id")
+    parser.add_argument("--repeat", type=int, default=1)
     args = parser.parse_args()
     if not 2 <= len(args.questions) <= 6:
         print("错误: questions 数量必须为 2-6 个", file=sys.stderr)
+        return 1
+    evaluation_fields = (args.benchmark_id, args.case_id, args.model_id)
+    if any(evaluation_fields) and not all(evaluation_fields):
+        print(
+            "错误: benchmark-id、case-id、model-id 必须同时提供",
+            file=sys.stderr,
+        )
+        return 1
+    if any(evaluation_fields) and args.repeat < 1:
+        print("错误: repeat 必须大于等于 1", file=sys.stderr)
         return 1
 
     RUNS_DIR.mkdir(parents=True, exist_ok=True)
@@ -105,6 +119,13 @@ def main() -> int:
         "deep_crawl": args.deep_crawl,
         "config": args.config,
     }
+    if all(evaluation_fields):
+        manifest["evaluation"] = {
+            "benchmark_id": args.benchmark_id,
+            "case_id": args.case_id,
+            "model_id": args.model_id,
+            "repeat": args.repeat,
+        }
     (run_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
     )

@@ -34,6 +34,10 @@ python scripts/analyze_run.py experiments/runs/001-baseline --write
 # 3. 根据 REPORT 中的问题改进代码 → 下一轮实验
 ```
 
+## 模型对比评测
+
+云端大模型、本地模型和蒸馏模型的统一数据格式、评分政策、样例与执行命令见 [evaluation/README.md](evaluation/README.md)。正式评测使用 `scripts/run_benchmark.py` 生成同题同预算运行，使用 `scripts/evaluate_runs.py` 校验、评分和配对比较。
+
 ## 迭代原则
 
 1. 每轮实验只验证 1-2 个核心假设，改动最小化

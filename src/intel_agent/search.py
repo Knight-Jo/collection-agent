@@ -95,12 +95,20 @@ async def bing_search(
     client: httpx.AsyncClient, query: str, count: int
 ) -> list[SearchResult]:
     n = min(max(count, 1), 10)
-    url = f"https://cn.bing.com/search?q={_q(query)}&setlang=en&count={n}"
+    language = "zh-CN" if re.search(r"[\u4e00-\u9fa5]", query) else "en-US"
+    url = (
+        f"https://www.bing.com/search?q={_q(query)}"
+        f"&setlang={language}&count={n}"
+    )
     res = await client.get(
         url,
         headers={
             "User-Agent": UA,
-            "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8",
+            "Accept-Language": (
+                "zh-CN,zh;q=0.9,en;q=0.8"
+                if language == "zh-CN"
+                else "en-US,en;q=0.9"
+            ),
         },
     )
     res.raise_for_status()

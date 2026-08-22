@@ -1,0 +1,49 @@
+model:
+  name: deepseek-v4-pro
+  base_url: https://api.deepseek.com/v1
+  api_key_env: DEEPSEEK_API_KEY
+
+context:
+  context_window_tokens: 262144
+  main_output_tokens: 2048
+  audit_output_tokens: 512
+  disable_thinking: false
+  max_search_calls_before_fetch: 3
+
+search:
+  searxng_url: null
+
+budgets:
+  search_attempts: 0
+  fetch_attempts_since_evidence: 20
+  request_limit: 200
+
+fetch:
+  enable_httpx_fallback: true
+  enable_browser_fallback: false
+
+crawl:
+  max_depth: 2
+  max_urls: 200
+  max_total_bytes: 1073741824
+  max_html_bytes: 5242880
+  max_attachment_bytes: 52428800
+  concurrency: 4
+  per_host_concurrency: 1
+  per_host_delay_seconds: 1.0
+  cache_ttl_hours: 24
+  retries: 2
+  obey_robots: true
+  ocr_languages: chi_sim+eng
+  whisper_model: small
+  enabled_by_default: true
+
+sources:
+  financial: []
+  ir_company: []
+  policy:
+    - https://www.miit.gov.cn/jgsj/zbes/wjfb/art/2024/art_eea7f1d8dd25444bb370faaaf26637d6.html
+    - https://www.ndrc.gov.cn/fggz/202503/t20250314_1396569.html
+    - https://www.ndrc.gov.cn/wsdwhfz/202412/t20241230_1395328.html
+    - https://www.shanghai.gov.cn/202416bgtwj/20240912/141da07dcbcf4d89809fbb9c10582a44.html
+    - https://www.beijing.gov.cn/zhengce/zhengcefagui/202409/t20240930_3910685.html

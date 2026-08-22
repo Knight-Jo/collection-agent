@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 
 from scripts import run_experiment
@@ -39,6 +40,14 @@ def test_experiment_forwards_run_limits_and_deep_crawl(monkeypatch, tmp_path):
             "--dry",
             "3",
             "--deep-crawl",
+            "--benchmark-id",
+            "benchmark-v1",
+            "--case-id",
+            "policy-001",
+            "--model-id",
+            "local-27b",
+            "--repeat",
+            "2",
         ],
     )
 
@@ -47,3 +56,38 @@ def test_experiment_forwards_run_limits_and_deep_crawl(monkeypatch, tmp_path):
     assert command[command.index("--max-turns") + 1] == "40"
     assert command[command.index("--max-tool-calls") + 1] == "3"
     assert "--deep-crawl" in command
+    manifest = json.loads(
+        (tmp_path / "runs" / "001-limits" / "manifest.json").read_text()
+    )
+    assert manifest["evaluation"] == {
+        "benchmark_id": "benchmark-v1",
+        "case_id": "policy-001",
+        "model_id": "local-27b",
+        "repeat": 2,
+    }
+
+
+def test_experiment_rejects_partial_evaluation_metadata_before_creating_run(
+    monkeypatch, tmp_path
+):
+    runs_dir = tmp_path / "runs"
+    monkeypatch.setattr(run_experiment, "RUNS_DIR", runs_dir)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment.py",
+            "--name",
+            "invalid-metadata",
+            "--topic",
+            "主题",
+            "--questions",
+            "问题甲",
+            "问题乙",
+            "--benchmark-id",
+            "benchmark-v1",
+        ],
+    )
+
+    assert run_experiment.main() == 1
+    assert not runs_dir.exists()

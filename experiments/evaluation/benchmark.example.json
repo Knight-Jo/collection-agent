@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "benchmark_id": "osint-model-benchmark-v1",
+  "cases": [
+    {
+      "case_id": "low-altitude-policy-001",
+      "category": "policy",
+      "topic": "低空经济政策与产业进展",
+      "questions": [
+        {
+          "question_id": "q1",
+          "text": "近两年国家层面有哪些直接影响低空经济发展的政策与规范？",
+          "weight": 1.2
+        },
+        {
+          "question_id": "q2",
+          "text": "政策落地中已经公开的试点、基础设施和商业化进展有哪些？",
+          "weight": 1.0
+        }
+      ],
+      "must_find_sources": [
+        {
+          "source_id": "central-policy",
+          "description": "至少一项中央或国务院部门公开政策原文",
+          "url": null,
+          "required": true
+        },
+        {
+          "source_id": "local-implementation",
+          "description": "至少一项地方政府公开实施文件或试点材料",
+          "url": null,
+          "required": true
+        }
+      ],
+      "key_facts": [
+        {
+          "fact_id": "policy-scope",
+          "question_id": "q1",
+          "statement": "能够准确说明政策名称、发布机构、发布日期和直接影响",
+          "weight": 1.2,
+          "critical": true,
+          "required_independent_sources": 1
+        },
+        {
+          "fact_id": "implementation-progress",
+          "question_id": "q2",
+          "statement": "能够用公开材料说明至少一项可核验的落地进展",
+          "weight": 1.0,
+          "critical": true,
+          "required_independent_sources": 2
+        }
+      ],
+      "known_conflicts": [],
+      "required_media_types": ["html", "pdf"]
+    }
+  ]
+}

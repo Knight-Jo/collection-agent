@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "benchmark_id": "osint-model-benchmark-v1",
+  "case_id": "low-altitude-policy-001",
+  "run_id": "example-cloud-r1",
+  "run_dir": "experiments/runs/NNN-example-cloud-r1",
+  "repeat": 1,
+  "model": {
+    "model_id": "cloud-large",
+    "provider": "cloud-provider",
+    "name": "cloud-large-model",
+    "deployment": "cloud",
+    "context_window": 131072,
+    "thinking": true,
+    "revision": "example"
+  },
+  "metrics": {
+    "core_question_coverage": {"value": 0.95, "evidence": ["review:questions"]},
+    "key_fact_recall": {"value": 0.90, "evidence": ["review:key-facts"]},
+    "claim_support_rate": {"value": 0.98, "evidence": ["review:claims"]},
+    "citation_precision": {"value": 0.98, "evidence": ["review:citations"]},
+    "independent_verification_rate": {"value": 0.90, "evidence": ["review:sources"]},
+    "key_numeric_double_source_rate": {"value": 1.0, "evidence": ["review:numbers"]},
+    "conflict_handling_rate": {"value": 0.90, "evidence": ["review:conflicts"]},
+    "precision_at_10": {"value": 0.80, "evidence": ["search:top10"]},
+    "must_find_recall_at_50": {"value": 0.90, "evidence": ["search:top50"]},
+    "source_role_coverage": {"value": 0.85, "evidence": ["review:source-roles"]},
+    "source_diversity": {"value": 0.90, "evidence": ["analysis:domains"]},
+    "duplicate_control": {"value": 0.95, "evidence": ["analysis:duplicates"]},
+    "factual_accuracy": {"value": 0.95, "evidence": ["review:facts"]},
+    "answer_completeness": {"value": 0.90, "evidence": ["review:report"]},
+    "evidence_alignment": {"value": 0.95, "evidence": ["review:alignment"]},
+    "expert_usefulness": {"value": 0.90, "evidence": ["review:expert"]},
+    "valid_completion": {"value": 1.0, "evidence": ["manifest:exit-stage"]},
+    "tool_call_validity": {"value": 0.99, "evidence": ["trace:tools"]},
+    "stage_progress": {"value": 1.0, "evidence": ["state:task"]},
+    "loop_control": {"value": 0.95, "evidence": ["analysis:repeats"]},
+    "context_stability": {"value": 1.0, "evidence": ["run.log:context"]}
+  },
+  "gates": {
+    "valid_completion": {"value": 1, "evidence": ["manifest:exit-stage"]},
+    "unsupported_major_claims": {"value": 0, "evidence": ["review:claims"]},
+    "traceability_rate": {"value": 1, "evidence": ["review:traceability"]},
+    "key_numeric_double_source_rate": {"value": 1, "evidence": ["review:numbers"]},
+    "tool_call_validity_rate": {"value": 0.995, "evidence": ["trace:tools"]},
+    "context_overflows": {"value": 0, "evidence": ["run.log:context"]},
+    "security_incidents": {"value": 0, "evidence": ["run.log:security"]},
+    "report_schema_valid": {"value": 1, "evidence": ["output:report"]}
+  },
+  "resources": {
+    "elapsed_seconds": 600,
+    "input_tokens": 90000,
+    "output_tokens": 12000,
+    "model_requests": 48,
+    "tool_calls": 96,
+    "monetary_cost": 12.0,
+    "gpu_seconds": null,
+    "energy_kwh": null
+  },
+  "reviewer": "example-reviewer",
+  "reviewed_at": "2026-08-22T00:00:00+08:00"
+}

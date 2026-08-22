@@ -9,6 +9,8 @@ config.yaml
 web/node_modules/
 web/dist/
 web/coverage/
+/experiments/evaluation/results/
+/experiments/evaluation/live-runs/
 
 pi-prototype-collection
 graphify-out/

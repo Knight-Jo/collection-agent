@@ -1,0 +1,72 @@
+schema_version: "1.0"
+
+groups:
+  question_coverage:
+    weight: 0.25
+    metrics:
+      core_question_coverage: 0.60
+      key_fact_recall: 0.40
+  evidence_quality:
+    weight: 0.25
+    metrics:
+      claim_support_rate: 0.25
+      citation_precision: 0.25
+      independent_verification_rate: 0.20
+      key_numeric_double_source_rate: 0.15
+      conflict_handling_rate: 0.15
+  search_quality:
+    weight: 0.20
+    metrics:
+      precision_at_10: 0.25
+      must_find_recall_at_50: 0.35
+      source_role_coverage: 0.20
+      source_diversity: 0.10
+      duplicate_control: 0.10
+  report_quality:
+    weight: 0.20
+    metrics:
+      factual_accuracy: 0.35
+      answer_completeness: 0.25
+      evidence_alignment: 0.20
+      expert_usefulness: 0.20
+  robustness:
+    weight: 0.10
+    metrics:
+      valid_completion: 0.30
+      tool_call_validity: 0.25
+      stage_progress: 0.20
+      loop_control: 0.15
+      context_stability: 0.10
+
+gates:
+  valid_completion:
+    operator: min
+    threshold: 1
+  unsupported_major_claims:
+    operator: max
+    threshold: 0
+  traceability_rate:
+    operator: min
+    threshold: 1
+  key_numeric_double_source_rate:
+    operator: min
+    threshold: 1
+  tool_call_validity_rate:
+    operator: min
+    threshold: 0.99
+  context_overflows:
+    operator: max
+    threshold: 0
+  security_incidents:
+    operator: max
+    threshold: 0
+  report_schema_valid:
+    operator: min
+    threshold: 1
+
+selection:
+  quality_retention_min: 0.90
+  category_retention_min: 0.85
+  valid_run_rate_min: 0.90
+  efficiency_metric: monetary_cost
+  efficiency_gain_min: 0.30
