@@ -6,7 +6,14 @@
 
 ## [Unreleased]
 
-无计划中的实验。
+### 039-frozen-paired-benchmark
+
+- 状态：planned
+- 唯一假设：WP1–WP4 + judge 修复 + WP6 冻结评分分离后，Flash 与 Pro 各 3 次冻结材料配对运行的有效运行率与质量保持率可按 policy.frozen.yaml 可重复计算（基线：038 单次 Flash 233s done/with_gaps）。
+- 基线：038（单次复验通过）
+- 允许修改：无（纯运行+评分；`experiments/evaluation/results/` 产物不入库）
+- 禁止修改：benchmark case、冻结配置、10 分钟截止口径
+- 预期验收：6 次运行 manifest 均带 evaluation 元数据；每轮 analyze_run 产物完整；score/compare 按 frozen 模式输出；关键事实/引文人工盲审由人工补签（reviewer=null 标记）
 
 Correction（端点与配置名变更）：
 - 034/035 使用的本地 vLLM（127.0.0.1:8001）已停止，改由远程 vLLM 服务 `http://10.108.25.128:8001/v1` 提供同一 AWQ 模型（`/home/nas928/guandewei/project/qwen3.8-27B-AWQ-4bit`，16K）。

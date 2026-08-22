@@ -1,0 +1,1066 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="情报调研智能体项目线上汇报材料">
+  <title>情报调研智能体｜项目线上汇报</title>
+  <style>
+    :root {
+      --ink: #10243b;
+      --muted: #5d6c7d;
+      --paper: #f4f0e8;
+      --paper-2: #fbf9f4;
+      --navy: #0b1f33;
+      --blue: #176b87;
+      --teal: #1b8a82;
+      --orange: #ed6a3a;
+      --gold: #d7a646;
+      --green: #2d8a62;
+      --red: #b94a48;
+      --line: rgba(16, 36, 59, 0.16);
+      --shadow: 0 28px 80px rgba(3, 17, 31, 0.24);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #071522;
+      color: var(--ink);
+      font-family: "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    }
+
+    button { font: inherit; }
+
+    .deck {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: none;
+      overflow: hidden;
+      padding: clamp(34px, 5vh, 68px) clamp(42px, 6vw, 96px) clamp(42px, 6vh, 78px);
+      background:
+        radial-gradient(circle at 88% 18%, rgba(27, 138, 130, 0.09), transparent 30%),
+        linear-gradient(135deg, var(--paper-2), var(--paper));
+    }
+
+    .slide.active {
+      display: flex;
+      flex-direction: column;
+      animation: reveal 360ms ease-out;
+    }
+
+    @keyframes reveal {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .slide::before {
+      content: "";
+      position: absolute;
+      width: 270px;
+      height: 270px;
+      right: -135px;
+      top: -135px;
+      border: 1px solid rgba(23, 107, 135, 0.18);
+      border-radius: 50%;
+      box-shadow: 0 0 0 42px rgba(23, 107, 135, 0.04), 0 0 0 84px rgba(23, 107, 135, 0.025);
+    }
+
+    .slide.dark {
+      color: #f8f4ec;
+      background:
+        radial-gradient(circle at 80% 10%, rgba(27, 138, 130, 0.34), transparent 32%),
+        radial-gradient(circle at 12% 90%, rgba(237, 106, 58, 0.2), transparent 28%),
+        linear-gradient(135deg, #071522, #0c2940 70%, #10364a);
+    }
+
+    .slide.dark::before { border-color: rgba(255, 255, 255, 0.17); }
+
+    .kicker {
+      margin: 0 0 12px;
+      color: var(--teal);
+      font-size: clamp(12px, 1.15vw, 17px);
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .dark .kicker { color: #6bd0c5; }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      max-width: 980px;
+      margin-bottom: 22px;
+      font-family: "Noto Serif CJK SC", "Songti SC", "SimSun", serif;
+      font-size: clamp(44px, 6.6vw, 96px);
+      font-weight: 800;
+      line-height: 1.04;
+      letter-spacing: -0.04em;
+    }
+
+    h2 {
+      margin-bottom: clamp(20px, 3vh, 38px);
+      font-family: "Noto Serif CJK SC", "Songti SC", "SimSun", serif;
+      font-size: clamp(30px, 4.2vw, 60px);
+      line-height: 1.12;
+      letter-spacing: -0.03em;
+    }
+
+    h3 {
+      margin-bottom: 9px;
+      font-size: clamp(16px, 1.55vw, 23px);
+      line-height: 1.25;
+    }
+
+    p, li, td, th {
+      font-size: clamp(13px, 1.2vw, 18px);
+      line-height: 1.55;
+    }
+
+    .lede {
+      max-width: 900px;
+      color: var(--muted);
+      font-size: clamp(18px, 2vw, 30px);
+      line-height: 1.45;
+    }
+
+    .dark .lede, .dark .muted { color: rgba(248, 244, 236, 0.72); }
+    .muted { color: var(--muted); }
+    .accent { color: var(--orange); }
+    .teal { color: var(--teal); }
+    .nowrap { white-space: nowrap; }
+
+    .content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .center { justify-content: center; }
+
+    .grid-2, .grid-3, .grid-4 {
+      display: grid;
+      align-items: stretch;
+      gap: clamp(14px, 1.8vw, 26px);
+    }
+
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    .card {
+      position: relative;
+      padding: clamp(16px, 2vw, 28px);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.68);
+      box-shadow: 0 12px 34px rgba(16, 36, 59, 0.06);
+    }
+
+    .dark .card {
+      border-color: rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.06);
+      box-shadow: none;
+    }
+
+    .card .index {
+      display: inline-flex;
+      width: 34px;
+      height: 34px;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      border-radius: 50%;
+      background: var(--navy);
+      color: #fff;
+      font-weight: 800;
+    }
+
+    .dark .card .index { background: var(--orange); }
+
+    .tag {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(27, 138, 130, 0.12);
+      color: var(--teal);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .dark .tag { background: rgba(107, 208, 197, 0.14); color: #7fe0d5; }
+
+    .big-number {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--orange);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(34px, 4vw, 62px);
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .big-label {
+      color: var(--muted);
+      font-size: clamp(12px, 1.05vw, 16px);
+    }
+
+    .dark .big-label { color: rgba(255, 255, 255, 0.7); }
+
+    .quote {
+      max-width: 1100px;
+      margin: auto 0;
+      padding-left: 34px;
+      border-left: 7px solid var(--orange);
+      font-family: "Noto Serif CJK SC", "Songti SC", serif;
+      font-size: clamp(26px, 3.5vw, 54px);
+      font-weight: 750;
+      line-height: 1.35;
+    }
+
+    .clean-list {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .clean-list li {
+      position: relative;
+      padding-left: 22px;
+    }
+
+    .clean-list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.68em;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--orange);
+    }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: auto;
+      margin-bottom: auto;
+    }
+
+    .pipeline .step {
+      position: relative;
+      min-height: 140px;
+      padding: 20px 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .pipeline .step:not(:last-child)::after {
+      content: "›";
+      position: absolute;
+      z-index: 2;
+      top: 48%;
+      right: -17px;
+      color: var(--orange);
+      font-size: 34px;
+      font-weight: 900;
+      transform: translateY(-50%);
+    }
+
+    .pipeline strong { display: block; margin-bottom: 9px; color: var(--navy); }
+    .pipeline small { color: var(--muted); font-size: clamp(11px, 0.95vw, 14px); line-height: 1.5; }
+
+    .architecture {
+      display: grid;
+      grid-template-columns: 1.05fr 1.6fr 1.1fr;
+      gap: 18px;
+      align-items: stretch;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .arch-col {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(16, 36, 59, 0.055);
+    }
+
+    .arch-col > h3 { color: var(--blue); }
+
+    .arch-box {
+      flex: 1;
+      padding: 14px 16px;
+      border-left: 4px solid var(--teal);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .arch-box strong { display: block; margin-bottom: 4px; font-size: clamp(13px, 1.1vw, 17px); }
+    .arch-box small { color: var(--muted); font-size: clamp(10px, 0.9vw, 13px); line-height: 1.4; }
+
+    .evidence-chain {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 18px;
+      align-items: center;
+      margin: auto 0;
+    }
+
+    .chain-item {
+      position: relative;
+      min-height: 190px;
+      padding: 24px;
+      border-radius: 20px;
+      background: var(--navy);
+      color: #fff;
+    }
+
+    .chain-item:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      top: 50%;
+      right: -24px;
+      z-index: 2;
+      color: var(--orange);
+      font-size: 34px;
+      font-weight: 900;
+      transform: translateY(-50%);
+    }
+
+    .chain-item span { display: block; margin-bottom: 14px; color: #74d8ce; font-size: 13px; font-weight: 800; }
+    .chain-item p { margin: 0; color: rgba(255, 255, 255, 0.72); font-size: clamp(12px, 1vw, 15px); }
+
+    .table-wrap {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.64);
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px 15px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: var(--navy); color: #fff; font-size: clamp(12px, 1vw, 15px); }
+    tr:last-child td { border-bottom: 0; }
+    td:first-child { font-weight: 800; }
+
+    .bar-list { display: grid; gap: 14px; }
+    .bar-row { display: grid; grid-template-columns: 170px 1fr 62px; gap: 14px; align-items: center; }
+    .bar-row label { font-size: clamp(12px, 1vw, 15px); font-weight: 700; }
+    .bar { height: 13px; overflow: hidden; border-radius: 20px; background: rgba(16, 36, 59, 0.1); }
+    .bar > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--teal), var(--blue)); }
+    .bar-row output { font-weight: 800; color: var(--blue); text-align: right; }
+
+    .timeline {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 18px;
+      margin: auto 0;
+    }
+
+    .timeline::before {
+      content: "";
+      position: absolute;
+      left: 5%;
+      right: 5%;
+      top: 17px;
+      height: 3px;
+      background: rgba(16, 36, 59, 0.16);
+    }
+
+    .milestone { position: relative; padding-top: 50px; }
+    .milestone::before {
+      content: "";
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      width: 18px;
+      height: 18px;
+      border: 6px solid var(--paper-2);
+      border-radius: 50%;
+      background: var(--orange);
+      box-shadow: 0 0 0 2px var(--orange);
+    }
+
+    .milestone b { display: block; margin-bottom: 6px; color: var(--teal); font-size: 14px; }
+    .milestone p { font-size: clamp(11px, 0.95vw, 14px); }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+    .status.done { color: var(--green); }
+    .status.partial { color: var(--gold); }
+    .status.next { color: var(--blue); }
+
+    .callout {
+      padding: 18px 22px;
+      border-left: 5px solid var(--orange);
+      border-radius: 0 12px 12px 0;
+      background: rgba(237, 106, 58, 0.08);
+    }
+
+    .source-note {
+      position: absolute;
+      left: clamp(42px, 6vw, 96px);
+      right: 130px;
+      bottom: 18px;
+      color: rgba(93, 108, 125, 0.78);
+      font-size: clamp(9px, 0.75vw, 11px);
+      line-height: 1.35;
+    }
+
+    .dark .source-note { color: rgba(255, 255, 255, 0.47); }
+
+    .slide-no {
+      position: absolute;
+      z-index: 2;
+      right: clamp(32px, 4vw, 64px);
+      bottom: 16px;
+      color: rgba(16, 36, 59, 0.48);
+      font: 700 12px/1 Georgia, serif;
+    }
+
+    .dark .slide-no { color: rgba(255, 255, 255, 0.46); }
+
+    .controls {
+      position: fixed;
+      z-index: 50;
+      right: 22px;
+      bottom: 22px;
+      display: flex;
+      gap: 7px;
+      padding: 7px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 999px;
+      background: rgba(7, 21, 34, 0.84);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .controls button {
+      width: 38px;
+      height: 38px;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .controls button:hover, .controls button:focus-visible { background: rgba(255, 255, 255, 0.16); outline: none; }
+
+    .progress {
+      position: fixed;
+      z-index: 60;
+      left: 0;
+      bottom: 0;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .progress span {
+      display: block;
+      width: 5.56%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--orange), var(--gold));
+      transition: width 240ms ease;
+    }
+
+    .keyboard-tip {
+      position: fixed;
+      z-index: 40;
+      left: 22px;
+      bottom: 18px;
+      color: rgba(255, 255, 255, 0.58);
+      font-size: 11px;
+    }
+
+    .split-hero {
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 60px;
+      align-items: center;
+      flex: 1;
+    }
+
+    .hero-mark {
+      position: relative;
+      display: grid;
+      aspect-ratio: 1;
+      max-width: 430px;
+      place-items: center;
+      margin-left: auto;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+    }
+
+    .hero-mark::before, .hero-mark::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(107, 208, 197, 0.28);
+    }
+
+    .hero-mark::before { inset: 14%; }
+    .hero-mark::after { inset: 29%; }
+    .hero-mark strong { z-index: 1; color: #fff; font: 800 clamp(58px, 8vw, 112px)/1 Georgia, serif; }
+
+    .footer-meta {
+      display: flex;
+      gap: 28px;
+      margin-top: 34px;
+      color: rgba(255, 255, 255, 0.58);
+      font-size: 13px;
+    }
+
+    @media (max-width: 900px), (max-height: 650px) {
+      .slide { padding: 28px 34px 52px; overflow-y: auto; }
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .pipeline { grid-template-columns: repeat(3, 1fr); }
+      .pipeline .step:not(:last-child)::after { display: none; }
+      .architecture { grid-template-columns: 1fr; overflow-y: auto; }
+      .arch-col { display: grid; grid-template-columns: repeat(2, 1fr); }
+      .arch-col > h3 { grid-column: 1 / -1; }
+      .source-note { position: static; margin-top: 12px; }
+      .timeline { grid-template-columns: 1fr; }
+      .timeline::before { display: none; }
+      .milestone { padding: 0 0 0 34px; }
+      .milestone::before { top: 3px; left: 0; }
+      .evidence-chain { grid-template-columns: repeat(2, 1fr); }
+      .chain-item:not(:last-child)::after { display: none; }
+    }
+
+    @media (max-width: 620px) {
+      .grid-2, .grid-3, .grid-4, .split-hero { grid-template-columns: 1fr; }
+      .pipeline { grid-template-columns: 1fr; }
+      .evidence-chain { grid-template-columns: 1fr; }
+      .hero-mark { display: none; }
+      .bar-row { grid-template-columns: 110px 1fr 48px; }
+      .controls { right: 10px; bottom: 12px; }
+      .keyboard-tip { display: none; }
+    }
+
+    @media print {
+      @page { size: 16in 9in; margin: 0; }
+      html, body { width: auto; height: auto; overflow: visible; background: #fff; }
+      .deck { width: auto; height: auto; }
+      .slide, .slide.active {
+        position: relative;
+        display: flex !important;
+        width: 16in;
+        height: 9in;
+        page-break-after: always;
+        break-after: page;
+        animation: none;
+      }
+      .controls, .progress, .keyboard-tip { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="deck" aria-live="polite">
+    <section class="slide dark active" data-title="封面">
+      <div class="content split-hero">
+        <div>
+          <p class="kicker">PUBLIC INTELLIGENCE RESEARCH AGENT</p>
+          <h1>情报调研智能体</h1>
+          <p class="lede">把公开互联网信息，转化为可核验、可追溯、可交付的结构化调研报告</p>
+          <div class="footer-meta">
+            <span>项目线上汇报</span>
+            <span>2026.08</span>
+            <span>本地部署 · 公开信息调研</span>
+          </div>
+        </div>
+        <div class="hero-mark" aria-hidden="true"><strong>IA</strong></div>
+      </div>
+      <div class="slide-no">01 / 18</div>
+    </section>
+
+    <section class="slide" data-title="汇报摘要">
+      <div class="content">
+        <p class="kicker">EXECUTIVE SUMMARY</p>
+        <h2>先看结论：我们交付的不是聊天答案，而是情报成果</h2>
+        <div class="grid-4">
+          <article class="card"><span class="index">1</span><h3>Agent 自主调研</h3><p class="muted">从主题出发，自动拆解问题、规划查询、选择材料并推进任务。</p></article>
+          <article class="card"><span class="index">2</span><h3>证据约束结论</h3><p class="muted">搜索摘要不能直接入报告；必须归档原文、定位引文并完成语义审核。</p></article>
+          <article class="card"><span class="index">3</span><h3>本地形成资产</h3><p class="muted">原件、正文、事实、证据、审核和报告均在甲方环境持续沉淀。</p></article>
+          <article class="card"><span class="index">4</span><h3>真实运行验证</h3><p class="muted">已完成 33 轮实验记录；代表性收官实验 9 项质量阈值中 7 项达标。</p></article>
+        </div>
+        <div class="callout" style="margin-top: 24px"><strong>项目定位：</strong>面向专题研究、行业分析、企业调查、政策跟踪等正式公开信息调研任务的本地智能生产系统。</div>
+      </div>
+      <p class="source-note">依据：README.md、src/intel_agent/、experiments/ROADMAP.md。</p>
+      <div class="slide-no">02 / 18</div>
+    </section>
+
+    <section class="slide dark" data-title="建设背景">
+      <div class="content center">
+        <p class="kicker">WHY NOW</p>
+        <p class="quote">公开信息不缺，真正稀缺的是：<span class="accent">把信息变成可信结论</span>，并让每个结论都能回到原始材料。</p>
+        <div class="grid-3" style="margin-top: 44px">
+          <div><span class="big-number">海量</span><span class="big-label">网页、附件与多媒体持续增长</span></div>
+          <div><span class="big-number">碎片</span><span class="big-label">关键信息分散在不同来源与格式</span></div>
+          <div><span class="big-number">高风险</span><span class="big-label">错误引用、单源结论和过期信息影响决策</span></div>
+        </div>
+      </div>
+      <div class="slide-no">03 / 18</div>
+    </section>
+
+    <section class="slide" data-title="现有调研痛点">
+      <div class="content">
+        <p class="kicker">THE PROBLEM</p>
+        <h2>传统人工调研与通用云端 Agent，各自都有明显断点</h2>
+        <div class="grid-2">
+          <article class="card">
+            <span class="tag">人工方式</span>
+            <h3 style="margin-top: 14px">耗时长、方法难复用</h3>
+            <ul class="clean-list muted">
+              <li>搜索、下载、摘录、交叉核对高度依赖个人经验</li>
+              <li>专题跨度大时容易遗漏附件、外文来源和反方材料</li>
+              <li>人员变化后，来源体系与调研过程难以继承</li>
+            </ul>
+          </article>
+          <article class="card">
+            <span class="tag">通用云端 Agent</span>
+            <h3 style="margin-top: 14px">回答快，但成果控制力不足</h3>
+            <ul class="clean-list muted">
+              <li>常以对话答案为终点，原件、过程和审核状态留存不足</li>
+              <li>搜索摘要、网页原文和模型判断之间的边界不够透明</li>
+              <li>数据位置、模型选择、访问预算和业务规则受平台约束</li>
+            </ul>
+          </article>
+        </div>
+        <div class="callout" style="margin-top: 22px">甲方需要的是一条完整生产线：<strong>自主检索 + 多媒体采集 + 证据核验 + 正式报告 + 本地沉淀</strong>。</div>
+      </div>
+      <div class="slide-no">04 / 18</div>
+    </section>
+
+    <section class="slide" data-title="建设目标">
+      <div class="content">
+        <p class="kicker">OBJECTIVES</p>
+        <h2>围绕“更广、更深、更真、更可用”建设</h2>
+        <div class="grid-4">
+          <article class="card"><span class="big-number">广</span><h3>扩大来源覆盖</h3><p class="muted">多引擎、中英文、官网、监管、附件和反证查询协同。</p></article>
+          <article class="card"><span class="big-number">深</span><h3>深入原始材料</h3><p class="muted">从入口页递归发现正文、附件、图片与音视频。</p></article>
+          <article class="card"><span class="big-number">真</span><h3>形成审核证据</h3><p class="muted">事实必须绑定可定位引文，重大结论要求独立来源验证。</p></article>
+          <article class="card"><span class="big-number">用</span><h3>面向阅读交付</h3><p class="muted">生成管理层报告，并为每份材料给出 1—5 星阅读推荐。</p></article>
+        </div>
+        <p class="lede" style="margin-top: auto; margin-bottom: 0">目标不是“搜到最多”，而是在受控预算内获得<strong class="teal">更多可支撑结论的独立证据</strong>。</p>
+      </div>
+      <div class="slide-no">05 / 18</div>
+    </section>
+
+    <section class="slide dark" data-title="核心价值">
+      <div class="content">
+        <p class="kicker">VALUE PROPOSITION</p>
+        <h2>对甲方的核心价值：能力、成果和方法都留在本地</h2>
+        <div class="grid-3">
+          <article class="card"><h3>决策更有依据</h3><p class="muted">正式结论可回溯到原文引文、文档来源和完整性哈希，便于复核与责任说明。</p></article>
+          <article class="card"><h3>情报持续积累</h3><p class="muted">每轮调研产生材料库、事实库、证据链和报告，而不是任务结束即消失的一段对话。</p></article>
+          <article class="card"><h3>规则可按业务固化</h3><p class="muted">重点来源、时间范围、验证门槛、预算和报告模板均可持续定制。</p></article>
+          <article class="card"><h3>模型可替换</h3><p class="muted">兼容 OpenAI 风格接口，已验证本地 Qwen 与远程模型接入，不被单一厂商锁定。</p></article>
+          <article class="card"><h3>部署边界可控</h3><p class="muted">本地状态、本地原件、本地报告；公开网络访问可配代理、限速和安全策略。</p></article>
+          <article class="card"><h3>便于系统集成</h3><p class="muted">CLI、FastAPI、SSE、JSON 状态和 Markdown 报告，可接入门户、档案与知识库。</p></article>
+        </div>
+      </div>
+      <div class="slide-no">06 / 18</div>
+    </section>
+
+    <section class="slide" data-title="设计思路">
+      <div class="content">
+        <p class="kicker">DESIGN PRINCIPLES</p>
+        <h2>让模型负责判断，让程序守住底线</h2>
+        <div class="grid-2">
+          <article class="card">
+            <span class="tag">Agent 擅长的部分</span>
+            <h3 style="margin-top: 14px">理解、规划与选择</h3>
+            <ul class="clean-list muted">
+              <li>理解主题并拆解核心调研问题</li>
+              <li>选择查询词、材料和下一步行动</li>
+              <li>识别信息缺口、矛盾与潜在解释</li>
+              <li>组织面向管理者的报告结构</li>
+            </ul>
+          </article>
+          <article class="card">
+            <span class="tag">确定性程序负责的部分</span>
+            <h3 style="margin-top: 14px">校验、限制与留痕</h3>
+            <ul class="clean-list muted">
+              <li>URL 安全、robots、并发和字节预算</li>
+              <li>原件归档、哈希、引文逐字定位</li>
+              <li>来源独立性、证据审核和覆盖门槛</li>
+              <li>上下文裁剪、断点恢复和报告完整性</li>
+            </ul>
+          </article>
+        </div>
+        <div class="callout" style="margin-top: 22px"><strong>关键原则：</strong>模型可以建议结论，但不能绕过证据工具把未经验证的信息写入正式报告。</div>
+      </div>
+      <p class="source-note">代码对应：agent.py、task.py、evidence.py、audit.py、coverage.py、report.py。</p>
+      <div class="slide-no">07 / 18</div>
+    </section>
+
+    <section class="slide" data-title="总体架构">
+      <div class="content">
+        <p class="kicker">SYSTEM ARCHITECTURE</p>
+        <h2>单机闭环、分层解耦、状态可恢复</h2>
+        <div class="architecture">
+          <div class="arch-col">
+            <h3>交互与编排层</h3>
+            <div class="arch-box"><strong>CLI / Web 工作台</strong><small>任务创建、报告查看、材料下载、运行取消</small></div>
+            <div class="arch-box"><strong>Agent + Runner</strong><small>问题规划、工具选择、阶段推进、自动续跑</small></div>
+            <div class="arch-box"><strong>上下文管理</strong><small>16K—256K 配置档位，按状态重建任务快照</small></div>
+          </div>
+          <div class="arch-col">
+            <h3>调研能力层</h3>
+            <div class="arch-box"><strong>Search / Query Matrix</strong><small>SearXNG、Bing、百度、百度新闻与确定性查询矩阵</small></div>
+            <div class="arch-box"><strong>Fetch / Crawl / Browser</strong><small>安全抓取、持久队列、动态渲染、缓存与断点恢复</small></div>
+            <div class="arch-box"><strong>Extract</strong><small>HTML、PDF、Office、图片 OCR、音视频转写</small></div>
+            <div class="arch-box"><strong>Fact / Evidence / Audit</strong><small>原子事实、精确引文、隔离语义审核与冲突登记</small></div>
+            <div class="arch-box"><strong>Coverage / Materials / Report</strong><small>覆盖判定、阅读推荐、结构化报告与诚实缺口</small></div>
+          </div>
+          <div class="arch-col">
+            <h3>本地数据与服务层</h3>
+            <div class="arch-box"><strong>原子 JSON 状态</strong><small>任务、抓取、事实、证据、审核和覆盖快照</small></div>
+            <div class="arch-box"><strong>原件与提取正文</strong><small>data/raw/ 双哈希保存，可复核、可复用</small></div>
+            <div class="arch-box"><strong>报告产物</strong><small>output/ 结构化 Markdown 报告与评估结果</small></div>
+            <div class="arch-box"><strong>本地/远程模型服务</strong><small>OpenAI 兼容接口；主模型与审核模型可分离</small></div>
+          </div>
+        </div>
+      </div>
+      <p class="source-note">核心实现：src/intel_agent/agent.py、runner.py、crawl.py、extract.py、coverage.py、report.py、storage.py、web/。</p>
+      <div class="slide-no">08 / 18</div>
+    </section>
+
+    <section class="slide" data-title="端到端流程">
+      <div class="content">
+        <p class="kicker">END-TO-END FLOW</p>
+        <h2>从一个主题，到一份可审计报告</h2>
+        <div class="pipeline">
+          <div class="step"><strong>01 规划</strong><small>保留用户问题，补充范围与充分性标准</small></div>
+          <div class="step"><strong>02 检索</strong><small>多引擎、六类查询槽位、中英文与定向来源</small></div>
+          <div class="step"><strong>03 采集</strong><small>安全抓取、递归发现、动态渲染与原件归档</small></div>
+          <div class="step"><strong>04 提取</strong><small>正文、表格、OCR、转写、链接和发布时间</small></div>
+          <div class="step"><strong>05 核验</strong><small>事实、引文、语义审核、冲突与覆盖评估</small></div>
+          <div class="step"><strong>06 交付</strong><small>材料导读、优先阅读清单和正式调研报告</small></div>
+        </div>
+        <div class="grid-3">
+          <div class="card"><h3>可中断</h3><p class="muted">长任务状态持久化，失败后从已有材料与阶段继续。</p></div>
+          <div class="card"><h3>可解释</h3><p class="muted">每个结论保留来源、引文、审核和覆盖状态。</p></div>
+          <div class="card"><h3>可约束</h3><p class="muted">搜索、抓取、模型、并发和下载量都有明确预算。</p></div>
+        </div>
+      </div>
+      <div class="slide-no">09 / 18</div>
+    </section>
+
+    <section class="slide" data-title="搜索策略">
+      <div class="content">
+        <p class="kicker">SEARCH BREADTH</p>
+        <h2>不是重复换关键词，而是结构化扩大覆盖</h2>
+        <div class="grid-3">
+          <article class="card"><span class="tag">发现</span><h3 style="margin-top: 12px">广泛发现</h3><p class="muted">识别主题实体、事件、政策和行业术语，建立候选来源池。</p></article>
+          <article class="card"><span class="tag">一手</span><h3 style="margin-top: 12px">权威原始来源</h3><p class="muted">政府、监管、企业官网、IR、公告、财报和标准原文。</p></article>
+          <article class="card"><span class="tag">验证</span><h3 style="margin-top: 12px">独立交叉验证</h3><p class="muted">寻找不同来源组对同一重大数字或事件进行确认。</p></article>
+          <article class="card"><span class="tag">数据</span><h3 style="margin-top: 12px">结构化信息</h3><p class="muted">围绕指标、年份、统计口径和文件编号定向检索。</p></article>
+          <article class="card"><span class="tag">附件</span><h3 style="margin-top: 12px">文件与下载中心</h3><p class="muted">使用 filetype 与站点限定，发现 PDF、Office 和媒体材料。</p></article>
+          <article class="card"><span class="tag">反证</span><h3 style="margin-top: 12px">争议与相反证据</h3><p class="muted">主动寻找质疑、失败、延期和不同统计口径，避免单向确认。</p></article>
+        </div>
+        <div class="callout" style="margin-top: 20px">查询矩阵由 <strong>search_queries.py</strong> 确定性生成和记录；Agent 在矩阵基础上继续针对缺口补充检索。</div>
+      </div>
+      <div class="slide-no">10 / 18</div>
+    </section>
+
+    <section class="slide dark" data-title="深度采集与动态网页">
+      <div class="content">
+        <p class="kicker">DEEP CRAWL &amp; JS</p>
+        <h2>从“搜索结果页”继续走向真实内容</h2>
+        <div class="grid-2">
+          <article class="card">
+            <h3>持久化递归采集</h3>
+            <ul class="clean-list muted">
+              <li>搜索结果播种队列，继续发现页面与附件链接</li>
+              <li>URL 规范化、任务内去重、跨任务缓存和条件重验</li>
+              <li>默认最大 200 个 URL、全局并发 4、单域并发 1</li>
+              <li>遵守 robots.txt，单域请求间隔默认至少 1 秒</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>按需 JavaScript 渲染</h3>
+            <ul class="clean-list muted">
+              <li>静态 HTML 无有效正文时识别页面壳并启用 Chromium</li>
+              <li>渲染后复用正文提取、链接发现和证据审核流程</li>
+              <li>限制单页时间、请求数、下载字节和浏览器并发</li>
+              <li>保留原始响应与渲染 DOM 双哈希，结果可核查</li>
+            </ul>
+          </article>
+        </div>
+        <div class="grid-4" style="margin-top: 22px">
+          <div><span class="big-number">200</span><span class="big-label">默认任务 URL 上限</span></div>
+          <div><span class="big-number">4</span><span class="big-label">抓取全局并发</span></div>
+          <div><span class="big-number">1</span><span class="big-label">单域并发 / 浏览器并发</span></div>
+          <div><span class="big-number">1 GiB</span><span class="big-label">默认任务总下载上限</span></div>
+        </div>
+      </div>
+      <p class="source-note">代码与配置：crawl.py、browser.py、fetch.py、security.py、config.example.yaml。</p>
+      <div class="slide-no">11 / 18</div>
+    </section>
+
+    <section class="slide" data-title="多媒体材料处理">
+      <div class="content">
+        <p class="kicker">MULTIMEDIA INTELLIGENCE</p>
+        <h2>关键情报不只存在于网页正文</h2>
+        <div class="grid-4">
+          <article class="card"><span class="big-number">PDF</span><h3>文档与扫描件</h3><p class="muted">优先提取文本；无有效文本时转 OCR，并限制页数与处理时间。</p></article>
+          <article class="card"><span class="big-number">DOC</span><h3>Office 与表格</h3><p class="muted">DOC/DOCX、XLS/XLSX、PPT/PPTX；旧格式可通过 LibreOffice 转换。</p></article>
+          <article class="card"><span class="big-number">OCR</span><h3>图片材料</h3><p class="muted">PNG、JPEG、WebP、TIFF；通过 Pillow 校验、Tesseract 识别并执行质量门控。</p></article>
+          <article class="card"><span class="big-number">A/V</span><h3>音视频材料</h3><p class="muted">MP3/WAV/M4A/OGG/FLAC 与 MP4/WebM/MOV；FFmpeg + faster-whisper 转写。</p></article>
+        </div>
+        <div class="callout" style="margin-top: 22px"><strong>降级原则：</strong>本地处理器缺失或提取质量不达标时，仍保留原件并标记 unavailable，但不得进入证据链。</div>
+        <div class="grid-3" style="margin-top: 20px">
+          <div><span class="status done">已实现格式识别与安全归档</span></div>
+          <div><span class="status done">019 实验完成 PDF / 图片 / 视频 3 类生产提取</span></div>
+          <div><span class="status partial">公开直链召回与长媒体转写仍需增强</span></div>
+        </div>
+      </div>
+      <p class="source-note">代码对应：extract.py、document_extract.py、tests/test_media_extract.py、实验 017—019。</p>
+      <div class="slide-no">12 / 18</div>
+    </section>
+
+    <section class="slide dark" data-title="证据审核体系">
+      <div class="content">
+        <p class="kicker">EVIDENCE BY DESIGN</p>
+        <h2>正式结论必须穿过四道门</h2>
+        <div class="evidence-chain">
+          <article class="chain-item"><span>01 / FACT</span><h3>原子事实</h3><p>把复合陈述拆成可单独验证、可替换的事实单元。</p></article>
+          <article class="chain-item"><span>02 / QUOTE</span><h3>精确引文</h3><p>引文必须逐字存在于已归档正文，并记录起止行号。</p></article>
+          <article class="chain-item"><span>03 / REVIEW</span><h3>隔离审核</h3><p>独立审核模型判定 full、partial、irrelevant 或 contradicts。</p></article>
+          <article class="chain-item"><span>04 / COVERAGE</span><h3>覆盖门控</h3><p>按来源独立性、质量、时效和冲突判断是否可进入报告。</p></article>
+        </div>
+        <div class="callout" style="margin-top: 24px; color: #fff"><strong>完整追溯链：</strong>报告结论 → Fact ID → Evidence ID → 原文行号 → Document ID → 原件与正文 SHA-256。</div>
+      </div>
+      <p class="source-note">代码对应：fact.py、evidence.py、audit.py、conflicts.py、coverage.py、storage.py。</p>
+      <div class="slide-no">13 / 18</div>
+    </section>
+
+    <section class="slide" data-title="报告与阅读推荐">
+      <div class="content">
+        <p class="kicker">DELIVERABLES</p>
+        <h2>同时服务“快速决策”和“深入核查”</h2>
+        <div class="grid-2">
+          <article class="card">
+            <span class="tag">管理层主产物</span>
+            <h3 style="margin-top: 14px">结构化公开信息调研报告</h3>
+            <ul class="clean-list muted">
+              <li>执行摘要、调研范围和按问题组织的核心发现</li>
+              <li>综合结论、分歧、不确定性与明确局限</li>
+              <li>系统生成编号引用，避免模型手写失效链接</li>
+              <li>证据不足时以 with_gaps 诚实交付，不编造完整答案</li>
+            </ul>
+          </article>
+          <article class="card">
+            <span class="tag">业务人员辅助产物</span>
+            <h3 style="margin-top: 14px">1—5 星材料导读</h3>
+            <ul class="clean-list muted">
+              <li>5 星：直接支撑审核通过的核心发现</li>
+              <li>4 星：已作为候选证据使用，值得重点核查</li>
+              <li>3 星：与主题相关，适合作为背景材料</li>
+              <li>1—2 星：低相关或正文不可用，可降低阅读优先级</li>
+            </ul>
+          </article>
+        </div>
+        <div class="callout" style="margin-top: 22px">同一材料在不同任务中可获得不同星级——推荐的是<strong>对当前问题的阅读价值</strong>，而不是笼统的机构可信度。</div>
+      </div>
+      <p class="source-note">代码对应：materials.py、report.py、web/views.py；主报告路径 output/{topic}-research-report.md。</p>
+      <div class="slide-no">14 / 18</div>
+    </section>
+
+    <section class="slide" data-title="本地部署与安全">
+      <div class="content">
+        <p class="kicker">LOCAL, BOUNDED, SECURE</p>
+        <h2>面向单机部署，把有限算力用在有效信息上</h2>
+        <div class="grid-3">
+          <article class="card"><h3>双路本地推理</h3><p class="muted">适配两路并行 Qwen 27B 服务；主 Agent 与独立审核可共享或拆分模型端点。</p></article>
+          <article class="card"><h3>可配置上下文</h3><p class="muted">支持 16K、32K、64K、128K、256K 档位；工具结果按窗口派生限制。</p></article>
+          <article class="card"><h3>状态替代长记忆</h3><p class="muted">对话被裁剪后，从任务、文档、事实、证据、审核和覆盖状态重建快照。</p></article>
+          <article class="card"><h3>网络访问安全</h3><p class="muted">公网地址校验、DNS pinning、逐跳重定向检查、SSRF 与 rebinding 防护。</p></article>
+          <article class="card"><h3>资源使用安全</h3><p class="muted">并发、限速、响应大小、总字节、页数、像素、子进程时间均设边界。</p></article>
+          <article class="card"><h3>成果完整性</h3><p class="muted">报告绑定覆盖快照和引用文档哈希；证据或文件变化后拒绝错误完成。</p></article>
+        </div>
+        <div class="callout" style="margin-top: 20px"><strong>当前边界：</strong>仅采集无需登录的公开页面；遵守 robots，不以绕过验证码或登录控制作为常规能力。</div>
+      </div>
+      <p class="source-note">代码与配置：context.py、config.py、security.py、fetch.py、task.py。</p>
+      <div class="slide-no">15 / 18</div>
+    </section>
+
+    <section class="slide" data-title="当前进展">
+      <div class="content">
+        <p class="kicker">CURRENT PROGRESS</p>
+        <h2>核心调研闭环已经形成，项目进入质量深化阶段</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>能力域</th><th>当前状态</th><th>已落地内容</th><th>下一步重点</th></tr></thead>
+            <tbody>
+              <tr><td>任务与 Agent</td><td><span class="status done">已完成</span></td><td>主题驱动、问题规划、阶段门控、自动续跑</td><td>更稳定的缺口驱动决策</td></tr>
+              <tr><td>搜索与采集</td><td><span class="status done">已完成主链</span></td><td>多引擎、查询矩阵、递归队列、动态网页</td><td>候选排序、站点发现、独立来源覆盖</td></tr>
+              <tr><td>多媒体处理</td><td><span class="status partial">可用</span></td><td>PDF、Office、OCR、音视频转写与质量门控</td><td>提高真实任务中的格式召回</td></tr>
+              <tr><td>证据与报告</td><td><span class="status done">已完成</span></td><td>引文定位、隔离审核、覆盖评估、安全报告回退</td><td>提高关键数字双源率</td></tr>
+              <tr><td>本地运行</td><td><span class="status done">已验证</span></td><td>CLI、Web、SSE、Qwen 接口、16K—256K 上下文</td><td>吞吐监测与并行任务调优</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="grid-4" style="margin-top: 24px">
+          <div><span class="big-number">33</span><span class="big-label">轮实验记录与复盘</span></div>
+          <div><span class="big-number">364</span><span class="big-label">033 阶段 pytest 通过</span></div>
+          <div><span class="big-number">0</span><span class="big-label">033 阶段 Pyright 错误</span></div>
+          <div><span class="big-number">16K—256K</span><span class="big-label">可配置上下文档位</span></div>
+        </div>
+      </div>
+      <p class="source-note">验证口径：experiments/CHANGELOG.md 的 033 记录（364 passed, 1 skipped；Ruff、Pyright、build 通过）。</p>
+      <div class="slide-no">16 / 18</div>
+    </section>
+
+    <section class="slide" data-title="实验效果与问题">
+      <div class="content">
+        <p class="kicker">MEASURED RESULTS</p>
+        <h2>真实任务效果：质量机制有效，搜索质量仍是主战场</h2>
+        <div class="grid-2" style="grid-template-columns: 1.1fr 0.9fr">
+          <div class="card">
+            <h3>实验 020：低空经济专题收官复测</h3>
+            <div class="bar-list" style="margin-top: 20px">
+              <div class="bar-row"><label>质量阈值达标</label><div class="bar"><span style="width:77.8%"></span></div><output>7 / 9</output></div>
+              <div class="bar-row"><label>前两域占比</label><div class="bar"><span style="width:34.3%"></span></div><output>34.3%</output></div>
+              <div class="bar-row"><label>证据文档利用率</label><div class="bar"><span style="width:28.6%"></span></div><output>28.6%</output></div>
+              <div class="bar-row"><label>关键数字双源率</label><div class="bar"><span style="width:66.7%"></span></div><output>66.7%</output></div>
+            </div>
+            <div class="grid-3" style="margin-top: 24px">
+              <div><span class="big-number">10.47</span><span class="big-label">有效域数量</span></div>
+              <div><span class="big-number">8</span><span class="big-label">独立来源组</span></div>
+              <div><span class="big-number">17.8m</span><span class="big-label">任务运行时间</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>已验证突破</h3>
+            <ul class="clean-list muted">
+              <li>010：相关性门控使耗时下降 74%、Token 下降 53%</li>
+              <li>016：关键事实双源率从 0 提升至 86.7%</li>
+              <li>019：PDF、图片、视频 3 类固定目标均成功提取</li>
+              <li>026：小上下文模型从中断状态恢复并完成报告</li>
+              <li>033：Qwen 27B 以 3 次请求完成可信报告收尾，0 上下文溢出</li>
+            </ul>
+            <h3 style="margin-top: 24px">当前问题</h3>
+            <ul class="clean-list muted">
+              <li>020 最大非一手域 17.1%，距离 15% 目标仍有差距</li>
+              <li>关键数字双源率受真实单源信息和候选选择影响</li>
+              <li>033 虽能诚实完成，但搜索误召回导致 4 个问题未回答</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <p class="source-note">数据来源：experiments/runs/020-final-consolidation、experiments/ROADMAP.md、实验 010/016/019/026/033。不同实验为机制验证，不做简单横向速度对比。</p>
+      <div class="slide-no">17 / 18</div>
+    </section>
+
+    <section class="slide dark" data-title="总结与下一步">
+      <div class="content">
+        <p class="kicker">RECOMMENDATION</p>
+        <h2>下一阶段：不再单纯扩大抓取量，重点提高每次搜索的证据收益</h2>
+        <div class="grid-3">
+          <article class="card"><span class="index">P0</span><h3>搜索质量闭环</h3><p class="muted">建立“问题 × 来源角色 × 时间 × 证据缺口”覆盖矩阵，用缺口决定下一次查询和停止时机。</p></article>
+          <article class="card"><span class="index">P1</span><h3>候选治理与站点发现</h3><p class="muted">统一候选台账、跨引擎去重、域名公平排序，并发现 Sitemap、RSS、下载中心和 IR 页面。</p></article>
+          <article class="card"><span class="index">P2</span><h3>证据转化与评测</h3><p class="muted">优先阅读可补充独立验证的材料；量化 Precision@10、Recall@50、证据利用率和双源率。</p></article>
+        </div>
+        <div style="margin-top: auto">
+          <p class="quote" style="font-size: clamp(25px, 3vw, 44px)">选择我们，不只是选择一个模型；而是选择一套<span class="accent">甲方可掌控、可审计、可持续积累</span>的情报生产能力。</p>
+          <p class="muted" style="margin: 28px 0 0">建议以真实业务主题继续试用验收，按“结论有效性、独立证据覆盖、材料阅读价值和报告可复核性”评价项目成效。</p>
+        </div>
+      </div>
+      <div class="slide-no">18 / 18</div>
+    </section>
+  </main>
+
+  <div class="keyboard-tip">← → 翻页 · Home / End · F 全屏</div>
+  <nav class="controls" aria-label="幻灯片控制">
+    <button id="prev" type="button" aria-label="上一页" title="上一页">←</button>
+    <button id="fullscreen" type="button" aria-label="全屏" title="全屏">⛶</button>
+    <button id="next" type="button" aria-label="下一页" title="下一页">→</button>
+  </nav>
+  <div class="progress" aria-hidden="true"><span id="progress-bar"></span></div>
+
+  <script>
+    (() => {
+      const slides = [...document.querySelectorAll(".slide")];
+      const progress = document.getElementById("progress-bar");
+      let current = Math.max(0, Math.min(slides.length - 1, Number(location.hash.slice(1)) - 1 || 0));
+      let touchStartX = null;
+
+      function show(index) {
+        current = (index + slides.length) % slides.length;
+        slides.forEach((slide, i) => {
+          slide.classList.toggle("active", i === current);
+          slide.setAttribute("aria-hidden", i === current ? "false" : "true");
+        });
+        progress.style.width = `${((current + 1) / slides.length) * 100}%`;
+        history.replaceState(null, "", `#${current + 1}`);
+        document.title = `${current + 1}/${slides.length} ${slides[current].dataset.title}｜情报调研智能体`;
+      }
+
+      function toggleFullscreen() {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+        else document.exitFullscreen?.();
+      }
+
+      document.getElementById("prev").addEventListener("click", () => show(current - 1));
+      document.getElementById("next").addEventListener("click", () => show(current + 1));
+      document.getElementById("fullscreen").addEventListener("click", toggleFullscreen);
+
+      document.addEventListener("keydown", (event) => {
+        if (["ArrowRight", "PageDown", " "].includes(event.key)) { event.preventDefault(); show(current + 1); }
+        if (["ArrowLeft", "PageUp"].includes(event.key)) { event.preventDefault(); show(current - 1); }
+        if (event.key === "Home") { event.preventDefault(); show(0); }
+        if (event.key === "End") { event.preventDefault(); show(slides.length - 1); }
+        if (event.key.toLowerCase() === "f") toggleFullscreen();
+      });
+
+      document.addEventListener("touchstart", (event) => { touchStartX = event.changedTouches[0].clientX; }, { passive: true });
+      document.addEventListener("touchend", (event) => {
+        if (touchStartX === null) return;
+        const distance = event.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(distance) > 60) show(current + (distance < 0 ? 1 : -1));
+        touchStartX = null;
+      }, { passive: true });
+
+      window.addEventListener("hashchange", () => {
+        const requested = Number(location.hash.slice(1));
+        if (Number.isInteger(requested) && requested >= 1 && requested <= slides.length) show(requested - 1);
+      });
+
+      show(current);
+    })();
+  </script>
+</body>
+</html>
