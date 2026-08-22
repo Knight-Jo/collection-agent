@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from pydantic_ai.messages import FunctionToolCallEvent, ToolCallPart
 
 import intel_agent.main as main_module
 from intel_agent.config import FetchConfig, Settings
@@ -62,7 +66,7 @@ async def test_cli_returns_nonzero_when_agent_stops_before_done(
     monkeypatch.setattr(main_module, "load_config", lambda _path: Settings())
     monkeypatch.setattr(Settings, "model_api_key", lambda _self: "key")
 
-    async def fake_run(run_cwd, _settings, spec):
+    async def fake_run(run_cwd, _settings, spec, **_kwargs):
         create_task(run_cwd, spec.topic, spec.questions, spec.criteria)
         return SimpleNamespace(
             output="stopped",
@@ -83,3 +87,161 @@ async def test_cli_returns_nonzero_when_agent_stops_before_done(
     )
 
     assert await main_module._run(args) == 2
+
+
+def _trace_lines(path: Path) -> list[dict]:
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+
+@pytest.mark.asyncio
+async def test_trace_records_events_and_usage(monkeypatch, cwd, tmp_path):
+    monkeypatch.setattr(main_module, "load_config", lambda _path: Settings())
+    monkeypatch.setattr(Settings, "model_api_key", lambda _self: "key")
+    trace_path = tmp_path / "trace.jsonl"
+
+    async def fake_run(run_cwd, _settings, spec, on_event=None, **_kwargs):
+        create_task(run_cwd, spec.topic, spec.questions, spec.criteria)
+        assert on_event is not None
+        await on_event(
+            FunctionToolCallEvent(
+                part=ToolCallPart(
+                    tool_name="web_search", args={"q": "低空经济"}
+                )
+            )
+        )
+        return SimpleNamespace(
+            output="done",
+            usage=SimpleNamespace(
+                requests=7,
+                tool_calls=3,
+                input_tokens=100,
+                output_tokens=50,
+                total_tokens=150,
+            ),
+        )
+
+    monkeypatch.setattr(main_module, "run_agent_task", fake_run)
+    args = main_module._build_parser().parse_args(
+        [
+            "--topic",
+            "主题",
+            "--questions",
+            "问题甲",
+            "问题乙",
+            "--cwd",
+            str(cwd),
+            "--trace",
+            str(trace_path),
+        ]
+    )
+
+    assert await main_module._run(args) == 2
+
+    lines = _trace_lines(trace_path)
+    assert lines[0]["type"] == "tool_call"
+    assert lines[0]["tool"] == "web_search"
+    usage = next(line for line in lines if line["type"] == "usage")
+    assert usage["requests"] == 7
+    assert usage["total_tokens"] == 150
+
+
+@pytest.mark.asyncio
+async def test_trace_keeps_events_and_writes_terminated_on_abort(
+    monkeypatch, cwd, tmp_path
+):
+    monkeypatch.setattr(main_module, "load_config", lambda _path: Settings())
+    monkeypatch.setattr(Settings, "model_api_key", lambda _self: "key")
+    trace_path = tmp_path / "trace.jsonl"
+
+    async def fake_run(_run_cwd, _settings, _spec, on_event=None, **_kwargs):
+        assert on_event is not None
+        await on_event(
+            FunctionToolCallEvent(
+                part=ToolCallPart(tool_name="web_search", args={})
+            )
+        )
+        raise asyncio.CancelledError()
+
+    monkeypatch.setattr(main_module, "run_agent_task", fake_run)
+    args = main_module._build_parser().parse_args(
+        [
+            "--topic",
+            "主题",
+            "--questions",
+            "问题甲",
+            "问题乙",
+            "--cwd",
+            str(cwd),
+            "--trace",
+            str(trace_path),
+        ]
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        await main_module._run(args)
+
+    lines = _trace_lines(trace_path)
+    assert lines[0]["type"] == "tool_call"
+    assert lines[-1] == {"type": "terminated", "reason": "aborted"}
+
+
+def test_trace_redacts_credential_like_args():
+    event = FunctionToolCallEvent(
+        part=ToolCallPart(
+            tool_name="web_search",
+            args={
+                "q": "低空经济",
+                "api_key": "secret-value",
+                "nested": {"Authorization": "Bearer x", "q": "ok"},
+            },
+        )
+    )
+
+    line = main_module._trace_event_line(event)
+    assert line is not None
+    kind, data = line
+
+    assert kind == "tool_call"
+    assert data["args"] == {
+        "q": "低空经济",
+        "nested": {"q": "ok"},
+    }
+
+
+def test_analyze_reads_legacy_block_trace(tmp_path):
+    from scripts.analyze_run import analyze
+
+    legacy = {
+        "events": [
+            {"type": "tool_call", "tool": "web_search", "args": {"q": "x"}},
+            {"type": "tool_call", "tool": "web_search", "args": {"q": "y"}},
+        ],
+        "messages": [],
+    }
+    (tmp_path / "trace.jsonl").write_text(
+        json.dumps(legacy, ensure_ascii=False), encoding="utf-8"
+    )
+
+    report = analyze(tmp_path)
+
+    assert "工具调用轨迹（共 2 次）" in report
+    assert "- web_search: 2" in report
+
+
+def test_analyze_reads_incremental_jsonl_trace(tmp_path):
+    from scripts.analyze_run import analyze
+
+    (tmp_path / "trace.jsonl").write_text(
+        '{"type": "tool_call", "tool": "web_fetch", "args": {}}\n'
+        '{"type": "usage", "requests": 3, "total_tokens": 10}\n',
+        encoding="utf-8",
+    )
+
+    report = analyze(tmp_path)
+
+    assert "工具调用轨迹（共 1 次）" in report
+    assert "- web_fetch: 1" in report

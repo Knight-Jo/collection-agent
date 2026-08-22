@@ -10,8 +10,16 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
 import sys
 from pathlib import Path
+
+from pydantic_ai.messages import (
+    FunctionToolCallEvent,
+    FunctionToolResultEvent,
+    PartStartEvent,
+    TextPart,
+)
 
 from .config import load_config
 from .models import ResearchScope, SufficiencyCriteria
@@ -97,38 +105,105 @@ def _msg_to_json(value):
     return str(value)
 
 
-def _write_trace(path: str, messages) -> None:
-    events = []
-    for msg in messages:
-        for part in msg.parts:
-            kind = type(part).__name__
-            if kind == "ToolCallPart":
-                events.append(
-                    {
-                        "type": "tool_call",
-                        "tool": part.tool_name,
-                        "args": part.args,
-                    }
-                )
-            elif kind == "ToolReturnPart":
-                events.append(
-                    {
-                        "type": "tool_result",
-                        "tool": part.tool_name,
-                        "tool_call_id": part.tool_call_id,
-                    }
-                )
-            elif kind == "ModelRequestPart":
-                events.append(
-                    {"type": "model_request", "kind": type(part).__name__}
-                )
-    raw = [_msg_to_json(msg) for msg in messages]
-    (Path(path)).write_text(
-        json.dumps(
-            {"events": events, "messages": raw}, ensure_ascii=False, indent=2
-        ),
-        encoding="utf-8",
+_SENSITIVE_KEY_RE = re.compile(
+    r"key|token|authorization|cookie|secret|password", re.IGNORECASE
+)
+
+
+def _redact(value):
+    """Drop credential-like keys from tool arguments before tracing."""
+    if isinstance(value, dict):
+        return {
+            key: _redact(item)
+            for key, item in value.items()
+            if not _SENSITIVE_KEY_RE.search(str(key))
+        }
+    if isinstance(value, (list, tuple)):
+        return [_redact(item) for item in value]
+    return value
+
+
+class _TraceWriter:
+    """Append one JSON object per line; the file survives abrupt exits."""
+
+    def __init__(self, path: str):
+        # Held open for the whole run so every event is flushed to disk
+        # immediately; closing early would drop the tail on abrupt exits.
+        self._stream = Path(path).open(  # noqa: SIM115
+            "w", encoding="utf-8"
+        )
+
+    def event(self, kind: str, data: dict) -> None:
+        line = {"type": kind, **data}
+        self._stream.write(
+            json.dumps(line, ensure_ascii=False, default=_msg_to_json) + "\n"
+        )
+        self._stream.flush()
+
+    def close(self) -> None:
+        self._stream.close()
+
+
+def _trace_event_line(event: object) -> tuple[str, dict] | None:
+    if isinstance(event, FunctionToolCallEvent):
+        return (
+            "tool_call",
+            {
+                "tool": event.part.tool_name,
+                "tool_call_id": event.tool_call_id,
+                "args": _redact(event.part.args),
+            },
+        )
+    if isinstance(event, FunctionToolResultEvent):
+        return (
+            "tool_result",
+            {
+                "tool": event.part.tool_name,
+                "tool_call_id": event.tool_call_id,
+            },
+        )
+    if isinstance(event, PartStartEvent) and isinstance(event.part, TextPart):
+        return ("model_response", {})
+    return None
+
+
+def _write_usage(writer: _TraceWriter, usage) -> None:
+    writer.event(
+        "usage",
+        {
+            "requests": usage.requests,
+            "tool_calls": usage.tool_calls,
+            "input_tokens": usage.input_tokens,
+            "output_tokens": usage.output_tokens,
+            "total_tokens": usage.total_tokens,
+        },
     )
+
+
+async def _run_trace(args, settings, spec):
+    """Run the task while incrementally persisting trace events to JSONL."""
+    writer = _TraceWriter(args.trace) if args.trace else None
+
+    async def on_event(event: object) -> None:
+        line = _trace_event_line(event)
+        if writer is not None and line is not None:
+            writer.event(*line)
+
+    try:
+        result = await run_agent_task(
+            Path(args.cwd), settings, spec, on_event=on_event
+        )
+    except BaseException:
+        if writer is not None:
+            writer.event("terminated", {"reason": "aborted"})
+        raise
+    else:
+        if writer is not None:
+            _write_usage(writer, result.usage)
+    finally:
+        if writer is not None:
+            writer.close()
+    return result
 
 
 async def _run(args: argparse.Namespace) -> int:
@@ -159,9 +234,7 @@ async def _run(args: argparse.Namespace) -> int:
         max_requests=args.max_turns,
         max_tool_calls=args.max_tool_calls,
     )
-    result = await run_agent_task(Path(args.cwd), settings, spec)
-    if args.trace:
-        _write_trace(args.trace, result.all_messages())
+    result = await _run_trace(args, settings, spec)
     print(result.output)
     usage = result.usage
     print(

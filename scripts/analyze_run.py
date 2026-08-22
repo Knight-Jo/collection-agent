@@ -18,7 +18,19 @@ def _load_trace(run_dir: Path) -> dict:
     path = run_dir / "trace.jsonl"
     if not path.exists():
         return {"events": [], "messages": []}
-    return json.loads(path.read_text(encoding="utf-8"))
+    text = path.read_text(encoding="utf-8").strip()
+    if not text:
+        return {"events": [], "messages": []}
+    try:
+        document = json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    else:
+        # Legacy whole-block format written by pre-WP3 main.py.
+        if isinstance(document, dict) and "events" in document:
+            return document
+    events = [json.loads(line) for line in text.splitlines() if line.strip()]
+    return {"events": events, "messages": []}
 
 
 def _load_task(run_dir: Path):
