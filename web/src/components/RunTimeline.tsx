@@ -1,18 +1,6 @@
 import { CheckCircle2, CircleEllipsis, XCircle } from "lucide-react";
 import type { RunEvent } from "../types";
 
-const toolLabels: Record<string, [string, string]> = {
-  intel_plan: ["正在制定研究计划", "研究计划已建立"],
-  web_search: ["正在检索公开来源", "公开来源检索已完成"],
-  web_fetch: ["正在抓取并归档文档", "文档归档已完成"],
-  fact_save: ["正在整理关键事实", "关键事实已保存"],
-  evidence_save: ["正在绑定原文证据", "原文证据已保存"],
-  evidence_audit: ["正在进行语义审核", "语义审核已完成"],
-  coverage_eval: ["正在评估证据覆盖度", "覆盖度评估已完成"],
-  material_digest: ["正在整理材料导读", "材料导读已生成"],
-  generate_research_report: ["正在生成调研报告", "调研报告已生成"],
-};
-
 function crawlResourceStatus(event: RunEvent) {
   return event.type === "crawl.resource"
     ? String((event.data.resource as { status?: unknown } | undefined)?.status ?? "")
@@ -20,10 +8,6 @@ function crawlResourceStatus(event: RunEvent) {
 }
 
 function eventLabel(event: RunEvent) {
-  if (event.type.startsWith("tool.")) {
-    const labels = toolLabels[String(event.data.tool_name)] ?? ["正在执行研究步骤", "研究步骤已完成"];
-    return event.type === "tool.started" ? labels[0] : labels[1];
-  }
   if (event.type === "crawl.progress") {
     const counts = event.data.counts as Record<string, number> | undefined;
     const completed = (counts?.complete ?? 0) + (counts?.reused ?? 0);
@@ -47,14 +31,15 @@ function eventLabel(event: RunEvent) {
 }
 
 export function RunTimeline({ events }: { events: RunEvent[] }) {
-  if (!events.length) return <p className="muted">等待任务启动…</p>;
+  const timeline = events.filter((event) => !event.type.startsWith("trajectory."));
+  if (!timeline.length) return <p className="muted">等待任务启动…</p>;
   return (
     <ol className="timeline" aria-label="实时进度">
-      {events.map((event) => {
+      {timeline.map((event) => {
         const resourceStatus = crawlResourceStatus(event);
         const skipped = resourceStatus.startsWith("skipped_");
         const failed = event.type === "run.failed" || event.type === "run.cancelled" || resourceStatus === "failed";
-        const running = ["tool.started", "run.started", "crawl.started", "crawl.progress"].includes(event.type);
+        const running = ["run.started", "crawl.started", "crawl.progress"].includes(event.type);
         const Icon = failed ? XCircle : running || skipped ? CircleEllipsis : CheckCircle2;
         return (
           <li key={event.id} data-state={failed ? "failed" : skipped ? "skipped" : running ? "running" : "completed"}>

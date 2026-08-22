@@ -51,4 +51,13 @@ it("registers every crawl SSE event on the run stream", async () => {
     "crawl.resource",
     "crawl.completed",
   ]);
+  expect(registered.filter((type) => type.startsWith("trajectory."))).toEqual([
+    "trajectory.run_started",
+    "trajectory.model_call",
+    "trajectory.decision",
+    "trajectory.action",
+    "trajectory.observation",
+    "trajectory.state_updated",
+    "trajectory.run_finished",
+  ]);
 });

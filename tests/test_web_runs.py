@@ -34,7 +34,13 @@ def _blocking_whisper_worker(_audio, marker_path, _results):
 @pytest.mark.asyncio
 async def test_registry_runs_task_and_replays_events(cwd):
     async def fake_runner(
-        run_cwd, _settings, spec, *, on_event, cancellation_token
+        run_cwd,
+        _settings,
+        spec,
+        *,
+        on_event,
+        cancellation_token,
+        recorder=None,
     ):
         from intel_agent.task import create_task
 
@@ -76,7 +82,13 @@ async def test_registry_runs_task_and_replays_events(cwd):
 @pytest.mark.asyncio
 async def test_registry_marks_model_stop_before_done_as_incomplete(cwd):
     async def fake_runner(
-        run_cwd, _settings, spec, *, on_event, cancellation_token
+        run_cwd,
+        _settings,
+        spec,
+        *,
+        on_event,
+        cancellation_token,
+        recorder=None,
     ):
         create_task(run_cwd, spec.topic, spec.questions, spec.criteria)
         return SimpleNamespace(
@@ -104,7 +116,13 @@ async def test_registry_marks_model_stop_before_done_as_incomplete(cwd):
 @pytest.mark.asyncio
 async def test_registry_exposes_completed_with_gaps(cwd):
     async def fake_runner(
-        run_cwd, _settings, spec, *, on_event, cancellation_token
+        run_cwd,
+        _settings,
+        spec,
+        *,
+        on_event,
+        cancellation_token,
+        recorder=None,
     ):
         task = create_task(run_cwd, spec.topic, spec.questions, spec.criteria)
         from intel_agent.task import save_task
@@ -139,7 +157,7 @@ async def test_registry_blocks_parallel_run_and_cancels(cwd):
     started = asyncio.Event()
 
     async def slow_runner(
-        _cwd, _settings, _spec, *, on_event, cancellation_token
+        _cwd, _settings, _spec, *, on_event, cancellation_token, recorder=None
     ):
         started.set()
         while not cancellation_token.cancelled:
@@ -171,7 +189,13 @@ async def test_registry_blocks_parallel_run_and_cancels(cwd):
 @pytest.mark.asyncio
 async def test_registry_projects_live_crawl_events(cwd):
     async def fake_runner(
-        run_cwd, _settings, spec, *, on_event, cancellation_token
+        run_cwd,
+        _settings,
+        spec,
+        *,
+        on_event,
+        cancellation_token,
+        recorder=None,
     ):
         from intel_agent.task import create_task
 

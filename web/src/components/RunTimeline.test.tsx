@@ -1,28 +1,32 @@
 import { render, screen } from "@testing-library/react";
 import { RunTimeline } from "./RunTimeline";
 
-it("translates tool events into plain-language progress", () => {
+it("renders run and crawl lifecycle events", () => {
   render(
     <RunTimeline
       events={[
-        {
-          id: 1,
-          type: "tool.started",
-          timestamp: "2026-08-11T09:00:00Z",
-          data: { tool_name: "web_search" },
-        },
-        {
-          id: 2,
-          type: "tool.completed",
-          timestamp: "2026-08-11T09:00:03Z",
-          data: { tool_name: "evidence_audit" },
-        },
+        { id: 1, type: "run.started", timestamp: "2026-08-11T09:00:00Z", data: {} },
+        { id: 2, type: "task.updated", timestamp: "2026-08-11T09:00:03Z", data: { task_id: "task-1", stage: "collect" } },
       ]}
     />,
   );
 
-  expect(screen.getByText("正在检索公开来源")).toBeInTheDocument();
-  expect(screen.getByText("语义审核已完成")).toBeInTheDocument();
+  expect(screen.getByText("研究任务已启动")).toBeInTheDocument();
+  expect(screen.getByText("任务状态已更新")).toBeInTheDocument();
+});
+
+it("filters trajectory events out of the progress timeline", () => {
+  render(
+    <RunTimeline
+      events={[
+        { id: 1, type: "run.started", timestamp: "2026-08-11T09:00:00Z", data: {} },
+        { id: 2, type: "trajectory.decision", timestamp: "2026-08-11T09:00:01Z", data: { event_type: "decision" } },
+      ]}
+    />,
+  );
+
+  expect(screen.getByText("研究任务已启动")).toBeInTheDocument();
+  expect(screen.queryByText("研究进度已更新")).not.toBeInTheDocument();
 });
 
 it("shows crawl progress and resources with their completed state", () => {

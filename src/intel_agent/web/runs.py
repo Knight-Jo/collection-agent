@@ -9,11 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pydantic_ai import (
-    CancellationToken,
-    FunctionToolCallEvent,
-    FunctionToolResultEvent,
-)
+from pydantic_ai import CancellationToken
 from pydantic_ai.exceptions import RunCancelled
 
 from ..config import Settings
@@ -21,6 +17,7 @@ from ..crawl import CrawlEvent
 from ..models import IntelError, utc_now
 from ..runner import TaskRunSpec, run_agent_task
 from ..task import load_task
+from ..trajectory import JsonlTrajectoryRecorder
 from .schemas import RunErrorView, RunEvent, RunStatus, RunView, UsageView
 
 Runner = Callable[..., Awaitable[Any]]
@@ -127,6 +124,8 @@ class RunRegistry:
         state.started_at = utc_now()
         previous_task_id = self._active_task_id()
         await self._append(state, "run.started", {"topic": state.spec.topic})
+        loop = asyncio.get_running_loop()
+        recorder = _make_stream_recorder(self, state, loop)
 
         async def on_event(event: object) -> None:
             projected = _project_native_event(event)
@@ -152,6 +151,7 @@ class RunRegistry:
                 state.spec,
                 on_event=on_event,
                 cancellation_token=state.cancellation_token,
+                recorder=recorder,
             )
             if state.cancellation_token.cancelled:
                 state.status = "cancelled"
@@ -205,6 +205,7 @@ class RunRegistry:
                 state, "run.failed", {"code": code, "message": str(error)}
             )
         finally:
+            recorder.close()
             state.finished_at = utc_now()
             async with state.condition:
                 state.condition.notify_all()
@@ -257,20 +258,44 @@ def _project_native_event(
 ) -> tuple[str, dict[str, Any]] | None:
     if isinstance(event, CrawlEvent):
         return event.type, event.data
-    if isinstance(event, FunctionToolCallEvent):
-        return (
-            "tool.started",
-            {
-                "tool_name": event.part.tool_name,
-                "tool_call_id": event.tool_call_id,
-            },
-        )
-    if isinstance(event, FunctionToolResultEvent):
-        return (
-            "tool.completed",
-            {
-                "tool_name": event.part.tool_name,
-                "tool_call_id": event.tool_call_id,
-            },
-        )
     return None
+
+
+class StreamTrajectoryRecorder(JsonlTrajectoryRecorder):
+    """Persist a run trajectory to disk and mirror envelopes to the SSE stream."""
+
+    def __init__(
+        self, path: Path, on_envelope: Callable[[dict], None]
+    ) -> None:
+        super().__init__(path)
+        self._on_envelope = on_envelope
+
+    def _on_record(self, envelope: dict) -> None:
+        self._on_envelope(envelope)
+
+
+def _make_stream_recorder(
+    registry: RunRegistry, state: _RunState, loop: asyncio.AbstractEventLoop
+) -> StreamTrajectoryRecorder:
+    """Build the per-run recorder: file sink + SSE projection.
+
+    Trajectory events arrive on both the async loop (runner/agent) and worker
+    threads (sync tools co-emitting state changes), so the SSE append is
+    marshalled onto the loop with ``run_coroutine_threadsafe``.
+    """
+    path = (
+        registry.cwd / "data" / "runs" / state.run_id / "trace.jsonl"
+    ).resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    def on_envelope(envelope: dict) -> None:
+        asyncio.run_coroutine_threadsafe(
+            registry._append(  # noqa: SLF001
+                state,
+                f"trajectory.{envelope['event_type']}",
+                envelope,
+            ),
+            loop,
+        )
+
+    return StreamTrajectoryRecorder(path, on_envelope)

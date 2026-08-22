@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
+import { DecisionTrace } from "../components/DecisionTrace";
 import { RunTimeline } from "../components/RunTimeline";
 import type { Run, RunEvent } from "../types";
 
@@ -14,7 +15,7 @@ export function RunPage() {
     let active = true;
     api.run(runId).then((value) => active && setRun(value)).catch((cause) => setError(cause.message));
     const source = new EventSource(`/api/runs/${runId}/events`);
-    const types = ["run.started", "tool.started", "tool.completed", "task.updated", "crawl.started", "crawl.progress", "crawl.resource", "crawl.completed", "run.completed", "run.cancelled", "run.failed"];
+    const types = ["run.started", "task.updated", "crawl.started", "crawl.progress", "crawl.resource", "crawl.completed", "run.completed", "run.cancelled", "run.failed", "trajectory.run_started", "trajectory.model_call", "trajectory.decision", "trajectory.action", "trajectory.observation", "trajectory.state_updated", "trajectory.run_finished"];
     types.forEach((type) => source.addEventListener(type, (event) => {
       const message = event as MessageEvent;
       const next = { id: Number(message.lastEventId), type, timestamp: new Date().toISOString(), data: JSON.parse(message.data) };
@@ -27,5 +28,5 @@ export function RunPage() {
   }, [runId]);
 
   const terminal = run && ["completed_sufficient", "completed_with_gaps", "failed", "cancelled"].includes(run.status);
-  return <main className="page narrow-page"><div className="eyebrow">LIVE RESEARCH</div><h1>{terminal ? "研究运行已结束" : "智能体正在工作"}</h1><p className="lead">页面可安全关闭；本地进程继续执行时，重新打开此地址即可查看当前状态。</p>{error && <p className="form-error">{error}</p>}<section className="panel run-panel"><div className="run-header"><span className={`status-pill stage-${run?.status.startsWith("completed_") ? "done" : "collect"}`}>{run?.status ?? "连接中"}</span>{run && !terminal && <button className="secondary-button" onClick={() => api.cancelRun(runId).then(setRun)}>停止任务</button>}</div><RunTimeline events={events} />{run?.error && <p className="form-error">{run.error.message}</p>}{run?.task_id && terminal && <Link className="primary-button" to={`/tasks/${run.task_id}`}>查看研究结果</Link>}</section></main>;
+  return <main className="page narrow-page"><div className="eyebrow">LIVE RESEARCH</div><h1>{terminal ? "研究运行已结束" : "智能体正在工作"}</h1><p className="lead">页面可安全关闭；本地进程继续执行时，重新打开此地址即可查看当前状态。</p>{error && <p className="form-error">{error}</p>}<section className="panel run-panel"><div className="run-header"><span className={`status-pill stage-${run?.status.startsWith("completed_") ? "done" : "collect"}`}>{run?.status ?? "连接中"}</span>{run && !terminal && <button className="secondary-button" onClick={() => api.cancelRun(runId).then(setRun)}>停止任务</button>}</div><RunTimeline events={events} /><section className="decision-section"><h2 className="content-heading">决策轨迹</h2><DecisionTrace events={events} /></section>{run?.error && <p className="form-error">{run.error.message}</p>}{run?.task_id && terminal && <Link className="primary-button" to={`/tasks/${run.task_id}`}>查看研究结果</Link>}</section></main>;
 }

@@ -36,6 +36,31 @@ export interface RunEvent {
   data: Record<string, unknown>;
 }
 
+export type TrajectoryEventType =
+  | "run_started"
+  | "model_call"
+  | "decision"
+  | "action"
+  | "observation"
+  | "state_updated"
+  | "run_finished";
+
+export interface TrajectoryEnvelope {
+  schema_version: string;
+  run_id: string;
+  task_id: string | null;
+  event_id: string;
+  sequence: number;
+  parent_event_id: string | null;
+  timestamp: string;
+  layer: "technical" | "business" | "evaluation";
+  event_type: TrajectoryEventType;
+  origin: "model" | "deterministic" | "policy" | "human" | "system" | "tool";
+  question_id: string | null;
+  step_id: number | null;
+  payload: Record<string, unknown>;
+}
+
 export interface TaskSummary {
   id: string;
   topic: string;
