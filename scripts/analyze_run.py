@@ -14,6 +14,25 @@ from collections import Counter
 from pathlib import Path
 
 
+def _normalize_event(event: dict) -> dict | None:
+    """Map a new-format trajectory event to the legacy tool_call shape.
+
+    The structured trajectory (src/intel_agent/trajectory.py) records tool
+    calls as ``action`` events; analyze_run only needs the call sequence.
+    """
+    if "type" in event:
+        return event
+    if event.get("event_type") == "action":
+        payload = event.get("payload", {})
+        return {
+            "type": "tool_call",
+            "tool": payload.get("tool", ""),
+            "tool_call_id": payload.get("action_id"),
+            "args": payload.get("args", {}),
+        }
+    return None
+
+
 def _load_trace(run_dir: Path) -> dict:
     path = run_dir / "trace.jsonl"
     if not path.exists():
@@ -30,7 +49,12 @@ def _load_trace(run_dir: Path) -> dict:
         if isinstance(document, dict) and "events" in document:
             return document
     events = [json.loads(line) for line in text.splitlines() if line.strip()]
-    return {"events": events, "messages": []}
+    normalized = [
+        event
+        for event in (_normalize_event(e) for e in events)
+        if event is not None
+    ]
+    return {"events": normalized, "messages": []}
 
 
 def _load_task(run_dir: Path):

@@ -30,6 +30,13 @@ from .storage import (
     workspace_path,
     write_json_atomic,
 )
+from .trajectory import (
+    DecisionPayload,
+    emit,
+    emit_state_updated,
+    make_event,
+    set_task_id,
+)
 
 ACTIVE_TASK_FILE = "active-task.json"
 STAGE_ORDER: list[TaskStage] = ["collect", "assess", "challenge", "done"]
@@ -129,10 +136,13 @@ def create_task(
 def load_task(cwd: Path, task_id: str | None = None) -> IntelTask:
     if task_id is None:
         task_id = read_json_object(cwd, ACTIVE_TASK_FILE)["task_id"]
-    return IntelTask.model_validate(read_json(cwd, f"tasks/{task_id}.json"))
+    task = IntelTask.model_validate(read_json(cwd, f"tasks/{task_id}.json"))
+    set_task_id(task.id)
+    return task
 
 
 def save_task(cwd: Path, task: IntelTask) -> None:
+    set_task_id(task.id)
     write_json_atomic(cwd, f"tasks/{task.id}.json", task.model_dump())
 
 
@@ -160,6 +170,7 @@ def record_fetch_attempt(
     limit: int = FETCH_ATTEMPT_LIMIT,
 ) -> dict:
     task = load_task(cwd, task_id)
+    before = task.collection.model_dump()
     if task.collection.fetch_attempts_since_evidence >= limit:
         if not task.collection.stop_reason:
             task = task.model_copy(
@@ -171,6 +182,24 @@ def record_fetch_attempt(
                 }
             )
             save_task(cwd, task)
+            emit_state_updated(
+                "task", task.id, before, task.collection.model_dump()
+            )
+        emit(
+            make_event(
+                "decision",
+                "policy",
+                DecisionPayload(
+                    decision="stop_fetch",
+                    reason_codes=["QUERY_BUDGET_EXHAUSTED"],
+                    reason_source="rule",
+                    reason_summary="连续抓取未新增证据，预算耗尽",
+                    selected_action={"type": "stop"},
+                    state_snapshot=before,
+                ),
+                layer="business",
+            )
+        )
         raise IntelError(
             "COLLECTION_BUDGET_EXHAUSTED",
             f"连续抓取未新增证据已达 {limit} 次；请先保存现有文档中的有效证据并运行审核/覆盖评估，或接受缺口停止检索。",
@@ -187,6 +216,7 @@ def record_fetch_attempt(
         }
     )
     save_task(cwd, task)
+    emit_state_updated("task", task.id, before, task.collection.model_dump())
     return task.collection.model_dump()
 
 
@@ -196,6 +226,7 @@ def record_search_attempt(
     limit: int = SEARCH_ATTEMPT_LIMIT,
 ) -> dict:
     task = load_task(cwd, task_id)
+    before = task.collection.model_dump()
     if task.collection.search_attempts >= limit:
         if not task.collection.search_stop_reason:
             task = task.model_copy(
@@ -209,6 +240,24 @@ def record_search_attempt(
                 }
             )
             save_task(cwd, task)
+            emit_state_updated(
+                "task", task.id, before, task.collection.model_dump()
+            )
+        emit(
+            make_event(
+                "decision",
+                "policy",
+                DecisionPayload(
+                    decision="stop_search",
+                    reason_codes=["QUERY_BUDGET_EXHAUSTED"],
+                    reason_source="rule",
+                    reason_summary="检索预算耗尽",
+                    selected_action={"type": "stop"},
+                    state_snapshot=before,
+                ),
+                layer="business",
+            )
+        )
         raise IntelError(
             "SEARCH_BUDGET_EXHAUSTED",
             f"搜索预算已用完（{limit} 次）；请使用已有候选来源，或接受并披露检索缺口。",
@@ -222,6 +271,7 @@ def record_search_attempt(
         }
     )
     save_task(cwd, task)
+    emit_state_updated("task", task.id, before, task.collection.model_dump())
     return task.collection.model_dump()
 
 
@@ -235,6 +285,7 @@ def record_evidence_progress(
         raise IntelError("INVALID_INPUT", "证据进展计数无效")
     if evidence_count == task.collection.evidence_count:
         return task.collection.model_dump()
+    before = task.collection.model_dump()
     task = task.model_copy(
         update={
             "collection": task.collection.model_copy(
@@ -248,6 +299,7 @@ def record_evidence_progress(
         }
     )
     save_task(cwd, task)
+    emit_state_updated("task", task.id, before, task.collection.model_dump())
     return task.collection.model_dump()
 
 
@@ -405,6 +457,9 @@ def set_task_stage(cwd: Path, task_id: str, stage: TaskStage) -> IntelTask:
         )
     updated = task.model_copy(update=updates)
     save_task(cwd, updated)
+    emit_state_updated(
+        "task", updated.id, {"stage": task.stage}, {"stage": updated.stage}
+    )
     return updated
 
 

@@ -1,0 +1,42 @@
+model:
+  name: /home/nas928/guandewei/project/qwen3.8-27B-AWQ-4bit
+  base_url: http://10.108.25.128:8001/v1
+  api_key_env: null
+search:
+  searxng_url: http://127.0.0.1:8888
+sources:
+  financial: []
+  ir_company:
+    - "https://www.singlewindow.cn/fs/STADOCROOT/02/19/9D/FBFFBF4ADC45783155DC018D03.pdf?_downloadmode=1&_r"
+    - "https://vodpub6.v.news.cn/yqfbzx-original/20260819/031ce277a0d944d6a0297d21637c692a.mp4"
+  policy:
+    - "http://www.lrsd.org.cn/sylb/202604/W020260427375070048282.jpg"
+fetch:
+  enable_httpx_fallback: true
+  enable_browser_fallback: true
+context:
+  # qwen3.8-27B-AWQ serves with thinking mode on by default; disable it so the
+  # 27B model does not spend its output budget on reasoning tokens. deepseek
+  # comparison config (config.yaml) leaves thinking at its default.
+  disable_thinking: true
+storage:
+  data_dir: data/intel
+  raw_dir: data/raw
+  output_dir: output
+budgets:
+  search_attempts: 60
+  fetch_attempts_since_evidence: 20
+  request_limit: 400
+crawl:
+  max_depth: 3
+  max_urls: 150
+  per_domain_cap: 6
+  concurrency: 4
+  per_host_concurrency: 1
+  per_host_delay_seconds: 1.0
+  retries: 2
+  cache_ttl_hours: 24
+  obey_robots: true
+  ocr_languages: chi_sim+eng
+  whisper_model: small
+  enabled_by_default: true

@@ -8,11 +8,13 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from pydantic_ai.messages import FunctionToolCallEvent, ToolCallPart
 
 import intel_agent.main as main_module
+import intel_agent.runner as runner_module
+from intel_agent import trajectory
 from intel_agent.config import FetchConfig, Settings
 from intel_agent.task import create_task
+from intel_agent.trajectory import DecisionPayload, make_event
 
 
 def test_cli_accepts_topic_without_questions():
@@ -98,19 +100,24 @@ def _trace_lines(path: Path) -> list[dict]:
 
 
 @pytest.mark.asyncio
-async def test_trace_records_events_and_usage(monkeypatch, cwd, tmp_path):
+async def test_trace_records_events_via_recorder(monkeypatch, cwd, tmp_path):
     monkeypatch.setattr(main_module, "load_config", lambda _path: Settings())
     monkeypatch.setattr(Settings, "model_api_key", lambda _self: "key")
     trace_path = tmp_path / "trace.jsonl"
 
-    async def fake_run(run_cwd, _settings, spec, on_event=None, **_kwargs):
-        create_task(run_cwd, spec.topic, spec.questions, spec.criteria)
-        assert on_event is not None
-        await on_event(
-            FunctionToolCallEvent(
-                part=ToolCallPart(
-                    tool_name="web_search", args={"q": "低空经济"}
-                )
+    async def fake_run(_run_cwd, _settings, _spec, recorder=None, **_kwargs):
+        assert recorder is not None
+        trajectory.bind_run("run-1")
+        trajectory.set_recorder(recorder)
+        trajectory.emit(
+            make_event(
+                "decision",
+                "model",
+                DecisionPayload(
+                    decision="web_search",
+                    reason_codes=["LOW_COVERAGE"],
+                    reason_source="derived",
+                ),
             )
         )
         return SimpleNamespace(
@@ -142,26 +149,30 @@ async def test_trace_records_events_and_usage(monkeypatch, cwd, tmp_path):
     assert await main_module._run(args) == 2
 
     lines = _trace_lines(trace_path)
-    assert lines[0]["type"] == "tool_call"
-    assert lines[0]["tool"] == "web_search"
-    usage = next(line for line in lines if line["type"] == "usage")
-    assert usage["requests"] == 7
-    assert usage["total_tokens"] == 150
+    assert [line["event_type"] for line in lines] == ["decision"]
+    assert lines[0]["origin"] == "model"
+    assert lines[0]["payload"]["decision"] == "web_search"
+    assert lines[0]["payload"]["reason_source"] == "derived"
 
 
 @pytest.mark.asyncio
-async def test_trace_keeps_events_and_writes_terminated_on_abort(
-    monkeypatch, cwd, tmp_path
-):
+async def test_trace_closes_recorder_on_abort(monkeypatch, cwd, tmp_path):
     monkeypatch.setattr(main_module, "load_config", lambda _path: Settings())
     monkeypatch.setattr(Settings, "model_api_key", lambda _self: "key")
     trace_path = tmp_path / "trace.jsonl"
 
-    async def fake_run(_run_cwd, _settings, _spec, on_event=None, **_kwargs):
-        assert on_event is not None
-        await on_event(
-            FunctionToolCallEvent(
-                part=ToolCallPart(tool_name="web_search", args={})
+    async def fake_run(_run_cwd, _settings, _spec, recorder=None, **_kwargs):
+        trajectory.bind_run("run-1")
+        trajectory.set_recorder(recorder)
+        trajectory.emit(
+            make_event(
+                "decision",
+                "model",
+                DecisionPayload(
+                    decision="web_search",
+                    reason_codes=[],
+                    reason_source="derived",
+                ),
             )
         )
         raise asyncio.CancelledError()
@@ -184,32 +195,33 @@ async def test_trace_keeps_events_and_writes_terminated_on_abort(
     with pytest.raises(asyncio.CancelledError):
         await main_module._run(args)
 
-    lines = _trace_lines(trace_path)
-    assert lines[0]["type"] == "tool_call"
-    assert lines[-1] == {"type": "terminated", "reason": "aborted"}
+    assert [line["event_type"] for line in _trace_lines(trace_path)] == [
+        "decision"
+    ]
 
 
 def test_trace_redacts_credential_like_args():
-    event = FunctionToolCallEvent(
-        part=ToolCallPart(
-            tool_name="web_search",
-            args={
-                "q": "低空经济",
-                "api_key": "secret-value",
-                "nested": {"Authorization": "Bearer x", "q": "ok"},
-            },
-        )
+    redacted = runner_module._redact(
+        {
+            "q": "低空经济",
+            "api_key": "secret-value",
+            "nested": {"Authorization": "Bearer x", "q": "ok"},
+        }
     )
 
-    line = main_module._trace_event_line(event)
-    assert line is not None
-    kind, data = line
-
-    assert kind == "tool_call"
-    assert data["args"] == {
+    assert redacted == {
         "q": "低空经济",
         "nested": {"q": "ok"},
     }
+
+
+def test_trace_redacts_stringified_json_args():
+    redacted = runner_module._redact(
+        '{"q": "低空经济", "api_key": "secret-value"}'
+    )
+
+    assert isinstance(redacted, str)
+    assert json.loads(redacted) == {"q": "低空经济"}
 
 
 def test_analyze_reads_legacy_block_trace(tmp_path):

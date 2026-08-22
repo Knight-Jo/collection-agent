@@ -13,6 +13,7 @@ from .storage import (
     write_json_atomic,
 )
 from .task import load_task
+from .trajectory import emit_state_updated
 
 
 def _fact_id(task_id: str, question_id: str, statement: str) -> str:
@@ -165,6 +166,12 @@ def save_fact(
         updated_at=utc_now(),
     )
     write_json_atomic(cwd, f"facts/{id_}.json", fact.model_dump())
+    emit_state_updated(
+        "fact",
+        fact.id,
+        {},
+        {"status": "active", "claim_type": claim_type, "statement": statement},
+    )
     return fact
 
 
@@ -209,4 +216,10 @@ def supersede_fact(
         }
     )
     write_json_atomic(cwd, f"facts/{fact.id}.json", updated.model_dump())
+    emit_state_updated(
+        "fact",
+        fact.id,
+        {"status": "active"},
+        {"status": "superseded", "superseded_by": replacement_ids},
+    )
     return load_fact(cwd, fact.id)

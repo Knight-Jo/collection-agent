@@ -9,22 +9,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
-import re
 import sys
 from pathlib import Path
-
-from pydantic_ai.messages import (
-    FunctionToolCallEvent,
-    FunctionToolResultEvent,
-    PartStartEvent,
-    TextPart,
-)
 
 from .config import load_config
 from .models import ResearchScope, SufficiencyCriteria
 from .runner import TaskRunSpec, run_agent_task
 from .task import load_task
+from .trajectory import JsonlTrajectoryRecorder, configure_logfire
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -84,130 +76,21 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _msg_to_json(value):
-    """Recursively convert dataclass/pydantic message objects to JSON-safe structures."""
-    if hasattr(value, "model_dump"):
-        try:
-            return value.model_dump(mode="json")
-        except Exception:
-            pass
-    if hasattr(value, "__dataclass_fields__"):
-        return {
-            k: _msg_to_json(getattr(value, k))
-            for k in value.__dataclass_fields__
-        }
-    if isinstance(value, dict):
-        return {k: _msg_to_json(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_msg_to_json(v) for v in value]
-    if isinstance(value, (str, int, float, bool)) or value is None:
-        return value
-    return str(value)
-
-
-_SENSITIVE_KEY_RE = re.compile(
-    r"key|token|authorization|cookie|secret|password", re.IGNORECASE
-)
-
-
-def _redact(value):
-    """Drop credential-like keys from tool arguments before tracing."""
-    if isinstance(value, dict):
-        return {
-            key: _redact(item)
-            for key, item in value.items()
-            if not _SENSITIVE_KEY_RE.search(str(key))
-        }
-    if isinstance(value, (list, tuple)):
-        return [_redact(item) for item in value]
-    return value
-
-
-class _TraceWriter:
-    """Append one JSON object per line; the file survives abrupt exits."""
-
-    def __init__(self, path: str):
-        # Held open for the whole run so every event is flushed to disk
-        # immediately; closing early would drop the tail on abrupt exits.
-        self._stream = Path(path).open(  # noqa: SIM115
-            "w", encoding="utf-8"
-        )
-
-    def event(self, kind: str, data: dict) -> None:
-        line = {"type": kind, **data}
-        self._stream.write(
-            json.dumps(line, ensure_ascii=False, default=_msg_to_json) + "\n"
-        )
-        self._stream.flush()
-
-    def close(self) -> None:
-        self._stream.close()
-
-
-def _trace_event_line(event: object) -> tuple[str, dict] | None:
-    if isinstance(event, FunctionToolCallEvent):
-        return (
-            "tool_call",
-            {
-                "tool": event.part.tool_name,
-                "tool_call_id": event.tool_call_id,
-                "args": _redact(event.part.args),
-            },
-        )
-    if isinstance(event, FunctionToolResultEvent):
-        return (
-            "tool_result",
-            {
-                "tool": event.part.tool_name,
-                "tool_call_id": event.tool_call_id,
-            },
-        )
-    if isinstance(event, PartStartEvent) and isinstance(event.part, TextPart):
-        return ("model_response", {})
-    return None
-
-
-def _write_usage(writer: _TraceWriter, usage) -> None:
-    writer.event(
-        "usage",
-        {
-            "requests": usage.requests,
-            "tool_calls": usage.tool_calls,
-            "input_tokens": usage.input_tokens,
-            "output_tokens": usage.output_tokens,
-            "total_tokens": usage.total_tokens,
-        },
-    )
-
-
 async def _run_trace(args, settings, spec):
-    """Run the task while incrementally persisting trace events to JSONL."""
-    writer = _TraceWriter(args.trace) if args.trace else None
-
-    async def on_event(event: object) -> None:
-        line = _trace_event_line(event)
-        if writer is not None and line is not None:
-            writer.event(*line)
-
+    """Run the task while recording a structured run trajectory to JSONL."""
+    recorder = JsonlTrajectoryRecorder(args.trace) if args.trace else None
     try:
-        result = await run_agent_task(
-            Path(args.cwd), settings, spec, on_event=on_event
+        return await run_agent_task(
+            Path(args.cwd), settings, spec, recorder=recorder
         )
-    except BaseException:
-        if writer is not None:
-            writer.event("terminated", {"reason": "aborted"})
-        raise
-    else:
-        if writer is not None:
-            _write_usage(writer, result.usage)
     finally:
-        if writer is not None:
-            writer.close()
-    return result
+        if recorder is not None:
+            recorder.close()
 
 
 async def _run(args: argparse.Namespace) -> int:
     settings = load_config(args.config)
+    configure_logfire()
     if not settings.model_api_key():
         print(
             f"错误: 缺少模型 API key，请设置环境变量 {settings.model.api_key_env}",

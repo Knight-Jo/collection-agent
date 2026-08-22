@@ -30,6 +30,14 @@ def _reset_source_registry():
     clear_first_party_domains()
 
 
+@pytest.fixture(autouse=True)
+def _reset_trajectory_context():
+    yield
+    from intel_agent.trajectory import reset
+
+    reset()
+
+
 @pytest.fixture
 def cwd(tmp_path: Path) -> Path:
     from intel_agent.storage import ensure_intel_dirs

@@ -62,6 +62,7 @@ from .models import (
     ResearchScope,
     SufficiencyCriteria,
 )
+from .reason_rules import reason_summary
 from .report import (
     _fact_ids,
     build_verified_report_draft,
@@ -94,6 +95,7 @@ from .task import (
     set_task_stage,
     summarize_task,
 )
+from .trajectory import DecisionPayload, emit, make_event
 
 _DOCUMENT_READ_MAX_LINES = 200
 _DOCUMENT_READ_MAX_BYTES = 16 * 1024
@@ -101,6 +103,13 @@ _MAX_OUTBOUND_LINKS = 20
 _MAX_SEARCH_RESULTS = 10
 _UNTRUSTED_OPEN = "<untrusted_web_content>\n"
 _UNTRUSTED_CLOSE = "\n</untrusted_web_content>"
+
+# Deterministic query-matrix slots carry a fixed gap rationale (rule, not model).
+_MATRIX_PHASE_REASON = {
+    "discovery": ("SEARCH_RESULT_NOT_MATERIALIZED",),
+    "verify": ("LOW_COVERAGE",),
+    "adversarial": ("LOW_COVERAGE",),
+}
 
 SYSTEM_PROMPT = """\
 # Public Information Research Agent
@@ -518,6 +527,32 @@ async def _run_query_matrix(
                         if error.code == "SEARCH_BUDGET_EXHAUSTED":
                             return result
                         raise
+                    reasons = list(
+                        _MATRIX_PHASE_REASON.get(
+                            phase, ("SEARCH_RESULT_NOT_MATERIALIZED",)
+                        )
+                    )
+                    emit(
+                        make_event(
+                            "decision",
+                            "deterministic",
+                            DecisionPayload(
+                                decision="search_matrix_slot",
+                                reason_codes=reasons,
+                                reason_source="rule",
+                                reason_summary=reason_summary(reasons),
+                                selected_action={
+                                    "type": "web_search",
+                                    "slot": slot,
+                                    "phase": phase,
+                                    "query": matrix_query,
+                                },
+                                state_snapshot={},
+                            ),
+                            layer="business",
+                            question_id=question.id,
+                        )
+                    )
                     try:
                         matrix_result = await web_search(
                             matrix_query,

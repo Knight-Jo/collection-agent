@@ -9,6 +9,7 @@ from .evidence import list_evidence_for_fact
 from .fact import load_fact
 from .models import EvidenceConflict, IntelError, new_id, utc_now
 from .storage import intel_path, read_json, write_json_atomic
+from .trajectory import emit_state_updated
 
 
 def _load_store(cwd: Path) -> dict:
@@ -98,6 +99,12 @@ def save_conflict(
             + [conflict.model_dump()]
         },
     )
+    emit_state_updated(
+        "conflict",
+        conflict.id,
+        {},
+        {"resolution": "unresolved", "fact_id": fact.id},
+    )
     return conflict
 
 
@@ -126,5 +133,11 @@ def resolve_conflict(
                 for i in items
             ]
         },
+    )
+    emit_state_updated(
+        "conflict",
+        conflict.id,
+        {"resolution": "unresolved"},
+        {"resolution": "resolved"},
     )
     return updated

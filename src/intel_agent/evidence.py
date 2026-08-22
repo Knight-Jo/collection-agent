@@ -15,6 +15,7 @@ from .storage import (
     workspace_path,
     write_json_atomic,
 )
+from .trajectory import emit_state_updated
 
 
 def load_document(cwd: Path, document_id: str) -> IntelDocument:
@@ -180,4 +181,15 @@ def save_evidence(
         created_at=utc_now(),
     )
     write_json_atomic(cwd, f"evidence/{id_}.json", evidence.model_dump())
+    emit_state_updated(
+        "evidence",
+        evidence.id,
+        {},
+        {
+            "status": "created",
+            "fact_id": fact.id,
+            "document_id": document.id,
+            "relation": relation,
+        },
+    )
     return evidence

@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import re
+import time
+import uuid
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
@@ -11,8 +15,13 @@ from pydantic_ai import (
     CancellationToken,
     ModelMessage,
 )
+from pydantic_ai.messages import (
+    FunctionToolCallEvent,
+    FunctionToolResultEvent,
+)
 from pydantic_ai.usage import RunUsage, UsageLimits
 
+from . import trajectory
 from .agent import build_agent, build_deps
 from .audit import verified_support_evidence
 from .config import Settings
@@ -25,9 +34,105 @@ from .models import (
     ResearchScope,
     SufficiencyCriteria,
 )
+from .reason_rules import derive_reason_codes, reason_summary, snapshot_state
 from .task import load_task, parse_time_range
+from .trajectory import (
+    ActionPayload,
+    DecisionPayload,
+    ModelCallPayload,
+    ObservationPayload,
+    RunFinishedPayload,
+    RunStartedPayload,
+    TrajectoryRecorder,
+    emit,
+    make_event,
+)
 
 EventCallback = Callable[[object], Awaitable[None]]
+
+_SENSITIVE_KEY_RE = re.compile(
+    r"key|token|authorization|cookie|secret|password", re.IGNORECASE
+)
+
+
+def _redact(value) -> object:
+    """Drop credential-like keys from tool arguments before tracing.
+
+    Pydantic AI stores raw model tool args as a JSON string, so a plain dict
+    walk would let ``"api_key"`` inside a stringified payload leak unchanged.
+    """
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except (json.JSONDecodeError, ValueError):
+            return value
+        if isinstance(parsed, dict):
+            return json.dumps(_redact(parsed), ensure_ascii=False)
+        return value
+    if isinstance(value, dict):
+        return {
+            key: _redact(item)
+            for key, item in value.items()
+            if not _SENSITIVE_KEY_RE.search(str(key))
+        }
+    if isinstance(value, (list, tuple)):
+        return [_redact(item) for item in value]
+    return value
+
+
+def _translate_stream_event(event: object, cwd: Path) -> None:
+    """Translate a native Pydantic AI stream event into trajectory events.
+
+    A model tool call becomes a ``decision`` (reason_source=derived, since the
+    model's true reason is unknown) plus the ``action``; the tool result
+    becomes the ``observation`` linked by ``action_id``.
+    """
+    if isinstance(event, FunctionToolCallEvent):
+        tool = event.part.tool_name
+        args = _redact(event.part.args)
+        state = snapshot_state(cwd)
+        reason_codes = derive_reason_codes(tool, state)
+        decision_id = emit(
+            make_event(
+                "decision",
+                "model",
+                DecisionPayload(
+                    decision=tool,
+                    reason_codes=reason_codes,
+                    reason_source="derived",
+                    reason_summary=reason_summary(reason_codes),
+                    selected_action={"type": tool, "args": args},
+                    state_snapshot=state,
+                ),
+                layer="business",
+            )
+        )
+        emit(
+            make_event(
+                "action",
+                "model",
+                ActionPayload(
+                    action_id=event.tool_call_id,
+                    tool=tool,
+                    action_type=tool,
+                    args=args,
+                ),
+                layer="technical",
+                parent_event_id=decision_id,
+            )
+        )
+    elif isinstance(event, FunctionToolResultEvent):
+        emit(
+            make_event(
+                "observation",
+                "tool",
+                ObservationPayload(
+                    action_id=event.tool_call_id,
+                    result={"tool": event.part.tool_name},
+                ),
+                layer="technical",
+            )
+        )
 
 
 class TaskRunSpec(BaseModel):
@@ -188,8 +293,10 @@ async def run_agent_task(
     *,
     on_event: EventCallback | None = None,
     cancellation_token: CancellationToken | None = None,
+    recorder: TrajectoryRecorder | None = None,
 ) -> AgentRunResult[str]:
-    """Run one task and forward each native Pydantic AI event."""
+    """Run one task, forwarding native Pydantic AI events and, optionally,
+    recording a structured run trajectory (run/step lifecycle, model calls)."""
     resolved_spec = spec.model_copy(
         update={
             "deep_crawl": (
@@ -220,32 +327,143 @@ async def run_agent_task(
     usage = RunUsage()
     prompt = build_task_prompt(resolved_spec)
     message_history: list[ModelMessage] | None = None
-    while True:
-        async with agent.run_stream_events(
-            prompt,
-            deps=deps,
-            message_history=message_history,
-            usage_limits=limits,
-            usage=usage,
-            cancellation_token=cancellation_token,
-        ) as events:
-            async for event in events:
-                if on_event is not None:
-                    await on_event(event)
-            result = events.result
-        if result is None:
-            raise RuntimeError("Agent run completed without a result")
-        try:
-            task = load_task(cwd)
-        except IntelError as error:
-            if error.code != "NOT_FOUND":
-                raise
-            return result
-        if task.stage == "done":
-            result.output = build_completion_output(cwd, task)
-            return result
-        message_history = result.all_messages()
-        prompt = (
-            "任务尚未完成。不要解释、总结或承诺下一步；"
-            "立即依据最新 CONTEXT_SNAPSHOT 的 next_action 调用一个工具继续。"
+
+    if recorder is not None:
+        trajectory.bind_run(f"run-{uuid.uuid4()}")
+        trajectory.set_recorder(recorder)
+        trajectory.emit(
+            make_event(
+                "run_started",
+                "system",
+                RunStartedPayload(
+                    topic=spec.topic,
+                    objective=spec.objective,
+                    questions=spec.questions,
+                    criteria=spec.criteria.model_dump(mode="json"),
+                    report_depth=spec.report_depth,
+                ),
+                layer="evaluation",
+            )
         )
+
+    step_index = 0
+    requests_seen = 0
+    final_stage = ""
+    call_open = False
+    call_started = 0.0
+    call_input_before = 0
+    call_output_before = 0
+    call_tool_calls_before = 0
+
+    def close_call(finish_reason: str) -> None:
+        nonlocal call_open
+        if recorder is not None and call_open:
+            trajectory.emit(
+                make_event(
+                    "model_call",
+                    "model",
+                    ModelCallPayload(
+                        request_index=step_index,
+                        model=settings.model.name,
+                        input_tokens=usage.input_tokens - call_input_before,
+                        output_tokens=usage.output_tokens - call_output_before,
+                        finish_reason=finish_reason,
+                        latency_ms=int(
+                            (time.monotonic() - call_started) * 1000
+                        ),
+                    ),
+                    layer="technical",
+                )
+            )
+            call_open = False
+
+    def open_call() -> None:
+        nonlocal step_index, call_open, call_started
+        nonlocal call_input_before, call_output_before, call_tool_calls_before
+        step_index += 1
+        trajectory.set_step_id(step_index)
+        call_open = True
+        call_started = time.monotonic()
+        call_input_before = usage.input_tokens
+        call_output_before = usage.output_tokens
+        call_tool_calls_before = usage.tool_calls
+
+    def current_finish_reason() -> str:
+        return (
+            "tool_call"
+            if usage.tool_calls > call_tool_calls_before
+            else "stop"
+        )
+
+    try:
+        while True:
+            async with agent.run_stream_events(
+                prompt,
+                deps=deps,
+                message_history=message_history,
+                usage_limits=limits,
+                usage=usage,
+                cancellation_token=cancellation_token,
+            ) as events:
+                async for event in events:
+                    # A model request is the true decision cycle: usage.requests
+                    # increments once per request, so a bump here closes the
+                    # previous model_call and opens a new step.
+                    if usage.requests > requests_seen:
+                        requests_seen = usage.requests
+                        close_call(current_finish_reason())
+                        open_call()
+                    if recorder is not None:
+                        _translate_stream_event(event, cwd)
+                    if on_event is not None:
+                        await on_event(event)
+                result = events.result
+            if result is None:
+                raise RuntimeError("Agent run completed without a result")
+            try:
+                task = load_task(cwd)
+            except IntelError as error:
+                if error.code != "NOT_FOUND":
+                    raise
+                close_call(current_finish_reason())
+                return result
+            final_stage = task.stage
+            if task.stage == "done":
+                result.output = build_completion_output(cwd, task)
+                close_call("stop")
+                return result
+            message_history = result.all_messages()
+            prompt = (
+                "任务尚未完成。不要解释、总结或承诺下一步；"
+                "立即依据最新 CONTEXT_SNAPSHOT 的 next_action 调用一个工具继续。"
+            )
+    finally:
+        close_call("aborted")
+        if recorder is not None:
+            coverage: dict = {}
+            try:
+                task = load_task(cwd)
+                snapshot = latest_coverage(cwd, task.id)
+                if snapshot is not None:
+                    coverage = {
+                        "gap_score": snapshot.gap_score,
+                        "level": snapshot.level,
+                    }
+            except IntelError:
+                pass
+            trajectory.emit(
+                make_event(
+                    "run_finished",
+                    "system",
+                    RunFinishedPayload(
+                        stage=final_stage,
+                        requests=usage.requests,
+                        tool_calls=usage.tool_calls,
+                        input_tokens=usage.input_tokens,
+                        output_tokens=usage.output_tokens,
+                        total_tokens=usage.total_tokens,
+                        final_coverage=coverage,
+                    ),
+                    layer="evaluation",
+                )
+            )

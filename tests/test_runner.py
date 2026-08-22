@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
+from pydantic_ai.messages import FunctionToolCallEvent, ToolCallPart
 
+from intel_agent import runner as runner_module
+from intel_agent import trajectory
 from intel_agent.config import BudgetConfig, Settings
 from intel_agent.models import ResearchScope, SufficiencyCriteria
 from intel_agent.runner import TaskRunSpec, build_task_prompt, run_agent_task
@@ -16,6 +20,7 @@ from intel_agent.task import (
     parse_time_range,
     save_task,
 )
+from intel_agent.trajectory import JsonlTrajectoryRecorder
 
 
 def make_spec() -> TaskRunSpec:
@@ -37,6 +42,30 @@ def test_parse_time_range_recognizes_single_year_and_ranges():
     assert parse_time_range("低空经济 2024年至2026年 发展情况") == "2024-2026"
     assert parse_time_range("低空经济投资与融资趋势") == ""
     assert parse_time_range("") == ""
+
+
+def test_translate_stream_event_emits_decision_and_action(tmp_path):
+    recorder = JsonlTrajectoryRecorder(tmp_path / "trace.jsonl")
+    trajectory.bind_run("run-1")
+    trajectory.set_recorder(recorder)
+    trajectory.set_task_id("task-1")
+    event = FunctionToolCallEvent(
+        part=ToolCallPart(tool_name="web_search", args={"q": "低空经济"})
+    )
+    runner_module._translate_stream_event(event, tmp_path)
+    recorder.close()
+
+    lines = [
+        json.loads(line)
+        for line in (tmp_path / "trace.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    assert [line["event_type"] for line in lines] == ["decision", "action"]
+    assert lines[0]["origin"] == "model"
+    assert lines[0]["payload"]["decision"] == "web_search"
+    assert lines[0]["payload"]["reason_source"] == "derived"
+    assert lines[1]["payload"]["action_id"] is not None
+    assert lines[1]["payload"]["tool"] == "web_search"
 
 
 def test_create_task_copies_explicit_scope_time_range_to_every_question(cwd):
