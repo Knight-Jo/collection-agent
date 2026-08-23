@@ -26,6 +26,8 @@ Copy `config.example.yaml` to `config.yaml` before running `python -m intel_agen
 
 Follow PEP 8 with four-space indentation, `snake_case` functions and modules, `PascalCase` classes, and `UPPER_SNAKE_CASE` constants. Prefer type annotations, small single-purpose functions, `pathlib.Path`, and descriptive names. Group imports as standard library, third-party, then local.
 
+File and directory names must use English (`kebab-case` or `snake_case`), never Chinese — this keeps scripts, build tooling, and cross-platform checkout reliable. Chinese is fine inside file contents.
+
 Ruff is the required formatter and linter. Configuration in `pyproject.toml` targets Python 3.12, uses a 79-character line length, and enables `E`, `W`, `F`, `I`, `UP`, `B`, and `SIM`. Run `ruff format --check .` and `ruff check .` before committing. Do not bypass rules with `noqa` unless the exception is narrow and documented.
 
 Pyright runs in `basic` mode across `src/`, `scripts/`, and `tests/`. Run `pyright` before committing; fix errors instead of weakening project-wide checks.
