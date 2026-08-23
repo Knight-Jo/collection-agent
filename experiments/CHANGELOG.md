@@ -47,7 +47,7 @@
 - 预期验收：6 次运行 manifest 均带 evaluation 元数据；每轮 analyze_run 产物完整；score/compare 按 frozen 模式输出；关键事实/引文人工盲审由人工补签（reviewer=null 标记）
 
 Correction（端点与配置名变更）：
-- 034/035 使用的本地 vLLM（127.0.0.1:8001）已停止，改由远程 vLLM 服务 `http://10.108.25.128:8001/v1` 提供同一 AWQ 模型（`/home/nas928/guandewei/project/qwen3.8-27B-AWQ-4bit`，16K）。
+- 034/035 使用的本地 vLLM（127.0.0.1:8001）已停止，改由远程 vLLM 服务 `http://<vllm-host>:8001/v1` 提供同一 AWQ 模型（`qwen3.8-27B-AWQ-4bit`，16K）。
 - 配置文件重命名为部署无关名：`qwen38-27b-local-awq-16k.yaml` → `qwen38-27b-awq-16k.yaml`、`qwen38-27b-local-awq-16k-report2k.yaml` → `qwen38-27b-awq-16k-report2k.yaml`，base_url 指向新端点。
 
 ## [038-frozen-flash-wp1-4] - 2026-08-22
@@ -168,9 +168,9 @@ Correction（端点与配置名变更）：
 
 ### Changed
 
-- `experiments/configs/qwen38-27b-local-awq-16k.yaml`（新增）：base_url 改为本地 127.0.0.1:8001/v1，模型名改为 vLLM 实际服务名 `/home/nas928/guandewei/project/qwen3.8-27B-AWQ-4bit`（vLLM 对未知模型名返回 404，远程配置的 `qwen3.8-27b-int4` 不可复用）。
+- `experiments/configs/qwen38-27b-local-awq-16k.yaml`（新增）：base_url 改为本地 127.0.0.1:8001/v1，模型名改为 vLLM 实际服务名 `qwen3.8-27B-AWQ-4bit`（vLLM 对未知模型名返回 404，远程配置的 `qwen3.8-27b-int4` 不可复用）。
 - `experiments/configs/qwen38-27b-local-awq-16k-report2k.yaml`（新增）：同上，`main_output_tokens` 1024→2048（031 证明 2048 解决报告截断）。
-- `/home/nas928/guandewei/project/qwen3.8-27B-AWQ-4bit/vllm.config`（环境修复）：EXTRA_ARGS 增加 `--enable-auto-tool-choice --tool-call-parser qwen3_xml --reasoning-parser qwen3`（模型 README 推荐组合；缺失时 pydantic-ai 的 `tool_choice:"auto"` 被 400 拒绝，vLLM 无法解析工具调用）。
+- `qwen3.8-27B-AWQ-4bit/vllm.config`（环境修复）：EXTRA_ARGS 增加 `--enable-auto-tool-choice --tool-call-parser qwen3_xml --reasoning-parser qwen3`（模型 README 推荐组合；缺失时 pydantic-ai 的 `tool_choice:"auto"` 被 400 拒绝，vLLM 无法解析工具调用）。
 - 未修改任何运行代码（本轮为配置+环境实验）。
 
 ### Verification

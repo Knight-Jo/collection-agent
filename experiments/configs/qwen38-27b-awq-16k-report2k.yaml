@@ -1,6 +1,6 @@
 model:
-  name: /home/nas928/guandewei/project/qwen3.8-27B-AWQ-4bit
-  base_url: http://10.108.25.128:8001/v1
+  name: qwen3.8-27B-AWQ-4bit
+  base_url: http://<vllm-host>:8001/v1
   api_key_env: null
 
 context:

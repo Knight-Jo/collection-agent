@@ -95,7 +95,9 @@ class ContextConfig(BaseModel):
     context_window_tokens: Literal[
         16_384, 32_768, 65_536, 131_072, 262_144
     ] = 32_768
-    main_output_tokens: int = Field(default=1_024, ge=128)
+    # Large enough for generate_research_report to emit a full structured
+    # draft in one call; 1024 truncated the JSON and aborted the run (033).
+    main_output_tokens: int = Field(default=8_192, ge=128)
     audit_output_tokens: int = Field(default=512, ge=128)
     disable_thinking: bool = False
     max_search_calls_before_fetch: int = Field(default=3, ge=1)

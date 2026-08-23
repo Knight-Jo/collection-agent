@@ -1864,33 +1864,36 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
     def generate_research_report_tool(
         ctx: RunContext[AgentDeps],
         task_id: str,
-        draft: ResearchReportInput | str,
+        draft: str,
     ) -> dict:
         """Generate the primary report from verified structured findings."""
-        if isinstance(draft, str):
+        # `draft` is a raw JSON string: pydantic-ai must not pre-validate it
+        # (a truncated/malformed string would otherwise exhaust tool retries
+        # and abort the run). Parse here with a deterministic fallback instead.
+        parsed: ResearchReportInput
+        try:
+            parsed = ResearchReportInput.model_validate_json(draft)
+        except ValidationError:
+            # qwen3_xml tool-call tags can leak into the JSON argument
+            # (trailing </draft> etc.); keep the draft if only tail noise,
+            # otherwise fall back to the verified-facts draft (033).
+            cut = draft.rpartition("}")[0] + "}"
             try:
-                draft = ResearchReportInput.model_validate_json(draft)
+                parsed = ResearchReportInput.model_validate_json(cut)
             except ValidationError:
-                # qwen3_xml tool-call tags can leak into the JSON argument
-                # (trailing </draft> etc.); keep the draft if only tail noise,
-                # otherwise fall back to the verified-facts draft (033).
-                cut = draft.rpartition("}")[0] + "}"
-                try:
-                    draft = ResearchReportInput.model_validate_json(cut)
-                except ValidationError:
-                    draft = build_verified_report_draft(ctx.deps.cwd, task_id)
+                parsed = build_verified_report_draft(ctx.deps.cwd, task_id)
         draft_key = {
             "questions": sorted(
-                section.question_id for section in draft.sections
+                section.question_id for section in parsed.sections
             ),
             "conclusions": sorted(
                 _fact_ids(conclusion)
-                for section in draft.sections
+                for section in parsed.sections
                 for conclusion in section.conclusions
             ),
             "overall": sorted(
                 _fact_ids(conclusion)
-                for conclusion in draft.overall_conclusions
+                for conclusion in parsed.overall_conclusions
             ),
         }
         block = _block_repetition(
@@ -1903,7 +1906,7 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             }
 
         def generate_with_fallback():
-            result = generate_research_report(ctx.deps.cwd, task_id, draft)
+            result = generate_research_report(ctx.deps.cwd, task_id, parsed)
             if result.get("ok"):
                 return result
             fallback = build_verified_report_draft(ctx.deps.cwd, task_id)
