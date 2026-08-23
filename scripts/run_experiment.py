@@ -69,6 +69,12 @@ def main() -> int:
         default=0,
         help="前 N 个工具轮次后中止（调试用，0=完整运行）",
     )
+    parser.add_argument(
+        "--max-tool-calls",
+        type=int,
+        default=None,
+        help="agent 最大工具调用数（None=不限制）",
+    )
     parser.add_argument("--config", default=None, help="config.yaml 路径")
     parser.add_argument(
         "--deep-crawl", action="store_true", help="启用深度抓取（BFS 爬虫）"
@@ -116,6 +122,7 @@ def main() -> int:
         },
         "max_turns": args.max_turns,
         "dry_after_turns": args.dry or None,
+        "max_tool_calls": args.max_tool_calls,
         "deep_crawl": args.deep_crawl,
         "config": args.config,
     }
@@ -155,6 +162,8 @@ def main() -> int:
     ]
     if args.dry:
         cmd += ["--max-tool-calls", str(args.dry)]
+    elif args.max_tool_calls is not None:
+        cmd += ["--max-tool-calls", str(args.max_tool_calls)]
     if args.deep_crawl:
         cmd.append("--deep-crawl")
     if args.config:

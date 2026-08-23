@@ -6,6 +6,37 @@
 
 ## [Unreleased]
 
+### audit-decoupling-compare（011/012：审核解耦 + 主模型对比）
+
+- 状态：已跑 2 轮（011 qwen 主 + deepseek 审核、012 deepseek 主 + deepseek 审核，均 exit=0），详见 `runs/012-ds-main-ds-judge/REPORT.md`
+- 变更：`config.qwen38-27b-awq.yaml` 启用 `audit_model: deepseek-v4-flash`（审核解耦）；`SUPPORT_REVIEW_PROMPT_VERSION` v1→v2
+- 真实结果：**审核解耦假设成立**——deepseek 审核产出 full 2/6 个，已验证事实 0→1→3 历史性突破（qwen 自审 4 轮全 0 full）；012 证据链首次覆盖全部来源类型（software/academic/news 归档）；deepseek 主 agent 事实 12/证据 40 远超 qwen 4/8，并自主采纳 news_search 22 次
+- 结论沉淀：**"0 已验证事实"瓶颈是小模型审核能力，不是事实粒度或提示词**；gap_score 被事实数混淆，需换"已验证事实数+每事实来源组"口径
+- 下一轮：每事实覆盖质量指标 + 双源率闭环 + 稳定性重复
+
+### qwen-t1-fixes（审核死锁 + gap 路由 + no_progress 阈值，008–010）
+
+- 状态：已实施 3 组修复并 3 次真实运行（qwen 27B，均 exit=0），详见 `runs/010-qwen-t1-final/REPORT.md`
+- 变更：①judge 提示词技术事实判定标准 + partial 升级路径（缩窄/补引文/narrowing_hint）②gap 驱动确定性垂直检索 `_gap_driven_vertical_search`（缺失来源类型时程序调用对应能力，每能力每轮一次，provider_calls 入 trajectory）③no_progress 阈值 2→5 轮 ④垂直候选归因链：`vertical_url_meta` 持久化 + 域名兜底（github/gitee→software，arxiv/doi/s2→academic）
+- 验证：435 测试通过（新增 gap 路由与域名归因测试）；生产观测 `gap_routing:{academic,news,software}` 事件、模型自发采用 academic_search、software 文档正确归类
+- 真实结果：模型活动量 19→146 请求（7.7×）；剩余硬瓶颈 = qwen-as-judge 0 full 判定（0 已验证事实）；运行方差大（37–146 请求）
+- 下一轮：审核模型解耦（qwen 主 agent + deepseek audit）+ deepseek 同配置对比
+
+### model-compare-t1（扩预算模型对比）
+
+- 状态：已跑 2 轮（006 qwen / 007 deepseek，均 exit=0），详见 `runs/006-model-compare-qwen-t1/REPORT.md`
+- 变更：`config.yaml` 与 `config.qwen38-27b-awq.yaml` 预算扩至 search_attempts 300 / fetch 40 / request_limit 500；`scripts/run_experiment.py` 新增 `--max-tool-calls`
+- 真实结果：两模型在 500/500 预算下均只用了 19 次请求就诚实收尾（with_gaps，gap 9 vs 5，0 已验证事实，垂直工具零采纳）——预算不是瓶颈，模型主动收尾 + LLM 路由不选垂直能力 + 技术主题审核全 partial 死锁是三个真瓶颈
+- 下一轮：gap 驱动确定性垂直检索（P1）；审核 partial 升级机制（P1）
+
+### vertical-search-v1（多搜索 Provider 分支）
+
+- 状态：已实现，真实运行 2 次（本分支 runs/002 deepseek、005 qwen，均 exit=0）
+- 变更：搜索层重构为 `search/` 包 + Provider 准入注册表（匿名/零密钥/可降级）；新增 `github_search`/`academic_search`/`news_search` 三个垂直能力工具（两层路由：LLM 选能力、程序选 Provider）；`SearchResult` 加性扩展（provider_source_type/evidence_role/published_at/extra/discovered_at）；`SourceType.SOFTWARE`+`EvidenceRole`；Wayback 死链兜底；双层计数（search_attempt/provider_calls 入 trajectory）
+- 国内可访问性修正（runs/004/005 实测）：GDELT 默认关闭（不可达）；新闻级联改国内直达 百度→360 新闻→SearXNG，GDELT 可选末位；搜狗层弃用（匿名请求被重定向到 antispider 反爬墙，360 新闻服务端渲染且返回真实 URL）；github 能力加 Gitee 第二降级层
+- 验证：`pytest`（18 个 provider 测试含 `test_search_stack_without_credentials`）433 通过；ruff/pyright 全绿；实况级联验证：baidu 限流 → so360 返回 10 条真实新闻（日期/来源齐全）
+- 真实结果：runs/005（qwen 27B）done/with_gaps、9 事实/4 证据，垂直代码零故障；news_search 采纳率低是模型行为，下一轮 gap 驱动确定性路由（详见 runs/005 REPORT.md）
+
 ### 039-frozen-paired-benchmark
 
 - 状态：planned
