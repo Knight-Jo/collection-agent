@@ -255,7 +255,7 @@ def test_question_answer_status_reports_unresolved_contradiction(cwd):
     assert coverage.per_question[0].answer_status == "conflicted"
 
 
-def test_coverage_no_progress_stops_after_two_rounds(cwd):
+def test_coverage_no_progress_stops_after_five_rounds(cwd):
     task = new_task(cwd)
     q = task.questions[0]
     doc = make_document(
@@ -268,12 +268,13 @@ def test_coverage_no_progress_stops_after_two_rounds(cwd):
     asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
     s1 = eval_coverage(cwd, task.id)
     assert s1.stop_reason is None
-    s2 = eval_coverage(cwd, task.id)
-    assert s2.no_progress_rounds == 1
-    assert s2.stop_reason is None
-    s3 = eval_coverage(cwd, task.id)
-    assert s3.no_progress_rounds == 2
-    assert s3.stop_reason == "no_progress"
+    for expected_rounds in range(1, 5):
+        snapshot = eval_coverage(cwd, task.id)
+        assert snapshot.no_progress_rounds == expected_rounds
+        assert snapshot.stop_reason is None
+    s6 = eval_coverage(cwd, task.id)
+    assert s6.no_progress_rounds == 5
+    assert s6.stop_reason == "no_progress"
 
 
 def test_coverage_fingerprint_changes(cwd):

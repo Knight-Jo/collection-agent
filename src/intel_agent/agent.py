@@ -31,7 +31,7 @@ from pydantic_ai.models.openai import (
 )
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from .audit import Judge, audit_task_evidence
+from .audit import Judge, audit_task_evidence, list_support_reviews_for_task
 from .browser import BrowserRenderer
 from .config import ContextConfig, ModelConfig, Settings
 from .conflicts import resolve_conflict, save_conflict
@@ -70,6 +70,16 @@ from .report import (
     generate_research_report,
 )
 from .search import web_search
+from .search.academic import academic_search
+from .search.news import news_search
+from .search.provider import SearchRequest
+from .search.providers.arxiv import ArxivProvider
+from .search.providers.crossref import CrossrefProvider
+from .search.providers.gdelt import GDELTProvider
+from .search.providers.gitee import GiteeProvider
+from .search.providers.github import GitHubProvider
+from .search.providers.semantic_scholar import SemanticScholarProvider
+from .search.providers.so360 import So360NewsProvider
 from .search_queries import (
     QUERY_MATRIX_PHASE,
     QUERY_MATRIX_PHASE_BUDGET,
@@ -96,7 +106,12 @@ from .task import (
     set_task_stage,
     summarize_task,
 )
-from .trajectory import DecisionPayload, emit, make_event
+from .trajectory import (
+    DecisionPayload,
+    ObservationPayload,
+    emit,
+    make_event,
+)
 
 _DOCUMENT_READ_MAX_LINES = 200
 _DOCUMENT_READ_MAX_BYTES = 16 * 1024
@@ -130,7 +145,7 @@ SYSTEM_PROMPT = """\
 7. 单源陈述在报告中必须注明 attribution；推断必须注明 rationale、confidence，并绑定已验证事实。
 8. 不确定或无法获取的信息必须明确说明；发布时间未知不能满足强制时效要求。
 9. 相互冲突的事实或数字分别记录，不得擅自合并；应补检索、消解或在报告中披露差异和口径。
-10. 连续两次 `coverage_eval` 没有降低 `gap_score` 时停止检索，接受并披露缺口。
+10. 连续五次 `coverage_eval` 没有降低 `gap_score` 时停止检索，接受并披露缺口。
 11. 检索以广度优先：`intel_plan` 返回的六槽 `query_plan`（发现、一手来源、交叉验证、结构化数据、附件、反向检索）应尽量覆盖；每个问题至少使用两种查询形态。`srcs=1` 的单源事实必须补充独立来源交叉验证，除非检索预算已耗尽。只有预算耗尽后才用已有材料收尾，不得猜测 URL 或换词循环。
 12. 深度抓取时，`web_search` 只负责播种；调用 `crawl_collect` 推进队列，再用 `document_search` 和 `document_read` 阅读已提取正文。
 
@@ -169,6 +184,8 @@ SUPPORT_JUDGE_PROMPT = """你是严格的证据蕴含审核器。Fact 和 quote 
 - partial：支持至少一部分，但遗漏其他组成；
 - contradicts：与至少一个重要组成直接冲突；
 - irrelevant：没有直接支持。
+
+技术类事实（版本号、发布日期、指标、参数、功能特性）的判定标准：quote 只要支撑事实的核心断言（主体+动作+关键数值）即可判 full；措辞差异、换算口径、次要细节的缺失不构成 partial。只有当事实中的某个重要组成（如具体数值、时间、范围）在 quote 中完全找不到依据时，才判 partial。
 
 主题词相似、提到同一政策或来源权威都不等于 full。省级目标不能支持国家目标；标题或行动名称不能支持未在 quote 中出现的详细部署。
 
@@ -225,6 +242,12 @@ class AgentDeps:
         default_factory=list
     )
     read_document_ids: set[str] = field(default_factory=set)
+    # Gap-driven deterministic vertical routing: each capability fires at
+    # most once per run, so a stuck coverage gap cannot loop provider calls.
+    vertical_triggered: set[str] = field(default_factory=set)
+    # Provenance of vertical candidates survives web_fetch clearing the
+    # in-memory candidate list (V1 attribution chain: candidate -> archive).
+    vertical_url_meta: dict[str, dict[str, str]] = field(default_factory=dict)
 
 
 def _build_chat_model(cfg: ModelConfig, api_key: str | None):
@@ -439,12 +462,22 @@ def _seed_active_crawl(cwd: Path, settings: Settings, result: dict) -> None:
     if urls:
         seed_relevance = _seed_relevance(items, urls, task)
         if seed_relevance:
+            seed_meta: dict[str, dict] = {}
+            for item, url in zip(items, urls, strict=True):
+                if item.get("provider_source_type") or item.get(
+                    "evidence_role"
+                ):
+                    seed_meta[url] = {
+                        "source_type": item.get("provider_source_type"),
+                        "evidence_role": item.get("evidence_role"),
+                    }
             create_crawl(
                 cwd,
                 task.id,
                 list(seed_relevance),
                 settings.crawl,
                 seed_relevance=seed_relevance,
+                seed_meta=seed_meta or None,
             )
 
 
@@ -753,14 +786,15 @@ def _document_search(cwd: Path, task_id: str, query: str, limit: int) -> dict:
     }
 
 
-def _coverage_eval_with_backlog(cwd: Path, task_id: str) -> dict:
+async def _coverage_eval_with_backlog(deps: AgentDeps, task_id: str) -> dict:
+    cwd = deps.cwd
     snapshot = eval_coverage(cwd, task_id)
     data = snapshot.model_dump()
     task = load_task(cwd, task_id)
     if snapshot.stop_reason == "no_progress" and task.stage == "collect":
-        # WP4: terminal transitions are the system's job. Two stable rounds
-        # without improvement mean collection is exhausted; advance to
-        # assess deterministically instead of waiting for the model to
+        # WP4: terminal transitions are the system's job. Consecutive stable
+        # rounds without improvement mean collection is exhausted; advance
+        # to assess deterministically instead of waiting for the model to
         # notice. An executable crawl frontier keeps collection going.
         try:
             set_task_stage(cwd, task_id, "assess")
@@ -800,6 +834,11 @@ def _coverage_eval_with_backlog(cwd: Path, task_id: str) -> dict:
             f"{task_id}', stage='done')；禁止再搜索、抓取、审核或评估覆盖。"
         )
         return data
+    # Gap-driven deterministic vertical routing (V1): LLM routing showed
+    # zero vertical adoption across runs 005/006/007, so the system fills
+    # missing source types itself while collection is still open.
+    if snapshot.stop_reason is None and snapshot.level != "sufficient":
+        await _gap_driven_vertical_search(deps, task, snapshot, data)
     # Verification backlog: single-source facts that must complete a second
     # independent source before coverage can improve. The model should
     # resolve these via document_search (local corpus first), then targeted
@@ -834,8 +873,229 @@ def _coverage_eval_with_backlog(cwd: Path, task_id: str) -> dict:
             "存在单源事实：先 document_search 本地语料补证，"
             "无果再 web_search 定向补证；补齐第二独立来源组前，"
             "优先解决 backlog 而不是登记新事实。"
+            "若某事实的审核持续为 partial：①用 fact_supersede 缩窄事实，"
+            "使其与已有引文完整匹配后重新 evidence_audit；"
+            "②补全更完整的引文（覆盖缺失的数值/时间/范围）后重新"
+            " evidence_save 并 evidence_audit。不要原样重复提交同一引文。"
+        )
+    partials = _partial_reviews_with_unsupported(cwd, task_id)
+    if partials:
+        data["narrowing_hint"] = (
+            "以下事实的审核为 partial，quote 未覆盖的具体组成为："
+            + "；".join(
+                f"「{item['statement']}」缺 {item['missing']}"
+                for item in partials
+            )
+            + "。对每条：用 fact_supersede 把事实缩窄为去掉这些组成后的"
+            "版本（保留 fact_id 关联），或找到覆盖这些组成的更完整引文"
+            "再 evidence_save；不要原样重新提交。"
         )
     return data
+
+
+def _partial_reviews_with_unsupported(cwd: Path, task_id: str) -> list[dict]:
+    """Facts whose latest reviews are partial, with the uncovered parts."""
+    facts: dict[str, str] = {
+        fact.id: fact.statement[:60]
+        for fact in list_active_facts_for_task(cwd, task_id)
+    }
+    out: list[dict] = []
+    for review in list_support_reviews_for_task(cwd, task_id):
+        if review.verdict != "partial" or not review.unsupported_parts:
+            continue
+        statement = facts.get(review.fact_id)
+        if statement is None:
+            continue
+        out.append(
+            {
+                "statement": statement,
+                "missing": "、".join(review.unsupported_parts[:3]),
+            }
+        )
+    return out[:5]
+
+
+async def _gap_driven_vertical_search(
+    deps: AgentDeps, task: IntelTask, snapshot, data: dict
+) -> None:
+    """Programmatic vertical retrieval for missing source types.
+
+    The trigger is the coverage gap itself: when the archived corpus holds
+    no academic/software/news documents, the matching capability runs with
+    a query derived from the first gapped fact (or question). Each
+    capability fires at most once per run (``deps.vertical_triggered``).
+    """
+    doc_types = _task_source_types(deps.cwd, task.id)
+    query = _gap_query(snapshot)
+    if not query:
+        return
+    settings = deps.settings
+    targets = [
+        ("academic", settings.search.academic.enabled),
+        ("software", settings.search.github.enabled),
+        ("news", settings.search.news.enabled),
+    ]
+    missing = [
+        capability
+        for capability, enabled in targets
+        if enabled
+        and capability not in doc_types
+        and capability not in deps.vertical_triggered
+    ]
+    if not missing:
+        return
+    cache_dir = deps.cwd / settings.storage.data_dir / "cache"
+    added: dict[str, int] = {}
+    for capability in missing:
+        try:
+            record_search_attempt(
+                deps.cwd, limit=settings.budgets.search_attempts
+            )
+        except IntelError as error:
+            if error.code == "SEARCH_BUDGET_EXHAUSTED":
+                return
+            raise
+        deps.vertical_triggered.add(capability)
+        result = await _vertical_capability(deps, capability, query, cache_dir)
+        provider_calls = result.get("provider_calls", 0) if result else 0
+        logger.info(
+            "gap routing capability=%s query=%s provider_calls=%s",
+            capability,
+            query[:60],
+            provider_calls,
+        )
+        emit(
+            make_event(
+                "observation",
+                "deterministic",
+                ObservationPayload(
+                    action_id=f"gap_routing:{capability}",
+                    result={
+                        "query": query[:120],
+                        "provider_calls": provider_calls,
+                        "engines_used": result.get("engines_used", [])
+                        if result
+                        else [],
+                        "degraded": result.get("degraded", [])
+                        if result
+                        else [],
+                    },
+                ),
+                layer="technical",
+            )
+        )
+        results = result.get("results", []) if result else []
+        seeded = 0
+        known = {item["url"] for item in deps.pending_fetch_candidates}
+        for item in results[:10]:
+            url = item.get("url")
+            if not url or url in known:
+                continue
+            meta = {
+                "source_type": item.get("provider_source_type") or "",
+                "evidence_role": item.get("evidence_role") or "",
+            }
+            deps.pending_fetch_candidates.append(
+                {
+                    "url": url,
+                    "title": item.get("title", ""),
+                    **meta,
+                }
+            )
+            deps.vertical_url_meta[url] = meta
+            known.add(url)
+            seeded += 1
+        if seeded:
+            added[capability] = seeded
+    if added:
+        data["vertical_supplement"] = added
+        data["vertical_hint"] = (
+            "系统已按覆盖缺口补充垂直候选（"
+            + "、".join(f"{k} {v} 条" for k, v in added.items())
+            + "，见 candidates）。请用 web_fetch 归档其中高相关条目并"
+            " evidence_save；不要重复调用同类的垂直搜索工具。"
+        )
+
+
+def _task_source_types(cwd: Path, task_id: str) -> set[str]:
+    """Source types of the task's evidence documents (V1 gap routing)."""
+    types: set[str] = set()
+    for evidence in list_evidence_for_task(cwd, task_id):
+        try:
+            document = load_document(cwd, evidence.document_id)
+        except IntelError:
+            continue
+        types.add(document.source_type)
+    return types
+
+
+def _gap_query(snapshot) -> str | None:
+    """First gapped fact statement, else the first non-covered question."""
+    for question in snapshot.per_question:
+        if question.status == "covered":
+            continue
+        for fact in question.facts:
+            if fact.gap_score > 0 and fact.statement:
+                return fact.statement[:200]
+        return question.question
+    return None
+
+
+async def _vertical_capability(
+    deps: AgentDeps, capability: str, query: str, cache_dir: Path
+) -> dict:
+    """Run one vertical capability against the current settings (V1)."""
+    settings = deps.settings
+    if capability == "academic":
+        cfg = settings.search.academic
+        return await academic_search(
+            deps.http,
+            query,
+            arxiv=ArxivProvider() if cfg.arxiv else None,
+            crossref=CrossrefProvider() if cfg.crossref else None,
+            semantic_scholar=(
+                SemanticScholarProvider() if cfg.semantic_scholar else None
+            ),
+            supplement_threshold=cfg.supplement_threshold,
+            language="en",
+            max_results=cfg.max_results,
+            cache_dir=cache_dir,
+            cache_ttl=cfg.cache_ttl,
+        )
+    if capability == "software":
+        cfg = settings.search.github
+        provider = GitHubProvider(
+            base_url=cfg.base_url or "https://api.github.com",
+            searxng_url=settings.search.searxng_url,
+            gitee=GiteeProvider() if cfg.gitee else None,
+            min_interval=cfg.rate_limit,
+            max_results=cfg.max_results,
+        )
+        results = await provider.search(
+            deps.http,
+            SearchRequest(
+                query=query, max_results=cfg.max_results, language="en"
+            ),
+        )
+        return {
+            "results": [r.model_dump() for r in results],
+            "provider_calls": provider.last_calls,
+            "degraded": [],
+        }
+    cfg = settings.search.news
+    return await news_search(
+        deps.http,
+        query,
+        gdelt=GDELTProvider() if cfg.gdelt else None,
+        so360=So360NewsProvider() if cfg.so360 else None,
+        searxng_url=settings.search.searxng_url,
+        baidu=cfg.baidu,
+        supplement_threshold=cfg.supplement_threshold,
+        language="zh-CN",
+        max_results=cfg.max_results,
+        cache_dir=cache_dir,
+        cache_ttl=cfg.cache_ttl,
+    )
 
 
 def _single_source_backlog(cwd: Path, task_id: str) -> list[dict]:
@@ -1030,6 +1290,10 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                 result,
                 task,
             )
+        _finalize_search_result(ctx, result)
+        return result
+
+    def _finalize_search_result(ctx, result: dict) -> None:
         # 标记已归档 URL：防止模型反复抓取同一批候选，倒逼换词/翻页
         archived = _archived_urls(ctx.deps.cwd)
         for item in result.get("results", []):
@@ -1055,7 +1319,12 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                 ):
                     continue
                 ctx.deps.pending_fetch_candidates.append(
-                    {"url": url, "title": item.get("title", "")}
+                    {
+                        "url": url,
+                        "title": item.get("title", ""),
+                        "source_type": item.get("provider_source_type") or "",
+                        "evidence_role": item.get("evidence_role") or "",
+                    }
                 )
                 known_urls.add(url)
             ctx.deps.pending_fetch_candidates = (
@@ -1069,7 +1338,199 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             if fresh == 0 and result.get("results")
             else "优先抓取 already_archived=false 的结果。"
         )
+
+    async def _vertical_search(
+        ctx,
+        tool_name: str,
+        query: str,
+        max_results: int,
+        time_range: str | None,
+        run,
+    ) -> dict:
+        """Shared bookkeeping for vertical capability tools (github/academic/news).
+
+        One tool call = one search_attempt regardless of how many providers
+        the capability fans out to internally; the capability result carries
+        ``provider_calls`` separately for observability.
+        """
+        block = _block_repetition(
+            ctx, tool_name, {"query": query, "max_results": max_results}, 3
+        )
+        if block:
+            return {"results": [], "engineUsed": "blocked", "error": block}
+        broad, reason = is_broad_query(query)
+        if broad:
+            return {
+                "results": [],
+                "engineUsed": "blocked",
+                "error": f"查询过宽：{reason}",
+            }
+        if (
+            ctx.deps.search_calls_with_candidates
+            >= ctx.deps.settings.context.max_search_calls_before_fetch
+        ):
+            return {
+                "ok": False,
+                "error": {
+                    "code": "FETCH_REQUIRED",
+                    "message": "已有多批可抓取候选；继续搜索前必须先调用 web_fetch。",
+                },
+                "candidates": ctx.deps.pending_fetch_candidates,
+                "next_action": "从 candidates 选择一个 URL 调用 web_fetch；不要再次调用搜索工具。",
+            }
+        record_search_attempt(
+            ctx.deps.cwd,
+            limit=ctx.deps.settings.budgets.search_attempts,
+        )
+        result = await run(query, max(max_results, 5), time_range)
+        emit(
+            make_event(
+                "observation",
+                "tool",
+                ObservationPayload(
+                    action_id=tool_name,
+                    result={
+                        "query": query,
+                        "provider_calls": result.get("provider_calls", 0),
+                        "engines_used": result.get("engines_used", []),
+                        "degraded": result.get("degraded", []),
+                    },
+                ),
+                layer="technical",
+            )
+        )
+        _seed_active_crawl(ctx.deps.cwd, ctx.deps.settings, result)
+        _finalize_search_result(ctx, result)
         return result
+
+    @agent.tool(name="github_search")
+    async def github_search_tool(
+        ctx: RunContext[AgentDeps],
+        query: str,
+        max_results: int = 10,
+    ) -> dict:
+        """检索 GitHub 公开仓库与 Issue/PR（软件类来源，仓库页为一手证据、Issue 为佐证）。匿名 API，额度受限时自动降级为 site:github.com 网页搜索。结果只是候选，需 web_fetch 归档。"""
+        settings = ctx.deps.settings
+        github_cfg = settings.search.github
+        if not github_cfg.enabled:
+            return {"results": [], "engineUsed": "disabled"}
+        provider = GitHubProvider(
+            base_url=github_cfg.base_url or "https://api.github.com",
+            searxng_url=settings.search.searxng_url,
+            gitee=GiteeProvider() if github_cfg.gitee else None,
+            min_interval=github_cfg.rate_limit,
+            max_results=github_cfg.max_results,
+        )
+
+        async def run(query, count, time_range) -> dict:
+            results = await provider.search(
+                ctx.deps.http,
+                SearchRequest(
+                    query=query,
+                    max_results=count,
+                    language="en",
+                ),
+            )
+            return {
+                "results": [r.model_dump() for r in results],
+                "provider_calls": provider.last_calls,
+                "engines_used": ["github"],
+                "degraded": [],
+            }
+
+        return await _guarded(
+            lambda: _vertical_search(
+                ctx,
+                "github_search",
+                query,
+                max_results,
+                None,
+                run,
+            )
+        )
+
+    @agent.tool(name="academic_search")
+    async def academic_search_tool(
+        ctx: RunContext[AgentDeps],
+        query: str,
+        max_results: int = 10,
+        time_range: Literal["day", "week", "month", "year"] | None = None,
+    ) -> dict:
+        """检索学术论文（arXiv + Crossref，结果不足时匿名补充 Semantic Scholar）。返回 abs/出版方页面 URL，均为一手学术来源；结果只是候选，需 web_fetch 归档。"""
+        settings = ctx.deps.settings
+        academic_cfg = settings.search.academic
+        if not academic_cfg.enabled:
+            return {"results": [], "engineUsed": "disabled"}
+
+        async def run(query, count, time_range) -> dict:
+            cache_dir = ctx.deps.cwd / settings.storage.data_dir / "cache"
+            return await academic_search(
+                ctx.deps.http,
+                query,
+                arxiv=ArxivProvider() if academic_cfg.arxiv else None,
+                crossref=CrossrefProvider() if academic_cfg.crossref else None,
+                semantic_scholar=SemanticScholarProvider()
+                if academic_cfg.semantic_scholar
+                else None,
+                supplement_threshold=academic_cfg.supplement_threshold,
+                time_range=time_range,
+                language="en",
+                max_results=count,
+                cache_dir=cache_dir,
+                cache_ttl=academic_cfg.cache_ttl,
+            )
+
+        return await _guarded(
+            lambda: _vertical_search(
+                ctx,
+                "academic_search",
+                query,
+                max_results,
+                time_range,
+                run,
+            )
+        )
+
+    @agent.tool(name="news_search")
+    async def news_search_tool(
+        ctx: RunContext[AgentDeps],
+        query: str,
+        max_results: int = 10,
+        time_range: Literal["day", "week", "month", "year"] | None = None,
+    ) -> dict:
+        """检索新闻（国内直达优先：百度新闻 → 360新闻 → SearXNG 新闻，GDELT 可选兜底）。结果带来源与日期元数据；结果只是候选，需 web_fetch 归档。"""
+        settings = ctx.deps.settings
+        news_cfg = settings.search.news
+        if not news_cfg.enabled:
+            return {"results": [], "engineUsed": "disabled"}
+
+        async def run(query, count, time_range) -> dict:
+            cache_dir = ctx.deps.cwd / settings.storage.data_dir / "cache"
+            return await news_search(
+                ctx.deps.http,
+                query,
+                gdelt=GDELTProvider() if news_cfg.gdelt else None,
+                so360=So360NewsProvider() if news_cfg.so360 else None,
+                searxng_url=settings.search.searxng_url,
+                baidu=news_cfg.baidu,
+                supplement_threshold=news_cfg.supplement_threshold,
+                time_range=time_range,
+                language="zh-CN",
+                max_results=count,
+                cache_dir=cache_dir,
+                cache_ttl=news_cfg.cache_ttl,
+            )
+
+        return await _guarded(
+            lambda: _vertical_search(
+                ctx,
+                "news_search",
+                query,
+                max_results,
+                time_range,
+                run,
+            )
+        )
 
     @agent.tool(name="crawl_collect")
     async def crawl_collect_tool(
@@ -1095,6 +1556,7 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                 on_event=ctx.deps.crawl_event_callback,
                 renderer=browser.render if browser is not None else None,
                 httpx_fallback=ctx.deps.settings.fetch.enable_httpx_fallback,
+                wayback=ctx.deps.settings.search.archive.enabled,
             )
         return summarize_crawl(snapshot)
 
@@ -1170,6 +1632,28 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             limit=ctx.deps.settings.budgets.fetch_attempts_since_evidence,
         )
         task = load_task(ctx.deps.cwd)
+        # Vertical search candidates carry provider-declared provenance; carry
+        # it into the archived document (provider source type wins over
+        # hostname classification).
+        candidate = next(
+            (
+                item
+                for item in ctx.deps.pending_fetch_candidates
+                if item.get("url", "").rstrip("/") == url.rstrip("/")
+            ),
+            None,
+        )
+        vertical_meta = ctx.deps.vertical_url_meta.get(url, {})
+        source_type_hint = (
+            (candidate.get("source_type") if candidate else None)
+            or vertical_meta.get("source_type")
+            or None
+        )
+        evidence_role_hint = (
+            (candidate.get("evidence_role") if candidate else None)
+            or vertical_meta.get("evidence_role")
+            or None
+        )
         fetched_via = "pinned"
         try:
             async with AsyncExitStack() as stack:
@@ -1185,6 +1669,8 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                         url,
                         max_bytes=max_bytes,
                         renderer=renderer,
+                        source_type=source_type_hint,
+                        evidence_role=evidence_role_hint,
                     )
                 except IntelError as error:
                     if (
@@ -1201,6 +1687,8 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
                         fetcher=httpx_fallback_fetch,
                         max_bytes=max_bytes,
                         renderer=renderer,
+                        source_type=source_type_hint,
+                        evidence_role=evidence_role_hint,
                     )
                     fetched_via = "httpx-fallback"
                     logger.warning("fetch fell back to httpx: %s", url)
@@ -1334,8 +1822,8 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             if summary["reviewed"]:
                 # Deterministic chain (WP4): fresh reviews must reach the
                 # coverage snapshot immediately, not on the model's schedule.
-                summary["coverage"] = _coverage_eval_with_backlog(
-                    ctx.deps.cwd, task_id
+                summary["coverage"] = await _coverage_eval_with_backlog(
+                    ctx.deps, task_id
                 )
             return summary
 
@@ -1364,10 +1852,12 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         )
 
     @agent.tool(name="coverage_eval")
-    def coverage_eval_tool(ctx: RunContext[AgentDeps], task_id: str) -> dict:
-        """按 Question→Fact 评估独立来源、质量、时效和矛盾。覆盖缺口连续两轮未下降即停止检索。"""
-        return _guarded_sync(
-            lambda: _coverage_eval_with_backlog(ctx.deps.cwd, task_id)
+    async def coverage_eval_tool(
+        ctx: RunContext[AgentDeps], task_id: str
+    ) -> dict:
+        """按 Question→Fact 评估独立来源、质量、时效和矛盾。覆盖缺口连续五轮未下降即停止检索。"""
+        return await _guarded(
+            lambda: _coverage_eval_with_backlog(ctx.deps, task_id)
         )
 
     @agent.tool(name="generate_research_report")

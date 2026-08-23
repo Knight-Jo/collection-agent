@@ -43,6 +43,27 @@ def _context(cwd, *, settings: Settings | None = None) -> RunContext[Any]:
     )
 
 
+def _offline_settings() -> Settings:
+    from intel_agent.config import (
+        AcademicSearchConfig,
+        ArchiveSearchConfig,
+        GitHubSearchConfig,
+        NewsSearchConfig,
+        SearchConfig,
+    )
+
+    # Vertical capabilities disabled: unit tests must not hit real networks.
+    return Settings(
+        search=SearchConfig(
+            searxng_url=None,
+            github=GitHubSearchConfig(enabled=False),
+            academic=AcademicSearchConfig(enabled=False),
+            news=NewsSearchConfig(enabled=False),
+            archive=ArchiveSearchConfig(enabled=False),
+        )
+    )
+
+
 def _tool(agent, name: str):
     return agent._function_toolset.tools[name].function
 
@@ -888,7 +909,7 @@ def test_fact_save_gate_opens_after_coverage_no_progress(cwd):
     first_doc = make_document(cwd, "事实 A 报道", "https://news.cn/a")
     save_evidence(cwd, first["id"], first_doc.id, "supports", "事实 A 报道")
     asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
-    for _ in range(3):
+    for _ in range(6):
         eval_coverage(cwd, task.id)
 
     allowed = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 B")
@@ -1137,7 +1158,11 @@ def test_coverage_eval_returns_cross_verification_backlog(cwd):
     asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
     agent = build_agent(Settings())
 
-    result = _tool(agent, "coverage_eval")(_context(cwd), task.id)
+    result = asyncio.run(
+        _tool(agent, "coverage_eval")(
+            _context(cwd, settings=_offline_settings()), task.id
+        )
+    )
 
     assert result["pending_cross_verification"]
     pending = result["pending_cross_verification"][0]
@@ -1152,12 +1177,14 @@ def test_coverage_eval_assess_no_progress_generates_terminal_report(cwd):
     document = make_document(cwd, "已审核的公开事实")
     save_evidence(cwd, fact.id, document.id, "supports", fact.statement)
     asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
-    for _ in range(3):
+    for _ in range(6):
         eval_coverage(cwd, task.id)
     set_task_stage(cwd, task.id, "assess")
 
-    result = _tool(build_agent(Settings()), "coverage_eval")(
-        _context(cwd), task.id
+    result = asyncio.run(
+        _tool(build_agent(Settings()), "coverage_eval")(
+            _context(cwd, settings=_offline_settings()), task.id
+        )
     )
 
     assert result["terminal_report"]
@@ -1171,12 +1198,14 @@ def test_coverage_eval_collect_no_progress_advances_to_assess_and_report(cwd):
     document = make_document(cwd, "已审核的公开事实")
     save_evidence(cwd, fact.id, document.id, "supports", fact.statement)
     asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
-    for _ in range(3):
+    for _ in range(6):
         eval_coverage(cwd, task.id)
     assert load_task(cwd, task.id).stage == "collect"
 
-    result = _tool(build_agent(Settings()), "coverage_eval")(
-        _context(cwd), task.id
+    result = asyncio.run(
+        _tool(build_agent(Settings()), "coverage_eval")(
+            _context(cwd, settings=_offline_settings()), task.id
+        )
     )
 
     assert result["terminal_report"]
@@ -1193,7 +1222,7 @@ async def test_evidence_audit_tool_refreshes_coverage(cwd):
     save_evidence(cwd, fact.id, document.id, "supports", fact.statement)
     deps = AgentDeps(
         cwd=cwd,
-        settings=Settings(),
+        settings=_offline_settings(),
         judge=fake_judge,
         judge_provider="test",
         judge_model="fake",
@@ -1225,12 +1254,14 @@ def test_coverage_eval_assess_no_verified_facts_still_terminates(cwd):
     document = make_document(cwd, "已审核的公开事实")
     save_evidence(cwd, fact.id, document.id, "supports", fact.statement)
     asyncio.run(audit_task_evidence(cwd, task.id, partial_judge, "t", "f"))
-    for _ in range(3):
+    for _ in range(6):
         eval_coverage(cwd, task.id)
     set_task_stage(cwd, task.id, "assess")
 
-    result = _tool(build_agent(Settings()), "coverage_eval")(
-        _context(cwd), task.id
+    result = asyncio.run(
+        _tool(build_agent(Settings()), "coverage_eval")(
+            _context(cwd, settings=_offline_settings()), task.id
+        )
     )
 
     assert result["terminal_report"]

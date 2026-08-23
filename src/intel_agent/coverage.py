@@ -334,10 +334,13 @@ def eval_coverage(
         for q in per_question
     )
     fingerprint = _coverage_fingerprint(per_question)
-    # Only a strictly smaller gap_score counts as progress; the agent gets two
-    # consecutive rounds to improve before no_progress stops collection. Note a
-    # gap_score increase is also "not progress" — e.g. newly found contradicting
-    # evidence raises the score, which correctly means more collection, not less.
+    # Only a strictly smaller gap_score counts as progress; the agent gets
+    # five consecutive rounds to improve before no_progress stops collection
+    # (raised from 2 after model-compare runs 006/007: technical topics hit
+    # the audit-deadlock pattern and stopped at 19 requests with 500 budget).
+    # Note a gap_score increase is also "not progress" — e.g. newly found
+    # contradicting evidence raises the score, which correctly means more
+    # collection, not less.
     history = _load_history(cwd, task.id)
     previous = history.snapshots[-1] if history.snapshots else None
     progressed = previous is None or gap_score < previous.gap_score
@@ -349,7 +352,7 @@ def eval_coverage(
     stop_reason = (
         "sufficient"
         if level == "sufficient"
-        else ("no_progress" if no_progress_rounds >= 2 else None)
+        else ("no_progress" if no_progress_rounds >= 5 else None)
     )
     snapshot = CoverageSnapshot(
         id=new_id("cov"),
