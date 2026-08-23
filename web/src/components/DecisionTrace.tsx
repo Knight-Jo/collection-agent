@@ -56,20 +56,36 @@ function EventRow({ env }: { env: TrajectoryEnvelope }) {
   const payload = env.payload;
   switch (env.event_type) {
     case "model_call": {
-      const p = payload as { request_index?: number; input_tokens?: number | null; output_tokens?: number | null; latency_ms?: number | null; finish_reason?: string | null };
+      const p = payload as {
+        request_index?: number;
+        input_tokens?: number | null;
+        output_tokens?: number | null;
+        latency_ms?: number | null;
+        finish_reason?: string | null;
+      };
       return (
         <li className="dt-model">
           <Brain size={16} />
           <div>
             <strong>第 {p.request_index} 次模型调用</strong>
-            <p>in={p.input_tokens ?? "—"} out={p.output_tokens ?? "—"} tokens · {p.latency_ms != null ? `${p.latency_ms}ms` : "—"} · {p.finish_reason ?? "—"}</p>
+            <p>
+              in={p.input_tokens ?? "—"} out={p.output_tokens ?? "—"} tokens ·{" "}
+              {p.latency_ms != null ? `${p.latency_ms}ms` : "—"} · {p.finish_reason ?? "—"}
+            </p>
           </div>
         </li>
       );
     }
     case "decision": {
-      const p = payload as { decision?: string; reason_codes?: string[]; reason_source?: string; reason_summary?: string; state_snapshot?: Record<string, unknown> };
+      const p = payload as {
+        decision?: string;
+        reason_codes?: string[];
+        reason_source?: string;
+        reason_summary?: string;
+        state_snapshot?: Record<string, unknown>;
+      };
       const snapshot = stateSnapshot(p.state_snapshot);
+      const reasonCodes = p.reason_codes ?? [];
       return (
         <li className="dt-decision">
           <GitBranch size={16} />
@@ -77,12 +93,16 @@ function EventRow({ env }: { env: TrajectoryEnvelope }) {
             <strong>
               决策：{p.decision}
               <span className="dt-origin">{originLabel[env.origin] ?? env.origin}</span>
-              <span className="dt-source">{sourceLabel[p.reason_source ?? ""] ?? p.reason_source}</span>
+              <span className="dt-source">
+                {sourceLabel[p.reason_source ?? ""] ?? p.reason_source}
+              </span>
             </strong>
-            {(p.reason_codes?.length ?? 0) > 0 && (
+            {reasonCodes.length > 0 && (
               <p className="dt-reasons">
-                {p.reason_codes!.map((code) => (
-                  <span className="dt-reason" key={code}>{reasonLabels[code] ?? code}</span>
+                {reasonCodes.map((code) => (
+                  <span className="dt-reason" key={code}>
+                    {reasonLabels[code] ?? code}
+                  </span>
                 ))}
               </p>
             )}
@@ -97,7 +117,9 @@ function EventRow({ env }: { env: TrajectoryEnvelope }) {
       return (
         <li className="dt-action">
           <Sparkles size={16} />
-          <div><strong>行动：{p.tool}</strong></div>
+          <div>
+            <strong>行动：{p.tool}</strong>
+          </div>
         </li>
       );
     }
@@ -106,12 +128,18 @@ function EventRow({ env }: { env: TrajectoryEnvelope }) {
       return (
         <li className="dt-observation">
           <Eye size={16} />
-          <div><strong>观察：{p.tool}</strong></div>
+          <div>
+            <strong>观察：{p.tool}</strong>
+          </div>
         </li>
       );
     }
     case "state_updated": {
-      const p = payload as { state_scope?: string; state_id?: string | null; delta?: Record<string, unknown> };
+      const p = payload as {
+        state_scope?: string;
+        state_id?: string | null;
+        delta?: Record<string, unknown>;
+      };
       const delta = deltaSummary(payload);
       return (
         <li className="dt-state">
@@ -124,18 +152,30 @@ function EventRow({ env }: { env: TrajectoryEnvelope }) {
       );
     }
     case "run_started":
-      return <li className="dt-run"><PlayCircle size={16} /><div><strong>运行开始</strong></div></li>;
+      return (
+        <li className="dt-run">
+          <PlayCircle size={16} />
+          <div>
+            <strong>运行开始</strong>
+          </div>
+        </li>
+      );
     case "run_finished":
-      return <li className="dt-run"><CheckCircle2 size={16} /><div><strong>运行结束</strong></div></li>;
+      return (
+        <li className="dt-run">
+          <CheckCircle2 size={16} />
+          <div>
+            <strong>运行结束</strong>
+          </div>
+        </li>
+      );
     default:
       return null;
   }
 }
 
 export function DecisionTrace({ events }: { events: RunEvent[] }) {
-  const trajectory = events
-    .map(envelope)
-    .filter((env): env is TrajectoryEnvelope => env !== null);
+  const trajectory = events.map(envelope).filter((env): env is TrajectoryEnvelope => env !== null);
 
   if (!trajectory.length) {
     return <p className="muted">暂无决策轨迹。</p>;
@@ -152,9 +192,14 @@ export function DecisionTrace({ events }: { events: RunEvent[] }) {
     <div className="decision-trace">
       {[...steps.entries()].map(([stepId, list]) => (
         <section className="dt-step" key={stepId ?? "root"}>
-          <header><span className="dt-step-id">Step {stepId ?? "—"}</span><span className="dt-count">{list.length} 个事件</span></header>
+          <header>
+            <span className="dt-step-id">Step {stepId ?? "—"}</span>
+            <span className="dt-count">{list.length} 个事件</span>
+          </header>
           <ol>
-            {list.map((env) => <EventRow env={env} key={env.event_id} />)}
+            {list.map((env) => (
+              <EventRow env={env} key={env.event_id} />
+            ))}
           </ol>
         </section>
       ))}

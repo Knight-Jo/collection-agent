@@ -1,5 +1,11 @@
 export type Stage = "collect" | "assess" | "challenge" | "done";
-export type RunStatus = "queued" | "running" | "completed_sufficient" | "completed_with_gaps" | "failed" | "cancelled";
+export type RunStatus =
+  | "queued"
+  | "running"
+  | "completed_sufficient"
+  | "completed_with_gaps"
+  | "failed"
+  | "cancelled";
 
 export interface Criteria {
   min_independent_sources: number;
@@ -89,12 +95,26 @@ export interface CrawlResource {
   canonical_url: string;
   source_chain: string[];
   depth: number;
-  status: "queued" | "fetching" | "complete" | "reused" | "skipped_robots" | "skipped_http" | "skipped_limit" | "skipped_unsupported" | "failed";
+  status:
+    | "queued"
+    | "fetching"
+    | "complete"
+    | "reused"
+    | "skipped_robots"
+    | "skipped_http"
+    | "skipped_limit"
+    | "skipped_unsupported"
+    | "failed";
   mime_type: string | null;
   size: number | null;
   downloaded_bytes: number;
   document_id: string | null;
-  extraction: { status: "pending" | "complete" | "unavailable" | "failed" | "skipped"; processor: string | null; text_path: string | null; error: string | null };
+  extraction: {
+    status: "pending" | "complete" | "unavailable" | "failed" | "skipped";
+    processor: string | null;
+    text_path: string | null;
+    error: string | null;
+  };
   error: string | null;
   rating: number | null;
   description: string | null;
@@ -151,7 +171,11 @@ export interface TaskDetail {
   questions: Array<{
     id: string;
     text: string;
-    coverage: { status: string; answer_status?: "answered" | "partial" | "unanswered" | "conflicted"; notes: string[] } | null;
+    coverage: {
+      status: string;
+      answer_status?: "answered" | "partial" | "unanswered" | "conflicted";
+      notes: string[];
+    } | null;
     facts: Fact[];
   }>;
   conflicts: Array<{ id: string; resolution: string; note: string }>;

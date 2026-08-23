@@ -15,8 +15,6 @@ it("registers every crawl SSE event on the run stream", async () => {
   class EventSourceFake {
     onerror: (() => void) | null = null;
 
-    constructor(_url: string) {}
-
     addEventListener(type: string, _listener: EventListener) {
       registered.push(type);
     }

@@ -7,7 +7,11 @@ export function ReportView({ markdown }: { markdown: string }) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          a: ({ children, ...props }) => <a {...props} target="_blank" rel="noreferrer noopener">{children}</a>,
+          a: ({ children, ...props }) => (
+            <a {...props} target="_blank" rel="noreferrer noopener">
+              {children}
+            </a>
+          ),
         }}
       >
         {markdown}

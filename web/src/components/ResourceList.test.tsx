@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { ResourceList } from "./ResourceList";
 import type { CrawlResource } from "../types";
+import { ResourceList } from "./ResourceList";
 
 function resource(url: string, rating: number): CrawlResource {
   return {
@@ -20,7 +20,10 @@ function resource(url: string, rating: number): CrawlResource {
 }
 
 it("sorts a copied material list by reading recommendation", () => {
-  const resources = [resource("https://example.com/low", 2), resource("https://example.com/high", 5)];
+  const resources = [
+    resource("https://example.com/low", 2),
+    resource("https://example.com/high", 5),
+  ];
 
   render(<ResourceList taskId="task-1" resources={resources} />);
 

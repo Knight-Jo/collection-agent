@@ -18,16 +18,18 @@ function eventLabel(event: RunEvent) {
     if (status === "failed") return "抓取资源失败";
     if (status.startsWith("skipped_")) return "已跳过抓取资源";
   }
-  return {
-    "run.started": "研究任务已启动",
-    "task.updated": "任务状态已更新",
-    "run.completed": "研究任务已完成",
-    "run.cancelled": "研究任务已停止",
-    "run.failed": "研究任务执行失败",
-    "crawl.started": "正在开始深度抓取",
-    "crawl.resource": "已发现抓取资源",
-    "crawl.completed": "深度抓取已完成",
-  }[event.type] ?? "研究进度已更新";
+  return (
+    {
+      "run.started": "研究任务已启动",
+      "task.updated": "任务状态已更新",
+      "run.completed": "研究任务已完成",
+      "run.cancelled": "研究任务已停止",
+      "run.failed": "研究任务执行失败",
+      "crawl.started": "正在开始深度抓取",
+      "crawl.resource": "已发现抓取资源",
+      "crawl.completed": "深度抓取已完成",
+    }[event.type] ?? "研究进度已更新"
+  );
 }
 
 export function RunTimeline({ events }: { events: RunEvent[] }) {
@@ -38,13 +40,22 @@ export function RunTimeline({ events }: { events: RunEvent[] }) {
       {timeline.map((event) => {
         const resourceStatus = crawlResourceStatus(event);
         const skipped = resourceStatus.startsWith("skipped_");
-        const failed = event.type === "run.failed" || event.type === "run.cancelled" || resourceStatus === "failed";
+        const failed =
+          event.type === "run.failed" ||
+          event.type === "run.cancelled" ||
+          resourceStatus === "failed";
         const running = ["run.started", "crawl.started", "crawl.progress"].includes(event.type);
         const Icon = failed ? XCircle : running || skipped ? CircleEllipsis : CheckCircle2;
         return (
-          <li key={event.id} data-state={failed ? "failed" : skipped ? "skipped" : running ? "running" : "completed"}>
+          <li
+            key={event.id}
+            data-state={failed ? "failed" : skipped ? "skipped" : running ? "running" : "completed"}
+          >
             <Icon size={18} />
-            <div><strong>{eventLabel(event)}</strong><time>{new Date(event.timestamp).toLocaleTimeString("zh-CN")}</time></div>
+            <div>
+              <strong>{eventLabel(event)}</strong>
+              <time>{new Date(event.timestamp).toLocaleTimeString("zh-CN")}</time>
+            </div>
           </li>
         );
       })}

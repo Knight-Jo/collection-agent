@@ -68,9 +68,7 @@ it("uses the system crawl default and submits the chosen crawl setting", async (
   await user.type(screen.getByLabelText("研究主题"), "低空经济投资进展");
   await user.click(screen.getByRole("button", { name: "开始研究" }));
 
-  expect(createRun).toHaveBeenCalledWith(
-    expect.objectContaining({ deep_crawl: true }),
-  );
+  expect(createRun).toHaveBeenCalledWith(expect.objectContaining({ deep_crawl: true }));
 });
 
 it("preserves the backend crawl default when the system request fails", async () => {
@@ -88,24 +86,37 @@ it("preserves the backend crawl default when the system request fails", async ()
   await user.type(screen.getByLabelText("研究主题"), "低空经济投资进展");
   await user.click(screen.getByRole("button", { name: "开始研究" }));
 
-  expect(createRun).toHaveBeenCalledWith(
-    expect.objectContaining({ deep_crawl: null }),
-  );
+  expect(createRun).toHaveBeenCalledWith(expect.objectContaining({ deep_crawl: null }));
 });
 
 it("waits for an unresolved system default before creating a run", async () => {
   let resolveSystem!: (value: Awaited<ReturnType<typeof api.system>>) => void;
-  vi.spyOn(api, "system").mockReturnValue(new Promise((resolve) => { resolveSystem = resolve; }));
+  vi.spyOn(api, "system").mockReturnValue(
+    new Promise((resolve) => {
+      resolveSystem = resolve;
+    }),
+  );
   const user = userEvent.setup();
   const createRun = vi.fn();
-  render(<MemoryRouter><NewTaskPage createRun={createRun} /></MemoryRouter>);
+  render(
+    <MemoryRouter>
+      <NewTaskPage createRun={createRun} />
+    </MemoryRouter>,
+  );
 
   await user.click(screen.getByText("高级选项"));
   await user.type(screen.getByLabelText("研究主题"), "低空经济投资进展");
   expect(screen.getByRole("button", { name: "开始研究" })).toBeDisabled();
   expect(createRun).not.toHaveBeenCalled();
 
-  resolveSystem({ model: { name: "model", configured: true }, audit: { name: "audit", configured: true }, search: { name: "search", configured: true }, crawl: { default_enabled: true }, browser: { enabled: false, playwright: false, chromium: false, network_mode: "validated" }, processors: { tesseract: true, ffmpeg: true, whisper: true, libreoffice: true } });
+  resolveSystem({
+    model: { name: "model", configured: true },
+    audit: { name: "audit", configured: true },
+    search: { name: "search", configured: true },
+    crawl: { default_enabled: true },
+    browser: { enabled: false, playwright: false, chromium: false, network_mode: "validated" },
+    processors: { tesseract: true, ffmpeg: true, whisper: true, libreoffice: true },
+  });
   await waitFor(() => expect(screen.getByRole("checkbox", { name: "启用深度抓取" })).toBeChecked());
   await user.click(screen.getByRole("button", { name: "开始研究" }));
   expect(createRun).toHaveBeenCalledWith(expect.objectContaining({ deep_crawl: true }));
@@ -114,7 +125,11 @@ it("waits for an unresolved system default before creating a run", async () => {
 it("submits the optional research brief", async () => {
   const user = userEvent.setup();
   const createRun = vi.fn();
-  render(<MemoryRouter><NewTaskPage createRun={createRun} /></MemoryRouter>);
+  render(
+    <MemoryRouter>
+      <NewTaskPage createRun={createRun} />
+    </MemoryRouter>,
+  );
 
   await user.type(screen.getByLabelText("研究主题"), "量子计算");
   await user.type(screen.getByLabelText("调研目标"), "了解产业进展");
@@ -123,21 +138,38 @@ it("submits the optional research brief", async () => {
   await user.selectOptions(screen.getByLabelText("报告深度"), "deep");
   await user.click(screen.getByRole("button", { name: "开始研究" }));
 
-  expect(createRun).toHaveBeenCalledWith(expect.objectContaining({
-    objective: "了解产业进展",
-    report_depth: "deep",
-    scope: expect.objectContaining({ time_range: "2024-2026" }),
-  }));
+  expect(createRun).toHaveBeenCalledWith(
+    expect.objectContaining({
+      objective: "了解产业进展",
+      report_depth: "deep",
+      scope: expect.objectContaining({ time_range: "2024-2026" }),
+    }),
+  );
 });
 
 it("preserves a user crawl choice made before the system default resolves", async () => {
   let resolveSystem!: (value: Awaited<ReturnType<typeof api.system>>) => void;
-  vi.spyOn(api, "system").mockReturnValue(new Promise((resolve) => { resolveSystem = resolve; }));
+  vi.spyOn(api, "system").mockReturnValue(
+    new Promise((resolve) => {
+      resolveSystem = resolve;
+    }),
+  );
   const user = userEvent.setup();
-  render(<MemoryRouter><NewTaskPage createRun={vi.fn()} /></MemoryRouter>);
+  render(
+    <MemoryRouter>
+      <NewTaskPage createRun={vi.fn()} />
+    </MemoryRouter>,
+  );
 
   await user.click(screen.getByText("高级选项"));
   await user.click(screen.getByRole("checkbox", { name: "启用深度抓取" }));
-  resolveSystem({ model: { name: "model", configured: true }, audit: { name: "audit", configured: true }, search: { name: "search", configured: true }, crawl: { default_enabled: false }, browser: { enabled: false, playwright: false, chromium: false, network_mode: "validated" }, processors: { tesseract: true, ffmpeg: true, whisper: true, libreoffice: true } });
+  resolveSystem({
+    model: { name: "model", configured: true },
+    audit: { name: "audit", configured: true },
+    search: { name: "search", configured: true },
+    crawl: { default_enabled: false },
+    browser: { enabled: false, playwright: false, chromium: false, network_mode: "validated" },
+    processors: { tesseract: true, ffmpeg: true, whisper: true, libreoffice: true },
+  });
   await waitFor(() => expect(screen.getByRole("checkbox", { name: "启用深度抓取" })).toBeChecked());
 });

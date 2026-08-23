@@ -16,7 +16,9 @@ export function StageStepper({ stage }: { stage: Stage }) {
         const state = index < active ? "complete" : index === active ? "active" : "pending";
         return (
           <li key={item.id} data-state={state}>
-            <span className="stage-dot">{state === "complete" ? <Check size={14} /> : index + 1}</span>
+            <span className="stage-dot">
+              {state === "complete" ? <Check size={14} /> : index + 1}
+            </span>
             <span>{item.label}</span>
           </li>
         );

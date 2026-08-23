@@ -9,7 +9,11 @@
     "build": "bun --bun tsc --noEmit && bun --bun vite build",
     "test": "bun --bun vitest run",
     "test:coverage": "bun --bun vitest run --coverage",
-    "typecheck": "bun --bun tsc --noEmit"
+    "typecheck": "bun --bun tsc --noEmit",
+    "format": "biome format --write ./src ./vite.config.ts",
+    "format:check": "biome format ./src ./vite.config.ts",
+    "lint": "biome lint ./src ./vite.config.ts",
+    "check": "biome check ./src ./vite.config.ts"
   },
   "dependencies": {
     "lucide-react": "0.468.0",
@@ -20,6 +24,7 @@
     "remark-gfm": "4.0.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.10",
     "@testing-library/jest-dom": "6.6.3",
     "@testing-library/react": "16.1.0",
     "@testing-library/user-event": "14.5.2",
