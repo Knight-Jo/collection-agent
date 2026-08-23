@@ -28,7 +28,13 @@ from .document_extract import (
     extract_outbound_links,
     extract_pdf_text,
 )
-from .models import IntelDocument, IntelError, is_valid_calendar_date
+from .models import (
+    EvidenceRole,
+    IntelDocument,
+    IntelError,
+    SourceType,
+    is_valid_calendar_date,
+)
 from .security import AddressResolver, resolve_public_url, source_group_of
 from .source import source_type_for_domain
 from .storage import (
@@ -504,6 +510,9 @@ def archive_document(
     publish_time_source: Literal["meta", "time-element", "unknown"] = (
         "unknown"
     ),
+    source_type: SourceType | None = None,
+    evidence_role: EvidenceRole | None = None,
+    collection_method: Literal["http", "browser", "archive"] = "http",
 ) -> IntelDocument:
     """Archive original bytes, extracted text, and optional rendered DOM."""
     canonical_url = canonicalize_url(final_url)
@@ -572,14 +581,23 @@ def archive_document(
         publish_time=publish_time,
         publish_time_source=publish_time_source,
         collected_at=_now(),
-        source_type=source_type_for_domain(hostname),
+        # Provider-declared source type wins over hostname classification:
+        # arxiv.org is a .org that only a vertical provider can attribute.
+        source_type=source_type or source_type_for_domain(hostname),
         source_group=source_group,
         raw_path=raw_path,
         raw_sha256=raw_hash,
         text_path=text_path,
         text_sha256=sha256(text),
         extraction_status=extraction_status,
-        collection_method=("browser" if rendered_html is not None else "http"),
+        collection_method=(
+            "browser"
+            if rendered_html is not None
+            else "archive"
+            if collection_method == "archive"
+            else "http"
+        ),
+        evidence_role=evidence_role,
         rendered_url=rendered_url,
         rendered_path=rendered_path,
         rendered_sha256=rendered_hash,
@@ -597,6 +615,9 @@ async def fetch_document(
     resolver: AddressResolver | None = None,
     max_bytes: int | None = None,
     renderer: BrowserRender | None = None,
+    *,
+    source_type: SourceType | None = None,
+    evidence_role: EvidenceRole | None = None,
 ) -> tuple[IntelDocument, str, list[dict]]:
     max_bytes = max_bytes or DEFAULT_MAX_BYTES
     fetcher = fetcher or (lambda u, i, a: pinned_fetch(u, i, a, max_bytes))
@@ -723,6 +744,8 @@ async def fetch_document(
         title=extracted["title"] or _url_string(final_url),
         publish_time=extracted["publish_time"],
         publish_time_source=extracted["publish_time_source"],
+        source_type=source_type,
+        evidence_role=evidence_role,
     )
     return (
         document,

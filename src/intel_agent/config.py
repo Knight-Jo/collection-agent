@@ -16,8 +16,61 @@ class ModelConfig(BaseModel):
     api_key_env: str | None = "DEEPSEEK_API_KEY"
 
 
+class ProviderConfig(BaseModel):
+    """Tuning for one vertical provider; no secrets (admission rule)."""
+
+    enabled: bool = True
+    base_url: str | None = None
+    timeout: float = Field(default=15.0, gt=0)
+    rate_limit: float = Field(default=1.0, ge=0)
+    max_results: int = Field(default=10, ge=1)
+    cache_ttl: int = Field(default=3600, ge=0)
+    retry: int = Field(default=0, ge=0)
+
+
+class AcademicSearchConfig(BaseModel):
+    enabled: bool = True
+    arxiv: bool = True
+    crossref: bool = True
+    semantic_scholar: bool = True
+    supplement_threshold: int = Field(default=3, ge=1)
+    max_results: int = Field(default=10, ge=1)
+    cache_ttl: int = Field(default=3600, ge=0)
+
+
+class NewsSearchConfig(BaseModel):
+    enabled: bool = True
+    baidu: bool = True
+    # 360 News replaces the Sogou tier: news.sogou.com redirects anonymous
+    # requests to an anti-spider wall, news.so.com is server-rendered.
+    so360: bool = True
+    # GDELT is unreachable from mainland-China networks; keep it opt-in so
+    # domestic deployments never pay its timeout on every news_search.
+    gdelt: bool = False
+    supplement_threshold: int = Field(default=3, ge=1)
+    max_results: int = Field(default=10, ge=1)
+    cache_ttl: int = Field(default=3600, ge=0)
+
+
+class GitHubSearchConfig(ProviderConfig):
+    """GitHub capability: anonymous API, Gitee as China-accessible tier."""
+
+    gitee: bool = True
+
+
+class ArchiveSearchConfig(BaseModel):
+    enabled: bool = True
+    wayback: bool = True
+
+
 class SearchConfig(BaseModel):
     searxng_url: str | None = "http://127.0.0.1:8888"
+    github: GitHubSearchConfig = Field(default_factory=GitHubSearchConfig)
+    academic: AcademicSearchConfig = Field(
+        default_factory=AcademicSearchConfig
+    )
+    news: NewsSearchConfig = Field(default_factory=NewsSearchConfig)
+    archive: ArchiveSearchConfig = Field(default_factory=ArchiveSearchConfig)
 
 
 class StorageConfig(BaseModel):

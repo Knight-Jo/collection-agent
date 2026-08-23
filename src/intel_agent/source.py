@@ -116,11 +116,25 @@ def domain_kind_label(kind: DomainKind) -> str:
     }[kind]
 
 
+# Well-known vertical domains: domain-level fallback attribution when the
+# provider-declared hint is unavailable (V1 attribution chain).
+_SOFTWARE_DOMAINS = {"github.com", "gitee.com"}
+_ACADEMIC_DOMAINS = {
+    "arxiv.org",
+    "semanticscholar.org",
+    "doi.org",
+    "crossref.org",
+}
+
+
 def source_type_for_domain(hostname: str) -> SourceType:
+    host = hostname.lower()
     kind = classify_domain(hostname)
-    if re.search(
-        r"(?:\.edu(?:\.[a-z]{2})?|\.ac\.[a-z]{2})$", hostname.lower()
-    ):
+    if re.search(r"(?:\.edu(?:\.[a-z]{2})?|\.ac\.[a-z]{2})$", host):
+        return "academic"
+    if host in _SOFTWARE_DOMAINS:
+        return "software"
+    if host in _ACADEMIC_DOMAINS:
         return "academic"
     if kind in ("government", "news", "encyclopedia", "social", "official"):
         return kind

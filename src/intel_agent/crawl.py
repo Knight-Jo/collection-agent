@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import mimetypes
 import threading
 from collections import Counter
@@ -12,7 +13,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 from urllib.robotparser import RobotFileParser
 
 from .browser import BrowserRender, should_render_html
@@ -40,9 +41,11 @@ from .models import (
     CrawlEntry,
     CrawlSnapshot,
     CrawlValidators,
+    EvidenceRole,
     ExtractionState,
     IntelDocument,
     IntelError,
+    SourceType,
     utc_now,
 )
 from .search_queries import relevance_tokens
@@ -89,6 +92,7 @@ _SOURCE_TYPE_RANK = {
     "official": 1,
     "news": 2,
     "academic": 3,
+    "software": 3,
     "other": 4,
     "encyclopedia": 5,
     "social": 6,
@@ -114,8 +118,12 @@ def _domain_entry_count(snapshot: CrawlSnapshot, domain: str) -> int:
 
 
 def _entry_source_type(entry: CrawlEntry) -> str:
-    # Classify on the original hostname: the registered domain loses
-    # subdomain signals such as the ir.* first-party prefix (run 013).
+    # Provider-declared provenance wins over hostname classification; the
+    # registered domain loses subdomain signals such as the ir.* first-party
+    # prefix (run 013), and arxiv.org is a .org that only a provider can
+    # identify as academic.
+    if entry.source_type_hint is not None:
+        return entry.source_type_hint
     return source_type_for_domain(urlparse(entry.canonical_url).hostname or "")
 
 
@@ -298,6 +306,8 @@ def enqueue_url(
     relevance: float = 0,
     source_priority: float = 0,
     attachment: bool | None = None,
+    source_type_hint: SourceType | None = None,
+    evidence_role: EvidenceRole | None = None,
 ) -> bool:
     """Add one canonical URL if it fits this task's hard frontier limits."""
     config = CrawlConfig.model_validate(snapshot.config)
@@ -347,7 +357,9 @@ def enqueue_url(
         if depth >= 1 and _image_entry_count(snapshot) >= image_cap:
             return False
     domain = _domain_of(canonical)
-    source_type = source_type_for_domain(urlparse(canonical).hostname or "")
+    source_type = source_type_hint or source_type_for_domain(
+        urlparse(canonical).hostname or ""
+    )
     if source_type not in _FIRST_PARTY_TYPES:
         domain_cap = config.per_domain_cap or max(
             8, -(-config.max_urls * 10 // 100)
@@ -380,6 +392,8 @@ def enqueue_url(
             depth=depth,
             relevance=relevance,
             priority=candidate_priority,
+            source_type_hint=source_type_hint,
+            evidence_role=evidence_role,
             created_at=now,
             updated_at=now,
         )
@@ -395,6 +409,7 @@ def create_crawl(
     config: CrawlConfig,
     *,
     seed_relevance: dict[str, float] | None = None,
+    seed_meta: dict[str, dict] | None = None,
 ) -> CrawlSnapshot:
     """Create or resume one task's persisted crawl frontier."""
     try:
@@ -414,12 +429,15 @@ def create_crawl(
             updated_at=now,
         )
     for seed in seeds:
+        meta = (seed_meta or {}).get(seed, {})
         enqueue_url(
             snapshot,
             seed,
             parent_url=None,
             depth=0,
             relevance=(seed_relevance or {}).get(seed, 0),
+            source_type_hint=meta.get("source_type"),
+            evidence_role=meta.get("evidence_role"),
         )
     # The status reflects actual pending work: resuming a completed crawl
     # with only duplicate seeds must not reopen it (run 013a: a later
@@ -549,6 +567,7 @@ class _CrawlRunner:
         on_event: CrawlEventCallback | None,
         relevance_terms: list[str],
         renderer: BrowserRender | None,
+        wayback: bool = False,
     ):
         self.cwd = cwd
         self.snapshot = snapshot
@@ -556,6 +575,7 @@ class _CrawlRunner:
         self.fetcher = fetcher
         self.resolver = resolver
         self.robots_allowed = robots_allowed
+        self.wayback = wayback
         self.robots_policy = (
             None
             if robots_allowed is not None
@@ -920,6 +940,60 @@ class _CrawlRunner:
                     await self.persist()
                 return rendered
 
+    async def _wayback_fetch(
+        self, entry: CrawlEntry
+    ) -> tuple[FetchedResponse, object] | None:
+        """Resolve a dead URL to its closest Wayback snapshot (ArchiveResolver).
+
+        Two DNS-pinned hops: the availability API, then the snapshot itself.
+        Any failure returns None so the entry settles into its normal
+        terminal status - the archive is an enhancement, not a dependency.
+        """
+        if not self.wayback:
+            return None
+
+        def hop(url, init, address):
+            return self._fetch_hop(entry, url, init, address)
+
+        try:
+            availability_url = (
+                "https://archive.org/wayback/available?url="
+                + quote(entry.canonical_url, safe="")
+            )
+            async with asyncio.timeout(DEFAULT_TIMEOUT_MS / 1000):
+                av_response, _ = await fetch_with_validated_redirects(
+                    availability_url,
+                    hop,
+                    self.resolver,
+                    self.config.max_attachment_bytes,
+                    {"headers": {}},
+                    before_fetch=lambda url: self._ensure_robots(entry, url),
+                )
+            if av_response.status != 200:
+                return None
+            snapshot_url = (
+                json.loads(av_response.body.decode("utf-8", errors="replace"))
+                .get("archived_snapshots", {})
+                .get("closest", {})
+                .get("url")
+            )
+            if not snapshot_url:
+                return None
+            async with asyncio.timeout(DEFAULT_TIMEOUT_MS / 1000):
+                response, final_url = await fetch_with_validated_redirects(
+                    snapshot_url,
+                    hop,
+                    self.resolver,
+                    self.config.max_attachment_bytes,
+                    {"headers": {}},
+                    before_fetch=lambda url: self._ensure_robots(entry, url),
+                )
+        except (TimeoutError, OSError, IntelError, ValueError):
+            return None
+        if response.status != 200:
+            return None
+        return response, final_url
+
     async def fetch(self, entry: CrawlEntry) -> list[str]:
         if self.snapshot.downloaded_bytes >= self.config.max_total_bytes:
             entry.status = "skipped_limit"
@@ -967,6 +1041,7 @@ class _CrawlRunner:
             response: FetchedResponse | None = None
             final_url: object = entry.canonical_url
             last_error: Exception | None = None
+            from_archive = False
             for attempt in range(self.config.retries + 1):
                 entry.attempts += 1
                 response = None
@@ -1017,6 +1092,15 @@ class _CrawlRunner:
                         break
                     if attempt < self.config.retries:
                         await self.sleep(0)
+            if (
+                response is None
+                or response.status in (404, 410)
+                and self.wayback
+            ):
+                archived = await self._wayback_fetch(entry)
+                if archived is not None:
+                    response, final_url = archived
+                    from_archive = True
             if response is None:
                 if (
                     isinstance(last_error, IntelError)
@@ -1182,6 +1266,9 @@ class _CrawlRunner:
                 title=extracted.title,
                 publish_time=extracted.publish_time,
                 publish_time_source=extracted.publish_time_source,
+                source_type=entry.source_type_hint,
+                evidence_role=entry.evidence_role,
+                collection_method="archive" if from_archive else "http",
             )
             entry.canonical_url = document.canonical_url
             entry.document_id = document.id
@@ -1212,6 +1299,7 @@ async def crawl_collect(
     on_event: CrawlEventCallback | None = None,
     renderer: BrowserRender | None = None,
     httpx_fallback: bool = False,
+    wayback: bool = False,
 ) -> CrawlSnapshot:
     """Run or resume a task crawl without consuming the agent fetch budget."""
     seeds = seeds or []
@@ -1291,6 +1379,7 @@ async def crawl_collect(
         on_event,
         relevance_terms,
         renderer,
+        wayback=wayback,
     )
     if on_event is not None:
         await on_event(

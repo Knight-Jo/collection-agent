@@ -17,15 +17,17 @@ SourceType = Literal[
     "academic",
     "social",
     "government",
+    "software",
     "other",
 ]
+EvidenceRole = Literal["primary", "supporting", "secondary"]
 TaskStage = Literal["collect", "assess", "challenge", "done"]
 QuestionStatus = Literal["covered", "partial", "gap"]
 SupportVerdict = Literal["full", "partial", "irrelevant", "contradicts"]
 ReportDepth = Literal["brief", "standard", "deep"]
 ClaimType = Literal["primary", "corroborated", "reported"]
 AnswerStatus = Literal["answered", "partial", "unanswered", "conflicted"]
-SUPPORT_REVIEW_PROMPT_VERSION = "support-entailment-v1"
+SUPPORT_REVIEW_PROMPT_VERSION = "support-entailment-v2"
 
 
 class CrawlValidators(BaseModel):
@@ -83,6 +85,10 @@ class CrawlEntry(BaseModel):
     outbound_relevance: dict[str, float] = Field(default_factory=dict)
     render_reason: str | None = None
     render_error: str | None = None
+    # Provider-declared provenance from vertical search results; takes
+    # precedence over hostname classification at archive time.
+    source_type_hint: SourceType | None = None
+    evidence_role: EvidenceRole | None = None
     created_at: str
     updated_at: str
 
@@ -178,7 +184,11 @@ class IntelDocument(BaseModel):
     extraction_status: Literal["complete", "unavailable", "failed"] = (
         "complete"
     )
-    collection_method: Literal["http", "browser"] = "http"
+    collection_method: Literal["http", "browser", "archive"] = "http"
+    # Provider-declared role when the source came from a vertical search
+    # (e.g. GitHub release -> primary, issue -> supporting); recorded for
+    # the future quality model, not yet consumed by coverage scoring.
+    evidence_role: EvidenceRole | None = None
     rendered_url: str | None = None
     rendered_path: str | None = None
     rendered_sha256: str | None = None

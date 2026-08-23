@@ -7,14 +7,15 @@ import html
 import re
 
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from .search_queries import (
+from ..models import EvidenceRole, SourceType, utc_now
+from ..search_queries import (
     PUNCT_RE,
     STOP_TERMS,
     authoritative_variants,
 )
-from .source import DomainKind, classify_domain, domain_kind_label
+from ..source import DomainKind, classify_domain, domain_kind_label
 
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -25,15 +26,27 @@ SEARCH_TIMEOUT = 25.0
 
 
 class SearchResult(BaseModel):
+    # Legacy general-search fields; kept until every consumer migrates.
     engine: str
-    title: str
-    url: str
-    snippet: str
     kind: DomainKind
     kind_label: str
     hits: int
     url_note: str | None = None
+    # Shared fields.
+    title: str
+    url: str
+    snippet: str
     fetchable: bool = True
+    # Vertical-provider fields (additive, see plan: only add, never remove).
+    provider: str = ""
+    provider_source_type: SourceType | None = None
+    evidence_role: EvidenceRole | None = None
+    published_at: str | None = None
+    author: str | None = None
+    rank: int | None = None
+    score: float | None = None
+    discovered_at: str = Field(default_factory=utc_now)
+    extra: dict = Field(default_factory=dict)
 
 
 def count_hits(query: str, title: str, snippet: str) -> int:
@@ -88,6 +101,52 @@ def _result(
         hits=count_hits(query, title, snippet),
         url_note=url_note,
         fetchable=fetchable,
+    )
+
+
+def _provider_result(
+    provider: str,
+    title: str,
+    url: str,
+    snippet: str,
+    query: str,
+    source_type: SourceType,
+    *,
+    evidence_role: EvidenceRole | None = None,
+    published_at: str | None = None,
+    author: str | None = None,
+    rank: int | None = None,
+    score: float | None = None,
+    fetchable: bool = True,
+    extra: dict | None = None,
+) -> SearchResult | None:
+    """Build a vertical-provider result; provider source type wins over domain.
+
+    ``kind``/``hits`` are still populated from domain classification so the
+    general ranking path keeps working when vertical results are merged in.
+    """
+    title = title.strip()
+    url = html.unescape(url).strip()
+    if not title or not re.match(r"^https?://", url):
+        return None
+    kind = classify_domain(url)
+    return SearchResult(
+        engine=provider,
+        provider=provider,
+        title=title,
+        url=url,
+        snippet=snippet.strip(),
+        kind=kind,
+        kind_label=domain_kind_label(kind),
+        hits=count_hits(query, title, snippet),
+        provider_source_type=source_type,
+        evidence_role=evidence_role,
+        published_at=published_at,
+        author=author,
+        rank=rank,
+        score=score,
+        fetchable=fetchable,
+        extra=extra or {},
     )
 
 
@@ -212,6 +271,7 @@ async def searxng_search(
     query: str,
     count: int,
     opts: dict | None = None,
+    unresponsive: list[str] | None = None,
 ) -> list[SearchResult]:
     opts = opts or {}
     params = {
@@ -230,6 +290,9 @@ async def searxng_search(
     )
     res.raise_for_status()
     data = res.json()
+    if unresponsive is not None:
+        for engine in data.get("unresponsive_engines", []):
+            unresponsive.append(str(engine[0]))
     out: list[SearchResult] = []
     for r in data.get("results", []):
         engine = (
