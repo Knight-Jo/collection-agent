@@ -19,10 +19,6 @@ context:
   # 27B model does not spend its output budget on reasoning tokens. deepseek
   # comparison config (config.yaml) leaves thinking at its default.
   disable_thinking: true
-storage:
-  data_dir: data/intel
-  raw_dir: data/raw
-  output_dir: output
 budgets:
   search_attempts: 60
   fetch_attempts_since_evidence: 20

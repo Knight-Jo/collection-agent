@@ -32,13 +32,6 @@ def load_events(path: Path) -> list[dict]:
     return events
 
 
-def build_index(events: list[dict]) -> dict[str, list[dict]]:
-    index: dict[str, list[dict]] = {}
-    for event in events:
-        index.setdefault(event["event_type"], []).append(event)
-    return index
-
-
 def action_by_id(events: list[dict], action_id: str) -> dict | None:
     for event in events:
         if (

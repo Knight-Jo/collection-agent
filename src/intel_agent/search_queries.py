@@ -146,16 +146,6 @@ def is_broad_query(query: str) -> tuple[bool, str | None]:
     return False, None
 
 
-def query_similarity(first: str, second: str) -> float:
-    """Measure overlap relative to the shorter token list."""
-    first_tokens = tokenize_query(first)
-    second_tokens = tokenize_query(second)
-    if not first_tokens or not second_tokens:
-        return 0.0
-    overlap = sum(1 for token in first_tokens if token in second_tokens)
-    return overlap / min(len(first_tokens), len(second_tokens))
-
-
 def is_semantic_duplicate(first: str, second: str) -> bool:
     """Detect materially duplicate queries after generic terms are removed."""
     first_tokens = [

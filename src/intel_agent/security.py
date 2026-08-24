@@ -122,11 +122,6 @@ def _is_ip(value: str) -> bool:
         return False
 
 
-async def assert_public_url(raw: str, resolver: AddressResolver | None = None):
-    url, _ = await resolve_public_url(raw, resolver)
-    return url
-
-
 def source_group_of(url: str) -> str:
     extracted = tldextract.extract(url)
     domain = (

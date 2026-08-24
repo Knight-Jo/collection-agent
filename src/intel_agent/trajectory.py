@@ -20,7 +20,6 @@ import contextvars
 import hashlib
 import json
 import threading
-import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -406,7 +405,3 @@ def configure_logfire() -> bool:
     except Exception:
         return False
     return True
-
-
-def monotonic_clock() -> float:
-    return time.monotonic()

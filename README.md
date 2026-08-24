@@ -142,12 +142,12 @@ intel-agent-web --config config.yaml
 
 ```
 src/intel_agent/
-├── agent.py        # pydantic-ai Agent：16 个调研工具与系统提示词
+├── agent.py        # pydantic-ai Agent：19 个调研工具与系统提示词
 ├── models.py       # 全部 Pydantic 数据模型（Task/Fact/Evidence/Review/Coverage...）
 ├── storage.py      # 原子 JSON I/O + SHA-256 完整性校验
 ├── security.py     # URL 校验、私有地址拦截、DNS 解析
 ├── source.py       # 域名分类（government/news/social/...）
-├── search.py       # SearXNG + Bing + Baidu 并行搜索与结果聚合
+├── search/         # 通用与垂直搜索 Provider、结果聚合和缓存
 ├── search_queries.py # 查询词分析、去重与变体生成
 ├── fetch.py        # DNS-pinned 抓取、HTTP 解析、注入检测与文档归档
 ├── browser.py      # 动态页面判定、浏览器请求策略与可选 Playwright 渲染
@@ -166,7 +166,7 @@ src/intel_agent/
 ├── main.py         # CLI 入口
 ├── runner.py       # CLI 与 Web 共用的 Agent 运行器
 └── web/            # FastAPI API、运行状态与前端读模型
-tests/              # pytest 测试套件（60+ 用例）
+tests/              # pytest 测试套件
 web/                # React/Vite 本地工作台
 scripts/            # 实验运行器与分析器
 experiments/        # 迭代实验结果、轨迹与报告
@@ -180,7 +180,7 @@ UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest
 ```
 
 动态采集的生产网络隔离、运行状态和反爬边界参见
-[`docs/js-dynamic-page-deployment.md`](docs/js-dynamic-page-deployment.md)。
+[`docs/operations/js-dynamic-page-deployment.md`](docs/operations/js-dynamic-page-deployment.md)。
 
 ## 迭代实验
 

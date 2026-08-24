@@ -104,16 +104,6 @@ def list_facts_for_task(cwd: Path, task_id: str) -> list[Fact]:
     ]
 
 
-def list_facts_for_question(
-    cwd: Path, task_id: str, question_id: str
-) -> list[Fact]:
-    return [
-        f
-        for f in list_facts_for_task(cwd, task_id)
-        if f.question_id == question_id
-    ]
-
-
 def list_active_facts_for_task(cwd: Path, task_id: str) -> list[Fact]:
     return [
         f for f in list_facts_for_task(cwd, task_id) if f.status == "active"

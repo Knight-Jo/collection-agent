@@ -241,7 +241,7 @@ UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright
 
 **目标**：查询广度由程序保证，不依赖模型是否遵守 query_plan。
 
-**主要文件**：`src/intel_agent/search_queries.py`、`src/intel_agent/search.py`、`src/intel_agent/agent.py`、trace/实验分析脚本及对应测试。
+**主要文件**：`src/intel_agent/search_queries.py`、`src/intel_agent/search/`、`src/intel_agent/agent.py`、trace/实验分析脚本及对应测试。
 
 **必须完成**：
 

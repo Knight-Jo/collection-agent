@@ -21,11 +21,9 @@ class ProviderConfig(BaseModel):
 
     enabled: bool = True
     base_url: str | None = None
-    timeout: float = Field(default=15.0, gt=0)
     rate_limit: float = Field(default=1.0, ge=0)
     max_results: int = Field(default=10, ge=1)
     cache_ttl: int = Field(default=3600, ge=0)
-    retry: int = Field(default=0, ge=0)
 
 
 class AcademicSearchConfig(BaseModel):
@@ -60,7 +58,6 @@ class GitHubSearchConfig(ProviderConfig):
 
 class ArchiveSearchConfig(BaseModel):
     enabled: bool = True
-    wayback: bool = True
 
 
 class SearchConfig(BaseModel):
@@ -71,12 +68,6 @@ class SearchConfig(BaseModel):
     )
     news: NewsSearchConfig = Field(default_factory=NewsSearchConfig)
     archive: ArchiveSearchConfig = Field(default_factory=ArchiveSearchConfig)
-
-
-class StorageConfig(BaseModel):
-    data_dir: Path = Path("data/intel")
-    raw_dir: Path = Path("data/raw")
-    output_dir: Path = Path("output")
 
 
 class BudgetConfig(BaseModel):
@@ -168,7 +159,6 @@ class Settings(BaseModel):
     model: ModelConfig = Field(default_factory=ModelConfig)
     audit_model: ModelConfig | None = None
     search: SearchConfig = Field(default_factory=SearchConfig)
-    storage: StorageConfig = Field(default_factory=StorageConfig)
     budgets: BudgetConfig = Field(default_factory=BudgetConfig)
     context: ContextConfig = Field(default_factory=ContextConfig)
     fetch: FetchConfig = Field(default_factory=FetchConfig)

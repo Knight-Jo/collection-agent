@@ -38,11 +38,9 @@ search:
     enabled: true
     gitee: true               # GitHub 额度受限时降级到 Gitee（国内可直连）
     # base_url: https://api.github.com
-    # timeout: 15
     # rate_limit: 6        # 匿名 Search API 10/min，保守间隔（秒）
     # max_results: 10
     # cache_ttl: 3600      # 结果缓存秒数
-    # retry: 0
   academic:
     enabled: true
     arxiv: true
@@ -60,13 +58,7 @@ search:
     # max_results: 10
     # cache_ttl: 3600
   archive:
-    enabled: true
-    wayback: true            # 抓取 404/410/DNS 失败时回退 Wayback 快照
-
-storage:
-  data_dir: data/intel
-  raw_dir: data/raw
-  output_dir: output
+    enabled: true            # 抓取 404/410/DNS 失败时回退 Wayback 快照
 
 budgets:
   # 检索广度优先：预算充足时穷尽检索（run 011 起放宽）

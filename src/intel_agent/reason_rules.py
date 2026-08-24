@@ -4,14 +4,12 @@
 never an action restatement ("fetch because fetch needed" is circular). For
 ``origin=model`` decisions they are derived from the state snapshot observed at
 the call site and therefore labelled ``reason_source="derived"`` — an inference,
-not the model's real reason. Deterministic code paths return a
-:class:`DecisionOutcome` whose reasons are produced at the same moment as the
-decision and are labelled ``reason_source="rule"``.
+not the model's real reason. Deterministic code paths produce their reasons at
+the same moment as the decision and label them ``reason_source="rule"``.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 
 from .coverage import latest_coverage
@@ -43,15 +41,6 @@ _REASON_SUMMARIES = {
     "EVIDENCE_NOT_VERIFIED": "证据尚未语义审核",
     "CONFLICT_UNRESOLVED": "存在未消解矛盾",
 }
-
-
-@dataclass(frozen=True)
-class DecisionOutcome:
-    """A deterministic decision and its reasons, produced together."""
-
-    action: str
-    reason_codes: tuple[str, ...] = ()
-    question_id: str | None = None
 
 
 def snapshot_state(cwd: Path) -> dict:

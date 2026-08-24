@@ -92,6 +92,7 @@ from .search_queries import (
 )
 from .source import register_first_party_domains
 from .storage import (
+    INTEL_ROOT,
     ensure_intel_dirs,
     load_crawl,
     read_json,
@@ -947,7 +948,7 @@ async def _gap_driven_vertical_search(
     ]
     if not missing:
         return
-    cache_dir = deps.cwd / settings.storage.data_dir / "cache"
+    cache_dir = deps.cwd / INTEL_ROOT / "cache"
     added: dict[str, int] = {}
     for capability in missing:
         try:
@@ -1539,7 +1540,7 @@ def build_agent(
             return {"results": [], "engineUsed": "disabled"}
 
         async def run(query, count, time_range) -> dict:
-            cache_dir = ctx.deps.cwd / settings.storage.data_dir / "cache"
+            cache_dir = ctx.deps.cwd / INTEL_ROOT / "cache"
             return await academic_search(
                 ctx.deps.http,
                 query,
@@ -1581,7 +1582,7 @@ def build_agent(
             return {"results": [], "engineUsed": "disabled"}
 
         async def run(query, count, time_range) -> dict:
-            cache_dir = ctx.deps.cwd / settings.storage.data_dir / "cache"
+            cache_dir = ctx.deps.cwd / INTEL_ROOT / "cache"
             return await news_search(
                 ctx.deps.http,
                 query,

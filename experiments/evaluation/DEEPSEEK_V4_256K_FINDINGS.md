@@ -189,7 +189,7 @@ token、工具调用合法率和云端成本均未测量。质量分只能用于
 
 **相关文件**
 
-- `src/intel_agent/search.py`
+- `src/intel_agent/search/`
 - `src/intel_agent/agent.py::_web_search`
 - `tests/test_search.py`
 - `tests/test_deep_crawl_workflow.py`

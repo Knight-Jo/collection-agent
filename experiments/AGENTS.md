@@ -97,7 +97,7 @@ python scripts/analyze_run.py experiments/runs/NNN-name --write
 - 小模型选型同时报告质量保持率、最低分类保持率、有效运行率和有效报告成本。
 - 成本缺失时结论只能是`incomplete`，不得口头估算成“更便宜”。
 - `compare`只统计双方共有的case和repeat；必须核对`paired_cases`是否等于计划任务数、`paired_runs`是否等于任务数乘以重复次数。
-- 评分口径、阈值和人工审核方法见 `docs/情报搜集智能体评估指标与模型对比方案.md`。
+- 评分口径、阈值和人工审核方法见 `docs/evaluations/情报搜集智能体评估指标与模型对比方案.md`。
 
 ## 报告规范（REPORT.md 模板）
 

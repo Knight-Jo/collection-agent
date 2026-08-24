@@ -61,3 +61,12 @@ def test_remote_model_still_requires_its_configured_environment(monkeypatch):
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
 
     assert Settings().model_api_key() is None
+
+
+def test_settings_only_exposes_effective_options():
+    settings = Settings()
+
+    assert not hasattr(settings, "storage")
+    assert not hasattr(settings.search.github, "timeout")
+    assert not hasattr(settings.search.github, "retry")
+    assert not hasattr(settings.search.archive, "wayback")
