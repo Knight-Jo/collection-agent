@@ -107,6 +107,7 @@ from .task import (
     summarize_task,
 )
 from .trajectory import (
+    ActionPayload,
     DecisionPayload,
     ObservationPayload,
     emit,
@@ -956,6 +957,37 @@ async def _gap_driven_vertical_search(
                 return
             raise
         deps.vertical_triggered.add(capability)
+        action_id = f"gap_routing:{capability}"
+        reason_codes = ["LOW_SOURCE_DIVERSITY"]
+        decision_id = emit(
+            make_event(
+                "decision",
+                "deterministic",
+                DecisionPayload(
+                    decision="vertical_search",
+                    reason_codes=reason_codes,
+                    reason_source="rule",
+                    reason_summary=reason_summary(reason_codes),
+                    selected_action={"type": capability, "query": query[:120]},
+                    state_snapshot={},
+                ),
+                layer="business",
+            )
+        )
+        emit(
+            make_event(
+                "action",
+                "deterministic",
+                ActionPayload(
+                    action_id=action_id,
+                    tool=capability,
+                    action_type="vertical_search",
+                    args={"query": query[:120]},
+                ),
+                layer="technical",
+                parent_event_id=decision_id,
+            )
+        )
         result = await _vertical_capability(deps, capability, query, cache_dir)
         provider_calls = result.get("provider_calls", 0) if result else 0
         logger.info(
@@ -969,7 +1001,7 @@ async def _gap_driven_vertical_search(
                 "observation",
                 "deterministic",
                 ObservationPayload(
-                    action_id=f"gap_routing:{capability}",
+                    action_id=action_id,
                     result={
                         "query": query[:120],
                         "provider_calls": provider_calls,
