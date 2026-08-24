@@ -17,7 +17,7 @@ model:
 
 context:
   # 可选档位：16384 / 32768 / 65536 / 131072 / 262144，必须与模型服务实际 n_ctx 一致。
-  context_window_tokens: 32768
+  context_window_tokens: 262144
   # 主 Agent 单次生成上限；报告草案 JSON 较大，1024 会被截断导致 generate_research_report 参数校验失败，故放宽。
   main_output_tokens: 8192
   audit_output_tokens: 512
