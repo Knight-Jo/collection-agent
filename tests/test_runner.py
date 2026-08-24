@@ -11,6 +11,7 @@ from pydantic_ai.messages import FunctionToolCallEvent, ToolCallPart
 
 from intel_agent import runner as runner_module
 from intel_agent import trajectory
+from intel_agent.agent import build_agent, build_deps
 from intel_agent.config import BudgetConfig, Settings
 from intel_agent.models import ResearchScope, SufficiencyCriteria
 from intel_agent.runner import TaskRunSpec, build_task_prompt, run_agent_task
@@ -420,3 +421,57 @@ async def test_deep_report_enables_recursive_collection(monkeypatch, cwd):
 
     assert captured["deep_crawl"] is True
     assert "deep_crawl=true" in str(captured["prompt"])
+
+
+def test_build_agent_conversation_capture_invoked(monkeypatch, cwd):
+    from pydantic_ai.models.test import TestModel
+
+    captured: list[tuple[list, list]] = []
+    monkeypatch.setattr(
+        "intel_agent.agent._build_chat_model",
+        lambda _cfg, _key: TestModel(custom_output_text="回答", call_tools=[]),
+    )
+    agent = build_agent(
+        Settings(),
+        conversation_capture=lambda msgs, specs: captured.append(
+            (msgs, specs)
+        ),
+    )
+    agent.run_sync("测试问题", deps=build_deps(cwd, Settings()))
+
+    assert captured
+    assert any(msgs for msgs, _specs in captured), "捕获的消息历史不应为空"
+    assert any(specs for _msgs, specs in captured), "捕获的工具清单不应为空"
+
+
+@pytest.mark.asyncio
+async def test_run_agent_task_captures_final_response(
+    monkeypatch, cwd, tmp_path
+):
+    from pydantic_ai.models.test import TestModel
+
+    monkeypatch.setattr(
+        "intel_agent.agent._build_chat_model",
+        lambda _cfg, _key: TestModel(
+            custom_output_text="最终回答", call_tools=[]
+        ),
+    )
+    conv = tmp_path / "conversation.json"
+    await run_agent_task(cwd, Settings(), make_spec(), conversation_path=conv)
+
+    assert conv.exists()
+    messages = json.loads(conv.read_text())
+    kinds = [m["kind"] for m in messages]
+    assert kinds.count("response") == kinds.count("request")
+    final = messages[-1]
+    assert final["kind"] == "response"
+    assert any(
+        p.get("part_kind") == "text" and "最终回答" in str(p.get("content"))
+        for p in final["parts"]
+    )
+
+    specs_path = tmp_path / "tool-specs.json"
+    assert specs_path.exists()
+    specs = json.loads(specs_path.read_text())
+    names = {spec["name"] for spec in specs}
+    assert "web_search" in names

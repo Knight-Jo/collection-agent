@@ -75,6 +75,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--trace", default=None, help="保存完整消息轨迹到 JSONL 文件"
     )
     parser.add_argument(
+        "--conversation",
+        default=None,
+        help="保存完整模型会话（每轮输入输出）到 JSON 文件",
+    )
+    parser.add_argument(
         "--log-level",
         choices=("DEBUG", "INFO", "WARNING", "ERROR"),
         default=None,
@@ -86,9 +91,14 @@ def _build_parser() -> argparse.ArgumentParser:
 async def _run_trace(args, settings, spec):
     """Run the task while recording a structured run trajectory to JSONL."""
     recorder = JsonlTrajectoryRecorder(args.trace) if args.trace else None
+    conversation = Path(args.conversation) if args.conversation else None
     try:
         return await run_agent_task(
-            Path(args.cwd), settings, spec, recorder=recorder
+            Path(args.cwd),
+            settings,
+            spec,
+            recorder=recorder,
+            conversation_path=conversation,
         )
     finally:
         if recorder is not None:

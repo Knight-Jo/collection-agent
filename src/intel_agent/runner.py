@@ -18,6 +18,7 @@ from pydantic_ai import (
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
     FunctionToolResultEvent,
+    ModelMessagesTypeAdapter,
 )
 from pydantic_ai.usage import RunUsage, UsageLimits
 
@@ -297,9 +298,11 @@ async def run_agent_task(
     on_event: EventCallback | None = None,
     cancellation_token: CancellationToken | None = None,
     recorder: TrajectoryRecorder | None = None,
+    conversation_path: Path | None = None,
 ) -> AgentRunResult[str]:
     """Run one task, forwarding native Pydantic AI events and, optionally,
-    recording a structured run trajectory (run/step lifecycle, model calls)."""
+    recording a structured run trajectory (run/step lifecycle, model calls) and
+    the full model conversation (per-turn message history) for debugging."""
     resolved_spec = spec.model_copy(
         update={
             "deep_crawl": (
@@ -312,7 +315,21 @@ async def run_agent_task(
             )
         }
     )
-    agent = build_agent(settings)
+    conversation: list[ModelMessage] = []
+    tool_specs: list[dict] = []
+
+    def capture_conversation(
+        messages: list[ModelMessage], specs: list[dict]
+    ) -> None:
+        conversation[:] = messages
+        tool_specs[:] = specs
+
+    if conversation_path is not None:
+        agent = build_agent(
+            settings, conversation_capture=capture_conversation
+        )
+    else:
+        agent = build_agent(settings)
     deps = build_deps(cwd, settings, deep_crawl=bool(resolved_spec.deep_crawl))
     for name in ("objective", "scope", "report_depth"):
         if hasattr(deps, name):
@@ -414,6 +431,7 @@ async def run_agent_task(
             else "stop"
         )
 
+    final_result = None
     try:
         while True:
             async with agent.run_stream_events(
@@ -437,6 +455,7 @@ async def run_agent_task(
                     if on_event is not None:
                         await on_event(event)
                 result = events.result
+            final_result = result
             if result is None:
                 raise RuntimeError("Agent run completed without a result")
             try:
@@ -468,6 +487,23 @@ async def run_agent_task(
             usage.tool_calls,
             usage.total_tokens,
         )
+        if conversation_path is not None:
+            messages = (
+                final_result.all_messages()
+                if final_result is not None
+                else conversation
+            )
+            if messages:
+                conversation_path.parent.mkdir(parents=True, exist_ok=True)
+                conversation_path.write_bytes(
+                    ModelMessagesTypeAdapter.dump_json(messages, indent=2)
+                )
+            if tool_specs:
+                specs_path = conversation_path.with_name("tool-specs.json")
+                specs_path.write_text(
+                    json.dumps(tool_specs, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
         if recorder is not None:
             coverage: dict = {}
             try:

@@ -157,6 +157,8 @@ def main() -> int:
         str(args.recency),
         "--trace",
         str(run_dir / "trace.jsonl"),
+        "--conversation",
+        str(run_dir / "conversation.json"),
         "--max-turns",
         str(args.max_turns),
     ]

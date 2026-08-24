@@ -15,6 +15,7 @@ import html
 import inspect
 import json
 import re
+from collections.abc import Callable
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -23,8 +24,9 @@ from urllib.parse import urlparse
 
 import httpx
 from pydantic import ValidationError
-from pydantic_ai import Agent, RunContext
-from pydantic_ai.capabilities import ProcessHistory
+from pydantic_ai import Agent, ModelMessage, RunContext
+from pydantic_ai.capabilities import AbstractCapability, ProcessHistory
+from pydantic_ai.models import ModelRequestContext
 from pydantic_ai.models.openai import (
     OpenAIChatModel,
     OpenAIChatModelSettings,
@@ -1198,7 +1200,46 @@ def _fact_save_with_gate(
     ).model_dump()
 
 
-def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
+@dataclass
+class _ConversationCapture(AbstractCapability[AgentDeps]):
+    """Capture per-request message history plus resolved tool specs for debug.
+
+    Unlike ``ProcessHistory`` (whose processor only receives the messages),
+    this reads the request context directly so the dumped conversation also
+    shows the tool definitions the model could call. It leaves the request
+    unchanged.
+    """
+
+    on_capture: Callable[[list[ModelMessage], list[dict]], None]
+
+    @classmethod
+    def get_serialization_name(cls) -> str | None:
+        return None
+
+    async def before_model_request(
+        self,
+        ctx: RunContext[AgentDeps],
+        request_context: ModelRequestContext,
+    ) -> ModelRequestContext:
+        specs = [
+            {
+                "name": tool.name,
+                "description": tool.description,
+                "parameters": tool.parameters_json_schema,
+            }
+            for tool in request_context.model_request_parameters.function_tools
+        ]
+        self.on_capture(request_context.messages, specs)
+        return request_context
+
+
+def build_agent(
+    settings: Settings | None = None,
+    *,
+    conversation_capture: (
+        Callable[[list[ModelMessage], list[dict]], None] | None
+    ) = None,
+) -> Agent[AgentDeps, str]:
     settings = settings or Settings()
     api_key = settings.model_api_key()
     # Deployment-declared sources define first-party domains so corporate
@@ -1210,6 +1251,13 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
             for url in getattr(settings.sources, field, [])
         ]
     )
+    capabilities = []
+    if settings.context.enabled:
+        capabilities.append(
+            ProcessHistory(make_history_processor(settings.context))
+        )
+    if conversation_capture is not None:
+        capabilities.append(_ConversationCapture(conversation_capture))
     agent = Agent(
         _build_chat_model(settings.model, api_key),
         system_prompt=SYSTEM_PROMPT,
@@ -1218,11 +1266,7 @@ def build_agent(settings: Settings | None = None) -> Agent[AgentDeps, str]:
         model_settings=_bounded_model_settings(
             settings.context, settings.context.main_output_tokens
         ),
-        capabilities=(
-            [ProcessHistory(make_history_processor(settings.context))]
-            if settings.context.enabled
-            else []
-        ),
+        capabilities=capabilities or None,
         # run 011: the model once called document_search with a document_id
         # arg; one retry let the whole run crash. Give it more chances to
         # self-correct on validation errors before failing the task.
