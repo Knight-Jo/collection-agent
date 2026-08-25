@@ -83,7 +83,10 @@ def _report_limitations(coverage: CoverageSnapshot) -> list[str]:
 
 
 def build_verified_report_draft(
-    cwd: Path, task_id: str
+    cwd: Path,
+    task_id: str,
+    *,
+    allowed_fact_ids: set[str] | None = None,
 ) -> ResearchReportInput:
     """Build an honest report draft from facts with verified support."""
     task = load_task(cwd, task_id)
@@ -91,6 +94,8 @@ def build_verified_report_draft(
         question.id: [] for question in task.questions
     }
     for fact in list_active_facts_for_task(cwd, task.id):
+        if allowed_fact_ids is not None and fact.id not in allowed_fact_ids:
+            continue
         if verified_support_evidence(cwd, fact.id):
             facts_by_question[fact.question_id].append(
                 ResearchReportedConclusion(fact_id=fact.id)
@@ -110,6 +115,10 @@ def generate_research_report(
     cwd: Path,
     task_id: str,
     draft: ResearchReportInput,
+    *,
+    allowed_fact_ids: set[str] | None = None,
+    output_path: str | None = None,
+    bind_output: bool = True,
 ) -> dict:
     """Validate structured findings and write the primary research report."""
     task = load_task(cwd, task_id)
@@ -126,16 +135,28 @@ def generate_research_report(
             ],
         }
 
-    facts = list_active_facts_for_task(cwd, task.id)
+    facts = [
+        fact
+        for fact in list_active_facts_for_task(cwd, task.id)
+        if allowed_fact_ids is None or fact.id in allowed_fact_ids
+    ]
     fact_by_id = {fact.id: fact for fact in facts}
     fact_coverage = {
         fact.fact_id: fact
         for question in coverage.per_question
         for fact in question.facts
     }
-    if set(fact_by_id) != set(
+    coverage_invalid = set(fact_by_id) != set(
         fact_coverage
-    ) or coverage.fingerprint != current_coverage_fingerprint(cwd, task.id):
+    ) or coverage.fingerprint != current_coverage_fingerprint(cwd, task.id)
+    if allowed_fact_ids is not None:
+        fact_coverage = {
+            fact_id: value
+            for fact_id, value in fact_coverage.items()
+            if fact_id in fact_by_id
+        }
+        coverage_invalid = set(fact_by_id) != set(fact_coverage)
+    if coverage_invalid:
         return {
             "ok": False,
             "errors": [
@@ -477,14 +498,38 @@ def generate_research_report(
             f"{document.publish_time or '发布时间未知'}，{document.final_url}"
         )
 
-    relative_path = f"output/{_slug(task.topic)}-research-report.md"
-    write_file_atomic(cwd, relative_path, "\n".join(lines) + "\n")
-    bind_task_output(
-        cwd,
-        task.id,
-        "report",
-        relative_path,
-        coverage,
-        document_hashes=document_hashes,
+    relative_path = (
+        output_path or f"output/{_slug(task.topic)}-research-report.md"
     )
+    write_file_atomic(cwd, relative_path, "\n".join(lines) + "\n")
+    if bind_output:
+        bind_task_output(
+            cwd,
+            task.id,
+            "report",
+            relative_path,
+            coverage,
+            document_hashes=document_hashes,
+        )
     return {"ok": True, "path": str(cwd / relative_path), "errors": []}
+
+
+def render_verified_report(
+    cwd: Path,
+    task_id: str,
+    *,
+    allowed_fact_ids: set[str],
+    output_path: str,
+) -> dict:
+    """Render a verified report file without changing the task output binding."""
+    draft = build_verified_report_draft(
+        cwd, task_id, allowed_fact_ids=allowed_fact_ids
+    )
+    return generate_research_report(
+        cwd,
+        task_id,
+        draft,
+        allowed_fact_ids=allowed_fact_ids,
+        output_path=output_path,
+        bind_output=False,
+    )

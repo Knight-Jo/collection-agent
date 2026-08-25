@@ -957,7 +957,12 @@ class StateStore:
             ]
 
     def create_report_draft(
-        self, task_id: str, content_path: str, content_sha256: str
+        self,
+        task_id: str,
+        content_path: str,
+        content_sha256: str,
+        *,
+        report_id: str | None = None,
     ) -> ReportVersion:
         """Create a draft and abandon the task's previous draft atomically."""
         now = utc_now()
@@ -974,7 +979,7 @@ class StateStore:
                 "FROM report_versions WHERE task_id = ?",
                 (task_id,),
             ).fetchone()[0]
-            report_id = new_id("report")
+            report_id = report_id or new_id("report")
             connection.execute(
                 "INSERT INTO report_versions("
                 "id, task_id, version, status, content_path, content_sha256, "

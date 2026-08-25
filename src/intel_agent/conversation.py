@@ -12,6 +12,7 @@ from .config import Settings
 from .dialogue import DialogueDecision, DialogueEngine
 from .logging import get_logger
 from .models import ActionRequest, CitationDraft, Message
+from .report_versions import ReportPublisher
 from .retrieval import RetrievedPassage, TaskRetriever
 from .state_store import StateStore
 from .task import load_task
@@ -56,7 +57,7 @@ class ConversationRuntime:
         self.dialogue = dialogue or DialogueEngine(settings)
         self.retriever = retriever or TaskRetriever(cwd, self.store)
         self.continuation = continuation
-        self.publisher = publisher
+        self.publisher = publisher or ReportPublisher(cwd, store=self.store)
         self._dialogue_lock = asyncio.Lock()
         self._message_tasks: dict[str, asyncio.Task[None]] = {}
         self._action_tasks: set[asyncio.Task[object]] = set()
