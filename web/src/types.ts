@@ -236,7 +236,17 @@ export interface ConversationAction {
 
 export interface ResearchRun {
   id: string;
-  status: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
+  task_id: string;
+  active_search_plan_version_id: string | null;
+  status:
+    | "queued"
+    | "running"
+    | "stopping"
+    | "stopped"
+    | "succeeded"
+    | "failed"
+    | "cancelled"
+    | "interrupted";
   phase: "planning" | "collecting" | "assessing" | "checkpointing" | null;
   error: string | null;
 }
@@ -245,16 +255,47 @@ export interface ReportVersion {
   id: string;
   version: number;
   status: "draft" | "published" | "superseded" | "abandoned";
+  content_path: string;
+  based_on_checkpoint_id: string | null;
   based_on_committed_state_version: number;
   created_at: string;
 }
 
 export interface ConversationProjection {
-  conversation: { id: string; task_id: string };
+  conversation: Conversation;
   epoch: { id: string; summary: string };
   messages: ConversationMessage[];
   actions: ConversationAction[];
   runs: ResearchRun[];
   reports: ReportVersion[];
   committed_state_version: number;
+}
+
+export interface Conversation {
+  id: string;
+  task_id: string | null;
+  status: "intake" | "active" | "archived";
+  title: string;
+  active_epoch_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TimelineEntry {
+  id: string;
+  conversation_id: string;
+  timeline_sequence: number;
+  source_event_sequence: number | null;
+  entry_type: string;
+  data: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface SearchPlanVersion {
+  id: string;
+  task_id: string;
+  research_run_id: string;
+  sequence: number;
+  plan: Record<string, unknown>;
+  created_at: string;
 }
