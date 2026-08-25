@@ -280,6 +280,10 @@ class ActionRequest(BaseModel):
         if self.status == "proposed":
             if self.request_mode is not None or self.request_message_id:
                 raise ValueError("proposed action cannot have request fields")
+        elif self.status in {"rejected", "expired"} and (
+            self.request_mode is None and self.request_message_id is None
+        ):
+            pass
         elif self.request_mode is None or not self.request_message_id:
             raise ValueError(
                 "queued or terminal action requires request fields"

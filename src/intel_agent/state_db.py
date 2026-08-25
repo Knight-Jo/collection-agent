@@ -112,6 +112,9 @@ CREATE TABLE IF NOT EXISTS action_requests (
         (status = 'proposed' AND request_mode IS NULL
             AND request_message_id IS NULL)
         OR
+        (status IN ('rejected', 'expired')
+            AND request_mode IS NULL AND request_message_id IS NULL)
+        OR
         (status != 'proposed' AND request_mode IS NOT NULL
             AND request_message_id IS NOT NULL)
     ),
