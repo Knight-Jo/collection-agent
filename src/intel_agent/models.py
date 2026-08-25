@@ -42,7 +42,14 @@ ActionRequestStatus = Literal[
     "cancelled",
 ]
 ResearchRunStatus = Literal[
-    "queued", "running", "succeeded", "failed", "cancelled", "interrupted"
+    "queued",
+    "running",
+    "stopping",
+    "stopped",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "interrupted",
 ]
 CheckpointStatus = Literal["started", "committed", "failed", "cancelled"]
 ReportVersionStatus = Literal["draft", "published", "superseded", "abandoned"]
@@ -144,6 +151,21 @@ class ResearchScope(BaseModel):
     languages: list[str] = Field(default_factory=list)
 
 
+class ResearchBrief(BaseModel):
+    """Versioned intake result used to create one research task."""
+
+    schema_version: Literal["1"] = "1"
+    topic: str
+    objective: str = ""
+    key_questions: list[str] = Field(default_factory=list, max_length=6)
+    scope: ResearchScope = Field(default_factory=ResearchScope)
+    entities: list[str] = Field(default_factory=list)
+    constraints: list[str] = Field(default_factory=list)
+    requested_outputs: list[str] = Field(
+        default_factory=lambda: ["research_report"]
+    )
+
+
 class IntelQuestion(BaseModel):
     id: str
     text: str
@@ -194,13 +216,21 @@ class IntelTask(BaseModel):
 
 
 class Conversation(BaseModel):
-    """The single persistent conversation owned by one research task."""
+    """One user-visible conversation, optionally bound to a research task."""
 
     id: str
-    task_id: str
+    task_id: str | None = None
+    status: Literal["intake", "active", "archived"] = "active"
+    title: str = "新对话"
     active_epoch_id: str | None = None
     created_at: str
     updated_at: str
+
+    @model_validator(mode="after")
+    def validate_task_binding(self) -> Self:
+        if self.status == "active" and self.task_id is None:
+            raise ValueError("active conversation requires task_id")
+        return self
 
 
 class ConversationEpoch(BaseModel):
@@ -246,6 +276,22 @@ class Message(BaseModel):
         if self.completed_at is None:
             raise ValueError("assistant message requires completed_at")
         return self
+
+
+class MessageProcessingAttempt(BaseModel):
+    """One processing attempt for an accepted user message."""
+
+    id: str
+    user_message_id: str
+    attempt: int = Field(ge=1)
+    status: Literal[
+        "accepted", "processing", "completed", "failed", "cancelled"
+    ]
+    assistant_message_id: str | None = None
+    error_code: str | None = None
+    error_detail: str | None = None
+    started_at: str
+    completed_at: str | None = None
 
 
 class CitationDraft(BaseModel):
@@ -352,11 +398,19 @@ class ResearchRun(BaseModel):
     created_at: str
     started_at: str | None = None
     completed_at: str | None = None
+    lease_owner: str | None = None
+    lease_expires_at: str | None = None
     error: str | None = None
 
     @model_validator(mode="after")
     def validate_lifecycle(self) -> Self:
-        terminal = {"succeeded", "failed", "cancelled", "interrupted"}
+        terminal = {
+            "stopped",
+            "succeeded",
+            "failed",
+            "cancelled",
+            "interrupted",
+        }
         if self.status in terminal and self.completed_at is None:
             raise ValueError("terminal run requires completed_at")
         if self.run_type == "retry" and not self.retry_of_run_id:
@@ -417,6 +471,7 @@ class ReportVersion(BaseModel):
     status: ReportVersionStatus
     content_path: str
     content_sha256: str
+    based_on_checkpoint_id: str | None = None
     based_on_committed_state_version: int = Field(ge=0)
     publication_origin: Literal["native", "legacy_migration"] = "native"
     created_at: str
@@ -435,6 +490,18 @@ class ReportVersion(BaseModel):
         if self.status != "abandoned" and self.abandoned_at is not None:
             raise ValueError("active report cannot have abandoned_at")
         return self
+
+
+class TimelineEntry(BaseModel):
+    """Rebuildable display projection with its own cursor."""
+
+    id: str
+    conversation_id: str
+    timeline_sequence: int = Field(ge=1)
+    source_event_sequence: int | None = Field(default=None, ge=1)
+    entry_type: str
+    data: dict[str, object] = Field(default_factory=dict)
+    created_at: str
 
 
 class ConversationEvent(BaseModel):

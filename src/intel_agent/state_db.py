@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .storage import ensure_intel_dirs
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -309,6 +309,137 @@ CREATE TABLE IF NOT EXISTS checkpoint_assets (
 );
 """
 
+SCHEMA_V3 = """
+ALTER TABLE task_state ADD COLUMN task_json TEXT;
+ALTER TABLE task_state ADD COLUMN origin_message_id TEXT;
+
+CREATE UNIQUE INDEX task_origin_message
+ON task_state(origin_message_id) WHERE origin_message_id IS NOT NULL;
+
+CREATE TABLE conversations_v3 (
+    id TEXT PRIMARY KEY,
+    task_id TEXT REFERENCES task_state(task_id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'intake'
+        CHECK (status IN ('intake', 'active', 'archived')),
+    title TEXT NOT NULL DEFAULT '新对话',
+    active_epoch_id TEXT REFERENCES conversation_epochs(id),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    CHECK (status != 'active' OR task_id IS NOT NULL)
+);
+
+INSERT INTO conversations_v3(
+    id, task_id, status, title, active_epoch_id, created_at, updated_at
+)
+SELECT id, task_id, 'active', '历史调研', active_epoch_id, created_at, updated_at
+FROM conversations;
+
+DROP TABLE conversations;
+ALTER TABLE conversations_v3 RENAME TO conversations;
+
+CREATE TABLE research_runs_v3 (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES task_state(task_id) ON DELETE CASCADE,
+    run_type TEXT NOT NULL CHECK (run_type IN (
+        'initial', 'continue_research', 'retry', 'legacy_import'
+    )),
+    provenance TEXT NOT NULL DEFAULT 'native'
+        CHECK (provenance IN ('native', 'migrated')),
+    trigger_message_id TEXT REFERENCES messages(id),
+    action_request_id TEXT REFERENCES action_requests(id),
+    retry_of_run_id TEXT REFERENCES research_runs_v3(id),
+    input_committed_state_version INTEGER NOT NULL
+        CHECK (input_committed_state_version >= 0),
+    input_snapshot_json TEXT NOT NULL,
+    initial_search_plan_version_id TEXT REFERENCES search_plan_versions(id),
+    active_search_plan_version_id TEXT REFERENCES search_plan_versions(id),
+    status TEXT NOT NULL CHECK (status IN (
+        'queued', 'running', 'stopping', 'stopped', 'succeeded', 'failed',
+        'cancelled', 'interrupted'
+    )),
+    phase TEXT CHECK (phase IN (
+        'planning', 'collecting', 'assessing', 'checkpointing'
+    )),
+    outcome TEXT CHECK (outcome IN ('sufficient', 'with_gaps')),
+    created_at TEXT NOT NULL,
+    started_at TEXT,
+    completed_at TEXT,
+    lease_owner TEXT,
+    lease_expires_at TEXT,
+    error TEXT,
+    CHECK (run_type != 'retry' OR retry_of_run_id IS NOT NULL),
+    CHECK (
+        status NOT IN (
+            'stopped', 'succeeded', 'failed', 'cancelled', 'interrupted'
+        ) OR completed_at IS NOT NULL
+    )
+);
+
+INSERT INTO research_runs_v3(
+    id, task_id, run_type, provenance, trigger_message_id,
+    action_request_id, retry_of_run_id, input_committed_state_version,
+    input_snapshot_json, initial_search_plan_version_id,
+    active_search_plan_version_id, status, phase, outcome, created_at,
+    started_at, completed_at, error
+)
+SELECT id, task_id, run_type, provenance, trigger_message_id,
+    action_request_id, retry_of_run_id, input_committed_state_version,
+    input_snapshot_json, initial_search_plan_version_id,
+    active_search_plan_version_id, status, phase, outcome, created_at,
+    started_at, completed_at, error
+FROM research_runs;
+
+DROP TABLE research_runs;
+ALTER TABLE research_runs_v3 RENAME TO research_runs;
+
+ALTER TABLE report_versions ADD COLUMN based_on_checkpoint_id TEXT
+    REFERENCES research_checkpoints(id);
+
+CREATE TABLE research_briefs (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL REFERENCES conversations(id)
+        ON DELETE CASCADE,
+    trigger_message_id TEXT NOT NULL UNIQUE REFERENCES messages(id),
+    task_id TEXT UNIQUE REFERENCES task_state(task_id),
+    schema_version TEXT NOT NULL,
+    brief_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE message_processing_attempts (
+    id TEXT PRIMARY KEY,
+    user_message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    attempt INTEGER NOT NULL CHECK (attempt >= 1),
+    status TEXT NOT NULL CHECK (status IN (
+        'accepted', 'processing', 'completed', 'failed', 'cancelled'
+    )),
+    assistant_message_id TEXT REFERENCES messages(id),
+    error_code TEXT,
+    error_detail TEXT,
+    started_at TEXT NOT NULL,
+    completed_at TEXT,
+    UNIQUE (user_message_id, attempt)
+);
+
+CREATE TABLE timeline_entries (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL REFERENCES conversations(id)
+        ON DELETE CASCADE,
+    timeline_sequence INTEGER NOT NULL CHECK (timeline_sequence >= 1),
+    source_event_sequence INTEGER,
+    entry_type TEXT NOT NULL,
+    data_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    UNIQUE (conversation_id, timeline_sequence)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS one_active_epoch_per_conversation
+ON conversation_epochs(conversation_id) WHERE archived_at IS NULL;
+
+CREATE UNIQUE INDEX one_running_run_per_task
+ON research_runs(task_id) WHERE status IN ('running', 'stopping');
+"""
+
 
 def state_db_path(cwd: Path) -> Path:
     """Return the local SQLite state database path."""
@@ -341,4 +472,22 @@ def initialize_state_db(cwd: Path) -> Path:
                 "INSERT OR IGNORE INTO schema_migrations(version) VALUES (?)",
                 (2,),
             )
+        migrated = connection.execute(
+            "SELECT 1 FROM schema_migrations WHERE version = 3"
+        ).fetchone()
+        if SCHEMA_VERSION >= 3 and migrated is None:
+            connection.commit()
+            connection.execute("PRAGMA foreign_keys = OFF")
+            connection.executescript(SCHEMA_V3)
+            connection.execute(
+                "INSERT INTO schema_migrations(version) VALUES (?)", (3,)
+            )
+            connection.execute("PRAGMA foreign_keys = ON")
+            violations = connection.execute(
+                "PRAGMA foreign_key_check"
+            ).fetchall()
+            if violations:
+                raise sqlite3.IntegrityError(
+                    f"state migration violated foreign keys: {violations}"
+                )
     return path

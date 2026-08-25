@@ -35,6 +35,9 @@ def test_initialize_enables_sqlite_safety_and_schema(cwd):
         "message_citations",
         "task_committed_assets",
         "checkpoint_assets",
+        "research_briefs",
+        "message_processing_attempts",
+        "timeline_entries",
     } <= tables
 
     with connect_state_db(cwd) as connection:
@@ -45,7 +48,47 @@ def test_initialize_enables_sqlite_safety_and_schema(cwd):
             )
         ]
 
-    assert versions == [1, 2]
+    assert versions == [1, 2, 3]
+
+
+def test_schema_supports_intake_and_multiple_conversations_per_task(cwd):
+    initialize_state_db(cwd)
+
+    with connect_state_db(cwd) as connection:
+        connection.execute(
+            "INSERT INTO conversations(id, status, title, created_at, updated_at) "
+            "VALUES ('intake-1', 'intake', '新对话', 'now', 'now')"
+        )
+        connection.execute(
+            "INSERT INTO task_state(task_id, task_json, origin_message_id) "
+            "VALUES ('task-1', '{}', 'message-origin')"
+        )
+        for conversation_id in ("conversation-1", "conversation-2"):
+            connection.execute(
+                "INSERT INTO conversations("
+                "id, task_id, status, title, created_at, updated_at"
+                ") VALUES (?, 'task-1', 'active', '调研', 'now', 'now')",
+                (conversation_id,),
+            )
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "INSERT INTO task_state(task_id, task_json, origin_message_id) "
+                "VALUES ('task-2', '{}', 'message-origin')"
+            )
+
+
+def test_schema_rejects_active_conversation_without_task(cwd):
+    initialize_state_db(cwd)
+
+    with (
+        connect_state_db(cwd) as connection,
+        pytest.raises(sqlite3.IntegrityError),
+    ):
+        connection.execute(
+            "INSERT INTO conversations("
+            "id, status, title, created_at, updated_at"
+            ") VALUES ('conversation-1', 'active', '调研', 'now', 'now')"
+        )
 
 
 def test_schema_enforces_foreign_keys_and_status_values(cwd):
