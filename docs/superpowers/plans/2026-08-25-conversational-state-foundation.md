@@ -10,6 +10,12 @@
 
 **Spec:** `docs/architecture/conversational-research-task-architecture.md`
 
+**Implementation status (2026-08-25):** Implemented on
+`feat/conversational-state-foundation`. Schema version 1 owns only the new
+conversation runtime records. Existing task, document, fact, and evidence JSON
+records remain unchanged until the offline migration delivery. No record type is
+written to both SQLite and JSON.
+
 ## Global Constraints
 
 - The first release is single-machine and single-user; do not add accounts, roles, authentication, or authorization.
@@ -32,7 +38,7 @@
 - Produces: `Conversation`, `ConversationEpoch`, `Message`, `ActionRequest`, `ResearchRun`, `SearchPlanVersion`, `ResearchCheckpoint`, `ReportVersion`, and `ConversationEvent`.
 - Produces status aliases: `MessageStatus`, `ActionRequestStatus`, `ResearchRunStatus`, `CheckpointStatus`, and `ReportVersionStatus`.
 
-- [ ] **Step 1: Write failing construction and validation tests**
+- [x] **Step 1: Write failing construction and validation tests**
 
 ```python
 import pytest
@@ -82,13 +88,13 @@ def test_terminal_run_cannot_be_active():
         )
 ```
 
-- [ ] **Step 2: Run the focused tests and verify RED**
+- [x] **Step 2: Run the focused tests and verify RED**
 
 Run: `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest tests/test_state_models.py -q`
 
 Expected: collection fails because the new model names do not exist.
 
-- [ ] **Step 3: Add the minimum typed models**
+- [x] **Step 3: Add the minimum typed models**
 
 Add lower-case `Literal` aliases and Pydantic models to `models.py`. Use one `model_validator(mode="after")` per model only where cross-field rules cannot be expressed by `Field`, including:
 
@@ -98,8 +104,14 @@ MessageStatus = Literal[
     "accepted", "processing", "completed", "failed", "cancelled"
 ]
 ActionRequestStatus = Literal[
-    "proposed", "queued", "executing", "succeeded", "failed",
-    "rejected", "expired", "cancelled",
+    "proposed",
+    "queued",
+    "executing",
+    "succeeded",
+    "failed",
+    "rejected",
+    "expired",
+    "cancelled",
 ]
 ResearchRunStatus = Literal[
     "queued", "running", "succeeded", "failed", "cancelled", "interrupted"
@@ -127,11 +139,17 @@ class ActionRequest(BaseModel):
     task_id: str
     trigger_message_id: str
     action_type: Literal[
-        "continue_research", "search_gap", "search_specific_topic",
-        "modify_search_plan", "generate_report", "regenerate_report",
+        "continue_research",
+        "search_gap",
+        "search_specific_topic",
+        "modify_search_plan",
+        "generate_report",
+        "regenerate_report",
     ]
     immutable_payload: dict[str, object]
-    request_mode: Literal["explicit_message", "confirmed_proposal"] | None = None
+    request_mode: Literal["explicit_message", "confirmed_proposal"] | None = (
+        None
+    )
     request_message_id: str | None = None
     precondition_committed_state_version: int = Field(ge=0)
     precondition_search_plan_version_id: str | None = None
@@ -171,7 +189,9 @@ class ResearchRun(BaseModel):
     initial_search_plan_version_id: str | None = None
     active_search_plan_version_id: str | None = None
     status: ResearchRunStatus
-    phase: Literal["planning", "collecting", "assessing", "checkpointing"] | None = None
+    phase: (
+        Literal["planning", "collecting", "assessing", "checkpointing"] | None
+    ) = None
     outcome: Literal["sufficient", "with_gaps"] | None = None
     created_at: str
     started_at: str | None = None
@@ -233,13 +253,13 @@ class ConversationEvent(BaseModel):
 
 User messages require `client_message_id`; assistant messages require `status="completed"`, no client ID, and a `reply_to_id`. Proposed actions require null request fields; every other action status requires both request fields. A succeeded/failed/cancelled/interrupted run requires `completed_at`.
 
-- [ ] **Step 4: Run the focused tests and verify GREEN**
+- [x] **Step 4: Run the focused tests and verify GREEN**
 
 Run: `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest tests/test_state_models.py -q`
 
 Expected: all state model tests pass.
 
-- [ ] **Step 5: Commit the model slice**
+- [x] **Step 5: Commit the model slice**
 
 ```bash
 git add src/intel_agent/models.py tests/test_state_models.py
@@ -259,7 +279,7 @@ git commit -m "feat(conversation): add persistent state models"
 - Produces: `initialize_state_db(cwd: Path) -> Path`.
 - Consumes: `ensure_intel_dirs(cwd)`.
 
-- [ ] **Step 1: Write failing database initialization tests**
+- [x] **Step 1: Write failing database initialization tests**
 
 ```python
 def test_initialize_enables_sqlite_safety_and_schema(cwd):
@@ -275,9 +295,16 @@ def test_initialize_enables_sqlite_safety_and_schema(cwd):
             )
         }
     assert {
-        "task_state", "conversations", "conversation_epochs", "messages",
-        "action_requests", "research_runs", "search_plan_versions",
-        "research_checkpoints", "report_versions", "conversation_events",
+        "task_state",
+        "conversations",
+        "conversation_epochs",
+        "messages",
+        "action_requests",
+        "research_runs",
+        "search_plan_versions",
+        "research_checkpoints",
+        "report_versions",
+        "conversation_events",
     } <= tables
 
 
@@ -299,13 +326,13 @@ def test_partial_indexes_reject_two_running_runs(cwd):
             )
 ```
 
-- [ ] **Step 2: Run the focused tests and verify RED**
+- [x] **Step 2: Run the focused tests and verify RED**
 
 Run: `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest tests/test_state_db.py -q`
 
 Expected: collection fails because `intel_agent.state_db` does not exist.
 
-- [ ] **Step 3: Implement the stdlib SQLite boundary and schema version 1**
+- [x] **Step 3: Implement the stdlib SQLite boundary and schema version 1**
 
 `connect_state_db` opens a new connection for each caller, sets `row_factory=sqlite3.Row`, `PRAGMA foreign_keys=ON`, and `PRAGMA busy_timeout=5000`. `initialize_state_db` creates the parent directory, opens the connection, sets WAL, and applies an idempotent schema in one transaction.
 
@@ -331,13 +358,13 @@ WHERE client_message_id IS NOT NULL;
 
 Add `"data/intel/intel.db"`, `"data/intel/intel.db-wal"`, and `"data/intel/intel.db-shm"` parent coverage through the existing `ensure_intel_dirs`; do not add the generated files to Git.
 
-- [ ] **Step 4: Run database tests and verify GREEN**
+- [x] **Step 4: Run database tests and verify GREEN**
 
 Run: `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest tests/test_state_db.py -q`
 
 Expected: all schema, PRAGMA, FK, CHECK, and partial-index tests pass.
 
-- [ ] **Step 5: Commit the database slice**
+- [x] **Step 5: Commit the database slice**
 
 ```bash
 git add src/intel_agent/state_db.py src/intel_agent/storage.py tests/test_state_db.py
@@ -359,7 +386,7 @@ git commit -m "feat(conversation): add sqlite state schema"
 - Produces: `StateStore.start_epoch(task_id: str) -> ConversationEpoch`.
 - Produces: `StateStore.list_messages(task_id: str, *, active_epoch_only: bool = True) -> list[Message]`.
 
-- [ ] **Step 1: Write failing repository transaction tests**
+- [x] **Step 1: Write failing repository transaction tests**
 
 ```python
 def test_message_retry_is_idempotent(cwd):
@@ -391,23 +418,23 @@ def test_complete_message_inserts_one_immutable_assistant_reply(cwd):
     assert store.get_message(user.id).status == "completed"
 ```
 
-- [ ] **Step 2: Run repository tests and verify RED**
+- [x] **Step 2: Run repository tests and verify RED**
 
 Run: `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest tests/test_state_store.py -q`
 
 Expected: collection fails because `StateStore` does not exist.
 
-- [ ] **Step 3: Implement short transactional repository methods**
+- [x] **Step 3: Implement short transactional repository methods**
 
 Use `BEGIN IMMEDIATE` only while assigning a sequence or switching epochs. On duplicate `(conversation_id, client_message_id)`, return the existing row and reject a retry whose content differs with `IntelError("IDEMPOTENCY_CONFLICT", ...)`. `complete_message` updates the user request to completed and inserts the assistant reply in one transaction. Convert rows through private `_row_to_*` helpers; do not expose `sqlite3.Row` outside the module.
 
-- [ ] **Step 4: Run repository and existing storage tests**
+- [x] **Step 4: Run repository and existing storage tests**
 
 Run: `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest tests/test_state_store.py tests/test_storage.py -q`
 
 Expected: all tests pass and existing atomic JSON behavior is unchanged.
 
-- [ ] **Step 5: Commit the conversation store slice**
+- [x] **Step 5: Commit the conversation store slice**
 
 ```bash
 git add src/intel_agent/state_store.py tests/test_state_store.py
@@ -427,7 +454,7 @@ git commit -m "feat(conversation): persist task messages"
 - Produces: `append_event(...) -> ConversationEvent` and `events_after(...) -> list[ConversationEvent]`.
 - Produces: `create_report_draft(...) -> ReportVersion`, `abandon_report(...) -> ReportVersion`, and `publish_report(...) -> ReportVersion`.
 
-- [ ] **Step 1: Write failing lifecycle and constraint tests**
+- [x] **Step 1: Write failing lifecycle and constraint tests**
 
 ```python
 def prepared_store(cwd):
@@ -483,13 +510,13 @@ def test_stale_report_requires_explicit_flag(cwd):
         store.publish_report(draft.id)
 ```
 
-- [ ] **Step 2: Run lifecycle tests and verify RED**
+- [x] **Step 2: Run lifecycle tests and verify RED**
 
 Run: `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest tests/test_state_store.py -q`
 
 Expected: tests fail because lifecycle methods are missing.
 
-- [ ] **Step 3: Implement explicit transition maps and atomic mutations**
+- [x] **Step 3: Implement explicit transition maps and atomic mutations**
 
 Keep these transition maps as module constants:
 
@@ -509,13 +536,13 @@ Reject every unlisted transition with `IntelError("INVALID_STATE_TRANSITION", ..
 
 Persist only durable events. `append_event` assigns a conversation-scoped monotonic sequence under `BEGIN IMMEDIATE`; `events_after` orders by sequence.
 
-- [ ] **Step 4: Run the complete state foundation suite**
+- [x] **Step 4: Run the complete state foundation suite**
 
 Run: `UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest tests/test_state_models.py tests/test_state_db.py tests/test_state_store.py tests/test_storage.py -q`
 
 Expected: all tests pass.
 
-- [ ] **Step 5: Run static verification**
+- [x] **Step 5: Run static verification**
 
 ```bash
 UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff format --check src/intel_agent/models.py src/intel_agent/state_db.py src/intel_agent/state_store.py tests/test_state_models.py tests/test_state_db.py tests/test_state_store.py
@@ -525,7 +552,7 @@ UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright src/intel_agent/models.py sr
 
 Expected: all commands exit 0.
 
-- [ ] **Step 6: Commit the lifecycle slice**
+- [x] **Step 6: Commit the lifecycle slice**
 
 ```bash
 git add src/intel_agent/state_store.py tests/test_state_store.py
@@ -541,11 +568,11 @@ git commit -m "feat(conversation): enforce persistent lifecycles"
 **Interfaces:**
 - Records the implemented schema version and the next delivery boundary.
 
-- [ ] **Step 1: Mark this plan implemented and document the staged boundary**
+- [x] **Step 1: Mark this plan implemented and document the staged boundary**
 
 Add an implementation status noting that SQLite owns only the new conversation runtime records in this delivery. State that existing JSON task/document/fact/evidence data remains unchanged until the offline migration delivery; there is no dual write for any record type.
 
-- [ ] **Step 2: Run project verification**
+- [x] **Step 2: Run project verification**
 
 ```bash
 UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff format --check .
@@ -557,7 +584,7 @@ UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run build
 
 Expected: every command exits 0.
 
-- [ ] **Step 3: Commit verification records**
+- [x] **Step 3: Commit verification records**
 
 ```bash
 git add docs/architecture/conversational-research-task-architecture.md docs/superpowers/plans/2026-08-25-conversational-state-foundation.md
