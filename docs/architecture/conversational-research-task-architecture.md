@@ -2,7 +2,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | 架构修订完成，待最终评审 |
+| 状态 | 架构基线已冻结，可进入实施设计 |
 | 确认日期 | 2026-08-25 |
 | 适用范围 | 本地单用户公开信息调研工作台 |
 | 核心目标 | 将一次性研究运行改造成任务驱动、状态持久、可对话控制的调研系统 |
@@ -207,15 +207,22 @@ Conversation
   id, task_id, active_epoch_id, created_at, updated_at
 
 ConversationEpoch
-  id, conversation_id, sequence, summary, started_at, archived_at
+  id, conversation_id, sequence,
+  summary, summary_through_sequence, summary_updated_at,
+  started_at, archived_at
 
 Message
-  id, epoch_id, role, content, status, intent,
-  authorization_quote, reply_to_id, created_at, completed_at, error
+  id, conversation_id, epoch_id,
+  sequence, client_message_id nullable,
+  role, content, status, intent,
+  reply_to_id, created_at, completed_at, error
 ```
 
 `Message.content` 创建后不可修改。重新回答产生新 assistant Message，不覆盖
 旧消息。清空上下文会归档当前 epoch 并新建 epoch；审计记录继续保留。
+`client_message_id` 只用于 user Message；assistant Message 为空。
+`summary_through_sequence` 明确摘要已经覆盖到哪条 Message，Context Builder 只把
+其后的消息作为 recent messages，避免重复注入。
 
 #### ActionRequest
 
@@ -223,7 +230,11 @@ Message
 ActionRequest
   id, task_id, trigger_message_id,
   action_type, immutable_payload,
+  authorization_mode nullable,
+  authorization_message_id nullable,
+  authorization_quote nullable,
   precondition_committed_state_version,
+  precondition_search_plan_version_id nullable,
   status, authorized_at, queued_at, executing_at, completed_at,
   created_research_run_id,
   target_research_run_id, applied_search_plan_version_id,
@@ -239,13 +250,26 @@ ActionRequest
   `applied_search_plan_version_id` 和 `applied_checkpoint_id`；
 - 报告动作关联 `created_report_version_id`。
 
-数据库 `CHECK` 约束保证每类动作只填写允许的结果字段。ActionRequest 表达“用户
+数据库 `CHECK` 约束保证每类动作只填写允许的前置条件和结果字段；
+MODIFY_SEARCH_PLAN 必须提供目标 Run 和前置计划版本。ActionRequest 表达“用户
 授权了什么动作”，不是 ResearchRun 的影子状态机。
+
+`authorization_mode` 首版只允许 `EXPLICIT_NATURAL_LANGUAGE` 和
+`USER_CONFIRMED_PROPOSAL`。前者必须保存授权 Message 和逐字引用；后者保存按钮
+确认产生的 user Message，`authorization_quote` 必须为空。PROPOSED 阶段三个
+授权字段均为空。初始研究可以不由 ActionRequest 创建，因此不增加可能绕过用户
+授权的 `SYSTEM_INTERNAL` 模式。
+授权字段在 PROPOSED → AUTHORIZED 时一次写入，之后不可修改。
+
+一条 Message 可以产生多个 ActionRequest；每个 ActionRequest 分别固定自己的
+授权方式、授权 Message、授权范围和授权原文，不能共享 Message 级授权字段。
+Message 的 `intent` 只保存结构化识别结果，可以包含多个请求动作，不承担授权
+证明。
 
 | action_type | 执行结果关联 |
 | --- | --- |
 | CONTINUE_RESEARCH / SEARCH_GAP / SEARCH_SPECIFIC_TOPIC | `created_research_run_id` |
-| MODIFY_SEARCH_PLAN | `target_research_run_id`、`applied_search_plan_version_id`、`applied_checkpoint_id` |
+| MODIFY_SEARCH_PLAN | `target_research_run_id`、`precondition_search_plan_version_id`、`applied_search_plan_version_id`、`applied_checkpoint_id` |
 | GENERATE_REPORT / REGENERATE_REPORT | `created_report_version_id` |
 
 #### ResearchRun
@@ -345,9 +369,10 @@ DomainStateTransition
 
 1. 每个业务对象只属于一个 IntelTask；所有读取先校验 task ownership。
 2. 每个 IntelTask 恰有一个 Conversation，同一时刻恰有一个 active epoch。
-3. 每个 IntelTask 同时最多一个 active ResearchRun；首版工作区同时最多一个
-   active ResearchRun，其余运行排队。
-4. ActionRequest 的 action type、payload 和触发消息创建后不可修改。
+3. active ResearchRun 明确定义为 `status=RUNNING`。每个 IntelTask 和首版工作区
+   同时最多一个 RUNNING ResearchRun；QUEUED Run 可以有多个。
+4. ActionRequest 的 action type、payload、触发消息和前置版本创建后不可修改；
+   授权字段第一次写入后不可修改。
 5. SearchPlanVersion、Message、SupportReview、ResearchCheckpoint 和
    ReportVersion 永不覆盖。
 6. Document、Fact、Evidence 不物理删除；Fact/Evidence 内容不可原地修改，
@@ -358,7 +383,9 @@ DomainStateTransition
 9. 每个 Task 同时最多一个 Published ReportVersion；发布在单个事务内切换。
 10. TaskSnapshot 可以丢弃并重建，不能作为事务输入覆盖权威记录。
 11. 阅读优先级只影响材料页的阅读排序，不能参与证据审核或覆盖评分。
-12. `committed_state_version` 只在 checkpoint 改变已提交研究状态时递增；消息、
+12. Message 的 `(conversation_id, sequence)` 和非空
+    `(conversation_id, client_message_id)` 分别唯一。
+13. `committed_state_version` 只在 checkpoint 改变已提交研究状态时递增；消息、
     SSE 和报告发布不改变它。
 
 ## 5. 状态机
@@ -379,9 +406,12 @@ stateDiagram-v2
 
 ```text
 RESEARCHING       存在 active ResearchRun
+QUEUED_FOR_RESEARCH  不存在 RUNNING Run，但存在 QUEUED Run
 READY_FOR_REVIEW  没有 active Run，存在未发布 Draft
 IDLE              没有 active Run，也没有待处理 Draft
 ```
+
+投影按表中顺序匹配，避免存在 QUEUED Run 时误显示为 READY 或 IDLE。
 
 `completion_status` 取最新 committed CoverageSnapshot 的
 `sufficient/with_gaps`，不是不可逆生命周期。
@@ -393,7 +423,7 @@ stateDiagram-v2
     [*] --> QUEUED
     QUEUED --> RUNNING: 调度器取得执行权
     QUEUED --> CANCELLED: 用户取消
-    RUNNING --> SUCCEEDED: checkpoint 完成
+    RUNNING --> SUCCEEDED: 研究目标结束且最终 checkpoint 提交成功
     RUNNING --> FAILED: 可归因错误
     RUNNING --> CANCELLED: 协作式取消完成
     RUNNING --> INTERRUPTED: 进程异常退出
@@ -432,6 +462,11 @@ ResearchCheckpoint 应用；报告动作创建 ReportVersion。旧建议的
 `precondition_committed_state_version` 与当前版本不一致时必须重新校验；缺口已
 消失或范围不再成立则进入 `EXPIRED`，不能创建重复工作。
 
+`MODIFY_SEARCH_PLAN` 还必须比较目标 Run 当前
+`active_search_plan_version_id` 与 `precondition_search_plan_version_id`。版本一致
+时直接应用；不一致时只允许对互不冲突的字段做确定性 rebase 并生成下一版本，
+存在冲突则标记 `EXPIRED`，由用户重新确认。
+
 ### 5.4 Conversation、Epoch 与 Message
 
 Conversation 随 Task 存续，不提供普通物理删除。Epoch 状态机为：
@@ -454,6 +489,10 @@ stateDiagram-v2
     PROCESSING --> FAILED
     PROCESSING --> CANCELLED: 协作式取消
 ```
+
+该处理状态机只用于 user Message。assistant Message 在完整内容生成后一次性插入，
+初始状态即 `COMPLETED`，并用 `reply_to_id` 关联 user Message。流式 delta 使用
+user Message ID 关联当前请求，不提前创建半成品 assistant Message。
 
 取消回答不撤销已经由独立事务授权的 ActionRequest；需要单独取消 Action 或
 ResearchRun。
@@ -564,12 +603,25 @@ message_citations, conversation_events
 不为 TaskSnapshot 建表。只有 committed research 子投影按
 `committed_state_version` 缓存；运行态始终从权威表读取。
 
+下列不变量必须由 SQLite 唯一约束或 partial unique index 落实，而不是只由应用
+代码检查：
+
+```text
+conversations(task_id)                                      UNIQUE
+messages(conversation_id, sequence)                         UNIQUE
+messages(conversation_id, client_message_id)                UNIQUE WHERE client_message_id IS NOT NULL
+conversation_epochs(conversation_id)                        UNIQUE WHERE archived_at IS NULL
+research_runs(task_id)                                      UNIQUE WHERE status = 'RUNNING'
+report_versions(task_id)                                    UNIQUE WHERE status = 'DRAFT'
+report_versions(task_id)                                    UNIQUE WHERE status = 'PUBLISHED'
+```
+
 ### 6.3 事务边界
 
 | 事务 | 必须原子完成的变化 |
 | --- | --- |
 | 接收消息 | 写 Message、分配 conversation sequence、写 `message.accepted` |
-| 授权动作 | 校验授权前提、推进 ActionRequest，并按类型排队对应执行器 |
+| 按钮授权动作 | 写确认 user Message、校验授权前提、推进 ActionRequest，并按类型排队对应执行器 |
 | Checkpoint commit | 将 STARTED ResearchCheckpoint、资产关系、治理状态、DomainStateTransition、CoverageSnapshot、committed state version 和持久事件一起提交 |
 | 发布报告 | 旧版本失效、新版本发布、Task 指针和事件 |
 | 新建 Epoch | 归档旧 Epoch、新建 active Epoch、更新 Conversation 指针 |
@@ -597,13 +649,18 @@ REGENERATE_REPORT
 
 Dialogue Controller 使用结构化输出，不依赖“消息是否包含继续搜索”这样的字符
 判断。对于自然语言显式授权，输出必须包含用户原文中的
-`authorization_quote`；策略层无法确认授权时，只创建 `PROPOSED` 请求。
+授权片段；Action Policy 将它保存到对应 ActionRequest 的
+`authorization_quote`。策略层无法确认授权时，只创建 `PROPOSED` 请求。
 按钮确认直接形成 `USER_CONFIRMED_PROPOSAL` 授权。
 
 Action Policy 必须执行以下硬约束，Dialogue 模型的分类结果本身不构成授权：
 
-- `authorization_quote` 必须是当前 user Message 的逐字子串；
-- 动作范围不得大于引用文字明确要求的范围；
+- `authorization_message_id` 必须指向当前 Task 的 user Message；
+- `EXPLICIT_NATURAL_LANGUAGE` 的 `authorization_quote` 必须是该授权 Message 的
+  逐字子串；`USER_CONFIRMED_PROPOSAL` 必须由确认接口记录 user Message，且引用
+  为空；
+- 自然语言动作范围不得大于引用文字明确要求的范围；按钮授权不得超过原
+  PROPOSED ActionRequest 的 immutable payload；
 - 否定、假设、疑问、转述或已撤回表达默认不构成自动授权；
 - ActionRequest 记录 `precondition_committed_state_version`，授权时版本变化则先
   重新校验缺口与范围，前提消失时标记为 `EXPIRED`。
@@ -734,6 +791,7 @@ slot，不受该规则限制。先不引入更复杂的动态权重或抢占调�
 ```text
 GET  /api/tasks/{task_id}/conversation
 POST /api/tasks/{task_id}/conversation/messages
+GET  /api/messages/{message_id}
 POST /api/messages/{message_id}/cancel
 
 POST /api/action-requests/{action_request_id}/authorize
@@ -781,9 +839,14 @@ ActionRequest。
   "research_run_id": null,
   "type": "answer.completed",
   "created_at": "2026-08-25T08:00:00Z",
-  "data": {}
+  "data": {
+    "assistant_message_id": "msg-assistant-..."
+  }
 }
 ```
+
+`answer.completed.message_id` 指向被处理的 user Message，
+`data.assistant_message_id` 指向已经完整持久化的 assistant Message。
 
 事件分为持久事件和临时流事件。持久事件用于审计、恢复和
 `Last-Event-ID` 重放：
@@ -829,11 +892,12 @@ run.progress
 ```
 
 `event_id` 只分配给持久事件，并在一个 Conversation 内单调递增。客户端使用
-`Last-Event-ID` 重放持久事件；若回答已经完成，再读取完整 assistant Message；
-若仍在生成，则继续接收新的 delta，断线期间丢失的 token delta 不回放。数据库
-只保存完成后的 assistant Message 内容，不为每个 token 建记录。`run.progress`
-细粒度 `run.progress` 不持久化；阶段切换、batch 完成和 checkpoint 提交分别使用
-上面的持久事件类型。
+`Last-Event-ID` 重放持久事件。若对应 user Message 仍为 `PROCESSING`，前端丢弃
+断线前的 partial answer，不拼接重连后的 delta，只显示“回答生成中”。收到
+`answer.completed` 后，根据事件中的 `assistant_message_id` GET 完整 assistant
+Message 并一次性替换占位内容。数据库只保存完成后的 assistant Message，不为
+每个 token 建记录。细粒度 `run.progress` 不持久化；阶段切换、batch 完成和
+checkpoint 提交分别使用上面的持久事件类型。
 
 ## 11. 完整用户操作时序
 
@@ -864,7 +928,7 @@ sequenceDiagram
     DC->>Scheduler: P1 生成当前可答内容
     Scheduler-->>DC: AnswerResult
     DC-->>UI: SSE transient answer.delta
-    DC->>DB: 保存完整回答、MessageCitation 和 answer.completed
+    DC->>DB: 保存完整回答、MessageCitation 和 answer.completed(assistant_message_id)
     DB-->>UI: SSE durable answer.completed
 
     alt 用户未明确要求搜索
@@ -874,10 +938,10 @@ sequenceDiagram
         User->>UI: 确认继续搜索
         UI->>API: POST action/authorize
         API->>Policy: USER_CONFIRMED_PROPOSAL
-        Policy->>DB: ActionRequest=AUTHORIZED
+        Policy->>DB: 事务：确认 user Message + ActionRequest=AUTHORIZED
     else 用户消息已明确要求搜索
         DC->>Policy: 授权原文 + 搜索范围
-        Policy->>DB: ActionRequest(AUTHORIZED)
+        Policy->>DB: ActionRequest(AUTHORIZED + message_id + quote)
     end
 
     Policy->>DB: 事务：ActionRequest(QUEUED) + ResearchRun(QUEUED)
@@ -896,9 +960,9 @@ sequenceDiagram
         UI->>API: POST message
         API->>DC: 识别干预意图
         DC->>Policy: 构造已授权的计划变更请求
-        Policy->>DB: ActionRequest(QUEUED) 等待 checkpoint
+        Policy->>DB: ActionRequest(QUEUED + precondition plan) 等待 checkpoint
         Runtime->>Checkpoint: 当前 batch 完成
-        Checkpoint->>DB: 创建 checkpoint，追加计划版本并提交动作结果
+        Checkpoint->>DB: 校验/rebase plan，创建 checkpoint 并提交动作结果
     end
 
     Runtime->>Checkpoint: 提交治理后的资产
@@ -1013,7 +1077,7 @@ Fact/Evidence 状态，但不推测或伪造迁移前的状态变化过程。
 
 | 故障 | 行为 |
 | --- | --- |
-| 浏览器断开 | 重放 Last-Event-ID 后的持久事件；完成回答读取 Message 全文，不回放 token delta |
+| 浏览器断开 | 丢弃 partial answer 并显示生成中；重放持久事件，answer.completed 后读取完整 Message |
 | Dialogue 模型失败 | Message=FAILED，保留检索结果，允许重新回答 |
 | Research 进程退出 | Run=INTERRUPTED 终止；未 checkpoint 资产不可用于 QA，重试创建关联的新 Run |
 | 文件写入失败 | 数据库事务不登记文件，清理临时文件 |
@@ -1048,18 +1112,24 @@ Fact/Evidence 状态，但不推测或伪造迁移前的状态变化过程。
 → 形成哪个 ReportVersion
 ```
 
-模型调用日志只用于技术诊断，不能替代上述业务关系。所有状态迁移记录
-actor、reason、previous_status、new_status、committed_state_version、时间和关联
-ID。ReportVersion 和 MessageCitation 固定生成时的内容哈希，使历史回答与报告
-可重放，同时能够提示依据的当前治理状态。
+模型调用日志只用于技术诊断，不能替代上述业务关系。Fact/Evidence 的治理状态
+迁移由 DomainStateTransition 完整记录 actor、reason、previous/new status、
+committed_state_version 和时间；Message、ActionRequest、ResearchRun、
+ResearchCheckpoint 与 ReportVersion 的生命周期由实体当前状态和持久业务事件
+共同审计，不重复写入 DomainStateTransition。ReportVersion 和 MessageCitation
+固定生成时的内容哈希，使历史回答与报告可重放，同时能够提示依据的当前治理
+状态。
 
 ## 18. 验收标准
 
 ### 18.1 领域与数据一致性
 
 - 数据库启用 WAL 和 foreign keys，迁移后无孤立外键；
-- 一个 Task 不能同时启动两个 active ResearchRun；
-- 一个 Task 不能存在两个 Published ReportVersion；
+- partial unique index 阻止一个 Task 同时存在两个 RUNNING ResearchRun、两个
+  DRAFT 或两个 PUBLISHED ReportVersion，并阻止一个 Conversation 有两个 active
+  Epoch；
+- 同一 `client_message_id` 在一个 Conversation 内重试只产生一条 Message，Message
+  sequence 单调且唯一；
 - ResearchRun 的终态不能回到 QUEUED；重试必须创建带 `retry_of_run_id` 的新 Run；
 - 每次 committed state 变化都能定位到唯一 ResearchCheckpoint、资产增量和状态
   迁移；消息、SSE 和报告发布不会推进该版本；
@@ -1082,12 +1152,16 @@ ID。ReportVersion 和 MessageCitation 固定生成时的内容哈希，使历�
 
 ### 18.3 动作与运行
 
-- 明确且无歧义的搜索指令直接形成 AUTHORIZED ActionRequest；授权原文必须是当前
-  user Message 子串，动作范围不得扩张；
+- 明确且无歧义的搜索指令直接形成 AUTHORIZED ActionRequest；自然语言授权原文
+  必须是 `authorization_message_id` 指向的 user Message 子串，动作范围不得扩张；
+- 一条 Message 触发多个 ActionRequest 时，每个动作分别保存授权方式、授权范围
+  和授权原文；按钮确认保存 user Message 且不伪造 quote；
 - 否定、假设、疑问、转述和撤回表达不能自动授权动作；
 - 模糊缺口只形成 PROPOSED 请求，未经确认不联网；
 - ActionRequest 前提版本变化时重新校验；已补齐缺口的建议进入 EXPIRED，不能
   创建重复 Run；
+- MODIFY_SEARCH_PLAN 在 checkpoint 比较前置计划版本；兼容变更确定性 rebase，
+  冲突变更进入 EXPIRED；
 - 干预只在 checkpoint 应用，并产生新 SearchPlanVersion；
 - 运行中未提交候选不会进入 Evidence QA；
 - P1 问答优先于下一次 P2 调用，但不打断已经开始的 generation；连续三个 P1
@@ -1103,8 +1177,8 @@ ID。ReportVersion 和 MessageCitation 固定生成时的内容哈希，使历�
 - 发布事务失败时旧报告仍有效；
 - 每个版本能还原其 run/fact/evidence 依据及生成时治理状态，并展示依据的当前
   状态变化；
-- SSE 断线重连能重放持久事件并取得完整 Message；token delta 和细粒度进度不
-  写 SQLite；
+- SSE 在回答生成中断线时丢弃 partial buffer，完成后用完整 assistant Message
+  替换；token delta 和细粒度进度不写 SQLite；
 - 浏览器刷新和服务重启后可以继续查看同一 Conversation。
 
 ### 18.5 迁移

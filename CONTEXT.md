@@ -21,7 +21,7 @@ _Avoid_: Prompt, query
 One auditable execution attempt to advance an IntelTask from a frozen input
 state. A failed or interrupted run is terminal; a retry is a new ResearchRun
 linked to the prior attempt. An IntelTask may have many ResearchRuns but at
-most one active ResearchRun.
+most one active ResearchRun; active means `RUNNING`, not queued.
 _Avoid_: Task, conversation turn
 
 **SearchPlanVersion**:
@@ -65,7 +65,8 @@ _Avoid_: Keyword match, tool call
 **ActionRequest**:
 An immutable business request produced from a Message and advanced through a
 generic authorization and execution lifecycle. Its result may be a new run, a
-plan change at a checkpoint, or a report version.
+plan change at a checkpoint, or a report version. Authorization belongs to the
+individual ActionRequest, so one Message may authorize actions independently.
 _Avoid_: Direct tool call, hidden action
 
 **MessageCitation**:
