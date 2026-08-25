@@ -7,9 +7,9 @@ from pathlib import Path
 
 from .storage import ensure_intel_dirs
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
-SCHEMA = """
+SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version INTEGER PRIMARY KEY,
     applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -261,6 +261,54 @@ ON messages(conversation_id, client_message_id)
 WHERE client_message_id IS NOT NULL;
 """
 
+SCHEMA_V2 = """
+CREATE TABLE IF NOT EXISTS message_citations (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES task_state(task_id) ON DELETE CASCADE,
+    message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    sequence INTEGER NOT NULL CHECK (sequence >= 1),
+    citation_kind TEXT NOT NULL CHECK (
+        citation_kind IN ('verified_evidence', 'material_clue')
+    ),
+    document_id TEXT NOT NULL,
+    evidence_id TEXT,
+    fact_id TEXT,
+    title TEXT NOT NULL,
+    source_url TEXT NOT NULL,
+    quote_text TEXT NOT NULL,
+    line_start INTEGER NOT NULL CHECK (line_start >= 1),
+    line_end INTEGER NOT NULL CHECK (line_end >= line_start),
+    source_content_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (message_id, sequence),
+    UNIQUE (
+        message_id, citation_kind, document_id, line_start, line_end
+    )
+);
+
+CREATE TABLE IF NOT EXISTS task_committed_assets (
+    task_id TEXT NOT NULL REFERENCES task_state(task_id) ON DELETE CASCADE,
+    asset_type TEXT NOT NULL CHECK (
+        asset_type IN ('document', 'fact', 'evidence')
+    ),
+    asset_id TEXT NOT NULL,
+    committed_state_version INTEGER NOT NULL
+        CHECK (committed_state_version >= 0),
+    PRIMARY KEY (task_id, asset_type, asset_id)
+);
+
+CREATE TABLE IF NOT EXISTS checkpoint_assets (
+    checkpoint_id TEXT NOT NULL REFERENCES research_checkpoints(id)
+        ON DELETE CASCADE,
+    task_id TEXT NOT NULL REFERENCES task_state(task_id) ON DELETE CASCADE,
+    asset_type TEXT NOT NULL CHECK (
+        asset_type IN ('document', 'fact', 'evidence')
+    ),
+    asset_id TEXT NOT NULL,
+    PRIMARY KEY (checkpoint_id, asset_type, asset_id)
+);
+"""
+
 
 def state_db_path(cwd: Path) -> Path:
     """Return the local SQLite state database path."""
@@ -282,9 +330,15 @@ def initialize_state_db(cwd: Path) -> Path:
     path = state_db_path(cwd)
     with connect_state_db(cwd) as connection:
         connection.execute("PRAGMA journal_mode = WAL")
-        connection.executescript(SCHEMA)
+        connection.executescript(SCHEMA_V1)
         connection.execute(
             "INSERT OR IGNORE INTO schema_migrations(version) VALUES (?)",
-            (SCHEMA_VERSION,),
+            (1,),
         )
+        if SCHEMA_VERSION >= 2:
+            connection.executescript(SCHEMA_V2)
+            connection.execute(
+                "INSERT OR IGNORE INTO schema_migrations(version) VALUES (?)",
+                (2,),
+            )
     return path

@@ -7,7 +7,9 @@ from pydantic import ValidationError
 
 from intel_agent.models import (
     ActionRequest,
+    CitationDraft,
     Message,
+    MessageCitation,
     ReportVersion,
     ResearchCheckpoint,
     ResearchRun,
@@ -122,3 +124,39 @@ def test_published_report_requires_publication_time():
             based_on_committed_state_version=0,
             created_at=NOW,
         )
+
+
+def test_citation_draft_validates_line_range():
+    with pytest.raises(ValidationError):
+        CitationDraft(
+            citation_kind="verified_evidence",
+            document_id="document-1",
+            evidence_id="evidence-1",
+            title="材料",
+            source_url="https://example.com/source",
+            quote_text="引用",
+            line_start=8,
+            line_end=3,
+            source_content_hash="abc",
+        )
+
+
+def test_message_citation_extends_citation_draft():
+    citation = MessageCitation(
+        id="citation-1",
+        task_id="task-1",
+        message_id="message-1",
+        sequence=1,
+        citation_kind="material_clue",
+        document_id="document-1",
+        title="材料",
+        source_url="https://example.com/source",
+        quote_text="引用",
+        line_start=1,
+        line_end=2,
+        source_content_hash="abc",
+        created_at=NOW,
+    )
+
+    assert citation.evidence_id is None
+    assert citation.fact_id is None

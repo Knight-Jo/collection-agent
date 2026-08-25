@@ -54,6 +54,7 @@ ActionType = Literal[
     "generate_report",
     "regenerate_report",
 ]
+CommittedAssetType = Literal["document", "fact", "evidence"]
 SUPPORT_REVIEW_PROMPT_VERSION = "support-entailment-v2"
 
 
@@ -245,6 +246,37 @@ class Message(BaseModel):
         if self.completed_at is None:
             raise ValueError("assistant message requires completed_at")
         return self
+
+
+class CitationDraft(BaseModel):
+    """A task-scoped citation before it is attached to a message."""
+
+    citation_kind: Literal["verified_evidence", "material_clue"]
+    document_id: str
+    evidence_id: str | None = None
+    fact_id: str | None = None
+    title: str
+    source_url: str
+    quote_text: str
+    line_start: int = Field(ge=1)
+    line_end: int = Field(ge=1)
+    source_content_hash: str
+
+    @model_validator(mode="after")
+    def validate_line_range(self) -> Self:
+        if self.line_end < self.line_start:
+            raise ValueError("citation line_end must not precede line_start")
+        return self
+
+
+class MessageCitation(CitationDraft):
+    """A citation durably attached to one assistant message."""
+
+    id: str
+    task_id: str
+    message_id: str
+    sequence: int = Field(ge=1)
+    created_at: str
 
 
 class ActionRequest(BaseModel):
