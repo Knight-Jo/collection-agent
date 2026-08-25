@@ -13,6 +13,7 @@ from pydantic_ai import CancellationToken
 from pydantic_ai.exceptions import RunCancelled
 
 from ..config import Settings
+from ..continuation import ResearchGate
 from ..crawl import CrawlEvent
 from ..models import IntelError, utc_now
 from ..runner import TaskRunSpec, run_agent_task
@@ -59,10 +60,12 @@ class RunRegistry:
         settings: Settings,
         *,
         runner: Runner = run_agent_task,
+        gate: ResearchGate | None = None,
     ) -> None:
         self.cwd = cwd
         self.settings = settings
         self.runner = runner
+        self.gate = gate or ResearchGate()
         self._runs: dict[str, _RunState] = {}
         self._lock = asyncio.Lock()
 
@@ -76,7 +79,13 @@ class RunRegistry:
                     "RUN_ALREADY_ACTIVE",
                     "已有研究任务正在运行，请等待或先停止该任务",
                 )
-            state = _RunState(run_id=f"run-{uuid.uuid4()}", spec=spec)
+            run_id = f"run-{uuid.uuid4()}"
+            if not await self.gate.try_acquire(run_id):
+                raise IntelError(
+                    "RUN_ALREADY_ACTIVE",
+                    "已有研究任务正在运行，请等待或先停止该任务",
+                )
+            state = _RunState(run_id=run_id, spec=spec)
             self._runs[state.run_id] = state
             state.task = asyncio.create_task(self._execute(state))
             return self._view(state)
@@ -207,6 +216,7 @@ class RunRegistry:
         finally:
             recorder.close()
             state.finished_at = utc_now()
+            self.gate.release(state.run_id)
             async with state.condition:
                 state.condition.notify_all()
 

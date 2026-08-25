@@ -144,6 +144,13 @@ def load_task(cwd: Path, task_id: str | None = None) -> IntelTask:
     return task
 
 
+def activate_task(cwd: Path, task_id: str) -> IntelTask:
+    """Select an existing task for tools that use the active-task pointer."""
+    task = load_task(cwd, task_id)
+    write_json_atomic(cwd, ACTIVE_TASK_FILE, {"task_id": task.id})
+    return task
+
+
 def save_task(cwd: Path, task: IntelTask) -> None:
     set_task_id(task.id)
     write_json_atomic(cwd, f"tasks/{task.id}.json", task.model_dump())

@@ -17,7 +17,7 @@ import json
 import re
 from collections.abc import Callable
 from contextlib import AsyncExitStack
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
@@ -1234,9 +1234,40 @@ class _ConversationCapture(AbstractCapability[AgentDeps]):
         return request_context
 
 
+@dataclass
+class _ToolFilter(AbstractCapability[AgentDeps]):
+    """Expose only the named tools for a restricted agent execution."""
+
+    allowed_tools: set[str]
+
+    @classmethod
+    def get_serialization_name(cls) -> str | None:
+        return None
+
+    async def before_model_request(
+        self,
+        ctx: RunContext[AgentDeps],
+        request_context: ModelRequestContext,
+    ) -> ModelRequestContext:
+        parameters = request_context.model_request_parameters
+        return replace(
+            request_context,
+            model_request_parameters=replace(
+                parameters,
+                function_tools=[
+                    tool
+                    for tool in parameters.function_tools
+                    if tool.name in self.allowed_tools
+                ],
+            ),
+        )
+
+
 def build_agent(
     settings: Settings | None = None,
     *,
+    system_prompt: str = SYSTEM_PROMPT,
+    allowed_tools: set[str] | None = None,
     conversation_capture: (
         Callable[[list[ModelMessage], list[dict]], None] | None
     ) = None,
@@ -1257,11 +1288,13 @@ def build_agent(
         capabilities.append(
             ProcessHistory(make_history_processor(settings.context))
         )
+    if allowed_tools is not None:
+        capabilities.append(_ToolFilter(allowed_tools))
     if conversation_capture is not None:
         capabilities.append(_ConversationCapture(conversation_capture))
     agent = Agent(
         _build_chat_model(settings.model, api_key),
-        system_prompt=SYSTEM_PROMPT,
+        system_prompt=system_prompt,
         deps_type=AgentDeps,
         name="intel-agent",
         model_settings=_bounded_model_settings(

@@ -17,6 +17,7 @@ import intel_agent.extract as extract_module
 import intel_agent.runner as runner_module
 from intel_agent.agent import AgentDeps, build_deps
 from intel_agent.config import CrawlConfig, Settings
+from intel_agent.continuation import ResearchGate
 from intel_agent.crawl import crawl_collect
 from intel_agent.fetch import FetchedResponse
 from intel_agent.models import IntelError
@@ -184,6 +185,19 @@ async def test_registry_blocks_parallel_run_and_cancels(cwd):
     registry.cancel(created.run_id)
     await registry.wait(created.run_id)
     assert registry.get(created.run_id).status == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_registry_respects_shared_research_gate(cwd):
+    gate = ResearchGate()
+    assert await gate.try_acquire("continuation")
+    registry = RunRegistry(cwd, Settings(), gate=gate)
+
+    with pytest.raises(IntelError) as error:
+        await registry.create(make_spec())
+
+    assert error.value.code == "RUN_ALREADY_ACTIVE"
+    gate.release("continuation")
 
 
 @pytest.mark.asyncio

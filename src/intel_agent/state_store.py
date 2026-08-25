@@ -880,7 +880,11 @@ class StateStore:
             ).fetchone()
         return _row_to_checkpoint(_required(row, "research checkpoint"))
 
-    def commit_checkpoint(self, checkpoint_id: str) -> ResearchCheckpoint:
+    def commit_checkpoint(
+        self,
+        checkpoint_id: str,
+        assets: Iterable[tuple[CommittedAssetType, str]] = (),
+    ) -> ResearchCheckpoint:
         """Commit one checkpoint and advance the research state once."""
         now = utc_now()
         with connect_state_db(self.cwd) as connection:
@@ -899,6 +903,35 @@ class StateStore:
                     "STALE_CHECKPOINT", "检查点基于过期的研究状态"
                 )
             output_version = input_version + 1
+            asset_values = list(assets)
+            connection.executemany(
+                "INSERT OR IGNORE INTO checkpoint_assets("
+                "checkpoint_id, task_id, asset_type, asset_id"
+                ") VALUES (?, ?, ?, ?)",
+                (
+                    (
+                        checkpoint_id,
+                        checkpoint["task_id"],
+                        asset_type,
+                        asset_id,
+                    )
+                    for asset_type, asset_id in asset_values
+                ),
+            )
+            connection.executemany(
+                "INSERT OR IGNORE INTO task_committed_assets("
+                "task_id, asset_type, asset_id, committed_state_version"
+                ") VALUES (?, ?, ?, ?)",
+                (
+                    (
+                        checkpoint["task_id"],
+                        asset_type,
+                        asset_id,
+                        output_version,
+                    )
+                    for asset_type, asset_id in asset_values
+                ),
+            )
             connection.execute(
                 "UPDATE research_checkpoints SET status = 'committed', "
                 "output_committed_state_version = ?, committed_at = ? "
