@@ -19,8 +19,12 @@ from fastapi.staticfiles import StaticFiles
 
 from ..browser import browser_runtime_status
 from ..config import Settings, load_config
+from ..continuation import ContinuationRunner, ResearchGate
+from ..conversation import ConversationRuntime
 from ..logging import configure_logging
 from ..models import IntelError
+from ..report_versions import ReportPublisher
+from .conversation import router as conversation_router
 from .runs import RunRegistry
 from .schemas import (
     ArtifactView,
@@ -47,13 +51,33 @@ def create_app(
     cwd: Path,
     settings: Settings,
     registry: RunRegistry | None = None,
+    conversation_runtime: ConversationRuntime | None = None,
     static_dir: Path | None = None,
 ) -> FastAPI:
     """Create an app bound to one workspace and one in-memory run registry."""
     app = FastAPI(title="Intel Agent Workbench", version="0.1.0")
     app.state.cwd = cwd.resolve()
     app.state.settings = settings
-    app.state.registry = registry or RunRegistry(app.state.cwd, settings)
+    gate = registry.gate if registry is not None else ResearchGate()
+    app.state.registry = registry or RunRegistry(
+        app.state.cwd, settings, gate=gate
+    )
+    if conversation_runtime is None:
+        store_publisher = ReportPublisher(app.state.cwd)
+        conversation_runtime = ConversationRuntime(
+            app.state.cwd,
+            settings,
+            continuation=ContinuationRunner(
+                app.state.cwd, settings, gate=gate
+            ),
+            publisher=store_publisher,
+        )
+    app.state.conversation_runtime = conversation_runtime
+    app.include_router(conversation_router)
+
+    @app.on_event("startup")
+    async def recover_conversation() -> None:
+        app.state.conversation_runtime.recover()
 
     @app.exception_handler(IntelError)
     async def handle_intel_error(
@@ -64,6 +88,8 @@ def create_app(
             "RUN_ALREADY_ACTIVE": 409,
             "OUTPUT_TAMPERED": 409,
             "DOCUMENT_TAMPERED": 409,
+            "REPORT_TAMPERED": 409,
+            "STALE_REPORT": 409,
             "MODEL_NOT_CONFIGURED": 503,
             "INVALID_INPUT": 422,
         }.get(error.code, 400)

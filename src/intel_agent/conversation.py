@@ -8,10 +8,18 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Protocol
 
+from pydantic_ai import CancellationToken
+
 from .config import Settings
 from .dialogue import DialogueDecision, DialogueEngine
 from .logging import get_logger
-from .models import ActionRequest, CitationDraft, Message
+from .models import (
+    ActionRequest,
+    CitationDraft,
+    Message,
+    ReportVersion,
+    ResearchRun,
+)
 from .report_versions import ReportPublisher
 from .retrieval import RetrievedPassage, TaskRetriever
 from .state_store import StateStore
@@ -34,8 +42,24 @@ class _Retriever(Protocol):
     ) -> list[RetrievedPassage]: ...
 
 
-class _ActionRunner(Protocol):
+class _ReportPublisher(Protocol):
     async def run(self, action: ActionRequest) -> object: ...
+
+    def create_draft(self, task_id: str) -> ReportVersion: ...
+
+    def publish(
+        self,
+        report_id: str,
+        *,
+        publish_stale: bool = False,
+        expected_current_state_version: int | None = None,
+    ) -> ReportVersion: ...
+
+
+class _ContinuationRunner(Protocol):
+    async def run(
+        self, action: ActionRequest, cancellation_token: CancellationToken
+    ) -> object: ...
 
 
 class ConversationRuntime:
@@ -48,8 +72,8 @@ class ConversationRuntime:
         *,
         dialogue: _Dialogue | None = None,
         retriever: _Retriever | None = None,
-        continuation: _ActionRunner | None = None,
-        publisher: _ActionRunner | None = None,
+        continuation: _ContinuationRunner | None = None,
+        publisher: _ReportPublisher | None = None,
     ):
         settings = settings or Settings()
         self.cwd = cwd
@@ -61,6 +85,8 @@ class ConversationRuntime:
         self._dialogue_lock = asyncio.Lock()
         self._message_tasks: dict[str, asyncio.Task[None]] = {}
         self._action_tasks: set[asyncio.Task[object]] = set()
+        self._action_tasks_by_id: dict[str, asyncio.Task[object]] = {}
+        self._action_tokens: dict[str, CancellationToken] = {}
 
     def submit_message(
         self, task_id: str, content: str, client_message_id: str
@@ -124,6 +150,33 @@ class ConversationRuntime:
             action_request_id=action.id,
         )
         return action
+
+    async def cancel_action(self, action_id: str) -> ActionRequest:
+        """Cancel a proposed, queued, or executing task action."""
+        action = self.store.get_action(action_id)
+        if action.status == "proposed":
+            return self.reject_action(action_id)
+        token = self._action_tokens.get(action_id)
+        if token is not None:
+            token.cancel()
+        task = self._action_tasks_by_id.get(action_id)
+        if task is not None:
+            with suppress(asyncio.CancelledError):
+                await task
+        current = self.store.get_action(action_id)
+        if current.status == "queued":
+            current = self.store.transition_action(action_id, "cancelled")
+        return current
+
+    async def cancel_research_run(self, run_id: str) -> ResearchRun:
+        """Cancel a continuation run through its originating action."""
+        run = self.store.get_run(run_id)
+        if run.action_request_id is None:
+            if run.status == "queued":
+                return self.store.transition_run(run.id, "cancelled")
+            return run
+        await self.cancel_action(run.action_request_id)
+        return self.store.get_run(run_id)
 
     async def cancel_message(self, message_id: str) -> Message:
         """Cancel in-memory generation and persist the terminal state."""
@@ -247,16 +300,25 @@ class ConversationRuntime:
             logger.exception("Conversation message processing failed")
 
     def _schedule_action(self, action: ActionRequest) -> None:
-        runner = (
-            self.publisher
-            if action.action_type in {"generate_report", "regenerate_report"}
-            else self.continuation
-        )
-        if runner is None:
-            return
-        task = asyncio.create_task(runner.run(action))
+        if action.action_type in {"generate_report", "regenerate_report"}:
+            if self.publisher is None:
+                return
+            task = asyncio.create_task(self.publisher.run(action))
+        else:
+            if self.continuation is None:
+                return
+            token = CancellationToken()
+            self._action_tokens[action.id] = token
+            task = asyncio.create_task(self.continuation.run(action, token))
         self._action_tasks.add(task)
-        task.add_done_callback(self._action_tasks.discard)
+        self._action_tasks_by_id[action.id] = task
+
+        def discard(completed: asyncio.Task[object]) -> None:
+            self._action_tasks.discard(completed)
+            self._action_tasks_by_id.pop(action.id, None)
+            self._action_tokens.pop(action.id, None)
+
+        task.add_done_callback(discard)
 
     async def _maybe_update_summary(self, task_id: str) -> None:
         epoch = self.store.active_epoch(task_id)

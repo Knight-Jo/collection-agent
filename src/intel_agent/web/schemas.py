@@ -7,15 +7,22 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from ..models import (
+    ActionRequest,
     ChallengeRound,
+    Conversation,
+    ConversationEpoch,
     CoverageSnapshot,
     EvidenceConflict,
     ExtractionState,
     FactCoverage,
     IntelTask,
     MaterialDigest,
+    Message,
+    MessageCitation,
     QuestionCoverage,
     ReportDepth,
+    ReportVersion,
+    ResearchRun,
     ResearchScope,
     SufficiencyCriteria,
     SupportReview,
@@ -207,3 +214,31 @@ class ArtifactView(BaseModel):
     path: str
     content: str
     content_sha256: str
+
+
+class MessageCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=20_000)
+    client_message_id: str = Field(min_length=1, max_length=200)
+
+
+class ActionConfirm(BaseModel):
+    client_message_id: str = Field(min_length=1, max_length=200)
+
+
+class ReportPublishRequest(BaseModel):
+    publish_stale: bool = False
+    expected_current_state_version: int | None = Field(default=None, ge=0)
+
+
+class ConversationMessageView(Message):
+    citations: list[MessageCitation] = Field(default_factory=list)
+
+
+class ConversationView(BaseModel):
+    conversation: Conversation
+    epoch: ConversationEpoch
+    messages: list[ConversationMessageView]
+    actions: list[ActionRequest]
+    runs: list[ResearchRun]
+    reports: list[ReportVersion]
+    committed_state_version: int = Field(ge=0)

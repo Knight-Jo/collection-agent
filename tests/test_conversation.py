@@ -44,7 +44,7 @@ class _ActionRunner:
         self.calls = []
         self.called = asyncio.Event()
 
-    async def run(self, action):
+    async def run(self, action, _cancellation_token=None):
         self.calls.append(action)
         self.called.set()
 
