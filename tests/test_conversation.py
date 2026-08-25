@@ -8,7 +8,8 @@ from pydantic_ai import CancellationToken
 
 from intel_agent.conversation import ConversationRuntime
 from intel_agent.dialogue import DialogueAction, DialogueDecision
-from intel_agent.models import ActionRequest, Message
+from intel_agent.intake import IntakeDecision
+from intel_agent.models import ActionRequest, Message, ResearchBrief
 from intel_agent.retrieval import RetrievedPassage
 from intel_agent.state_store import StateStore
 from tests.conftest import new_task
@@ -59,6 +60,93 @@ class _ActionRunner:
         del cancellation_token
         self.calls.append(action)
         self.called.set()
+
+
+class _Intake:
+    def __init__(self, decision: IntakeDecision, *, fail: bool = False):
+        self.decision = decision
+        self.fail = fail
+
+    async def decide(self, _query: str, _messages: Sequence[Message]):
+        if self.fail:
+            raise RuntimeError("intake unavailable")
+        return self.decision
+
+
+def _capability() -> IntakeDecision:
+    return IntakeDecision(
+        intent="capability_query",
+        reply="我可以开展公开信息调研。",
+    )
+
+
+def _start_research() -> IntakeDecision:
+    return IntakeDecision(
+        intent="start_research",
+        reply="已建立调研任务。",
+        research_brief=ResearchBrief(
+            topic="先进封装",
+            key_questions=["产业规模如何？", "竞争格局如何？"],
+        ),
+    )
+
+
+async def test_capability_query_keeps_intake_unbound(cwd):
+    runtime = ConversationRuntime(
+        cwd,
+        intake=_Intake(_capability()),
+        dialogue=_Dialogue(_decision()),
+        retriever=_Retriever(),
+    )
+    conversation = runtime.create_conversation()
+
+    user = runtime.submit_message(
+        conversation.id, "你能做什么？", "client-intake-1"
+    )
+    assistant = await runtime.wait_message(user.id)
+
+    assert assistant.content == "我可以开展公开信息调研。"
+    assert (
+        runtime.store.get_conversation_by_id(conversation.id).task_id is None
+    )
+    assert runtime.store.list_runs_for_conversation(conversation.id) == []
+
+
+async def test_clear_request_binds_one_task(cwd):
+    runtime = ConversationRuntime(
+        cwd,
+        intake=_Intake(_start_research()),
+        dialogue=_Dialogue(_decision()),
+        retriever=_Retriever(),
+    )
+    conversation = runtime.create_conversation()
+
+    user = runtime.submit_message(
+        conversation.id, "调研先进封装产业", "client-intake-1"
+    )
+    await runtime.wait_message(user.id)
+    bound = runtime.store.get_conversation_by_id(conversation.id)
+
+    assert bound.status == "active"
+    assert bound.task_id is not None
+    assert len(runtime.store.list_runs(bound.task_id)) == 1
+
+
+async def test_intake_failure_does_not_mutate_user_message(cwd):
+    runtime = ConversationRuntime(
+        cwd,
+        intake=_Intake(_capability(), fail=True),
+        dialogue=_Dialogue(_decision()),
+        retriever=_Retriever(),
+    )
+    conversation = runtime.create_conversation()
+
+    user = runtime.submit_message(conversation.id, "调研", "client-intake-1")
+    await runtime.wait_message(user.id)
+
+    assert runtime.store.get_message(user.id).status == "accepted"
+    attempt = runtime.store.latest_processing_attempt(user.id)
+    assert attempt.status == "failed"
 
 
 def _decision(
@@ -185,9 +273,11 @@ async def test_runtime_marks_model_failure(cwd):
     user = runtime.submit_message(task.id, "问题", "client-1")
     await runtime.wait_message(user.id)
 
-    failed = runtime.store.get_message(user.id)
+    accepted = runtime.store.get_message(user.id)
+    failed = runtime.store.latest_processing_attempt(user.id)
+    assert accepted.status == "accepted"
     assert failed.status == "failed"
-    assert failed.error == "model unavailable"
+    assert failed.error_detail == "model unavailable"
 
 
 async def test_runtime_recovers_unfinished_message(cwd):

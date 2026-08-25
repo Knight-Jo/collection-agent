@@ -12,10 +12,13 @@ from pydantic_ai import CancellationToken
 
 from .config import Settings
 from .dialogue import DialogueDecision, DialogueEngine
+from .intake import IntakeDecision, IntakeEngine
 from .logging import get_logger
 from .models import (
     ActionRequest,
     CitationDraft,
+    Conversation,
+    IntelError,
     Message,
     ReportVersion,
     ResearchRun,
@@ -32,6 +35,12 @@ class _Dialogue(Protocol):
     async def answer(self, **kwargs: object) -> DialogueDecision: ...
 
     async def summarize(self, messages: Sequence[Message]) -> str: ...
+
+
+class _Intake(Protocol):
+    async def decide(
+        self, query: str, messages: Sequence[Message]
+    ) -> IntakeDecision: ...
 
 
 class _Retriever(Protocol):
@@ -70,6 +79,7 @@ class ConversationRuntime:
         cwd: Path,
         settings: Settings | None = None,
         *,
+        intake: _Intake | None = None,
         dialogue: _Dialogue | None = None,
         retriever: _Retriever | None = None,
         continuation: _ContinuationRunner | None = None,
@@ -78,6 +88,7 @@ class ConversationRuntime:
         settings = settings or Settings()
         self.cwd = cwd
         self.store = StateStore(cwd)
+        self.intake = intake or IntakeEngine(settings)
         self.dialogue = dialogue or DialogueEngine(settings)
         self.retriever = retriever or TaskRetriever(cwd, self.store)
         self.continuation = continuation
@@ -88,16 +99,33 @@ class ConversationRuntime:
         self._action_tasks_by_id: dict[str, asyncio.Task[object]] = {}
         self._action_tokens: dict[str, CancellationToken] = {}
 
+    def create_conversation(self) -> Conversation:
+        """Create a new taskless intake conversation."""
+        return self.store.create_conversation()
+
     def submit_message(
-        self, task_id: str, content: str, client_message_id: str
+        self,
+        conversation_or_task_id: str,
+        content: str,
+        client_message_id: str,
     ) -> Message:
         """Persist a user message before scheduling its dialogue turn."""
-        self._ensure_task(task_id)
+        try:
+            conversation = self.store.get_conversation_by_id(
+                conversation_or_task_id
+            )
+        except IntelError as error:
+            if error.code != "NOT_FOUND":
+                raise
+            self._ensure_task(conversation_or_task_id)
+            conversation = self.store.get_conversation(conversation_or_task_id)
         message = self.store.add_user_message(
-            task_id, content, client_message_id
+            conversation.id, content, client_message_id
         )
+        attempt = self.store.ensure_processing_attempt(message.id)
         if (
-            message.status in {"accepted", "processing"}
+            attempt.status in {"accepted", "processing"}
+            and self.store.reply_for_message(message.id) is None
             and message.id not in self._message_tasks
         ):
             self._schedule_message(message.id)
@@ -118,6 +146,16 @@ class ConversationRuntime:
             if message.id not in self._message_tasks:
                 self._schedule_message(message.id)
         return len(pending)
+
+    def retry_message(self, message_id: str) -> Message:
+        """Retry system processing without duplicating the user message."""
+        attempt = self.store.retry_processing_attempt(message_id)
+        if (
+            attempt.status == "accepted"
+            and message_id not in self._message_tasks
+        ):
+            self._schedule_message(message_id)
+        return self.store.get_message(message_id)
 
     def confirm_action(
         self, action_id: str, client_message_id: str
@@ -243,12 +281,40 @@ class ConversationRuntime:
         )
 
     async def _process_message(self, message_id: str) -> None:
+        attempt = self.store.ensure_processing_attempt(message_id)
         try:
-            user = self.store.set_message_processing(message_id)
+            self.store.transition_processing_attempt(attempt.id, "processing")
+            user = self.store.get_message(message_id)
             conversation = self.store.get_conversation_by_id(
                 user.conversation_id
             )
-            task = load_task(self.cwd, conversation.task_id)
+            if conversation.task_id is None:
+                messages = self.store.list_messages_for_conversation(
+                    conversation.id
+                )
+                async with self._dialogue_lock:
+                    intake = await self.intake.decide(user.content, messages)
+                if intake.intent == "start_research":
+                    if intake.research_brief is None:
+                        raise RuntimeError(
+                            "intake result lacks research brief"
+                        )
+                    self.store.bind_intake_task(
+                        conversation.id, user.id, intake.research_brief
+                    )
+                assistant = self.store.complete_message(
+                    user.id,
+                    intake.reply,
+                    mark_user_completed=False,
+                )
+                self.store.transition_processing_attempt(
+                    attempt.id,
+                    "completed",
+                    assistant_message_id=assistant.id,
+                )
+                return
+            task_id = conversation.task_id
+            task = load_task(self.cwd, task_id)
             passages = self.retriever.retrieve(task.id, user.content, limit=8)
             epoch = self.store.active_epoch(task.id)
             messages = self.store.list_messages(task.id)
@@ -268,7 +334,12 @@ class ConversationRuntime:
                 _citation_from_passage(passages_by_id[passage_id])
                 for passage_id in decision.cited_passage_ids
             ]
-            self.store.complete_message(user.id, decision.answer, citations)
+            assistant = self.store.complete_message(
+                user.id,
+                decision.answer,
+                citations,
+                mark_user_completed=False,
+            )
             if decision.action is not None:
                 proposed = decision.action.request_mode == "proposed"
                 action = self.store.create_action(
@@ -288,15 +359,21 @@ class ConversationRuntime:
                 if not proposed:
                     self._schedule_action(action)
             await self._maybe_update_summary(task.id)
+            self.store.transition_processing_attempt(
+                attempt.id,
+                "completed",
+                assistant_message_id=assistant.id,
+            )
         except asyncio.CancelledError:
-            current = self.store.get_message(message_id)
-            if current.status in {"accepted", "processing"}:
-                self.store.cancel_message(message_id)
+            self.store.transition_processing_attempt(attempt.id, "cancelled")
             raise
         except Exception as error:
-            current = self.store.get_message(message_id)
-            if current.status in {"accepted", "processing"}:
-                self.store.fail_message(message_id, str(error))
+            self.store.transition_processing_attempt(
+                attempt.id,
+                "failed",
+                error_code=getattr(error, "code", "PROCESSING_FAILED"),
+                error_detail=str(error),
+            )
             logger.exception("Conversation message processing failed")
 
     def _schedule_action(self, action: ActionRequest) -> None:

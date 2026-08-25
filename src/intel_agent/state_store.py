@@ -19,6 +19,7 @@ from .models import (
     IntelError,
     Message,
     MessageCitation,
+    MessageProcessingAttempt,
     ReportVersion,
     ResearchBrief,
     ResearchCheckpoint,
@@ -220,6 +221,23 @@ class StateStore:
             ).fetchone()
         if row is None:
             raise IntelError("NOT_FOUND", f"活动会话上下文不存在: {task_id}")
+        return _row_to_epoch(row)
+
+    def active_epoch_for_conversation(
+        self, conversation_id: str
+    ) -> ConversationEpoch:
+        """Return one conversation's active context epoch."""
+        with connect_state_db(self.cwd) as connection:
+            row = connection.execute(
+                "SELECT conversation_epochs.* FROM conversation_epochs "
+                "JOIN conversations ON conversations.active_epoch_id = "
+                "conversation_epochs.id WHERE conversations.id = ?",
+                (conversation_id,),
+            ).fetchone()
+        if row is None:
+            raise IntelError(
+                "NOT_FOUND", f"活动会话上下文不存在: {conversation_id}"
+            )
         return _row_to_epoch(row)
 
     def update_epoch_summary(
@@ -475,6 +493,120 @@ class StateStore:
             ).fetchone()
         return _row_to_message(_required(row, "message"))
 
+    def ensure_processing_attempt(
+        self, message_id: str
+    ) -> MessageProcessingAttempt:
+        """Return an existing attempt or create the first one."""
+        now = utc_now()
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            _find_message(connection, message_id)
+            existing = connection.execute(
+                "SELECT * FROM message_processing_attempts "
+                "WHERE user_message_id = ? ORDER BY attempt DESC LIMIT 1",
+                (message_id,),
+            ).fetchone()
+            if existing is not None:
+                return _row_to_processing_attempt(existing)
+            attempt_id = new_id("attempt")
+            connection.execute(
+                "INSERT INTO message_processing_attempts("
+                "id, user_message_id, attempt, status, started_at"
+                ") VALUES (?, ?, 1, 'accepted', ?)",
+                (attempt_id, message_id, now),
+            )
+            row = connection.execute(
+                "SELECT * FROM message_processing_attempts WHERE id = ?",
+                (attempt_id,),
+            ).fetchone()
+        return _row_to_processing_attempt(_required(row, "processing attempt"))
+
+    def retry_processing_attempt(
+        self, message_id: str
+    ) -> MessageProcessingAttempt:
+        """Create the next attempt after a failed or cancelled one."""
+        now = utc_now()
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            _find_message(connection, message_id)
+            latest = connection.execute(
+                "SELECT * FROM message_processing_attempts "
+                "WHERE user_message_id = ? ORDER BY attempt DESC LIMIT 1",
+                (message_id,),
+            ).fetchone()
+            if latest is None:
+                attempt = 1
+            elif latest["status"] not in {"failed", "cancelled"}:
+                return _row_to_processing_attempt(latest)
+            else:
+                attempt = latest["attempt"] + 1
+            attempt_id = new_id("attempt")
+            connection.execute(
+                "INSERT INTO message_processing_attempts("
+                "id, user_message_id, attempt, status, started_at"
+                ") VALUES (?, ?, ?, 'accepted', ?)",
+                (attempt_id, message_id, attempt, now),
+            )
+            row = connection.execute(
+                "SELECT * FROM message_processing_attempts WHERE id = ?",
+                (attempt_id,),
+            ).fetchone()
+        return _row_to_processing_attempt(_required(row, "processing attempt"))
+
+    def transition_processing_attempt(
+        self,
+        attempt_id: str,
+        status: str,
+        *,
+        assistant_message_id: str | None = None,
+        error_code: str | None = None,
+        error_detail: str | None = None,
+    ) -> MessageProcessingAttempt:
+        """Advance processing independently from the user message."""
+        now = utc_now()
+        completed_at = (
+            now if status in {"completed", "failed", "cancelled"} else None
+        )
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            cursor = connection.execute(
+                "UPDATE message_processing_attempts SET status = ?, "
+                "assistant_message_id = COALESCE(?, assistant_message_id), "
+                "error_code = ?, error_detail = ?, completed_at = ? "
+                "WHERE id = ?",
+                (
+                    status,
+                    assistant_message_id,
+                    error_code,
+                    error_detail,
+                    completed_at,
+                    attempt_id,
+                ),
+            )
+            if cursor.rowcount == 0:
+                raise IntelError(
+                    "NOT_FOUND", f"消息处理尝试不存在: {attempt_id}"
+                )
+            row = connection.execute(
+                "SELECT * FROM message_processing_attempts WHERE id = ?",
+                (attempt_id,),
+            ).fetchone()
+        return _row_to_processing_attempt(_required(row, "processing attempt"))
+
+    def latest_processing_attempt(
+        self, message_id: str
+    ) -> MessageProcessingAttempt:
+        """Return the most recent attempt for a user message."""
+        with connect_state_db(self.cwd) as connection:
+            row = connection.execute(
+                "SELECT * FROM message_processing_attempts "
+                "WHERE user_message_id = ? ORDER BY attempt DESC LIMIT 1",
+                (message_id,),
+            ).fetchone()
+        if row is None:
+            raise IntelError("NOT_FOUND", "消息尚无处理尝试")
+        return _row_to_processing_attempt(row)
+
     def fail_message(self, message_id: str, error: str) -> Message:
         """Finish an accepted or processing user message with an error."""
         now = utc_now()
@@ -524,6 +656,8 @@ class StateStore:
         user_message_id: str,
         content: str,
         citations: Sequence[CitationDraft] = (),
+        *,
+        mark_user_completed: bool = True,
     ) -> Message:
         """Complete one user request and insert its immutable assistant reply."""
         now = utc_now()
@@ -560,11 +694,12 @@ class StateStore:
             for citation in citations:
                 _validate_citation(connection, task_id, citation)
 
-            connection.execute(
-                "UPDATE messages SET status = 'completed', completed_at = ? "
-                "WHERE id = ?",
-                (now, user_message_id),
-            )
+            if mark_user_completed:
+                connection.execute(
+                    "UPDATE messages SET status = 'completed', completed_at = ? "
+                    "WHERE id = ?",
+                    (now, user_message_id),
+                )
             sequence = _next_message_sequence(
                 connection, user["conversation_id"]
             )
@@ -658,7 +793,27 @@ class StateStore:
                 "AND messages.status IN ('accepted', 'processing') "
                 "AND NOT EXISTS (SELECT 1 FROM messages replies "
                 "WHERE replies.reply_to_id = messages.id) "
+                "AND NOT EXISTS (SELECT 1 FROM message_processing_attempts a "
+                "WHERE a.user_message_id = messages.id "
+                "AND a.status IN ('completed', 'failed', 'cancelled')) "
                 "ORDER BY messages.created_at, messages.rowid"
+            ).fetchall()
+        return [_row_to_message(row) for row in rows]
+
+    def list_messages_for_conversation(
+        self, conversation_id: str, *, active_epoch_only: bool = True
+    ) -> list[Message]:
+        """List messages without requiring a bound task."""
+        where = "AND messages.epoch_id = conversations.active_epoch_id"
+        if not active_epoch_only:
+            where = ""
+        with connect_state_db(self.cwd) as connection:
+            rows = connection.execute(
+                f"SELECT messages.* FROM messages JOIN conversations "
+                f"ON conversations.id = messages.conversation_id "
+                f"WHERE conversations.id = ? {where} "
+                f"ORDER BY messages.sequence",
+                (conversation_id,),
             ).fetchall()
         return [_row_to_message(row) for row in rows]
 
@@ -1568,6 +1723,12 @@ def _row_to_message(row: sqlite3.Row) -> Message:
         json.loads(intent_json) if intent_json is not None else None
     )
     return Message.model_validate(value)
+
+
+def _row_to_processing_attempt(
+    row: sqlite3.Row,
+) -> MessageProcessingAttempt:
+    return MessageProcessingAttempt.model_validate(dict(row))
 
 
 def _row_to_citation(row: sqlite3.Row) -> MessageCitation:
