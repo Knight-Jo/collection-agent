@@ -18,8 +18,10 @@ can change as research continues.
 _Avoid_: Prompt, query
 
 **ResearchRun**:
-One auditable attempt to advance an IntelTask from a frozen input state. An
-IntelTask may have many ResearchRuns but at most one active ResearchRun.
+One auditable execution attempt to advance an IntelTask from a frozen input
+state. A failed or interrupted run is terminal; a retry is a new ResearchRun
+linked to the prior attempt. An IntelTask may have many ResearchRuns but at
+most one active ResearchRun.
 _Avoid_: Task, conversation turn
 
 **SearchPlanVersion**:
@@ -27,14 +29,16 @@ An immutable version of the planned questions, priorities, and retrieval
 directions used by a ResearchRun.
 _Avoid_: Current plan, mutable plan
 
-**Checkpoint**:
-The atomic boundary at which a ResearchRun makes newly governed assets visible
-to task-level readers.
+**ResearchCheckpoint**:
+The durable atomic boundary at which a ResearchRun makes newly governed assets
+visible to task-level readers and advances the committed state version.
 _Avoid_: Autosave, partial result
 
 **Committed State**:
 The task state visible to evidence question answering. In-progress candidates
-are excluded until a Checkpoint commits them.
+are excluded until a ResearchCheckpoint commits them. Its
+`committed_state_version` changes only when committed research assets or their
+governance changes.
 _Avoid_: Live working state
 
 ## Interaction
@@ -59,9 +63,20 @@ of whether that request is authorized to change task state.
 _Avoid_: Keyword match, tool call
 
 **ActionRequest**:
-An immutable business request produced from a Message and advanced through an
-explicit authorization and execution lifecycle.
+An immutable business request produced from a Message and advanced through a
+generic authorization and execution lifecycle. Its result may be a new run, a
+plan change at a checkpoint, or a report version.
 _Avoid_: Direct tool call, hidden action
+
+**MessageCitation**:
+A durable, server-validated relationship from one assistant Message to an
+IntelDocument and, when applicable, an Evidence passage.
+_Avoid_: Model-written source number, arbitrary URL
+
+**SourceLocator**:
+A media-aware location within archived content, such as text lines, a PDF page,
+an image region, or an audio or video time range.
+_Avoid_: Line number for every media type
 
 **TaskSnapshot**:
 A rebuildable read-only projection of current task progress, gaps, assets, and
@@ -76,14 +91,20 @@ checked and owned by one IntelTask.
 _Avoid_: Evidence, search result
 
 **Fact**:
-A canonical atomic claim associated with one IntelQuestion. A Fact may be
-accepted, disputed, rejected, or superseded without erasing its history.
+A canonical immutable atomic claim associated with one IntelQuestion. A Fact
+may be accepted, disputed, rejected, or superseded without erasing its history;
+corrected wording creates a new Fact.
 _Avoid_: Document summary, report paragraph
 
 **Evidence**:
-An immutable exact passage from an IntelDocument linked to a Fact with a stated
-supporting or contradicting relation.
+An immutable exact passage and SourceLocator from an IntelDocument linked to a
+Fact with a stated supporting or contradicting relation.
 _Avoid_: Material, source score
+
+**DomainStateTransition**:
+An immutable record of one Fact or Evidence governance status change at a
+committed state version.
+_Avoid_: Mutable status log, model trace
 
 **SupportReview**:
 An immutable semantic judgment about whether one Evidence passage supports its
@@ -92,7 +113,8 @@ _Avoid_: User preference, reading recommendation
 
 **ReportVersion**:
 An immutable task report bound to the runs, facts, and evidence available when
-it was generated. A task has at most one published ReportVersion.
+it was generated. Drafts may be abandoned; a task has at most one published
+ReportVersion, and publishing a stale draft requires explicit confirmation.
 _Avoid_: Mutable report, chat answer
 
 **Reading Priority**:
