@@ -2,7 +2,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | 架构基线已冻结；SQLite 状态基础已实现 |
+| 状态 | 首版完整链路已实现并进入验证阶段 |
 | 确认日期 | 2026-08-25 |
 | 适用范围 | 本地单用户公开信息调研工作台 |
 | 核心目标 | 将一次性研究运行改造成任务驱动、状态持久、可对话控制的调研系统 |
@@ -1180,26 +1180,27 @@ ResearchCheckpoint 与 ReportVersion 的生命周期由实体当前状态和持�
 - 历史任务使用 `LEGACY_IMPORT` Run，历史报告保留可获得的原时间并标明迁移
   来源，不伪造完整运行轨迹。
 
-## 19. 实施边界
+## 19. 实施状态与首版边界
 
-截至 2026-08-25，第一阶段已经完成：
+截至 2026-08-25，首版可用链路已经完成：
 
-- `data/intel/intel.db` 使用 schema version 1、WAL、foreign keys 和 5000 ms
-  busy timeout；
-- Conversation、Message、ActionRequest、ResearchRun、ResearchCheckpoint、
-  ReportVersion 和 durable event 已有 Pydantic 模型、数据库约束和事务仓储；
-- 消息幂等、epoch 归档、状态迁移、Run 重试链、checkpoint 版本推进、报告草稿/
-  发布切换及事件续读已通过自动化测试；
-- 本阶段 SQLite 只保存新增的对话运行时记录。现有 Task、Document、Fact、
-  Evidence 等研究资产继续由 JSON 保存，两个存储没有共同记录类型，因此不存在
-  运行期双写。
+- `data/intel/intel.db` 使用 schema version 2、WAL、foreign keys 和 5000 ms
+  busy timeout，持久化会话、消息、引用、动作、运行、checkpoint、报告版本和
+  durable event；
+- 现有 JSON 研究资产在任务首次进入对话时建立 committed 基线索引，SQLite 只
+  保存其稳定 ID 和提交关系，正文继续由文件系统和既有哈希校验负责；
+- Evidence QA 只检索当前 Task 的 committed 资产，模型无搜索工具，引用由服务端
+  allowlist 绑定并保存为 MessageCitation；
+- 显式续研指令或用户确认建议后，系统在同一 Task 下运行受限 ResearchRun，成功
+  checkpoint 才公开新增资产；运行失败不会污染 committed allowlist；
+- FastAPI 已提供消息、SSE、动作确认/拒绝/取消、运行取消、报告草稿和发布接口，
+  启动时恢复未完成消息；
+- React 工作台已增加“对话”页签，支持材料问答、引用查看、续研控制、运行状态及
+  报告版本操作；
+- 报告渲染与发布解耦：生成只创建 Draft，发布原子切换当前版本，旧报告不覆盖。
 
-后续按依赖顺序交付：
-
-1. 停机执行 JSON 研究元数据迁移、完整性校验和 SQLite runtime 切换；
-2. task-scoped Evidence QA、MessageCitation、Conversation API/SSE 和有界上下文；
-3. 续研执行、checkpoint 资产提交、两路模型调度和运行中干预；
-4. 报告生成/发布 API 与三栏 Web 工作台。
-
-后续阶段分别制定逐文件实施计划；在离线迁移切换完成前，现有 JSON 研究链路保持
-不变。
+首版保持最小本地边界：单机单用户、一个 Task 一个主 Conversation、同一时刻一个
+研究运行；不包含账户、角色、认证、多租户、跨任务检索、WebSocket、分布式任务
+队列或向量数据库。完整 JSON 研究元数据迁移仍是后续独立工作；在此之前采用
+“JSON/文件系统保存既有研究资产，SQLite 保存新增交互状态与 committed 索引”的
+明确边界，不对同一记录双写。

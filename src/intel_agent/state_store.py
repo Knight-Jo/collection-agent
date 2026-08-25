@@ -414,7 +414,10 @@ class StateStore:
                 connection,
                 user["conversation_id"],
                 "answer.completed",
-                {"message_id": assistant_id},
+                {
+                    "message_id": assistant_id,
+                    "reply_to_id": user_message_id,
+                },
                 now,
                 message_id=assistant_id,
             )

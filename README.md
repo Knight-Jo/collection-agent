@@ -17,6 +17,7 @@
 - **动态网页采集**：静态正文不足时可按需启动隔离 Chromium，执行 JavaScript 后继续复用正文提取、链接发现、原文/渲染 DOM 双哈希和证据审核
 - **多文档类型**：从页面链接及 `img/audio/video/source/object/embed` 自动发现 HTML、PDF、Office、文本/CSV、图片、音视频；原件始终按 SHA-256 归档，处理器缺失时正文标记为不可用且不能进入证据链
 - **来源扩展**：抓取结果返回 `outbound_links` 可继续展开（不消耗搜索预算）；部署方可配置直连来源提示
+- **任务内多轮对话**：在网页中基于当前任务已提交的材料问答并定位引用；只有明确要求继续搜索或确认搜索建议时，才启动同一任务的新一轮调研
 
 ## 快速开始
 
@@ -92,7 +93,7 @@ POST /api/runs
 
 ### Web 工作台
 
-工作台提供主题式任务创建、实时进度、调研报告和按星级排序的来源材料。任务详情默认打开调研报告；证据链和原件下载位于“来源与材料”。前端依赖与脚本统一使用 Bun 1.3.14：
+工作台提供主题式任务创建、实时进度、调研报告、来源材料和任务内多轮对话。前端依赖与脚本统一使用 Bun 1.3.14：
 
 ```bash
 cd web
@@ -103,6 +104,29 @@ intel-agent-web --config config.yaml
 ```
 
 默认访问 `http://127.0.0.1:6780`。监听地址和端口通过 `config.yaml` 的 `web.host`、`web.port` 配置；`--host` 与 `--port` 可用于临时覆盖。开发时分别运行后端和 `cd web && bun run dev`；Vite 会将 `/api` 转发到本地后端。
+
+打开任务详情的“对话”页签即可使用：
+
+1. 普通问题只检索当前任务已经提交的材料和证据，不会自动联网；引用可展开查看原文位置。
+2. 输入“继续搜索……”“补充调研……”等明确指令，会在同一任务下创建续研运行；若 Agent 只是建议补搜，需点击“确认搜索”。
+3. 回答、搜索动作和运行均可取消。续研完成后可显式生成报告草稿，确认后再发布为当前报告；历史版本不会被覆盖。
+
+首版面向本地单机单用户，不提供账户、角色、登录认证或跨任务知识库。服务重启时会恢复未完成消息；浏览器 SSE 断线后以持久事件和完整消息恢复，不依赖 token 增量回放。
+
+服务运行后，可用已有任务执行真实接口冒烟检查：
+
+```bash
+python scripts/smoke_conversation.py \
+  --task-id <task-id> \
+  --question "当前材料能够确认哪些结论？"
+
+# 可选：同时检查显式续研或确认 Agent 提出的搜索建议
+python scripts/smoke_conversation.py \
+  --task-id <task-id> \
+  --question "当前证据还有哪些缺口？" \
+  --continuation "继续搜索这些缺口" \
+  --confirm-proposal
+```
 
 运行结束后产物位于：
 - `data/intel/` — 任务/材料导读/抓取队列/事实/证据/审核/覆盖等状态（JSON，原子写入）
@@ -161,11 +185,16 @@ src/intel_agent/
 ├── coverage.py     # 覆盖评估 + 停止条件（sufficient/no_progress）
 ├── materials.py    # 任务级材料星级、内容摘要和阅读导引
 ├── report.py       # 带验证引用的正式公开信息调研报告
+├── state.py        # SQLite WAL：会话、动作、运行、checkpoint 与报告版本
+├── retrieval.py    # 当前任务已提交材料的有界词法检索
+├── dialogue.py     # 不直接调用搜索工具的证据问答 Agent
+├── conversation.py # 消息处理、动作派发、恢复和报告发布
+├── continuation.py # 同一任务受限续研与 checkpoint 提交
 ├── challenge.py    # 读取旧版本留下的红队复审记录
 ├── task.py         # 任务生命周期、预算、阶段门控
 ├── main.py         # CLI 入口
 ├── runner.py       # CLI 与 Web 共用的 Agent 运行器
-└── web/            # FastAPI API、运行状态与前端读模型
+└── web/            # FastAPI API、运行状态、Conversation API 与 SSE
 tests/              # pytest 测试套件
 web/                # React/Vite 本地工作台
 scripts/            # 实验运行器与分析器

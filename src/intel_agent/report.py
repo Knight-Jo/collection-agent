@@ -13,6 +13,7 @@ from .materials import generate_material_digest
 from .models import (
     CoverageSnapshot,
     EvidenceSupport,
+    QuestionCoverage,
     ResearchConclusion,
     ResearchReportedConclusion,
     ResearchReportInput,
@@ -80,6 +81,57 @@ def _report_limitations(coverage: CoverageSnapshot) -> list[str]:
         if dominant_count / fact_total > 0.5:
             limitations.append("来源过度集中：超过半数事实来自同一来源组")
     return list(dict.fromkeys(limitations))
+
+
+def _visible_coverage(
+    coverage: CoverageSnapshot, allowed_fact_ids: set[str] | None
+) -> CoverageSnapshot:
+    """Limit report-facing coverage to the facts visible to this report."""
+    if allowed_fact_ids is None:
+        return coverage
+    questions: list[QuestionCoverage] = []
+    for question in coverage.per_question:
+        facts = [
+            fact for fact in question.facts if fact.fact_id in allowed_fact_ids
+        ]
+        has_conflict = any(
+            fact.unresolved_conflicts or fact.unresolved_contradictions
+            for fact in facts
+        )
+        covered = sum(fact.status == "covered" for fact in facts)
+        if not facts:
+            status, answer_status, notes = (
+                "gap",
+                "unanswered",
+                ["尚未登记事实"],
+            )
+        elif has_conflict:
+            status, answer_status, notes = (
+                "partial",
+                "conflicted",
+                ["存在未消解矛盾"],
+            )
+        elif covered == len(facts):
+            status, answer_status, notes = "covered", "answered", []
+        else:
+            status, answer_status, notes = (
+                "partial",
+                "partial",
+                ["存在未充分覆盖的事实"],
+            )
+        questions.append(
+            question.model_copy(
+                update={
+                    "status": status,
+                    "answer_status": answer_status,
+                    "notes": notes,
+                    "facts": facts,
+                    "fact_count": len(facts),
+                    "covered_fact_count": covered,
+                }
+            )
+        )
+    return coverage.model_copy(update={"per_question": questions})
 
 
 def build_verified_report_draft(
@@ -167,6 +219,7 @@ def generate_research_report(
                 }
             ],
         }
+    coverage = _visible_coverage(coverage, allowed_fact_ids)
     for section in draft.sections:
         section.conclusions = [
             ResearchReportedConclusion(fact_id=conclusion.fact_id)

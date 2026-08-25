@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Sequence
+from typing import Any, cast
+
+from pydantic_ai import CancellationToken
 
 from intel_agent.conversation import ConversationRuntime
 from intel_agent.dialogue import DialogueAction, DialogueDecision
+from intel_agent.models import ActionRequest, Message
 from intel_agent.retrieval import RetrievedPassage
 from intel_agent.state_store import StateStore
 from tests.conftest import new_task
@@ -17,7 +22,10 @@ class _Retriever:
     def seed_completed_task(self, task_id: str) -> None:
         self.seeded.append(task_id)
 
-    def retrieve(self, task_id: str, query: str, **_kwargs):
+    def retrieve(
+        self, task_id: str, query: str, *, limit: int = 8
+    ) -> list[RetrievedPassage]:
+        del task_id, query, limit
         return self.passages
 
 
@@ -34,7 +42,8 @@ class _Dialogue:
             raise RuntimeError("model unavailable")
         return self.decision
 
-    async def summarize(self, _messages):
+    async def summarize(self, messages: Sequence[Message]) -> str:
+        del messages
         self.summary_calls += 1
         return "早期对话摘要"
 
@@ -44,7 +53,10 @@ class _ActionRunner:
         self.calls = []
         self.called = asyncio.Event()
 
-    async def run(self, action, _cancellation_token=None):
+    async def run(
+        self, action: ActionRequest, cancellation_token: CancellationToken
+    ) -> None:
+        del cancellation_token
         self.calls.append(action)
         self.called.set()
 
@@ -211,7 +223,7 @@ async def test_runtime_updates_epoch_summary_after_twelve_messages(cwd):
         )
         await runtime.wait_message(message.id)
 
-    view = runtime.conversation_view(task.id)
+    view = cast(dict[str, Any], runtime.conversation_view(task.id))
     assert view["epoch"]["summary"] == "早期对话摘要"
     assert view["epoch"]["summary_through_sequence"] == 6
     assert dialogue.summary_calls == 1

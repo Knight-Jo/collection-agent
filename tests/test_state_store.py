@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from intel_agent.models import CitationDraft, IntelError
+from intel_agent.models import CitationDraft, CommittedAssetType, IntelError
 from intel_agent.state_store import StateStore
 
 
@@ -77,10 +77,12 @@ def test_message_events_and_citations_are_committed_together(cwd):
     assistant = store.complete_message(user.id, "回答", [citation])
 
     assert store.citations_for_message(assistant.id)[0].quote_text == "引用"
-    assert [event.event_type for event in store.events_after("task-1", 0)] == [
+    events = store.events_after("task-1", 0)
+    assert [event.event_type for event in events] == [
         "message.accepted",
         "answer.completed",
     ]
+    assert events[-1].data["reply_to_id"] == user.id
 
 
 def test_complete_message_rejects_cross_task_citation(cwd):
@@ -123,7 +125,10 @@ def test_message_can_fail_after_processing(cwd):
 def test_committed_asset_seeding_is_idempotent(cwd):
     store = StateStore(cwd)
     store.register_task("task-1")
-    assets = [("document", "document-1"), ("fact", "fact-1")]
+    assets: list[tuple[CommittedAssetType, str]] = [
+        ("document", "document-1"),
+        ("fact", "fact-1"),
+    ]
 
     store.seed_committed_assets("task-1", assets)
     store.seed_committed_assets("task-1", assets)

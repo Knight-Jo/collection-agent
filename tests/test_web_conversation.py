@@ -1,21 +1,31 @@
 from __future__ import annotations
 
+import asyncio
 import time
+from collections.abc import Sequence
 
+from fastapi import Request
 from fastapi.testclient import TestClient
 
 from intel_agent.config import Settings
 from intel_agent.conversation import ConversationRuntime
 from intel_agent.dialogue import DialogueAction, DialogueDecision
+from intel_agent.models import Message
+from intel_agent.retrieval import RetrievedPassage
 from intel_agent.web.app import create_app
+from intel_agent.web.conversation import conversation_events
 from tests.conftest import new_task
 
 
 class _Retriever:
-    def seed_completed_task(self, _task_id):
+    def seed_completed_task(self, task_id: str) -> None:
+        del task_id
         return None
 
-    def retrieve(self, _task_id, _query, *, limit=8):
+    def retrieve(
+        self, task_id: str, query: str, *, limit: int = 8
+    ) -> list[RetrievedPassage]:
+        del task_id, query, limit
         return []
 
 
@@ -42,7 +52,8 @@ class _Dialogue:
             action=action,
         )
 
-    async def summarize(self, _messages):
+    async def summarize(self, messages: Sequence[Message]) -> str:
+        del messages
         return "摘要"
 
 
@@ -140,17 +151,29 @@ def test_conversation_events_replay_last_event_id(cwd):
         conversation_runtime=runtime,
     )
 
-    with TestClient(app).stream(
-        "GET",
-        f"/api/tasks/{task.id}/conversation/events",
-        headers={"Last-Event-ID": str(first.sequence)},
-    ) as response:
-        lines = response.iter_lines()
-        payload = [next(lines) for _ in range(3)]
+    async def first_chunk():
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
 
-    assert response.status_code == 200
-    assert payload[0].endswith("2")
-    assert payload[1] == "event: test.second"
+        request = Request(
+            {
+                "type": "http",
+                "method": "GET",
+                "path": f"/api/tasks/{task.id}/conversation/events",
+                "headers": [(b"last-event-id", str(first.sequence).encode())],
+                "app": app,
+            },
+            receive,
+        )
+        response = await conversation_events(request, task.id)
+        async for chunk in response.body_iterator:
+            return chunk
+        raise AssertionError("event stream returned no events")
+
+    payload = asyncio.run(first_chunk())
+
+    assert str(payload).startswith("id: 2")
+    assert "event: test.second" in str(payload)
 
 
 def test_report_publish_errors_remain_structured(cwd):
