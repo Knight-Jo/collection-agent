@@ -2,8 +2,55 @@ from __future__ import annotations
 
 import pytest
 
-from intel_agent.models import CitationDraft, CommittedAssetType, IntelError
+from intel_agent.models import (
+    CitationDraft,
+    CommittedAssetType,
+    IntelError,
+    ResearchBrief,
+)
 from intel_agent.state_store import StateStore
+
+
+def _brief() -> ResearchBrief:
+    return ResearchBrief(
+        topic="先进封装",
+        objective="梳理产业现状",
+        key_questions=["产业规模如何？", "竞争格局如何？"],
+    )
+
+
+def test_bind_intake_task_is_atomic_and_idempotent(cwd):
+    store = StateStore(cwd)
+    conversation = store.create_conversation("browser-c1")
+    message = store.add_user_message(
+        conversation.id, "调研先进封装", "browser-m1"
+    )
+
+    first = store.bind_intake_task(conversation.id, message.id, _brief())
+    second = store.bind_intake_task(conversation.id, message.id, _brief())
+
+    assert second == first
+    assert first.task_id is not None
+    assert len(store.list_runs(first.task_id)) == 1
+    assert len(store.list_conversations()) == 1
+
+
+def test_bind_intake_task_rolls_back_on_event_failure(cwd, monkeypatch):
+    store = StateStore(cwd)
+    conversation = store.create_conversation()
+    message = store.add_user_message(
+        conversation.id, "调研先进封装", "browser-m1"
+    )
+
+    def fail_event(*_args, **_kwargs):
+        raise RuntimeError("event write failed")
+
+    monkeypatch.setattr("intel_agent.state_store._insert_event", fail_event)
+    with pytest.raises(RuntimeError, match="event write failed"):
+        store.bind_intake_task(conversation.id, message.id, _brief())
+
+    assert store.get_conversation_by_id(conversation.id).task_id is None
+    assert store.list_runs_for_conversation(conversation.id) == []
 
 
 def test_message_retry_is_idempotent(cwd):

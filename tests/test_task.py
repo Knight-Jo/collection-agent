@@ -93,6 +93,18 @@ def test_create_task_dedupes_questions_and_persists(cwd):
     assert load_task(cwd, task.id).id == task.id
 
 
+def test_task_metadata_uses_sqlite_as_primary_store(cwd):
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        SufficiencyCriteria(),
+    )
+
+    assert not (cwd / f"data/intel/tasks/{task.id}.json").exists()
+    assert load_task(cwd, task.id) == task
+
+
 def test_create_task_persists_research_brief(cwd):
     task = create_task(
         cwd,

@@ -21,6 +21,7 @@ from .models import (
     new_id,
     utc_now,
 )
+from .state_db import connect_state_db, initialize_state_db
 from .storage import (
     intel_path,
     load_crawl,
@@ -87,6 +88,30 @@ def create_task(
     report_depth: ReportDepth = "standard",
 ) -> IntelTask:
     """Create a task with stable question IDs and persist it as the active task."""
+    task = build_task(
+        topic,
+        questions,
+        criteria,
+        deep_crawl=deep_crawl,
+        objective=objective,
+        scope=scope,
+        report_depth=report_depth,
+    )
+    save_task(cwd, task)
+    write_json_atomic(cwd, ACTIVE_TASK_FILE, {"task_id": task.id})
+    return task
+
+
+def build_task(
+    topic: str,
+    questions: list[str],
+    criteria: SufficiencyCriteria | dict,
+    deep_crawl: bool = False,
+    objective: str = "",
+    scope: ResearchScope | None = None,
+    report_depth: ReportDepth = "standard",
+) -> IntelTask:
+    """Build validated task metadata without performing persistence."""
     if isinstance(criteria, dict):
         criteria = SufficiencyCriteria.model_validate(criteria)
     else:
@@ -131,15 +156,24 @@ def create_task(
         created_at=now,
         updated_at=now,
     )
-    save_task(cwd, task)
-    write_json_atomic(cwd, ACTIVE_TASK_FILE, {"task_id": task.id})
     return task
 
 
 def load_task(cwd: Path, task_id: str | None = None) -> IntelTask:
     if task_id is None:
         task_id = read_json_object(cwd, ACTIVE_TASK_FILE)["task_id"]
-    task = IntelTask.model_validate(read_json(cwd, f"tasks/{task_id}.json"))
+    initialize_state_db(cwd)
+    with connect_state_db(cwd) as connection:
+        row = connection.execute(
+            "SELECT task_json FROM task_state WHERE task_id = ?", (task_id,)
+        ).fetchone()
+    if row is not None and row["task_json"]:
+        task = IntelTask.model_validate_json(row["task_json"])
+    else:
+        task = IntelTask.model_validate(
+            read_json(cwd, f"tasks/{task_id}.json")
+        )
+        save_task(cwd, task)
     set_task_id(task.id)
     return task
 
@@ -153,7 +187,14 @@ def activate_task(cwd: Path, task_id: str) -> IntelTask:
 
 def save_task(cwd: Path, task: IntelTask) -> None:
     set_task_id(task.id)
-    write_json_atomic(cwd, f"tasks/{task.id}.json", task.model_dump())
+    initialize_state_db(cwd)
+    with connect_state_db(cwd) as connection:
+        connection.execute(
+            "INSERT INTO task_state(task_id, task_json, updated_at) "
+            "VALUES (?, ?, ?) ON CONFLICT(task_id) DO UPDATE SET "
+            "task_json = excluded.task_json, updated_at = excluded.updated_at",
+            (task.id, task.model_dump_json(), task.updated_at),
+        )
 
 
 def require_crawl_complete(cwd: Path, task: IntelTask) -> None:

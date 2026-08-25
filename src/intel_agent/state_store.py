@@ -20,6 +20,7 @@ from .models import (
     Message,
     MessageCitation,
     ReportVersion,
+    ResearchBrief,
     ResearchCheckpoint,
     ResearchRun,
     ResearchRunStatus,
@@ -46,8 +47,73 @@ class StateStore:
         self.cwd = cwd
         initialize_state_db(cwd)
 
+    def create_conversation(
+        self, client_conversation_id: str | None = None
+    ) -> Conversation:
+        """Create an unbound intake conversation and its first epoch."""
+        now = utc_now()
+        conversation_id = client_conversation_id or new_id("conversation")
+        epoch_id = new_id("epoch")
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            existing = connection.execute(
+                "SELECT * FROM conversations WHERE id = ?",
+                (conversation_id,),
+            ).fetchone()
+            if existing is not None:
+                return _row_to_conversation(existing)
+            connection.execute(
+                "INSERT INTO conversations("
+                "id, status, title, created_at, updated_at"
+                ") VALUES (?, 'intake', '新对话', ?, ?)",
+                (conversation_id, now, now),
+            )
+            connection.execute(
+                "INSERT INTO conversation_epochs("
+                "id, conversation_id, sequence, started_at"
+                ") VALUES (?, ?, 1, ?)",
+                (epoch_id, conversation_id, now),
+            )
+            connection.execute(
+                "UPDATE conversations SET active_epoch_id = ? WHERE id = ?",
+                (epoch_id, conversation_id),
+            )
+            row = connection.execute(
+                "SELECT * FROM conversations WHERE id = ?",
+                (conversation_id,),
+            ).fetchone()
+        return _row_to_conversation(_required(row, "conversation"))
+
+    def list_conversations(self) -> list[Conversation]:
+        """List visible conversations by most recent activity."""
+        with connect_state_db(self.cwd) as connection:
+            rows = connection.execute(
+                "SELECT * FROM conversations ORDER BY updated_at DESC, rowid DESC"
+            ).fetchall()
+        return [_row_to_conversation(row) for row in rows]
+
+    def archive_conversation(self, conversation_id: str) -> Conversation:
+        """Hide a conversation without changing its research task."""
+        now = utc_now()
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            cursor = connection.execute(
+                "UPDATE conversations SET status = 'archived', updated_at = ? "
+                "WHERE id = ?",
+                (now, conversation_id),
+            )
+            if cursor.rowcount == 0:
+                raise IntelError(
+                    "NOT_FOUND", f"任务会话不存在: {conversation_id}"
+                )
+            row = connection.execute(
+                "SELECT * FROM conversations WHERE id = ?",
+                (conversation_id,),
+            ).fetchone()
+        return _row_to_conversation(_required(row, "conversation"))
+
     def register_task(self, task_id: str) -> Conversation:
-        """Create the task's single conversation and first epoch if absent."""
+        """Return or lazily create a conversation for a legacy task."""
         now = utc_now()
         with connect_state_db(self.cwd) as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -65,8 +131,8 @@ class StateStore:
             epoch_id = new_id("epoch")
             connection.execute(
                 "INSERT INTO conversations("
-                "id, task_id, created_at, updated_at"
-                ") VALUES (?, ?, ?, ?)",
+                "id, task_id, status, title, created_at, updated_at"
+                ") VALUES (?, ?, 'active', '历史调研', ?, ?)",
                 (conversation_id, task_id, now, now),
             )
             connection.execute(
@@ -185,7 +251,7 @@ class StateStore:
 
     def add_user_message(
         self,
-        task_id: str,
+        conversation_or_task_id: str,
         content: str,
         client_message_id: str,
     ) -> Message:
@@ -194,10 +260,19 @@ class StateStore:
         with connect_state_db(self.cwd) as connection:
             connection.execute("BEGIN IMMEDIATE")
             conversation = connection.execute(
-                "SELECT * FROM conversations WHERE task_id = ?", (task_id,)
+                "SELECT * FROM conversations WHERE id = ? OR task_id = ? "
+                "ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END LIMIT 1",
+                (
+                    conversation_or_task_id,
+                    conversation_or_task_id,
+                    conversation_or_task_id,
+                ),
             ).fetchone()
             if conversation is None:
-                raise IntelError("NOT_FOUND", f"任务会话不存在: {task_id}")
+                raise IntelError(
+                    "NOT_FOUND",
+                    f"任务会话不存在: {conversation_or_task_id}",
+                )
             conversation_id = conversation["id"]
             existing = connection.execute(
                 "SELECT * FROM messages "
@@ -248,6 +323,136 @@ class StateStore:
                 "SELECT * FROM messages WHERE id = ?", (message_id,)
             ).fetchone()
         return _row_to_message(_required(row, "message"))
+
+    def bind_intake_task(
+        self,
+        conversation_id: str,
+        trigger_message_id: str,
+        brief: ResearchBrief,
+    ) -> Conversation:
+        """Atomically bind intake to one task and queued initial run."""
+        from .models import SufficiencyCriteria
+        from .task import build_task
+
+        task = build_task(
+            brief.topic,
+            brief.key_questions,
+            SufficiencyCriteria(),
+            objective=brief.objective,
+            scope=brief.scope,
+        )
+        now = utc_now()
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            conversation = connection.execute(
+                "SELECT * FROM conversations WHERE id = ?",
+                (conversation_id,),
+            ).fetchone()
+            if conversation is None:
+                raise IntelError(
+                    "NOT_FOUND", f"任务会话不存在: {conversation_id}"
+                )
+            existing = connection.execute(
+                "SELECT task_id FROM research_briefs "
+                "WHERE trigger_message_id = ?",
+                (trigger_message_id,),
+            ).fetchone()
+            if existing is not None:
+                row = connection.execute(
+                    "SELECT * FROM conversations WHERE id = ?",
+                    (conversation_id,),
+                ).fetchone()
+                return _row_to_conversation(_required(row, "conversation"))
+            if conversation["status"] != "intake" or conversation["task_id"]:
+                raise IntelError("INVALID_STATE_TRANSITION", "会话已绑定任务")
+            message = _find_message(connection, trigger_message_id)
+            if message["conversation_id"] != conversation_id:
+                raise IntelError("INVALID_INPUT", "触发消息不属于当前会话")
+
+            connection.execute(
+                "INSERT INTO task_state("
+                "task_id, task_json, origin_message_id, updated_at"
+                ") VALUES (?, ?, ?, ?)",
+                (
+                    task.id,
+                    task.model_dump_json(),
+                    trigger_message_id,
+                    now,
+                ),
+            )
+            brief_id = new_id("brief")
+            connection.execute(
+                "INSERT INTO research_briefs("
+                "id, conversation_id, trigger_message_id, task_id, "
+                "schema_version, brief_json, created_at"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    brief_id,
+                    conversation_id,
+                    trigger_message_id,
+                    task.id,
+                    brief.schema_version,
+                    brief.model_dump_json(),
+                    now,
+                ),
+            )
+            connection.execute(
+                "UPDATE conversations SET task_id = ?, status = 'active', "
+                "title = ?, updated_at = ? WHERE id = ?",
+                (task.id, brief.topic, now, conversation_id),
+            )
+            run_id = new_id("run")
+            connection.execute(
+                "INSERT INTO research_runs("
+                "id, task_id, run_type, trigger_message_id, "
+                "input_committed_state_version, input_snapshot_json, "
+                "status, created_at"
+                ") VALUES (?, ?, 'initial', ?, 0, ?, 'queued', ?)",
+                (
+                    run_id,
+                    task.id,
+                    trigger_message_id,
+                    _json({"research_brief_id": brief_id}),
+                    now,
+                ),
+            )
+            _insert_event(
+                connection,
+                conversation_id,
+                "task.created",
+                {"task_id": task.id},
+                now,
+                message_id=trigger_message_id,
+            )
+            _insert_event(
+                connection,
+                conversation_id,
+                "run.queued",
+                {"run_id": run_id},
+                now,
+                research_run_id=run_id,
+            )
+            _insert_timeline_entry(
+                connection,
+                conversation_id,
+                "task_created",
+                {"task_id": task.id, "run_id": run_id},
+                now,
+            )
+            row = connection.execute(
+                "SELECT * FROM conversations WHERE id = ?",
+                (conversation_id,),
+            ).fetchone()
+        return _row_to_conversation(_required(row, "conversation"))
+
+    def list_runs_for_conversation(
+        self, conversation_id: str
+    ) -> list[ResearchRun]:
+        """List bound task runs, or none while the conversation is intake."""
+        conversation = self.get_conversation_by_id(conversation_id)
+        if conversation.task_id is None:
+            return []
+        return self.list_runs(conversation.task_id)
 
     def set_message_processing(self, message_id: str) -> Message:
         """Mark an accepted user message as being processed."""
@@ -1209,6 +1414,37 @@ def _insert_event(
             message_id,
             action_request_id,
             research_run_id,
+            created_at,
+        ),
+    )
+
+
+def _insert_timeline_entry(
+    connection: sqlite3.Connection,
+    conversation_id: str,
+    entry_type: str,
+    data: dict[str, object],
+    created_at: str,
+    *,
+    source_event_sequence: int | None = None,
+) -> None:
+    sequence = connection.execute(
+        "SELECT COALESCE(MAX(timeline_sequence), 0) + 1 "
+        "FROM timeline_entries WHERE conversation_id = ?",
+        (conversation_id,),
+    ).fetchone()[0]
+    connection.execute(
+        "INSERT INTO timeline_entries("
+        "id, conversation_id, timeline_sequence, source_event_sequence, "
+        "entry_type, data_json, created_at"
+        ") VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (
+            new_id("timeline"),
+            conversation_id,
+            sequence,
+            source_event_sequence,
+            entry_type,
+            _json(data),
             created_at,
         ),
     )
