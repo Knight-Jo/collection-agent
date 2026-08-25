@@ -1,8 +1,13 @@
 # 任务驱动多轮对话重构架构设计
 
+> 本文记录已实现的 task-page-first V1 基线。Conversation-first V2 已冻结于
+> [`docs/superpowers/specs/2026-08-25-conversation-runtime-web-design.md`](../superpowers/specs/2026-08-25-conversation-runtime-web-design.md)，
+> 其中关于 Conversation/Task 关系、Intake、API、运行停止、事件序列和 Web
+> 交互的决策优先于本文；V2 实施完成后再将本文整体收敛为当前架构。
+
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | 首版完整链路已实现并进入验证阶段 |
+| 状态 | Task-page-first V1 已实现；Conversation-first V2 待实施 |
 | 确认日期 | 2026-08-25 |
 | 适用范围 | 本地单用户公开信息调研工作台 |
 | 核心目标 | 将一次性研究运行改造成任务驱动、状态持久、可对话控制的调研系统 |
