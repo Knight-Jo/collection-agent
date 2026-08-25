@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 
 from pydantic_ai import CancellationToken
@@ -135,3 +136,40 @@ async def test_cancelled_continuation_marks_run_and_action(cwd):
 
     assert result.status == "cancelled"
     assert store.list_runs(task.id)[0].status == "cancelled"
+
+
+async def test_stop_running_continuation_preserves_committed_boundary(
+    monkeypatch, cwd
+):
+    task = new_task(cwd)
+    store = StateStore(cwd)
+    store.register_task(task.id)
+    trigger = store.add_user_message(task.id, "继续搜索", "client-1")
+    action = store.create_action(
+        task.id, trigger.id, "continue_research", {"topic": "风险"}
+    )
+    started = asyncio.Event()
+    token = CancellationToken()
+
+    class _WaitingAgent:
+        async def run(self, _prompt, **_kwargs):
+            started.set()
+            while not token.cancelled:
+                await asyncio.sleep(0)
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(
+        continuation_module,
+        "build_agent",
+        lambda *_args, **_kwargs: _WaitingAgent(),
+    )
+    runner = ContinuationRunner(cwd, store=store)
+    execution = asyncio.create_task(runner.run(action, token))
+    await started.wait()
+
+    token.cancel()
+    result = await execution
+
+    assert result.status == "cancelled"
+    assert store.list_runs(task.id)[0].status == "stopped"
+    assert store.committed_state_version(task.id) == 0

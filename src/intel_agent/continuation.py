@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from pydantic_ai import CancellationToken
@@ -121,7 +122,15 @@ class ContinuationRunner:
             self.store.transition_action(
                 action.id, "executing", created_research_run_id=run.id
             )
-            self.store.transition_run(run.id, "running", phase="collecting")
+            self.store.transition_run(
+                run.id,
+                "running",
+                phase="collecting",
+                lease_owner=run.id,
+                lease_expires_at=(
+                    datetime.now(UTC) + timedelta(minutes=2)
+                ).isoformat(),
+            )
             task = activate_task(self.cwd, action.task_id)
             saved_collection = task.collection
             save_task(
@@ -185,7 +194,10 @@ class ContinuationRunner:
         except (RunCancelled, asyncio.CancelledError):
             current_run = self.store.get_run(run.id)
             if current_run.status == "running":
-                self.store.transition_run(run.id, "cancelled")
+                self.store.stop_run(run.id)
+                self.store.finish_stop(run.id)
+            elif current_run.status == "stopping":
+                self.store.finish_stop(run.id)
             current_action = self.store.get_action(action.id)
             if current_action.status == "executing":
                 return self.store.transition_action(action.id, "cancelled")

@@ -25,6 +25,7 @@ from .models import (
     ResearchCheckpoint,
     ResearchRun,
     ResearchRunStatus,
+    TimelineEntry,
     new_id,
     utc_now,
 )
@@ -37,7 +38,8 @@ ACTION_TRANSITIONS: dict[str, set[str]] = {
 }
 RUN_TRANSITIONS: dict[str, set[str]] = {
     "queued": {"running", "cancelled"},
-    "running": {"succeeded", "failed", "cancelled", "interrupted"},
+    "running": {"stopping", "succeeded", "failed", "interrupted"},
+    "stopping": {"stopped", "interrupted"},
 }
 
 
@@ -329,13 +331,21 @@ class StateStore:
                 "UPDATE conversations SET updated_at = ? WHERE id = ?",
                 (now, conversation_id),
             )
-            _insert_event(
+            event_sequence = _insert_event(
                 connection,
                 conversation_id,
                 "message.accepted",
                 {"message_id": message_id},
                 now,
                 message_id=message_id,
+            )
+            _insert_timeline_entry(
+                connection,
+                conversation_id,
+                "message",
+                {"message_id": message_id, "role": "user"},
+                now,
+                source_event_sequence=event_sequence,
             )
             row = connection.execute(
                 "SELECT * FROM messages WHERE id = ?", (message_id,)
@@ -442,7 +452,7 @@ class StateStore:
                 now,
                 message_id=trigger_message_id,
             )
-            _insert_event(
+            event_sequence = _insert_event(
                 connection,
                 conversation_id,
                 "run.queued",
@@ -456,6 +466,7 @@ class StateStore:
                 "task_created",
                 {"task_id": task.id, "run_id": run_id},
                 now,
+                source_event_sequence=event_sequence,
             )
             row = connection.execute(
                 "SELECT * FROM conversations WHERE id = ?",
@@ -750,7 +761,7 @@ class StateStore:
                         now,
                     ),
                 )
-            _insert_event(
+            event_sequence = _insert_event(
                 connection,
                 user["conversation_id"],
                 "answer.completed",
@@ -760,6 +771,14 @@ class StateStore:
                 },
                 now,
                 message_id=assistant_id,
+            )
+            _insert_timeline_entry(
+                connection,
+                user["conversation_id"],
+                "message",
+                {"message_id": assistant_id, "role": "assistant"},
+                now,
+                source_event_sequence=event_sequence,
             )
             row = connection.execute(
                 "SELECT * FROM messages WHERE id = ?", (assistant_id,)
@@ -1126,6 +1145,8 @@ class StateStore:
         phase: str | None = None,
         outcome: str | None = None,
         error: str | None = None,
+        lease_owner: str | None = None,
+        lease_expires_at: str | None = None,
     ) -> ResearchRun:
         """Apply one allowed research run transition."""
         now = utc_now()
@@ -1138,13 +1159,20 @@ class StateStore:
             completed_at = (
                 now
                 if new_status
-                in {"succeeded", "failed", "cancelled", "interrupted"}
+                in {
+                    "stopped",
+                    "succeeded",
+                    "failed",
+                    "cancelled",
+                    "interrupted",
+                }
                 else None
             )
             connection.execute(
                 "UPDATE research_runs SET status = ?, "
                 "started_at = COALESCE(?, started_at), completed_at = ?, "
-                "phase = COALESCE(?, phase), outcome = ?, error = ? "
+                "phase = COALESCE(?, phase), outcome = ?, error = ?, "
+                "lease_owner = ?, lease_expires_at = ? "
                 "WHERE id = ?",
                 (
                     new_status,
@@ -1153,13 +1181,77 @@ class StateStore:
                     phase,
                     outcome,
                     error,
+                    lease_owner
+                    if new_status in {"running", "stopping"}
+                    else None,
+                    lease_expires_at
+                    if new_status in {"running", "stopping"}
+                    else None,
                     run_id,
                 ),
+            )
+            conversation_id = _conversation_id_for_run(connection, run)
+            event_sequence = _insert_event(
+                connection,
+                conversation_id,
+                f"run.{new_status}",
+                {"run_id": run_id, "status": new_status},
+                now,
+                research_run_id=run_id,
+            )
+            _insert_timeline_entry(
+                connection,
+                conversation_id,
+                "run_status",
+                {"run_id": run_id, "status": new_status},
+                now,
+                source_event_sequence=event_sequence,
             )
             row = connection.execute(
                 "SELECT * FROM research_runs WHERE id = ?", (run_id,)
             ).fetchone()
         return _row_to_run(_required(row, "research run"))
+
+    def cancel_run(self, run_id: str) -> ResearchRun:
+        """Cancel a queued run before execution starts."""
+        return self.transition_run(run_id, "cancelled")
+
+    def stop_run(self, run_id: str) -> ResearchRun:
+        """Request cooperative stopping for a running run."""
+        run = self.get_run(run_id)
+        return self.transition_run(
+            run_id,
+            "stopping",
+            lease_owner=run.lease_owner,
+            lease_expires_at=run.lease_expires_at,
+        )
+
+    def finish_stop(self, run_id: str) -> ResearchRun:
+        """Finish a stop after in-flight work can no longer commit."""
+        return self.transition_run(run_id, "stopped")
+
+    def recover_expired_runs(
+        self, now: str | None = None
+    ) -> list[ResearchRun]:
+        """Mark abandoned active runs interrupted; never resume them in place."""
+        now = now or utc_now()
+        recovered: list[ResearchRun] = []
+        with connect_state_db(self.cwd) as connection:
+            rows = connection.execute(
+                "SELECT * FROM research_runs WHERE status IN ('running', 'stopping') "
+                "AND (lease_expires_at IS NULL OR lease_expires_at < ?) "
+                "ORDER BY created_at, rowid",
+                (now,),
+            ).fetchall()
+        for row in rows:
+            recovered.append(
+                self.transition_run(
+                    row["id"],
+                    "interrupted",
+                    error="runtime lease expired",
+                )
+            )
+        return recovered
 
     def get_run(self, run_id: str) -> ResearchRun:
         """Return one research run."""
@@ -1259,6 +1351,16 @@ class StateStore:
                 raise _invalid_transition(
                     "checkpoint", checkpoint["status"], "committed"
                 )
+            run = _find_run(connection, checkpoint["research_run_id"])
+            if run["status"] in {
+                "stopping",
+                "stopped",
+                "cancelled",
+                "interrupted",
+            }:
+                raise IntelError(
+                    "RUN_STOPPING", "运行停止后未提交材料不能进入事实状态"
+                )
             state = _task_state(connection, checkpoint["task_id"])
             input_version = checkpoint["input_committed_state_version"]
             if state["current_committed_state_version"] != input_version:
@@ -1305,6 +1407,29 @@ class StateStore:
                 "UPDATE task_state SET current_committed_state_version = ?, "
                 "updated_at = ? WHERE task_id = ?",
                 (output_version, now, checkpoint["task_id"]),
+            )
+            conversation_id = _conversation_id_for_run(connection, run)
+            event_sequence = _insert_event(
+                connection,
+                conversation_id,
+                "checkpoint.committed",
+                {
+                    "checkpoint_id": checkpoint_id,
+                    "committed_state_version": output_version,
+                },
+                now,
+                research_run_id=run["id"],
+            )
+            _insert_timeline_entry(
+                connection,
+                conversation_id,
+                "checkpoint",
+                {
+                    "checkpoint_id": checkpoint_id,
+                    "committed_state_version": output_version,
+                },
+                now,
+                source_event_sequence=event_sequence,
             )
             row = connection.execute(
                 "SELECT * FROM research_checkpoints WHERE id = ?",
@@ -1529,6 +1654,31 @@ class StateStore:
             ).fetchall()
         return [_row_to_event(row) for row in rows]
 
+    def events_after_conversation(
+        self, conversation_id: str, sequence: int
+    ) -> list[ConversationEvent]:
+        """Replay committed events using the event cursor only."""
+        with connect_state_db(self.cwd) as connection:
+            rows = connection.execute(
+                "SELECT * FROM conversation_events "
+                "WHERE conversation_id = ? AND sequence > ? "
+                "ORDER BY sequence",
+                (conversation_id, sequence),
+            ).fetchall()
+        return [_row_to_event(row) for row in rows]
+
+    def timeline_after(
+        self, conversation_id: str, sequence: int
+    ) -> list[TimelineEntry]:
+        """Read display projections using the independent Timeline cursor."""
+        with connect_state_db(self.cwd) as connection:
+            rows = connection.execute(
+                "SELECT * FROM timeline_entries WHERE conversation_id = ? "
+                "AND timeline_sequence > ? ORDER BY timeline_sequence",
+                (conversation_id, sequence),
+            ).fetchall()
+        return [_row_to_timeline_entry(row) for row in rows]
+
 
 def _next_message_sequence(
     connection: sqlite3.Connection, conversation_id: str
@@ -1550,7 +1700,7 @@ def _insert_event(
     message_id: str | None = None,
     action_request_id: str | None = None,
     research_run_id: str | None = None,
-) -> None:
+) -> int:
     sequence = connection.execute(
         "SELECT COALESCE(MAX(sequence), 0) + 1 "
         "FROM conversation_events WHERE conversation_id = ?",
@@ -1572,6 +1722,7 @@ def _insert_event(
             created_at,
         ),
     )
+    return sequence
 
 
 def _insert_timeline_entry(
@@ -1674,6 +1825,22 @@ def _find_run(connection: sqlite3.Connection, run_id: str) -> sqlite3.Row:
     return row
 
 
+def _conversation_id_for_run(
+    connection: sqlite3.Connection, run: sqlite3.Row
+) -> str:
+    row = connection.execute(
+        "SELECT conversations.id FROM conversations "
+        "LEFT JOIN messages ON messages.conversation_id = conversations.id "
+        "WHERE messages.id = ? OR conversations.task_id = ? "
+        "ORDER BY CASE WHEN messages.id = ? THEN 0 ELSE 1 END, "
+        "conversations.updated_at DESC LIMIT 1",
+        (run["trigger_message_id"], run["task_id"], run["trigger_message_id"]),
+    ).fetchone()
+    if row is None:
+        raise IntelError("STORAGE_CORRUPT", "研究运行缺少关联会话")
+    return row["id"]
+
+
 def _find_checkpoint(
     connection: sqlite3.Connection, checkpoint_id: str
 ) -> sqlite3.Row:
@@ -1761,3 +1928,9 @@ def _row_to_event(row: sqlite3.Row) -> ConversationEvent:
     value = dict(row)
     value["data"] = json.loads(value.pop("data_json"))
     return ConversationEvent.model_validate(value)
+
+
+def _row_to_timeline_entry(row: sqlite3.Row) -> TimelineEntry:
+    value = dict(row)
+    value["data"] = json.loads(value.pop("data_json"))
+    return TimelineEntry.model_validate(value)

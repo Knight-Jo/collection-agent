@@ -237,6 +237,94 @@ def test_retry_creates_new_run_and_keeps_interrupted_terminal(cwd):
     assert retry.id != first.id
 
 
+def test_cancel_and_stop_have_distinct_run_semantics(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    queued = store.create_run("task-1", "initial", 0, {})
+
+    cancelled = store.cancel_run(queued.id)
+    running = store.create_run("task-1", "initial", 0, {})
+    store.transition_run(
+        running.id,
+        "running",
+        lease_owner="runtime-1",
+        lease_expires_at="2026-08-25T01:00:00+00:00",
+    )
+    stopping = store.stop_run(running.id)
+    stopped = store.finish_stop(running.id)
+
+    assert cancelled.status == "cancelled"
+    assert stopping.status == "stopping"
+    assert stopped.status == "stopped"
+
+
+def test_recovery_interrupts_expired_running_and_stopping_runs(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    running = store.create_run("task-1", "initial", 0, {})
+    store.transition_run(
+        running.id,
+        "running",
+        lease_owner="old-runtime",
+        lease_expires_at="2026-08-25T00:00:00+00:00",
+    )
+
+    recovered = store.recover_expired_runs("2026-08-25T00:00:01+00:00")
+
+    assert [item.id for item in recovered] == [running.id]
+    assert recovered[0].status == "interrupted"
+
+
+def test_event_and_timeline_sequences_are_independent(cwd):
+    store = StateStore(cwd)
+    conversation = store.create_conversation()
+    store.add_user_message(conversation.id, "你能做什么", "client-1")
+
+    events = store.events_after_conversation(conversation.id, 0)
+    timeline = store.timeline_after(conversation.id, 0)
+
+    assert events[0].sequence == 1
+    assert timeline[0].timeline_sequence == 1
+    assert timeline[0].source_event_sequence == events[0].sequence
+    assert timeline[0].id != str(events[0].id)
+
+
+def test_run_state_and_event_projection_roll_back_together(cwd, monkeypatch):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    run = store.create_run("task-1", "initial", 0, {})
+
+    def fail_projection(*_args, **_kwargs):
+        raise RuntimeError("projection failed")
+
+    monkeypatch.setattr(
+        "intel_agent.state_store._insert_timeline_entry", fail_projection
+    )
+    with pytest.raises(RuntimeError, match="projection failed"):
+        store.transition_run(run.id, "running")
+
+    assert store.get_run(run.id).status == "queued"
+    assert all(
+        event.research_run_id != run.id
+        for event in store.events_after("task-1", 0)
+    )
+
+
+def test_stopping_run_cannot_commit_working_assets(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    run = store.create_run("task-1", "initial", 0, {})
+    store.transition_run(run.id, "running")
+    checkpoint = store.start_checkpoint(run.id, reason="batch")
+    store.stop_run(run.id)
+
+    with pytest.raises(IntelError) as caught:
+        store.commit_checkpoint(checkpoint.id, [("document", "working-doc")])
+
+    assert caught.value.code == "RUN_STOPPING"
+    assert store.committed_asset_ids("task-1", "document") == set()
+
+
 def test_checkpoint_commit_advances_version_once(cwd):
     store = StateStore(cwd)
     store.register_task("task-1")
