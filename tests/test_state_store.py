@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from intel_agent.models import IntelError
+from intel_agent.models import CitationDraft, IntelError
 from intel_agent.state_store import StateStore
 
 
@@ -51,6 +51,85 @@ def test_complete_message_inserts_one_assistant_reply(cwd):
     assert assistant.reply_to_id == user.id
     assert store.get_message(user.id).status == "completed"
     assert [item.sequence for item in store.list_messages("task-1")] == [1, 2]
+
+
+def test_message_events_and_citations_are_committed_together(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    store.seed_committed_assets(
+        "task-1",
+        [("document", "document-1"), ("evidence", "evidence-1")],
+    )
+    user = store.add_user_message("task-1", "问题", "client-1")
+    store.set_message_processing(user.id)
+    citation = CitationDraft(
+        citation_kind="verified_evidence",
+        document_id="document-1",
+        evidence_id="evidence-1",
+        title="材料",
+        source_url="https://example.com/source",
+        quote_text="引用",
+        line_start=2,
+        line_end=3,
+        source_content_hash="abc",
+    )
+
+    assistant = store.complete_message(user.id, "回答", [citation])
+
+    assert store.citations_for_message(assistant.id)[0].quote_text == "引用"
+    assert [event.event_type for event in store.events_after("task-1", 0)] == [
+        "message.accepted",
+        "answer.completed",
+    ]
+
+
+def test_complete_message_rejects_cross_task_citation(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    store.register_task("task-2")
+    store.seed_committed_assets("task-2", [("document", "document-2")])
+    user = store.add_user_message("task-1", "问题", "client-1")
+    citation = CitationDraft(
+        citation_kind="material_clue",
+        document_id="document-2",
+        title="其他任务材料",
+        source_url="https://example.com/source",
+        quote_text="引用",
+        line_start=1,
+        line_end=1,
+        source_content_hash="abc",
+    )
+
+    with pytest.raises(IntelError) as caught:
+        store.complete_message(user.id, "回答", [citation])
+
+    assert caught.value.code == "INVALID_CITATION"
+    assert store.get_message(user.id).status == "accepted"
+
+
+def test_message_can_fail_after_processing(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    user = store.add_user_message("task-1", "问题", "client-1")
+
+    processing = store.set_message_processing(user.id)
+    failed = store.fail_message(user.id, "model unavailable")
+
+    assert processing.status == "processing"
+    assert failed.status == "failed"
+    assert failed.error == "model unavailable"
+
+
+def test_committed_asset_seeding_is_idempotent(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    assets = [("document", "document-1"), ("fact", "fact-1")]
+
+    store.seed_committed_assets("task-1", assets)
+    store.seed_committed_assets("task-1", assets)
+
+    assert store.committed_asset_ids("task-1", "document") == {"document-1"}
+    assert store.committed_asset_ids("task-1", "fact") == {"fact-1"}
 
 
 def test_confirmed_proposal_queues_once(cwd):
@@ -183,3 +262,28 @@ def test_transient_events_are_not_persisted(cwd):
 
     assert caught.value.code == "INVALID_INPUT"
     assert store.events_after("task-1", 0) == []
+
+
+def test_list_projections_use_stable_order(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    trigger = store.add_user_message("task-1", "继续搜索", "client-1")
+    first_action = store.create_action(
+        "task-1", trigger.id, "continue_research", {}
+    )
+    second_action = store.create_action(
+        "task-1", trigger.id, "generate_report", {}
+    )
+    first_run = store.create_run("task-1", "initial", 0, {})
+    second_run = store.create_run("task-1", "continue_research", 0, {})
+    first_report = store.create_report_draft("task-1", "one.md", "one")
+    second_report = store.create_report_draft("task-1", "two.md", "two")
+
+    assert store.get_action(first_action.id) == first_action
+    assert store.list_actions("task-1") == [first_action, second_action]
+    assert store.get_run(first_run.id) == first_run
+    assert store.list_runs("task-1") == [first_run, second_run]
+    assert [item.id for item in store.list_reports("task-1")] == [
+        first_report.id,
+        second_report.id,
+    ]

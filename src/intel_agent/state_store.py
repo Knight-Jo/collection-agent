@@ -4,17 +4,21 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 from .models import (
     ActionRequest,
     ActionRequestStatus,
     ActionType,
+    CitationDraft,
+    CommittedAssetType,
     Conversation,
     ConversationEpoch,
     ConversationEvent,
     IntelError,
     Message,
+    MessageCitation,
     ReportVersion,
     ResearchCheckpoint,
     ResearchRun,
@@ -182,12 +186,68 @@ class StateStore:
                 "UPDATE conversations SET updated_at = ? WHERE id = ?",
                 (now, conversation_id),
             )
+            _insert_event(
+                connection,
+                conversation_id,
+                "message.accepted",
+                {"message_id": message_id},
+                now,
+                message_id=message_id,
+            )
             row = connection.execute(
                 "SELECT * FROM messages WHERE id = ?", (message_id,)
             ).fetchone()
         return _row_to_message(_required(row, "message"))
 
-    def complete_message(self, user_message_id: str, content: str) -> Message:
+    def set_message_processing(self, message_id: str) -> Message:
+        """Mark an accepted user message as being processed."""
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            message = _find_message(connection, message_id)
+            if message["role"] != "user":
+                raise IntelError("INVALID_INPUT", "只能处理用户消息")
+            if message["status"] == "accepted":
+                connection.execute(
+                    "UPDATE messages SET status = 'processing' WHERE id = ?",
+                    (message_id,),
+                )
+            elif message["status"] != "processing":
+                raise _invalid_transition(
+                    "message", message["status"], "processing"
+                )
+            row = connection.execute(
+                "SELECT * FROM messages WHERE id = ?", (message_id,)
+            ).fetchone()
+        return _row_to_message(_required(row, "message"))
+
+    def fail_message(self, message_id: str, error: str) -> Message:
+        """Finish an accepted or processing user message with an error."""
+        now = utc_now()
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            message = _find_message(connection, message_id)
+            if message["role"] != "user":
+                raise IntelError("INVALID_INPUT", "只能结束用户消息")
+            if message["status"] not in {"accepted", "processing"}:
+                raise _invalid_transition(
+                    "message", message["status"], "failed"
+                )
+            connection.execute(
+                "UPDATE messages SET status = 'failed', completed_at = ?, "
+                "error = ? WHERE id = ?",
+                (now, error, message_id),
+            )
+            row = connection.execute(
+                "SELECT * FROM messages WHERE id = ?", (message_id,)
+            ).fetchone()
+        return _row_to_message(_required(row, "message"))
+
+    def complete_message(
+        self,
+        user_message_id: str,
+        content: str,
+        citations: Sequence[CitationDraft] = (),
+    ) -> Message:
         """Complete one user request and insert its immutable assistant reply."""
         now = utc_now()
         with connect_state_db(self.cwd) as connection:
@@ -215,6 +275,13 @@ class StateStore:
                 raise IntelError(
                     "INVALID_STATE_TRANSITION", "用户消息已结束处理"
                 )
+
+            task_id = connection.execute(
+                "SELECT task_id FROM conversations WHERE id = ?",
+                (user["conversation_id"],),
+            ).fetchone()[0]
+            for citation in citations:
+                _validate_citation(connection, task_id, citation)
 
             connection.execute(
                 "UPDATE messages SET status = 'completed', completed_at = ? "
@@ -244,6 +311,40 @@ class StateStore:
             connection.execute(
                 "UPDATE conversations SET updated_at = ? WHERE id = ?",
                 (now, user["conversation_id"]),
+            )
+            for citation_sequence, citation in enumerate(citations, start=1):
+                connection.execute(
+                    "INSERT INTO message_citations("
+                    "id, task_id, message_id, sequence, citation_kind, "
+                    "document_id, evidence_id, fact_id, title, source_url, "
+                    "quote_text, line_start, line_end, source_content_hash, "
+                    "created_at"
+                    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        new_id("citation"),
+                        task_id,
+                        assistant_id,
+                        citation_sequence,
+                        citation.citation_kind,
+                        citation.document_id,
+                        citation.evidence_id,
+                        citation.fact_id,
+                        citation.title,
+                        citation.source_url,
+                        citation.quote_text,
+                        citation.line_start,
+                        citation.line_end,
+                        citation.source_content_hash,
+                        now,
+                    ),
+                )
+            _insert_event(
+                connection,
+                user["conversation_id"],
+                "answer.completed",
+                {"message_id": assistant_id},
+                now,
+                message_id=assistant_id,
             )
             row = connection.execute(
                 "SELECT * FROM messages WHERE id = ?", (assistant_id,)
@@ -277,6 +378,52 @@ class StateStore:
                 (task_id,),
             ).fetchall()
         return [_row_to_message(row) for row in rows]
+
+    def citations_for_message(self, message_id: str) -> list[MessageCitation]:
+        """Return citations in their answer display order."""
+        with connect_state_db(self.cwd) as connection:
+            rows = connection.execute(
+                "SELECT * FROM message_citations WHERE message_id = ? "
+                "ORDER BY sequence",
+                (message_id,),
+            ).fetchall()
+        return [_row_to_citation(row) for row in rows]
+
+    def seed_committed_assets(
+        self,
+        task_id: str,
+        assets: Iterable[tuple[CommittedAssetType, str]],
+    ) -> None:
+        """Idempotently expose existing task assets to conversation reads."""
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            state = _task_state(connection, task_id)
+            connection.executemany(
+                "INSERT OR IGNORE INTO task_committed_assets("
+                "task_id, asset_type, asset_id, committed_state_version"
+                ") VALUES (?, ?, ?, ?)",
+                (
+                    (
+                        task_id,
+                        asset_type,
+                        asset_id,
+                        state["current_committed_state_version"],
+                    )
+                    for asset_type, asset_id in assets
+                ),
+            )
+
+    def committed_asset_ids(
+        self, task_id: str, asset_type: CommittedAssetType
+    ) -> set[str]:
+        """Return IDs visible in the task's committed research state."""
+        with connect_state_db(self.cwd) as connection:
+            rows = connection.execute(
+                "SELECT asset_id FROM task_committed_assets "
+                "WHERE task_id = ? AND asset_type = ?",
+                (task_id, asset_type),
+            ).fetchall()
+        return {row[0] for row in rows}
 
     def create_action(
         self,
@@ -341,6 +488,22 @@ class StateStore:
                 "SELECT * FROM action_requests WHERE id = ?", (action_id,)
             ).fetchone()
         return _row_to_action(_required(row, "action request"))
+
+    def get_action(self, action_id: str) -> ActionRequest:
+        """Return one action request."""
+        with connect_state_db(self.cwd) as connection:
+            row = _find_action(connection, action_id)
+        return _row_to_action(row)
+
+    def list_actions(self, task_id: str) -> list[ActionRequest]:
+        """List task actions in creation order."""
+        with connect_state_db(self.cwd) as connection:
+            rows = connection.execute(
+                "SELECT * FROM action_requests WHERE task_id = ? "
+                "ORDER BY created_at, rowid",
+                (task_id,),
+            ).fetchall()
+        return [_row_to_action(row) for row in rows]
 
     def confirm_action(
         self, action_id: str, confirmation_message_id: str
@@ -542,6 +705,22 @@ class StateStore:
             ).fetchone()
         return _row_to_run(_required(row, "research run"))
 
+    def get_run(self, run_id: str) -> ResearchRun:
+        """Return one research run."""
+        with connect_state_db(self.cwd) as connection:
+            row = _find_run(connection, run_id)
+        return _row_to_run(row)
+
+    def list_runs(self, task_id: str) -> list[ResearchRun]:
+        """List task runs in creation order."""
+        with connect_state_db(self.cwd) as connection:
+            rows = connection.execute(
+                "SELECT * FROM research_runs WHERE task_id = ? "
+                "ORDER BY created_at, rowid",
+                (task_id,),
+            ).fetchall()
+        return [_row_to_run(row) for row in rows]
+
     def retry_run(self, run_id: str) -> ResearchRun:
         """Create a fresh queued run linked to a failed or interrupted run."""
         with connect_state_db(self.cwd) as connection:
@@ -705,6 +884,16 @@ class StateStore:
             raise IntelError("NOT_FOUND", f"报告版本不存在: {report_id}")
         return _row_to_report(row)
 
+    def list_reports(self, task_id: str) -> list[ReportVersion]:
+        """List task report versions in numeric order."""
+        with connect_state_db(self.cwd) as connection:
+            rows = connection.execute(
+                "SELECT * FROM report_versions WHERE task_id = ? "
+                "ORDER BY version",
+                (task_id,),
+            ).fetchall()
+        return [_row_to_report(row) for row in rows]
+
     def abandon_report(self, report_id: str) -> ReportVersion:
         """Abandon an unpublished draft."""
         now = utc_now()
@@ -857,6 +1046,65 @@ def _next_message_sequence(
     ).fetchone()[0]
 
 
+def _insert_event(
+    connection: sqlite3.Connection,
+    conversation_id: str,
+    event_type: str,
+    data: dict[str, object],
+    created_at: str,
+    *,
+    message_id: str | None = None,
+    action_request_id: str | None = None,
+    research_run_id: str | None = None,
+) -> None:
+    sequence = connection.execute(
+        "SELECT COALESCE(MAX(sequence), 0) + 1 "
+        "FROM conversation_events WHERE conversation_id = ?",
+        (conversation_id,),
+    ).fetchone()[0]
+    connection.execute(
+        "INSERT INTO conversation_events("
+        "conversation_id, sequence, event_type, data_json, message_id, "
+        "action_request_id, research_run_id, created_at"
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            conversation_id,
+            sequence,
+            event_type,
+            _json(data),
+            message_id,
+            action_request_id,
+            research_run_id,
+            created_at,
+        ),
+    )
+
+
+def _validate_citation(
+    connection: sqlite3.Connection,
+    task_id: str,
+    citation: CitationDraft,
+) -> None:
+    assets: list[tuple[CommittedAssetType, str]] = [
+        ("document", citation.document_id)
+    ]
+    if citation.evidence_id:
+        assets.append(("evidence", citation.evidence_id))
+    if citation.fact_id:
+        assets.append(("fact", citation.fact_id))
+    for asset_type, asset_id in assets:
+        found = connection.execute(
+            "SELECT 1 FROM task_committed_assets "
+            "WHERE task_id = ? AND asset_type = ? AND asset_id = ?",
+            (task_id, asset_type, asset_id),
+        ).fetchone()
+        if found is None:
+            raise IntelError(
+                "INVALID_CITATION",
+                f"引用资产不属于当前任务: {asset_type}/{asset_id}",
+            )
+
+
 def _json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
@@ -867,6 +1115,17 @@ def _task_state(connection: sqlite3.Connection, task_id: str) -> sqlite3.Row:
     ).fetchone()
     if row is None:
         raise IntelError("NOT_FOUND", f"任务状态不存在: {task_id}")
+    return row
+
+
+def _find_message(
+    connection: sqlite3.Connection, message_id: str
+) -> sqlite3.Row:
+    row = connection.execute(
+        "SELECT * FROM messages WHERE id = ?", (message_id,)
+    ).fetchone()
+    if row is None:
+        raise IntelError("NOT_FOUND", f"消息不存在: {message_id}")
     return row
 
 
@@ -939,6 +1198,10 @@ def _row_to_message(row: sqlite3.Row) -> Message:
         json.loads(intent_json) if intent_json is not None else None
     )
     return Message.model_validate(value)
+
+
+def _row_to_citation(row: sqlite3.Row) -> MessageCitation:
+    return MessageCitation.model_validate(dict(row))
 
 
 def _row_to_action(row: sqlite3.Row) -> ActionRequest:
