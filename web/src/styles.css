@@ -866,6 +866,200 @@ a {
 .source-evidence {
   margin-top: 28px;
 }
+.conversation-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 310px;
+  gap: 18px;
+  align-items: start;
+}
+.conversation-main,
+.conversation-side > * {
+  min-width: 0;
+}
+.conversation-status {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  color: #77857f;
+  font-size: 11px;
+  margin-bottom: 12px;
+}
+.conversation-status strong {
+  color: var(--green);
+  margin-left: auto;
+}
+.message-list {
+  min-height: 340px;
+  max-height: 650px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+}
+.message {
+  max-width: 84%;
+  border-radius: 14px;
+  padding: 13px 15px;
+  background: #f0f5f1;
+  color: #354840;
+}
+.message-user {
+  align-self: flex-end;
+  color: white;
+  background: var(--green);
+}
+.message header {
+  margin-bottom: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.65;
+}
+.message p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.65;
+  font-size: 14px;
+}
+.citation-buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 9px;
+}
+.citation-buttons button,
+.report-version button {
+  border: 0;
+  border-radius: 7px;
+  padding: 4px 7px;
+  color: var(--green);
+  background: #dbece4;
+  cursor: pointer;
+  font-size: 11px;
+}
+.message-pending {
+  margin: 0;
+  color: #84918b;
+  font-size: 12px;
+}
+.compact-empty {
+  padding: 32px 18px;
+}
+.action-card {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid #d7e2d7;
+  border-radius: 13px;
+  background: #f9fbf6;
+}
+.action-card > svg {
+  color: var(--green);
+}
+.action-card p {
+  margin: 4px 0 0;
+  color: #718079;
+  font-size: 11px;
+  word-break: break-word;
+}
+.action-buttons {
+  display: flex;
+  gap: 7px;
+}
+.action-card .primary-button,
+.action-card .secondary-button {
+  padding: 8px 12px;
+  font-size: 12px;
+}
+.conversation-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 14px;
+}
+.conversation-input textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 82px;
+  border: 1px solid #ccd6cf;
+  border-radius: 13px;
+  padding: 12px 14px;
+  font: inherit;
+  outline: none;
+}
+.conversation-input textarea:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px #12614914;
+}
+.conversation-side {
+  position: sticky;
+  top: 92px;
+}
+.citation-card,
+.report-versions {
+  position: relative;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: white;
+}
+.citation-card > svg {
+  color: var(--green);
+  display: block;
+  margin-bottom: 12px;
+}
+.citation-card p {
+  color: #43574e;
+  line-height: 1.65;
+  font-size: 13px;
+}
+.citation-card small {
+  display: block;
+  color: #7e8b85;
+  margin-bottom: 12px;
+}
+.citation-card a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--green);
+  font-size: 12px;
+}
+.citation-close {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+}
+.report-versions > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  color: var(--green);
+}
+.report-versions > .secondary-button {
+  width: 100%;
+  margin-top: 12px;
+}
+.report-version {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 0;
+  border-top: 1px solid #edf0eb;
+  font-size: 12px;
+}
+.report-version strong {
+  color: #68776f;
+  text-transform: capitalize;
+}
 @media (max-width: 760px) {
   .topbar {
     height: 62px;
@@ -922,6 +1116,28 @@ a {
   }
   .fact-card blockquote {
     margin-left: 0;
+  }
+  .conversation-layout {
+    grid-template-columns: 1fr;
+  }
+  .conversation-side {
+    position: static;
+  }
+  .message {
+    max-width: 94%;
+  }
+  .action-card,
+  .conversation-input {
+    grid-template-columns: 1fr;
+  }
+  .action-card > svg {
+    display: none;
+  }
+  .action-buttons {
+    flex-wrap: wrap;
+  }
+  .conversation-input .primary-button {
+    width: 100%;
   }
   .hero h1,
   .page > h1,

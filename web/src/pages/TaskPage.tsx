@@ -1,7 +1,8 @@
-import { AlertTriangle, ExternalLink, FileText, Library, Quote } from "lucide-react";
+import { AlertTriangle, ExternalLink, FileText, Library, MessageSquare, Quote } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api";
+import { ConversationPanel } from "../components/ConversationPanel";
 import { ReportView } from "../components/ReportView";
 import { ResourceList } from "../components/ResourceList";
 import { StageStepper } from "../components/StageStepper";
@@ -11,7 +12,7 @@ export function TaskPage() {
   const { taskId = "" } = useParams();
   const [detail, setDetail] = useState<TaskDetail | null>(null);
   const [artifact, setArtifact] = useState<Artifact | null>(null);
-  const [tab, setTab] = useState<"report" | "sources">("report");
+  const [tab, setTab] = useState<"report" | "sources" | "conversation">("report");
   const [error, setError] = useState("");
   const [reportError, setReportError] = useState("");
 
@@ -74,6 +75,14 @@ export function TaskPage() {
           <Library size={17} />
           来源与材料
         </button>
+        <button
+          type="button"
+          data-active={tab === "conversation"}
+          onClick={() => setTab("conversation")}
+        >
+          <MessageSquare size={17} />
+          对话
+        </button>
       </nav>
       {tab === "report" ? (
         <section aria-labelledby="report-heading">
@@ -90,6 +99,8 @@ export function TaskPage() {
             </div>
           )}
         </section>
+      ) : tab === "conversation" ? (
+        <ConversationPanel taskId={taskId} />
       ) : (
         <>
           {detail.material_digest && (

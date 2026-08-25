@@ -152,3 +152,76 @@ it("shows the report first and keeps source evidence available", async () => {
   expect(screen.getByText("原文证据")).toBeInTheDocument();
   expect(screen.getByText("文档含可疑指令，已按不可信内容处理")).toBeInTheDocument();
 });
+
+it("sends follow-up questions and expands task citations", async () => {
+  const user = userEvent.setup();
+  vi.spyOn(api, "task").mockResolvedValue({
+    task: {
+      id: "task-1",
+      topic: "对话调研",
+      stage: "done",
+      updated_at: "2026-08-25T09:00:00Z",
+      criteria: {
+        min_independent_sources: 2,
+        min_high_quality_sources: 1,
+        recency_days: 90,
+        require_recency: false,
+      },
+      outputs: { report: {}, assessment: null, package: null },
+    },
+    coverage: null,
+    questions: [],
+    conflicts: [],
+    challenges: [],
+    material_digest: null,
+    resources: [],
+  } as never);
+  vi.spyOn(api, "artifact").mockRejectedValue(new Error("not ready"));
+  vi.spyOn(api, "conversation").mockResolvedValue({
+    conversation: { id: "conversation-1", task_id: "task-1" },
+    epoch: { id: "epoch-1", summary: "" },
+    committed_state_version: 1,
+    messages: [
+      {
+        id: "message-1",
+        role: "assistant",
+        content: "已确认产品发布。",
+        status: "completed",
+        citations: [
+          {
+            id: "citation-1",
+            sequence: 1,
+            citation_kind: "verified_evidence",
+            title: "官方公告",
+            source_url: "https://example.com/official",
+            quote_text: "产品已经发布。",
+            line_start: 4,
+            line_end: 4,
+          },
+        ],
+      },
+    ],
+    actions: [],
+    runs: [],
+    reports: [],
+  } as never);
+  const send = vi.spyOn(api, "sendMessage").mockResolvedValue({} as never);
+
+  render(
+    <MemoryRouter initialEntries={["/tasks/task-1"]}>
+      <Routes>
+        <Route path="/tasks/:taskId" element={<TaskPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  await screen.findByRole("heading", { name: "调研报告" });
+  await user.click(screen.getByRole("button", { name: "对话" }));
+  expect(await screen.findByText("已确认产品发布。")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "引用 1" }));
+  expect(screen.getByText("产品已经发布。")).toBeInTheDocument();
+  await user.type(screen.getByRole("textbox", { name: "继续提问" }), "还有哪些风险？");
+  await user.click(screen.getByRole("button", { name: "发送" }));
+
+  expect(send).toHaveBeenCalledWith("task-1", "还有哪些风险？", expect.any(String));
+});

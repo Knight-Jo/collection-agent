@@ -195,3 +195,66 @@ export interface Artifact {
   content: string;
   content_sha256: string;
 }
+
+export type MessageStatus = "accepted" | "processing" | "completed" | "failed" | "cancelled";
+
+export interface MessageCitation {
+  id: string;
+  sequence: number;
+  citation_kind: "verified_evidence" | "material_clue";
+  title: string;
+  source_url: string;
+  quote_text: string;
+  line_start: number;
+  line_end: number;
+}
+
+export interface ConversationMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  status: MessageStatus;
+  error?: string | null;
+  citations: MessageCitation[];
+}
+
+export interface ConversationAction {
+  id: string;
+  action_type: string;
+  immutable_payload: Record<string, unknown>;
+  status:
+    | "proposed"
+    | "queued"
+    | "executing"
+    | "succeeded"
+    | "failed"
+    | "rejected"
+    | "expired"
+    | "cancelled";
+  error: string | null;
+}
+
+export interface ResearchRun {
+  id: string;
+  status: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
+  phase: "planning" | "collecting" | "assessing" | "checkpointing" | null;
+  error: string | null;
+}
+
+export interface ReportVersion {
+  id: string;
+  version: number;
+  status: "draft" | "published" | "superseded" | "abandoned";
+  based_on_committed_state_version: number;
+  created_at: string;
+}
+
+export interface ConversationProjection {
+  conversation: { id: string; task_id: string };
+  epoch: { id: string; summary: string };
+  messages: ConversationMessage[];
+  actions: ConversationAction[];
+  runs: ResearchRun[];
+  reports: ReportVersion[];
+  committed_state_version: number;
+}
