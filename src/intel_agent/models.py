@@ -5,9 +5,9 @@ from __future__ import annotations
 import unicodedata
 import uuid
 from datetime import UTC, date, datetime
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 SourceType = Literal[
     "news",
@@ -27,6 +27,33 @@ SupportVerdict = Literal["full", "partial", "irrelevant", "contradicts"]
 ReportDepth = Literal["brief", "standard", "deep"]
 ClaimType = Literal["primary", "corroborated", "reported"]
 AnswerStatus = Literal["answered", "partial", "unanswered", "conflicted"]
+MessageRole = Literal["user", "assistant"]
+MessageStatus = Literal[
+    "accepted", "processing", "completed", "failed", "cancelled"
+]
+ActionRequestStatus = Literal[
+    "proposed",
+    "queued",
+    "executing",
+    "succeeded",
+    "failed",
+    "rejected",
+    "expired",
+    "cancelled",
+]
+ResearchRunStatus = Literal[
+    "queued", "running", "succeeded", "failed", "cancelled", "interrupted"
+]
+CheckpointStatus = Literal["started", "committed", "failed", "cancelled"]
+ReportVersionStatus = Literal["draft", "published", "superseded", "abandoned"]
+ActionType = Literal[
+    "continue_research",
+    "search_gap",
+    "search_specific_topic",
+    "modify_search_plan",
+    "generate_report",
+    "regenerate_report",
+]
 SUPPORT_REVIEW_PROMPT_VERSION = "support-entailment-v2"
 
 
@@ -163,6 +190,229 @@ class IntelTask(BaseModel):
     challenge_round: int = 0
     created_at: str
     updated_at: str
+
+
+class Conversation(BaseModel):
+    """The single persistent conversation owned by one research task."""
+
+    id: str
+    task_id: str
+    active_epoch_id: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class ConversationEpoch(BaseModel):
+    """One visible context segment without deleting prior audit history."""
+
+    id: str
+    conversation_id: str
+    sequence: int = Field(ge=1)
+    summary: str = ""
+    summary_through_sequence: int = Field(default=0, ge=0)
+    summary_updated_at: str | None = None
+    started_at: str
+    archived_at: str | None = None
+
+
+class Message(BaseModel):
+    """An immutable user request or completed assistant response."""
+
+    id: str
+    conversation_id: str
+    epoch_id: str
+    sequence: int = Field(ge=1)
+    client_message_id: str | None = None
+    role: MessageRole
+    content: str
+    status: MessageStatus
+    intent: dict[str, object] | None = None
+    reply_to_id: str | None = None
+    created_at: str
+    completed_at: str | None = None
+    error: str | None = None
+
+    @model_validator(mode="after")
+    def validate_role_fields(self) -> Self:
+        if self.role == "user":
+            if not self.client_message_id:
+                raise ValueError("user message requires client_message_id")
+            return self
+        if self.client_message_id is not None:
+            raise ValueError("assistant message cannot have client_message_id")
+        if self.status != "completed" or not self.reply_to_id:
+            raise ValueError("assistant message must be a completed reply")
+        if self.completed_at is None:
+            raise ValueError("assistant message requires completed_at")
+        return self
+
+
+class ActionRequest(BaseModel):
+    """One proposed or explicitly requested task action."""
+
+    id: str
+    task_id: str
+    trigger_message_id: str
+    action_type: ActionType
+    immutable_payload: dict[str, object]
+    request_mode: Literal["explicit_message", "confirmed_proposal"] | None = (
+        None
+    )
+    request_message_id: str | None = None
+    precondition_committed_state_version: int = Field(ge=0)
+    precondition_search_plan_version_id: str | None = None
+    status: ActionRequestStatus
+    created_at: str
+    confirmed_at: str | None = None
+    queued_at: str | None = None
+    executing_at: str | None = None
+    completed_at: str | None = None
+    created_research_run_id: str | None = None
+    target_research_run_id: str | None = None
+    applied_search_plan_version_id: str | None = None
+    applied_checkpoint_id: str | None = None
+    created_report_version_id: str | None = None
+    error: str | None = None
+    expires_at: str | None = None
+
+    @model_validator(mode="after")
+    def validate_request_fields(self) -> Self:
+        if self.status == "proposed":
+            if self.request_mode is not None or self.request_message_id:
+                raise ValueError("proposed action cannot have request fields")
+        elif self.request_mode is None or not self.request_message_id:
+            raise ValueError(
+                "queued or terminal action requires request fields"
+            )
+        if (
+            self.action_type == "modify_search_plan"
+            and not self.precondition_search_plan_version_id
+        ):
+            raise ValueError(
+                "modify_search_plan requires a plan version precondition"
+            )
+        return self
+
+
+class ResearchRun(BaseModel):
+    """One auditable execution attempt for a research task."""
+
+    id: str
+    task_id: str
+    run_type: Literal["initial", "continue_research", "retry", "legacy_import"]
+    provenance: Literal["native", "migrated"] = "native"
+    trigger_message_id: str | None = None
+    action_request_id: str | None = None
+    retry_of_run_id: str | None = None
+    input_committed_state_version: int = Field(ge=0)
+    input_snapshot: dict[str, object]
+    initial_search_plan_version_id: str | None = None
+    active_search_plan_version_id: str | None = None
+    status: ResearchRunStatus
+    phase: (
+        Literal["planning", "collecting", "assessing", "checkpointing"] | None
+    ) = None
+    outcome: Literal["sufficient", "with_gaps"] | None = None
+    created_at: str
+    started_at: str | None = None
+    completed_at: str | None = None
+    error: str | None = None
+
+    @model_validator(mode="after")
+    def validate_lifecycle(self) -> Self:
+        terminal = {"succeeded", "failed", "cancelled", "interrupted"}
+        if self.status in terminal and self.completed_at is None:
+            raise ValueError("terminal run requires completed_at")
+        if self.run_type == "retry" and not self.retry_of_run_id:
+            raise ValueError("retry run requires retry_of_run_id")
+        return self
+
+
+class SearchPlanVersion(BaseModel):
+    """An immutable search plan version used by one research run."""
+
+    id: str
+    task_id: str
+    research_run_id: str
+    sequence: int = Field(ge=1)
+    plan: dict[str, object]
+    trigger_message_id: str | None = None
+    action_request_id: str | None = None
+    created_at: str
+
+
+class ResearchCheckpoint(BaseModel):
+    """A durable boundary that commits research state atomically."""
+
+    id: str
+    task_id: str
+    research_run_id: str
+    sequence: int = Field(ge=1)
+    search_plan_version_id: str | None = None
+    input_committed_state_version: int = Field(ge=0)
+    output_committed_state_version: int | None = Field(default=None, ge=0)
+    status: CheckpointStatus
+    trigger_action_request_id: str | None = None
+    reason: str
+    started_at: str
+    committed_at: str | None = None
+
+    @model_validator(mode="after")
+    def validate_commit_fields(self) -> Self:
+        if self.status == "committed" and (
+            self.output_committed_state_version is None
+            or self.committed_at is None
+        ):
+            raise ValueError("committed checkpoint requires output and time")
+        if self.status != "committed" and (
+            self.output_committed_state_version is not None
+            or self.committed_at is not None
+        ):
+            raise ValueError("uncommitted checkpoint cannot expose output")
+        return self
+
+
+class ReportVersion(BaseModel):
+    """An immutable task report bound to one committed research state."""
+
+    id: str
+    task_id: str
+    version: int = Field(ge=1)
+    status: ReportVersionStatus
+    content_path: str
+    content_sha256: str
+    based_on_committed_state_version: int = Field(ge=0)
+    publication_origin: Literal["native", "legacy_migration"] = "native"
+    created_at: str
+    published_at: str | None = None
+    abandoned_at: str | None = None
+
+    @model_validator(mode="after")
+    def validate_status_times(self) -> Self:
+        if self.status in {"published", "superseded"}:
+            if self.published_at is None:
+                raise ValueError("published report requires published_at")
+        elif self.published_at is not None:
+            raise ValueError("unpublished report cannot have published_at")
+        if self.status == "abandoned" and self.abandoned_at is None:
+            raise ValueError("abandoned report requires abandoned_at")
+        if self.status != "abandoned" and self.abandoned_at is not None:
+            raise ValueError("active report cannot have abandoned_at")
+        return self
+
+
+class ConversationEvent(BaseModel):
+    """One durable event in a task conversation."""
+
+    id: int = Field(ge=1)
+    conversation_id: str
+    sequence: int = Field(ge=1)
+    event_type: str
+    data: dict[str, object] = Field(default_factory=dict)
+    message_id: str | None = None
+    action_request_id: str | None = None
+    research_run_id: str | None = None
+    created_at: str
 
 
 class IntelDocument(BaseModel):
