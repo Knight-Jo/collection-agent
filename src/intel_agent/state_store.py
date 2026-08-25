@@ -95,6 +95,16 @@ class StateStore:
             raise IntelError("NOT_FOUND", f"任务会话不存在: {task_id}")
         return _row_to_conversation(row)
 
+    def get_conversation_by_id(self, conversation_id: str) -> Conversation:
+        """Return one conversation by its durable identifier."""
+        with connect_state_db(self.cwd) as connection:
+            row = connection.execute(
+                "SELECT * FROM conversations WHERE id = ?", (conversation_id,)
+            ).fetchone()
+        if row is None:
+            raise IntelError("NOT_FOUND", f"任务会话不存在: {conversation_id}")
+        return _row_to_conversation(row)
+
     def start_epoch(self, task_id: str) -> ConversationEpoch:
         """Archive the visible context and start a fresh conversation epoch."""
         now = utc_now()
@@ -128,6 +138,46 @@ class StateStore:
                 "WHERE id = ?",
                 (epoch_id, now, conversation_id),
             )
+            row = connection.execute(
+                "SELECT * FROM conversation_epochs WHERE id = ?", (epoch_id,)
+            ).fetchone()
+        return _row_to_epoch(_required(row, "conversation epoch"))
+
+    def active_epoch(self, task_id: str) -> ConversationEpoch:
+        """Return the task conversation's active context epoch."""
+        with connect_state_db(self.cwd) as connection:
+            row = connection.execute(
+                "SELECT conversation_epochs.* FROM conversation_epochs "
+                "JOIN conversations ON conversations.active_epoch_id = "
+                "conversation_epochs.id WHERE conversations.task_id = ?",
+                (task_id,),
+            ).fetchone()
+        if row is None:
+            raise IntelError("NOT_FOUND", f"活动会话上下文不存在: {task_id}")
+        return _row_to_epoch(row)
+
+    def update_epoch_summary(
+        self, epoch_id: str, summary: str, through_sequence: int
+    ) -> ConversationEpoch:
+        """Atomically advance one epoch summary coverage."""
+        now = utc_now()
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            cursor = connection.execute(
+                "UPDATE conversation_epochs SET summary = ?, "
+                "summary_through_sequence = ?, summary_updated_at = ? "
+                "WHERE id = ? AND summary_through_sequence < ?",
+                (summary, through_sequence, now, epoch_id, through_sequence),
+            )
+            if cursor.rowcount == 0:
+                existing = connection.execute(
+                    "SELECT * FROM conversation_epochs WHERE id = ?",
+                    (epoch_id,),
+                ).fetchone()
+                if existing is None:
+                    raise IntelError(
+                        "NOT_FOUND", f"会话上下文不存在: {epoch_id}"
+                    )
             row = connection.execute(
                 "SELECT * FROM conversation_epochs WHERE id = ?", (epoch_id,)
             ).fetchone()
@@ -236,6 +286,28 @@ class StateStore:
                 "UPDATE messages SET status = 'failed', completed_at = ?, "
                 "error = ? WHERE id = ?",
                 (now, error, message_id),
+            )
+            row = connection.execute(
+                "SELECT * FROM messages WHERE id = ?", (message_id,)
+            ).fetchone()
+        return _row_to_message(_required(row, "message"))
+
+    def cancel_message(self, message_id: str) -> Message:
+        """Cancel an accepted or processing user message."""
+        now = utc_now()
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            message = _find_message(connection, message_id)
+            if message["role"] != "user":
+                raise IntelError("INVALID_INPUT", "只能取消用户消息")
+            if message["status"] not in {"accepted", "processing"}:
+                raise _invalid_transition(
+                    "message", message["status"], "cancelled"
+                )
+            connection.execute(
+                "UPDATE messages SET status = 'cancelled', completed_at = ? "
+                "WHERE id = ?",
+                (now, message_id),
             )
             row = connection.execute(
                 "SELECT * FROM messages WHERE id = ?", (message_id,)
@@ -360,6 +432,27 @@ class StateStore:
         if row is None:
             raise IntelError("NOT_FOUND", f"消息不存在: {message_id}")
         return _row_to_message(row)
+
+    def reply_for_message(self, message_id: str) -> Message | None:
+        """Return the immutable assistant reply when it exists."""
+        with connect_state_db(self.cwd) as connection:
+            row = connection.execute(
+                "SELECT * FROM messages WHERE reply_to_id = ?", (message_id,)
+            ).fetchone()
+        return _row_to_message(row) if row is not None else None
+
+    def pending_messages(self) -> list[Message]:
+        """Return unfinished user requests for process restart recovery."""
+        with connect_state_db(self.cwd) as connection:
+            rows = connection.execute(
+                "SELECT messages.* FROM messages "
+                "WHERE messages.role = 'user' "
+                "AND messages.status IN ('accepted', 'processing') "
+                "AND NOT EXISTS (SELECT 1 FROM messages replies "
+                "WHERE replies.reply_to_id = messages.id) "
+                "ORDER BY messages.created_at, messages.rowid"
+            ).fetchall()
+        return [_row_to_message(row) for row in rows]
 
     def list_messages(
         self, task_id: str, *, active_epoch_only: bool = True

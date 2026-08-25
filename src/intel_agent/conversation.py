@@ -1,0 +1,295 @@
+"""Async orchestration for persistent task-scoped dialogue."""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Sequence
+from contextlib import suppress
+from pathlib import Path
+from typing import Protocol
+
+from .config import Settings
+from .dialogue import DialogueDecision, DialogueEngine
+from .logging import get_logger
+from .models import ActionRequest, CitationDraft, Message
+from .retrieval import RetrievedPassage, TaskRetriever
+from .state_store import StateStore
+from .task import load_task
+
+logger = get_logger(__name__)
+
+
+class _Dialogue(Protocol):
+    async def answer(self, **kwargs: object) -> DialogueDecision: ...
+
+    async def summarize(self, messages: Sequence[Message]) -> str: ...
+
+
+class _Retriever(Protocol):
+    def seed_completed_task(self, task_id: str) -> None: ...
+
+    def retrieve(
+        self, task_id: str, query: str, *, limit: int = 8
+    ) -> list[RetrievedPassage]: ...
+
+
+class _ActionRunner(Protocol):
+    async def run(self, action: ActionRequest) -> object: ...
+
+
+class ConversationRuntime:
+    """Process local task messages without mixing research execution state."""
+
+    def __init__(
+        self,
+        cwd: Path,
+        settings: Settings | None = None,
+        *,
+        dialogue: _Dialogue | None = None,
+        retriever: _Retriever | None = None,
+        continuation: _ActionRunner | None = None,
+        publisher: _ActionRunner | None = None,
+    ):
+        settings = settings or Settings()
+        self.cwd = cwd
+        self.store = StateStore(cwd)
+        self.dialogue = dialogue or DialogueEngine(settings)
+        self.retriever = retriever or TaskRetriever(cwd, self.store)
+        self.continuation = continuation
+        self.publisher = publisher
+        self._dialogue_lock = asyncio.Lock()
+        self._message_tasks: dict[str, asyncio.Task[None]] = {}
+        self._action_tasks: set[asyncio.Task[object]] = set()
+
+    def submit_message(
+        self, task_id: str, content: str, client_message_id: str
+    ) -> Message:
+        """Persist a user message before scheduling its dialogue turn."""
+        self._ensure_task(task_id)
+        message = self.store.add_user_message(
+            task_id, content, client_message_id
+        )
+        if (
+            message.status in {"accepted", "processing"}
+            and message.id not in self._message_tasks
+        ):
+            self._schedule_message(message.id)
+        return message
+
+    async def wait_message(self, message_id: str) -> Message:
+        """Wait for processing and return the reply or terminal user request."""
+        task = self._message_tasks.get(message_id)
+        if task is not None:
+            await task
+        reply = self.store.reply_for_message(message_id)
+        return reply or self.store.get_message(message_id)
+
+    def recover(self) -> int:
+        """Reschedule unfinished messages after a process restart."""
+        pending = self.store.pending_messages()
+        for message in pending:
+            if message.id not in self._message_tasks:
+                self._schedule_message(message.id)
+        return len(pending)
+
+    def confirm_action(
+        self, action_id: str, client_message_id: str
+    ) -> ActionRequest:
+        """Confirm a proposed action and queue its unchanged payload."""
+        action = self.store.get_action(action_id)
+        confirmation = self.store.add_user_message(
+            action.task_id, "确认执行建议", client_message_id
+        )
+        queued = self.store.confirm_action(action_id, confirmation.id)
+        self.store.complete_message(
+            confirmation.id, "已确认，任务进入执行队列。"
+        )
+        self.store.append_event(
+            action.task_id,
+            "action.queued",
+            {"action_id": action_id},
+            action_request_id=action_id,
+        )
+        self._schedule_action(queued)
+        return queued
+
+    def reject_action(self, action_id: str) -> ActionRequest:
+        """Reject one proposed action."""
+        action = self.store.transition_action(action_id, "rejected")
+        self.store.append_event(
+            action.task_id,
+            "action.rejected",
+            {"action_id": action.id},
+            action_request_id=action.id,
+        )
+        return action
+
+    async def cancel_message(self, message_id: str) -> Message:
+        """Cancel in-memory generation and persist the terminal state."""
+        task = self._message_tasks.get(message_id)
+        if task is not None and not task.done():
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+        message = self.store.get_message(message_id)
+        if message.status in {"accepted", "processing"}:
+            return self.store.cancel_message(message_id)
+        return message
+
+    def conversation_view(self, task_id: str) -> dict[str, object]:
+        """Return the complete task conversation projection for the Web UI."""
+        conversation = self.store.get_conversation(task_id)
+        epoch = self.store.active_epoch(task_id)
+        messages = self.store.list_messages(task_id)
+        message_values = []
+        for message in messages:
+            value = message.model_dump(mode="json")
+            value["citations"] = [
+                item.model_dump(mode="json")
+                for item in self.store.citations_for_message(message.id)
+            ]
+            message_values.append(value)
+        return {
+            "conversation": conversation.model_dump(mode="json"),
+            "epoch": epoch.model_dump(mode="json"),
+            "messages": message_values,
+            "actions": [
+                item.model_dump(mode="json")
+                for item in self.store.list_actions(task_id)
+            ],
+            "runs": [
+                item.model_dump(mode="json")
+                for item in self.store.list_runs(task_id)
+            ],
+            "reports": [
+                item.model_dump(mode="json")
+                for item in self.store.list_reports(task_id)
+            ],
+            "committed_state_version": self.store.committed_state_version(
+                task_id
+            ),
+        }
+
+    def _ensure_task(self, task_id: str) -> None:
+        load_task(self.cwd, task_id)
+        self.store.register_task(task_id)
+        if any(
+            event.event_type == "task.baseline_seeded"
+            for event in self.store.events_after(task_id, 0)
+        ):
+            return
+        self.retriever.seed_completed_task(task_id)
+        self.store.append_event(task_id, "task.baseline_seeded", {})
+
+    def _schedule_message(self, message_id: str) -> None:
+        task = asyncio.create_task(self._process_message(message_id))
+        self._message_tasks[message_id] = task
+        task.add_done_callback(
+            lambda _task: self._message_tasks.pop(message_id, None)
+        )
+
+    async def _process_message(self, message_id: str) -> None:
+        try:
+            user = self.store.set_message_processing(message_id)
+            conversation = self.store.get_conversation_by_id(
+                user.conversation_id
+            )
+            task = load_task(self.cwd, conversation.task_id)
+            passages = self.retriever.retrieve(task.id, user.content, limit=8)
+            epoch = self.store.active_epoch(task.id)
+            messages = self.store.list_messages(task.id)
+            runs = self.store.list_runs(task.id)
+            run_status = runs[-1].status if runs else "idle"
+            async with self._dialogue_lock:
+                decision = await self.dialogue.answer(
+                    task=task,
+                    query=user.content,
+                    summary=epoch.summary,
+                    messages=messages,
+                    passages=passages,
+                    run_status=run_status,
+                )
+            passages_by_id = {item.id: item for item in passages}
+            citations = [
+                _citation_from_passage(passages_by_id[passage_id])
+                for passage_id in decision.cited_passage_ids
+            ]
+            self.store.complete_message(user.id, decision.answer, citations)
+            if decision.action is not None:
+                proposed = decision.action.request_mode == "proposed"
+                action = self.store.create_action(
+                    task.id,
+                    user.id,
+                    decision.action.type,
+                    decision.action.scope,
+                    proposed=proposed,
+                )
+                event_type = "action.proposed" if proposed else "action.queued"
+                self.store.append_event(
+                    task.id,
+                    event_type,
+                    {"action_id": action.id},
+                    action_request_id=action.id,
+                )
+                if not proposed:
+                    self._schedule_action(action)
+            await self._maybe_update_summary(task.id)
+        except asyncio.CancelledError:
+            current = self.store.get_message(message_id)
+            if current.status in {"accepted", "processing"}:
+                self.store.cancel_message(message_id)
+            raise
+        except Exception as error:
+            current = self.store.get_message(message_id)
+            if current.status in {"accepted", "processing"}:
+                self.store.fail_message(message_id, str(error))
+            logger.exception("Conversation message processing failed")
+
+    def _schedule_action(self, action: ActionRequest) -> None:
+        runner = (
+            self.publisher
+            if action.action_type in {"generate_report", "regenerate_report"}
+            else self.continuation
+        )
+        if runner is None:
+            return
+        task = asyncio.create_task(runner.run(action))
+        self._action_tasks.add(task)
+        task.add_done_callback(self._action_tasks.discard)
+
+    async def _maybe_update_summary(self, task_id: str) -> None:
+        epoch = self.store.active_epoch(task_id)
+        messages = self.store.list_messages(task_id)
+        unsummarized = [
+            item
+            for item in messages
+            if item.sequence > epoch.summary_through_sequence
+        ]
+        if len(unsummarized) <= 12 or len(messages) <= 8:
+            return
+        older = messages[:-8]
+        if not older:
+            return
+        try:
+            async with self._dialogue_lock:
+                summary = await self.dialogue.summarize(older)
+            self.store.update_epoch_summary(
+                epoch.id, summary, older[-1].sequence
+            )
+        except Exception:
+            logger.exception("Conversation summary update failed")
+
+
+def _citation_from_passage(passage: RetrievedPassage) -> CitationDraft:
+    return CitationDraft(
+        citation_kind=passage.citation_kind,
+        document_id=passage.document_id,
+        evidence_id=passage.evidence_id,
+        fact_id=passage.fact_id,
+        title=passage.title,
+        source_url=passage.source_url,
+        quote_text=passage.quote_text,
+        line_start=passage.line_start,
+        line_end=passage.line_end,
+        source_content_hash=passage.source_content_hash,
+    )
