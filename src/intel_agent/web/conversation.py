@@ -9,9 +9,18 @@ from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
 from ..conversation import ConversationRuntime
-from ..models import ActionRequest, Message, ReportVersion, ResearchRun
+from ..models import (
+    ActionRequest,
+    Conversation,
+    Message,
+    ReportVersion,
+    ResearchRun,
+    SearchPlanVersion,
+    TimelineEntry,
+)
 from .schemas import (
     ActionConfirm,
+    ConversationCreate,
     ConversationMessageView,
     ConversationView,
     MessageCreate,
@@ -23,6 +32,53 @@ router = APIRouter(prefix="/api")
 
 def _runtime(request: Request) -> ConversationRuntime:
     return request.app.state.conversation_runtime
+
+
+@router.post("/conversations", response_model=Conversation, status_code=201)
+async def create_conversation(
+    request: Request, payload: ConversationCreate
+) -> Conversation:
+    return _runtime(request).store.create_conversation(
+        payload.client_conversation_id
+    )
+
+
+@router.get("/conversations", response_model=list[Conversation])
+async def list_conversations(request: Request) -> list[Conversation]:
+    return _runtime(request).store.list_conversations()
+
+
+@router.get(
+    "/conversations/{conversation_id}", response_model=ConversationView
+)
+async def conversation_detail(request: Request, conversation_id: str):
+    return _runtime(request).conversation_view_by_id(conversation_id)
+
+
+@router.post(
+    "/conversations/{conversation_id}/messages",
+    response_model=Message,
+    status_code=202,
+)
+async def submit_conversation_message(
+    request: Request, conversation_id: str, payload: MessageCreate
+) -> Message:
+    return _runtime(request).submit_message(
+        conversation_id, payload.content, payload.client_message_id
+    )
+
+
+@router.get(
+    "/conversations/{conversation_id}/timeline",
+    response_model=list[TimelineEntry],
+)
+async def conversation_timeline(
+    request: Request, conversation_id: str, after_sequence: int = 0
+) -> list[TimelineEntry]:
+    _runtime(request).store.get_conversation_by_id(conversation_id)
+    return _runtime(request).store.timeline_after(
+        conversation_id, after_sequence
+    )
 
 
 @router.get("/tasks/{task_id}/conversation", response_model=ConversationView)
@@ -61,6 +117,11 @@ async def cancel_message(request: Request, message_id: str) -> Message:
     return await _runtime(request).cancel_message(message_id)
 
 
+@router.post("/messages/{message_id}/retry", response_model=Message)
+async def retry_message(request: Request, message_id: str) -> Message:
+    return _runtime(request).retry_message(message_id)
+
+
 @router.post(
     "/action-requests/{action_id}/confirm", response_model=ActionRequest
 )
@@ -94,6 +155,34 @@ async def research_runs(request: Request, task_id: str) -> list[ResearchRun]:
 @router.post("/research-runs/{run_id}/cancel", response_model=ResearchRun)
 async def cancel_research_run(request: Request, run_id: str) -> ResearchRun:
     return await _runtime(request).cancel_research_run(run_id)
+
+
+@router.post("/research-runs/{run_id}/stop", response_model=ResearchRun)
+async def stop_research_run(request: Request, run_id: str) -> ResearchRun:
+    return _runtime(request).stop_research_run(run_id)
+
+
+@router.get("/research-runs/{run_id}", response_model=ResearchRun)
+async def research_run_detail(request: Request, run_id: str) -> ResearchRun:
+    return _runtime(request).store.get_run(run_id)
+
+
+@router.get(
+    "/research-runs/{run_id}/search-plan", response_model=SearchPlanVersion
+)
+async def active_search_plan(
+    request: Request, run_id: str
+) -> SearchPlanVersion:
+    return _runtime(request).store.active_search_plan(run_id)
+
+
+@router.get(
+    "/search-plan-versions/{plan_id}", response_model=SearchPlanVersion
+)
+async def search_plan_version(
+    request: Request, plan_id: str
+) -> SearchPlanVersion:
+    return _runtime(request).store.get_search_plan_version(plan_id)
 
 
 @router.get(
@@ -133,12 +222,35 @@ async def publish_report_version(
     )
 
 
+@router.get("/report-versions/{report_id}", response_model=ReportVersion)
+async def report_version_detail(
+    request: Request, report_id: str
+) -> ReportVersion:
+    return _runtime(request).store.get_report(report_id)
+
+
 @router.get("/tasks/{task_id}/conversation/events")
 async def conversation_events(
     request: Request, task_id: str
 ) -> StreamingResponse:
     runtime = _runtime(request)
-    runtime.store.get_conversation(task_id)
+    runtime.conversation_view(task_id)
+    conversation = runtime.store.get_conversation(task_id)
+    return _conversation_event_stream(request, conversation.id)
+
+
+@router.get("/conversations/{conversation_id}/events")
+async def conversation_event_stream(
+    request: Request, conversation_id: str
+) -> StreamingResponse:
+    _runtime(request).store.get_conversation_by_id(conversation_id)
+    return _conversation_event_stream(request, conversation_id)
+
+
+def _conversation_event_stream(
+    request: Request, conversation_id: str
+) -> StreamingResponse:
+    runtime = _runtime(request)
     try:
         cursor = int(request.headers.get("last-event-id", "0"))
     except ValueError:
@@ -148,7 +260,9 @@ async def conversation_events(
         nonlocal cursor
         idle_ticks = 0
         while not await request.is_disconnected():
-            events = runtime.store.events_after(task_id, cursor)
+            events = runtime.store.events_after_conversation(
+                conversation_id, cursor
+            )
             if events:
                 idle_ticks = 0
                 for event in events:

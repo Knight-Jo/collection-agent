@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from intel_agent.config import Settings
 from intel_agent.conversation import ConversationRuntime
 from intel_agent.dialogue import DialogueAction, DialogueDecision
+from intel_agent.intake import IntakeDecision
 from intel_agent.models import Message
 from intel_agent.retrieval import RetrievedPassage
 from intel_agent.web.app import create_app
@@ -57,6 +58,14 @@ class _Dialogue:
         return "摘要"
 
 
+class _Intake:
+    async def decide(self, query: str, _messages: Sequence[Message]):
+        return IntakeDecision(
+            intent="capability_query",
+            reply=f"可开展公开信息调研：{query}",
+        )
+
+
 def _wait_completed(client: TestClient, message_id: str):
     for _ in range(50):
         response = client.get(f"/api/messages/{message_id}")
@@ -90,6 +99,115 @@ def test_conversation_message_round_trip(cwd):
     assert completed.status_code == 200
     assert completed.json()["content"] == "当前材料回答"
     assert len(projection.json()["messages"]) == 2
+
+
+def test_conversation_first_intake_round_trip(cwd):
+    runtime = ConversationRuntime(
+        cwd,
+        intake=_Intake(),
+        dialogue=_Dialogue(),
+        retriever=_Retriever(),
+    )
+    client = TestClient(
+        create_app(
+            cwd=cwd,
+            settings=Settings(),
+            conversation_runtime=runtime,
+        )
+    )
+
+    created = client.post("/api/conversations", json={})
+    conversation_id = created.json()["id"]
+    accepted = client.post(
+        f"/api/conversations/{conversation_id}/messages",
+        json={"content": "你能做什么？", "client_message_id": "browser-1"},
+    )
+    completed = _wait_completed(client, accepted.json()["id"])
+    projection = client.get(f"/api/conversations/{conversation_id}")
+
+    assert created.status_code == 201
+    assert created.json()["task_id"] is None
+    assert completed.json()["content"].startswith("可开展公开信息调研")
+    assert projection.json()["conversation"]["status"] == "intake"
+    assert client.get("/api/conversations").json()[0]["id"] == conversation_id
+
+
+def test_conversation_timeline_uses_own_cursor(cwd):
+    runtime = ConversationRuntime(
+        cwd,
+        intake=_Intake(),
+        dialogue=_Dialogue(),
+        retriever=_Retriever(),
+    )
+    conversation = runtime.create_conversation()
+    runtime.store.add_user_message(conversation.id, "问题一", "client-1")
+    runtime.store.add_user_message(conversation.id, "问题二", "client-2")
+    client = TestClient(
+        create_app(
+            cwd=cwd,
+            settings=Settings(),
+            conversation_runtime=runtime,
+        )
+    )
+
+    response = client.get(
+        f"/api/conversations/{conversation.id}/timeline?after_sequence=1"
+    )
+
+    assert response.status_code == 200
+    assert [item["timeline_sequence"] for item in response.json()] == [2]
+
+
+def test_run_cancel_and_stop_endpoints_are_state_specific(cwd):
+    task = new_task(cwd)
+    runtime = ConversationRuntime(
+        cwd, dialogue=_Dialogue(), retriever=_Retriever()
+    )
+    runtime.store.register_task(task.id)
+    queued = runtime.store.create_run(task.id, "initial", 0, {})
+    running = runtime.store.create_run(task.id, "initial", 0, {})
+    runtime.store.transition_run(running.id, "running")
+    client = TestClient(
+        create_app(
+            cwd=cwd,
+            settings=Settings(),
+            conversation_runtime=runtime,
+        )
+    )
+
+    cancelled = client.post(f"/api/research-runs/{queued.id}/cancel")
+    stopping = client.post(f"/api/research-runs/{running.id}/stop")
+
+    assert cancelled.json()["status"] == "cancelled"
+    assert stopping.json()["status"] == "stopping"
+
+
+def test_search_plan_history_opens_by_stable_version_id(cwd):
+    task = new_task(cwd)
+    runtime = ConversationRuntime(
+        cwd, dialogue=_Dialogue(), retriever=_Retriever()
+    )
+    runtime.store.register_task(task.id)
+    run = runtime.store.create_run(task.id, "initial", 0, {})
+    first = runtime.store.create_search_plan_version(
+        run.id, {"queries": ["先进封装"]}
+    )
+    runtime.store.create_search_plan_version(
+        run.id, {"queries": ["先进封装 竞争格局"]}
+    )
+    client = TestClient(
+        create_app(
+            cwd=cwd,
+            settings=Settings(),
+            conversation_runtime=runtime,
+        )
+    )
+
+    historical = client.get(f"/api/search-plan-versions/{first.id}")
+    active = client.get(f"/api/research-runs/{run.id}/search-plan")
+
+    assert historical.json()["plan"]["queries"] == ["先进封装"]
+    assert active.json()["sequence"] == 2
 
 
 def test_proposal_can_be_rejected(cwd):

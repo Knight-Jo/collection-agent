@@ -21,6 +21,7 @@ from ..models import (
     IntelTask,
     MaterialDigest,
 )
+from ..state_db import connect_state_db, initialize_state_db
 from ..storage import (
     list_json,
     load_crawl,
@@ -134,9 +135,21 @@ def _crawl_resources(
 
 def list_task_summaries(cwd: Path) -> list[TaskSummary]:
     """Return all persisted tasks ordered by most recent update."""
-    summaries: list[TaskSummary] = []
+    initialize_state_db(cwd)
+    with connect_state_db(cwd) as connection:
+        rows = connection.execute(
+            "SELECT task_json FROM task_state WHERE task_json IS NOT NULL"
+        ).fetchall()
+    tasks: dict[str, IntelTask] = {}
+    for row in rows:
+        task = IntelTask.model_validate_json(row["task_json"])
+        tasks[task.id] = task
     for item in list_json(cwd, "tasks"):
-        task = IntelTask.model_validate(item)
+        legacy = IntelTask.model_validate(item)
+        if legacy.id not in tasks:
+            tasks[legacy.id] = load_task(cwd, legacy.id)
+    summaries: list[TaskSummary] = []
+    for task in tasks.values():
         coverage = latest_coverage(cwd, task.id)
         summaries.append(
             TaskSummary(

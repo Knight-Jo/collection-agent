@@ -25,6 +25,7 @@ from .models import (
     ResearchCheckpoint,
     ResearchRun,
     ResearchRunStatus,
+    SearchPlanVersion,
     TimelineEntry,
     new_id,
     utc_now,
@@ -1212,6 +1213,70 @@ class StateStore:
             ).fetchone()
         return _row_to_run(_required(row, "research run"))
 
+    def create_search_plan_version(
+        self,
+        run_id: str,
+        plan: dict[str, object],
+        *,
+        trigger_message_id: str | None = None,
+        action_request_id: str | None = None,
+    ) -> SearchPlanVersion:
+        """Append an immutable plan version and make it active for the Run."""
+        now = utc_now()
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            run = _find_run(connection, run_id)
+            sequence = connection.execute(
+                "SELECT COALESCE(MAX(sequence), 0) + 1 "
+                "FROM search_plan_versions WHERE research_run_id = ?",
+                (run_id,),
+            ).fetchone()[0]
+            plan_id = new_id("search-plan")
+            connection.execute(
+                "INSERT INTO search_plan_versions("
+                "id, task_id, research_run_id, sequence, plan_json, "
+                "trigger_message_id, action_request_id, created_at"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    plan_id,
+                    run["task_id"],
+                    run_id,
+                    sequence,
+                    _json(plan),
+                    trigger_message_id,
+                    action_request_id,
+                    now,
+                ),
+            )
+            connection.execute(
+                "UPDATE research_runs SET active_search_plan_version_id = ?, "
+                "initial_search_plan_version_id = "
+                "COALESCE(initial_search_plan_version_id, ?) WHERE id = ?",
+                (plan_id, plan_id, run_id),
+            )
+            row = connection.execute(
+                "SELECT * FROM search_plan_versions WHERE id = ?",
+                (plan_id,),
+            ).fetchone()
+        return _row_to_search_plan(_required(row, "search plan version"))
+
+    def get_search_plan_version(self, plan_id: str) -> SearchPlanVersion:
+        """Return one immutable SearchPlan version by stable ID."""
+        with connect_state_db(self.cwd) as connection:
+            row = connection.execute(
+                "SELECT * FROM search_plan_versions WHERE id = ?", (plan_id,)
+            ).fetchone()
+        if row is None:
+            raise IntelError("NOT_FOUND", f"检索计划版本不存在: {plan_id}")
+        return _row_to_search_plan(row)
+
+    def active_search_plan(self, run_id: str) -> SearchPlanVersion:
+        """Resolve the current plan while exposing its stable version ID."""
+        run = self.get_run(run_id)
+        if run.active_search_plan_version_id is None:
+            raise IntelError("NOT_FOUND", f"研究运行尚无检索计划: {run_id}")
+        return self.get_search_plan_version(run.active_search_plan_version_id)
+
     def cancel_run(self, run_id: str) -> ResearchRun:
         """Cancel a queued run before execution starts."""
         return self.transition_run(run_id, "cancelled")
@@ -1914,6 +1979,12 @@ def _row_to_run(row: sqlite3.Row) -> ResearchRun:
     value = dict(row)
     value["input_snapshot"] = json.loads(value.pop("input_snapshot_json"))
     return ResearchRun.model_validate(value)
+
+
+def _row_to_search_plan(row: sqlite3.Row) -> SearchPlanVersion:
+    value = dict(row)
+    value["plan"] = json.loads(value.pop("plan_json"))
+    return SearchPlanVersion.model_validate(value)
 
 
 def _row_to_checkpoint(row: sqlite3.Row) -> ResearchCheckpoint:

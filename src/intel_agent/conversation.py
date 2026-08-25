@@ -216,6 +216,15 @@ class ConversationRuntime:
         await self.cancel_action(run.action_request_id)
         return self.store.get_run(run_id)
 
+    def stop_research_run(self, run_id: str) -> ResearchRun:
+        """Request stop for a running Run and signal its active worker."""
+        run = self.store.stop_run(run_id)
+        if run.action_request_id is not None:
+            token = self._action_tokens.get(run.action_request_id)
+            if token is not None:
+                token.cancel()
+        return run
+
     async def cancel_message(self, message_id: str) -> Message:
         """Cancel in-memory generation and persist the terminal state."""
         task = self._message_tasks.get(message_id)
@@ -230,9 +239,17 @@ class ConversationRuntime:
 
     def conversation_view(self, task_id: str) -> dict[str, object]:
         """Return the complete task conversation projection for the Web UI."""
+        self._ensure_task(task_id)
         conversation = self.store.get_conversation(task_id)
-        epoch = self.store.active_epoch(task_id)
-        messages = self.store.list_messages(task_id)
+        return self.conversation_view_by_id(conversation.id)
+
+    def conversation_view_by_id(
+        self, conversation_id: str
+    ) -> dict[str, object]:
+        """Return a Conversation projection before or after Task binding."""
+        conversation = self.store.get_conversation_by_id(conversation_id)
+        epoch = self.store.active_epoch_for_conversation(conversation_id)
+        messages = self.store.list_messages_for_conversation(conversation_id)
         message_values = []
         for message in messages:
             value = message.model_dump(mode="json")
@@ -241,24 +258,19 @@ class ConversationRuntime:
                 for item in self.store.citations_for_message(message.id)
             ]
             message_values.append(value)
+        task_id = conversation.task_id
+        actions = self.store.list_actions(task_id) if task_id else []
+        runs = self.store.list_runs(task_id) if task_id else []
+        reports = self.store.list_reports(task_id) if task_id else []
         return {
             "conversation": conversation.model_dump(mode="json"),
             "epoch": epoch.model_dump(mode="json"),
             "messages": message_values,
-            "actions": [
-                item.model_dump(mode="json")
-                for item in self.store.list_actions(task_id)
-            ],
-            "runs": [
-                item.model_dump(mode="json")
-                for item in self.store.list_runs(task_id)
-            ],
-            "reports": [
-                item.model_dump(mode="json")
-                for item in self.store.list_reports(task_id)
-            ],
-            "committed_state_version": self.store.committed_state_version(
-                task_id
+            "actions": [item.model_dump(mode="json") for item in actions],
+            "runs": [item.model_dump(mode="json") for item in runs],
+            "reports": [item.model_dump(mode="json") for item in reports],
+            "committed_state_version": (
+                self.store.committed_state_version(task_id) if task_id else 0
             ),
         }
 

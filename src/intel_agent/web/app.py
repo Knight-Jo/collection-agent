@@ -77,6 +77,7 @@ def create_app(
 
     @app.on_event("startup")
     async def recover_conversation() -> None:
+        app.state.conversation_runtime.store.recover_expired_runs()
         app.state.conversation_runtime.recover()
 
     @app.exception_handler(IntelError)

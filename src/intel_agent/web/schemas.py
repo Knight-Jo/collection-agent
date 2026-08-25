@@ -26,6 +26,7 @@ from ..models import (
     ResearchScope,
     SufficiencyCriteria,
     SupportReview,
+    TimelineEntry,
 )
 from ..runner import TaskRunSpec
 
@@ -221,6 +222,12 @@ class MessageCreate(BaseModel):
     client_message_id: str = Field(min_length=1, max_length=200)
 
 
+class ConversationCreate(BaseModel):
+    client_conversation_id: str | None = Field(
+        default=None, min_length=1, max_length=200
+    )
+
+
 class ActionConfirm(BaseModel):
     client_message_id: str = Field(min_length=1, max_length=200)
 
@@ -242,3 +249,12 @@ class ConversationView(BaseModel):
     runs: list[ResearchRun]
     reports: list[ReportVersion]
     committed_state_version: int = Field(ge=0)
+
+
+class ConversationListItem(Conversation):
+    run_status: str | None = None
+
+
+class TimelineView(BaseModel):
+    entries: list[TimelineEntry]
+    next_sequence: int = Field(ge=0)
