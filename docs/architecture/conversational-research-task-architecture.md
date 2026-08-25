@@ -16,7 +16,7 @@
 
 1. 查询任务状态、方法、已验证事实和已收集材料；
 2. 点击引用定位到任务内材料的精确位置；
-3. 明确授权补充研究，形成新的 `ResearchRun`；
+3. 明确要求补充研究，形成新的 `ResearchRun`；
 4. 在安全 checkpoint 修改后续搜索方向；
 5. 基于新证据生成报告草稿，并显式发布新版本；
 6. 在服务重启或 SSE 断线后恢复任务、会话和事件进度。
@@ -31,7 +31,7 @@
 
 - 不建设跨任务知识库，也不从其他任务偷偷补充回答；
 - 不支持登录页面、人工账号托管或绕过复杂验证码；
-- 不建设多用户权限、租户隔离或远程协作；
+- 不建设账户、角色、登录认证、权限控制、租户隔离或远程协作；
 - 不引入 WebSocket、Redis、Celery、向量数据库或第三路模型并发；
 - 不允许聊天直接修改 Fact、Evidence、SearchPlan 或已发布报告；
 - 不在一次模型请求生成期间进行强制抢占；
@@ -82,7 +82,7 @@ flowchart TB
     API[Conversation & Task API]
     DC[Dialogue Controller]
     QA[Evidence QA]
-    AP[Action Policy]
+    AD[Action Dispatcher]
     SCH[Local Model Scheduler<br/>P0-P3 / 两路推理]
     RR[Research Runtime]
     CP[Checkpoint Committer]
@@ -93,10 +93,10 @@ flowchart TB
     UI --> API
     API --> DC
     DC --> QA
-    DC --> AP
+    DC --> AD
     QA --> SCH
-    AP --> RR
-    AP --> RP
+    AD --> RR
+    AD --> RP
     RR --> SCH
     RR --> CP
     CP --> DB
@@ -114,7 +114,7 @@ flowchart TB
 | --- | --- | --- |
 | Dialogue Controller | 识别意图，构造问答或 ActionRequest | 直接搜索、抓取或修改资产 |
 | Evidence QA | 在当前 Task 已提交资产中检索并生成有引用回答 | 写入 Fact/Evidence 或跨任务查询 |
-| Action Policy | 判断显式授权、确认、拒绝和过期 | 自行解释研究结果 |
+| Action Dispatcher | 识别显式指令或确认操作，校验前置版本并排队动作 | 自行解释研究结果或管理用户权限 |
 | Research Runtime | 执行 ResearchRun 和 SearchPlanVersion | 管理聊天展示 |
 | Checkpoint Committer | 原子提交运行产生的治理后资产 | 生成自然语言回答 |
 | Report Publisher | 生成草稿并原子发布 ReportVersion | 覆写历史版本 |
@@ -230,12 +230,11 @@ Message
 ActionRequest
   id, task_id, trigger_message_id,
   action_type, immutable_payload,
-  authorization_mode nullable,
-  authorization_message_id nullable,
-  authorization_quote nullable,
+  request_mode nullable,
+  request_message_id nullable,
   precondition_committed_state_version,
   precondition_search_plan_version_id nullable,
-  status, authorized_at, queued_at, executing_at, completed_at,
+  status, created_at, confirmed_at, queued_at, executing_at, completed_at,
   created_research_run_id,
   target_research_run_id, applied_search_plan_version_id,
   applied_checkpoint_id, created_report_version_id,
@@ -251,20 +250,18 @@ ActionRequest
 - 报告动作关联 `created_report_version_id`。
 
 数据库 `CHECK` 约束保证每类动作只填写允许的前置条件和结果字段；
-MODIFY_SEARCH_PLAN 必须提供目标 Run 和前置计划版本。ActionRequest 表达“用户
-授权了什么动作”，不是 ResearchRun 的影子状态机。
+MODIFY_SEARCH_PLAN 必须提供目标 Run 和前置计划版本。ActionRequest 表达“一次待
+执行的用户动作”，不是 ResearchRun 的影子状态机。
 
-`authorization_mode` 首版只允许 `EXPLICIT_NATURAL_LANGUAGE` 和
-`USER_CONFIRMED_PROPOSAL`。前者必须保存授权 Message 和逐字引用；后者保存按钮
-确认产生的 user Message，`authorization_quote` 必须为空。PROPOSED 阶段三个
-授权字段均为空。初始研究可以不由 ActionRequest 创建，因此不增加可能绕过用户
-授权的 `SYSTEM_INTERNAL` 模式。
-授权字段在 PROPOSED → AUTHORIZED 时一次写入，之后不可修改。
+`request_mode` 首版只允许 `EXPLICIT_MESSAGE` 和 `CONFIRMED_PROPOSAL`。显式指令
+创建时直接进入 QUEUED；Agent 建议先进入 PROPOSED，用户点击确认后记录确认
+Message、设置 `CONFIRMED_PROPOSAL` 并进入 QUEUED。PROPOSED 阶段
+`request_mode / request_message_id` 均为空，设置后不可修改。
 
 一条 Message 可以产生多个 ActionRequest；每个 ActionRequest 分别固定自己的
-授权方式、授权 Message、授权范围和授权原文，不能共享 Message 级授权字段。
-Message 的 `intent` 只保存结构化识别结果，可以包含多个请求动作，不承担授权
-证明。
+请求方式、请求 Message 和动作范围。
+Message 的 `intent` 只保存结构化识别结果，可以包含多个请求动作，不直接决定
+是否执行。
 
 | action_type | 执行结果关联 |
 | --- | --- |
@@ -354,12 +351,13 @@ DomainStateTransition
   id, entity_type, task_id,
   fact_id nullable, evidence_id nullable,
   previous_status, new_status,
-  actor_type, actor_id, reason,
+  origin, reason,
   committed_state_version, created_at
 ```
 
 `entity_type` 限定为 `FACT | EVIDENCE`；数据库 `CHECK` 约束要求对应且仅一个
 外键非空。这样保留统一审计查询，同时不使用无法建立外键的多态 `entity_id`。
+`origin` 仅记录变化来自 `USER / AGENT / SYSTEM`，不是账户或权限角色。
 
 `report_fact_refs` 保存 `fact_status_at_generation / statement_sha256`；
 `report_evidence_refs` 保存 `evidence_status_at_generation / quote_sha256`。因此旧报告
@@ -372,7 +370,7 @@ DomainStateTransition
 3. active ResearchRun 明确定义为 `status=RUNNING`。每个 IntelTask 和首版工作区
    同时最多一个 RUNNING ResearchRun；QUEUED Run 可以有多个。
 4. ActionRequest 的 action type、payload、触发消息和前置版本创建后不可修改；
-   授权字段第一次写入后不可修改。
+   request mode 和 request message 第一次写入后不可修改。
 5. SearchPlanVersion、Message、SupportReview、ResearchCheckpoint 和
    ReportVersion 永不覆盖。
 6. Document、Fact、Evidence 不物理删除；Fact/Evidence 内容不可原地修改，
@@ -444,13 +442,12 @@ ResearchRun，并用 `retry_of_run_id` 保留执行链。
 ```mermaid
 stateDiagram-v2
     [*] --> PROPOSED: Agent 建议
-    [*] --> AUTHORIZED: 用户明确授权动作
-    PROPOSED --> AUTHORIZED: 用户确认
+    [*] --> QUEUED: 用户显式指令
+    PROPOSED --> QUEUED: 用户确认
     PROPOSED --> REJECTED: 用户拒绝
     PROPOSED --> EXPIRED: 状态变化或超时
-    AUTHORIZED --> QUEUED: 动作进入执行队列
-    AUTHORIZED --> EXPIRED: 授权前提已失效
     QUEUED --> EXECUTING: 执行器开始动作
+    QUEUED --> EXPIRED: 执行前提已失效
     QUEUED --> CANCELLED: 用户取消
     EXECUTING --> SUCCEEDED: 动作结果已提交
     EXECUTING --> FAILED: 动作失败
@@ -494,7 +491,7 @@ stateDiagram-v2
 初始状态即 `COMPLETED`，并用 `reply_to_id` 关联 user Message。流式 delta 使用
 user Message ID 关联当前请求，不提前创建半成品 assistant Message。
 
-取消回答不撤销已经由独立事务授权的 ActionRequest；需要单独取消 Action 或
+取消回答不撤销已经独立进入队列的 ActionRequest；需要单独取消 Action 或
 ResearchRun。
 
 ### 5.5 Fact 与 Evidence
@@ -621,7 +618,7 @@ report_versions(task_id)                                    UNIQUE WHERE status 
 | 事务 | 必须原子完成的变化 |
 | --- | --- |
 | 接收消息 | 写 Message、分配 conversation sequence、写 `message.accepted` |
-| 按钮授权动作 | 写确认 user Message、校验授权前提、推进 ActionRequest，并按类型排队对应执行器 |
+| 确认建议动作 | 写确认 user Message、校验执行前提、设置 request mode 并将 ActionRequest 排队 |
 | Checkpoint commit | 将 STARTED ResearchCheckpoint、资产关系、治理状态、DomainStateTransition、CoverageSnapshot、committed state version 和持久事件一起提交 |
 | 发布报告 | 旧版本失效、新版本发布、Task 指针和事件 |
 | 新建 Epoch | 归档旧 Epoch、新建 active Epoch、更新 Conversation 指针 |
@@ -648,26 +645,21 @@ REGENERATE_REPORT
 ```
 
 Dialogue Controller 使用结构化输出，不依赖“消息是否包含继续搜索”这样的字符
-判断。对于自然语言显式授权，输出必须包含用户原文中的
-授权片段；Action Policy 将它保存到对应 ActionRequest 的
-`authorization_quote`。策略层无法确认授权时，只创建 `PROPOSED` 请求。
-按钮确认直接形成 `USER_CONFIRMED_PROPOSAL` 授权。
+判断。明确要求执行的消息创建 `EXPLICIT_MESSAGE` ActionRequest 并直接排队；
+表达不明确时只创建 `PROPOSED` 请求，用户点击确认后再排队。
 
-Action Policy 必须执行以下硬约束，Dialogue 模型的分类结果本身不构成授权：
+Action Dispatcher 只负责避免误触发和陈旧动作，不承担账户或权限判断：
 
-- `authorization_message_id` 必须指向当前 Task 的 user Message；
-- `EXPLICIT_NATURAL_LANGUAGE` 的 `authorization_quote` 必须是该授权 Message 的
-  逐字子串；`USER_CONFIRMED_PROPOSAL` 必须由确认接口记录 user Message，且引用
-  为空；
-- 自然语言动作范围不得大于引用文字明确要求的范围；按钮授权不得超过原
-  PROPOSED ActionRequest 的 immutable payload；
-- 否定、假设、疑问、转述或已撤回表达默认不构成自动授权；
-- ActionRequest 记录 `precondition_committed_state_version`，授权时版本变化则先
-  重新校验缺口与范围，前提消失时标记为 `EXPIRED`。
+- `request_message_id` 必须指向当前 Task 的 user Message；
+- 显式动作范围不得大于该 Message 明确要求的范围；
+- 否定、假设、疑问、转述或已撤回表达不能直接触发动作，只能不执行或形成建议；
+- 按钮确认不得扩大原 PROPOSED ActionRequest 的 immutable payload；
+- 排队和执行前重新校验 `precondition_committed_state_version`，前提消失时标记为
+  `EXPIRED`。
 
 前端快捷操作可以携带受限的 `intent_hint`，例如“查看当前进度”；服务端据此
-直接构建 P0 状态投影。普通自由文本仍由 P1 Dialogue 模型识别，客户端不能用
-`intent_hint` 绕过 Action Policy。
+直接构建 P0 状态投影。普通自由文本仍由 P1 Dialogue 模型识别；状态变更类
+`intent_hint` 一律忽略，避免客户端直接构造执行动作。
 
 ### 7.2 回答契约
 
@@ -794,7 +786,7 @@ POST /api/tasks/{task_id}/conversation/messages
 GET  /api/messages/{message_id}
 POST /api/messages/{message_id}/cancel
 
-POST /api/action-requests/{action_request_id}/authorize
+POST /api/action-requests/{action_request_id}/confirm
 POST /api/action-requests/{action_request_id}/reject
 POST /api/action-requests/{action_request_id}/cancel
 
@@ -820,7 +812,8 @@ GET  /api/tasks/{task_id}/conversation/events
 客户端提供 `client_message_id` 作为幂等键；网络重试不能产生重复消息或重复
 ActionRequest。
 
-`POST /report-versions` 只创建已授权的报告 ActionRequest 并返回 HTTP 202；报告
+`POST /report-versions` 只创建 `EXPLICIT_MESSAGE` 报告 ActionRequest 并返回
+HTTP 202；报告
 生成由 Report Publisher 异步执行，不在请求线程内直接生成文件。
 
 报告发布请求默认不接受 stale Draft；显式发布旧状态草稿时请求体必须包含
@@ -859,7 +852,6 @@ intent.detected
 retrieval.completed
 answer.completed
 action.proposed
-action.authorized
 action.queued
 action.executing
 action.succeeded
@@ -908,7 +900,7 @@ sequenceDiagram
     participant API as Conversation API
     participant DC as Dialogue Controller
     participant QA as Evidence QA
-    participant Policy as Action Policy
+    participant Dispatcher as Action Dispatcher
     participant Scheduler as Model Scheduler
     participant Runtime as Research Runtime
     participant Checkpoint as Checkpoint Committer
@@ -932,19 +924,18 @@ sequenceDiagram
     DB-->>UI: SSE durable answer.completed
 
     alt 用户未明确要求搜索
-        DC->>Policy: 创建搜索建议
-        Policy->>DB: ActionRequest(PROPOSED)
+        DC->>Dispatcher: 创建搜索建议
+        Dispatcher->>DB: ActionRequest(PROPOSED)
         DB-->>UI: SSE action.proposed
         User->>UI: 确认继续搜索
-        UI->>API: POST action/authorize
-        API->>Policy: USER_CONFIRMED_PROPOSAL
-        Policy->>DB: 事务：确认 user Message + ActionRequest=AUTHORIZED
+        UI->>API: POST action/confirm
+        API->>Dispatcher: CONFIRMED_PROPOSAL
+        Dispatcher->>DB: 事务：确认 Message + ActionRequest(QUEUED) + ResearchRun(QUEUED)
     else 用户消息已明确要求搜索
-        DC->>Policy: 授权原文 + 搜索范围
-        Policy->>DB: ActionRequest(AUTHORIZED + message_id + quote)
+        DC->>Dispatcher: 显式指令 + 搜索范围
+        Dispatcher->>DB: 事务：ActionRequest(QUEUED) + ResearchRun(QUEUED)
     end
 
-    Policy->>DB: 事务：ActionRequest(QUEUED) + ResearchRun(QUEUED)
     DB-->>UI: SSE action.queued
     Scheduler->>Runtime: P2 启动 ResearchRun
     Runtime->>DB: Run=RUNNING，冻结 input snapshot/plan v1
@@ -959,8 +950,8 @@ sequenceDiagram
         User->>UI: 暂停问题或增加检索方向
         UI->>API: POST message
         API->>DC: 识别干预意图
-        DC->>Policy: 构造已授权的计划变更请求
-        Policy->>DB: ActionRequest(QUEUED + precondition plan) 等待 checkpoint
+        DC->>Dispatcher: 构造显式计划变更请求
+        Dispatcher->>DB: ActionRequest(QUEUED + precondition plan) 等待 checkpoint
         Runtime->>Checkpoint: 当前 batch 完成
         Checkpoint->>DB: 校验/rebase plan，创建 checkpoint 并提交动作结果
     end
@@ -981,9 +972,9 @@ sequenceDiagram
 
     User->>UI: 请求生成新版报告
     UI->>API: POST report-versions
-    API->>Policy: 创建已授权报告动作
-    Policy->>DB: ActionRequest=EXECUTING
-    Policy->>Publisher: 显式生成 Draft
+    API->>Dispatcher: 创建显式报告动作
+    Dispatcher->>DB: ActionRequest=EXECUTING
+    Dispatcher->>Publisher: 生成 Draft
     Publisher->>DB: ReportVersion(DRAFT) + 固定依据 + ActionRequest=SUCCEEDED
     DB-->>UI: SSE report.draft_created
     User->>UI: 审核并发布（stale 时再次确认）
@@ -993,8 +984,8 @@ sequenceDiagram
 ```
 
 该图展示“材料不足后续研”的完整路径。材料足以回答时，流程在首次
-`answer.completed` 结束；如果 `ActionRequest` 没有进入 AUTHORIZED，流程在
-建议阶段结束，不允许创建 ResearchRun。重新提问不会自动复用过期授权。
+`answer.completed` 结束；如果 PROPOSED ActionRequest 未经确认，流程在建议阶段
+结束，不允许创建 ResearchRun。重新提问不会自动复用过期确认。
 
 ## 12. Web 交互
 
@@ -1084,7 +1075,7 @@ Fact/Evidence 状态，但不推测或伪造迁移前的状态变化过程。
 | checkpoint 事务失败 | ResearchCheckpoint=FAILED、Run=FAILED，committed state 不变化 |
 | 重启发现 STARTED checkpoint | 标记为 FAILED；未关联 committed version 的候选继续不可见 |
 | 报告发布失败 | 旧 Published 版本和 Task 指针保持不变 |
-| Action 建议失效 | ActionRequest=EXPIRED，旧按钮不可再次授权 |
+| Action 建议失效 | ActionRequest=EXPIRED，旧按钮不可再次确认 |
 | 用户取消回答 | 协作式停止 Message；独立 Action/Run 需单独取消 |
 
 ## 16. 安全边界
@@ -1096,7 +1087,8 @@ Fact/Evidence 状态，但不推测或伪造迁移前的状态变化过程。
   生成可点击的任意本地路径；
 - SQLite 参数全部使用绑定参数，不拼接用户输入；
 - 大文件下载仍使用 attachment 和 `X-Content-Type-Options: nosniff`；
-- 首版本地单用户不增加登录系统，但数据库和文件路径仍限制在工作区内。
+- 首版进程由本机操作者直接使用，不建设账户、登录、角色或权限模块；数据库和
+  文件路径仍限制在工作区内。
 
 ## 17. 可观测性
 
@@ -1106,14 +1098,14 @@ Fact/Evidence 状态，但不推测或伪造迁移前的状态变化过程。
 哪条 Message
 → 被识别为什么 DialogueIntent
 → 产生哪个 ActionRequest
-→ 授权了哪个 ResearchRun
+→ 创建了哪个 ResearchRun
 → 使用哪个 SearchPlanVersion
 → 在哪个 ResearchCheckpoint 推进哪个 committed_state_version 并提交哪些资产
 → 形成哪个 ReportVersion
 ```
 
 模型调用日志只用于技术诊断，不能替代上述业务关系。Fact/Evidence 的治理状态
-迁移由 DomainStateTransition 完整记录 actor、reason、previous/new status、
+迁移由 DomainStateTransition 完整记录 origin、reason、previous/new status、
 committed_state_version 和时间；Message、ActionRequest、ResearchRun、
 ResearchCheckpoint 与 ReportVersion 的生命周期由实体当前状态和持久业务事件
 共同审计，不重复写入 DomainStateTransition。ReportVersion 和 MessageCitation
@@ -1152,11 +1144,10 @@ ResearchCheckpoint 与 ReportVersion 的生命周期由实体当前状态和持�
 
 ### 18.3 动作与运行
 
-- 明确且无歧义的搜索指令直接形成 AUTHORIZED ActionRequest；自然语言授权原文
-  必须是 `authorization_message_id` 指向的 user Message 子串，动作范围不得扩张；
-- 一条 Message 触发多个 ActionRequest 时，每个动作分别保存授权方式、授权范围
-  和授权原文；按钮确认保存 user Message 且不伪造 quote；
-- 否定、假设、疑问、转述和撤回表达不能自动授权动作；
+- 明确且无歧义的搜索指令直接形成 QUEUED ActionRequest，并关联原 user Message；
+- 一条 Message 触发多个 ActionRequest 时，每个动作分别保存请求方式和动作范围；
+  按钮确认必须保存确认 Message；
+- 否定、假设、疑问、转述和撤回表达不能直接触发动作；
 - 模糊缺口只形成 PROPOSED 请求，未经确认不联网；
 - ActionRequest 前提版本变化时重新校验；已补齐缺口的建议进入 EXPIRED，不能
   创建重复 Run；
@@ -1196,8 +1187,8 @@ ResearchCheckpoint 与 ReportVersion 的生命周期由实体当前状态和持�
 1. SQLite schema、迁移器和 repository 边界；
 2. 持久 ResearchRun、ActionRequest、ResearchCheckpoint、状态历史与持久事件；
 3. task-scoped Evidence QA、Conversation 和有界上下文；
-4. 续研授权、调度器和运行中干预；
+4. 续研确认、调度器和运行中干预；
 5. ReportVersion、发布事务和三栏 Web 工作台。
 
-具体逐文件顺序、测试夹具和迁移回滚步骤由后续实施计划定义。本设计不授权
+具体逐文件顺序、测试夹具和迁移回滚步骤由后续实施计划定义。本设计范围不包括
 立即修改生产代码。

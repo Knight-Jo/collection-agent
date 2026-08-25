@@ -59,14 +59,14 @@ _Avoid_: Command, event
 
 **DialogueIntent**:
 The structured interpretation of what one user Message requests, independent
-of whether that request is authorized to change task state.
+of whether that request is explicit enough to trigger an action.
 _Avoid_: Keyword match, tool call
 
 **ActionRequest**:
 An immutable business request produced from a Message and advanced through a
-generic authorization and execution lifecycle. Its result may be a new run, a
-plan change at a checkpoint, or a report version. Authorization belongs to the
-individual ActionRequest, so one Message may authorize actions independently.
+proposal or execution lifecycle. Its result may be a new run, a plan change at
+a checkpoint, or a report version. One Message may produce multiple independent
+ActionRequests.
 _Avoid_: Direct tool call, hidden action
 
 **MessageCitation**:
