@@ -1,14 +1,14 @@
 # 任务驱动多轮对话重构架构设计
 
-> 本文记录已实现的 task-page-first V1 基线。Conversation-first V2 已冻结于
+> 本文记录已实现的 Conversation-first 首版基线。完整冻结规格位于
 > [`docs/superpowers/specs/2026-08-25-conversation-runtime-web-design.md`](../superpowers/specs/2026-08-25-conversation-runtime-web-design.md)，
 > 其中关于 Conversation/Task 关系、Intake、API、运行停止、事件序列和 Web
-> 交互的决策优先于本文；V2 实施完成后再将本文整体收敛为当前架构。
+> 交互的契约为实现依据。
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | Task-page-first V1 已实现；Conversation-first V2 待实施 |
-| 确认日期 | 2026-08-25 |
+| 状态 | Conversation-first 单机单用户首版已实现 |
+| 确认日期 | 2026-08-26 |
 | 适用范围 | 本地单用户公开信息调研工作台 |
 | 核心目标 | 将一次性研究运行改造成任务驱动、状态持久、可对话控制的调研系统 |
 
@@ -42,9 +42,9 @@
 - 不在一次模型请求生成期间进行强制抢占；
 - 不把阅读推荐星级解释为可信度或证据质量。
 
-## 2. 当前实现与重构原因
+## 2. 重构前基线与复用能力
 
-当前链路是：
+重构前链路是：
 
 ```text
 POST /api/runs
@@ -68,7 +68,7 @@ POST /api/runs
   投影；
 - 前端已有的 Markdown 安全渲染、报告视图和材料列表。
 
-当前实现不能直接承载多轮对话，原因是：
+原基线不能直接承载多轮对话，原因是：
 
 - 运行和事件只存在于进程内，服务重启后丢失；
 - `IntelTask.stage=done` 把一次运行完成误当成任务永久终止；
@@ -609,7 +609,7 @@ message_citations, conversation_events
 代码检查：
 
 ```text
-conversations(task_id)                                      UNIQUE
+conversations(task_id)                                      INDEX
 messages(conversation_id, sequence)                         UNIQUE
 messages(conversation_id, client_message_id)                UNIQUE WHERE client_message_id IS NOT NULL
 conversation_epochs(conversation_id)                        UNIQUE WHERE archived_at IS NULL
@@ -786,30 +786,45 @@ slot，不受该规则限制。先不引入更复杂的动态权重或抢占调�
 ### 10.1 HTTP 接口
 
 ```text
+POST /api/conversations
+GET  /api/conversations
+GET  /api/conversations/{conversation_id}
+POST /api/conversations/{conversation_id}/messages
+GET  /api/conversations/{conversation_id}/timeline
+GET  /api/conversations/{conversation_id}/events
+
 GET  /api/tasks/{task_id}/conversation
 POST /api/tasks/{task_id}/conversation/messages
 GET  /api/messages/{message_id}
+POST /api/messages/{message_id}/retry
 POST /api/messages/{message_id}/cancel
 
 POST /api/action-requests/{action_request_id}/confirm
 POST /api/action-requests/{action_request_id}/reject
 POST /api/action-requests/{action_request_id}/cancel
 
-GET  /api/tasks/{task_id}/runs
-POST /api/runs/{run_id}/cancel
+GET  /api/tasks/{task_id}/research-runs
+GET  /api/research-runs/{run_id}
+POST /api/research-runs/{run_id}/cancel
+POST /api/research-runs/{run_id}/stop
+GET  /api/research-runs/{run_id}/search-plan
+GET  /api/search-plan-versions/{version_id}
 
 GET  /api/tasks/{task_id}/report-versions
 POST /api/tasks/{task_id}/report-versions
 POST /api/report-versions/{report_version_id}/publish
 
-GET  /api/tasks/{task_id}/conversation/events
 ```
+
+Task-scoped Conversation 路由仅用于兼容旧链接。新 Web 工作台始终先创建
+Conversation；Conversation 在 INTAKE 阶段允许 `task_id=NULL`。
 
 发送消息返回 HTTP 202：
 
 ```json
 {
-  "message_id": "msg-...",
+  "id": "message-...",
+  "role": "user",
   "status": "accepted"
 }
 ```
@@ -817,9 +832,9 @@ GET  /api/tasks/{task_id}/conversation/events
 客户端提供 `client_message_id` 作为幂等键；网络重试不能产生重复消息或重复
 ActionRequest。
 
-`POST /report-versions` 只创建 `EXPLICIT_MESSAGE` 报告 ActionRequest 并返回
-HTTP 202；报告
-生成由 Report Publisher 异步执行，不在请求线程内直接生成文件。
+`POST /tasks/{task_id}/report-versions` 是用户显式生成操作，由 Report Publisher
+基于 committed 资产同步渲染并返回 HTTP 201。生成成功后才创建 DRAFT 和
+`report.created` durable event；失败时不会留下可发布版本。
 
 报告发布请求默认不接受 stale Draft；显式发布旧状态草稿时请求体必须包含
 `publish_stale: true` 及客户端确认时的 `committed_state_version`。服务端发现版本
@@ -998,16 +1013,17 @@ sequenceDiagram
 
 ```text
 ┌────────────┬────────────────────────┬────────────────────┐
-│ 调研任务    │ 对话                    │ 当前任务            │
+│ 历史会话    │ Conversation Timeline  │ Context Panel      │
 │            │                        │                    │
-│ Task A     │ 用户问题与引用回答        │ 关键问题进度          │
-│ Task B     │ 缺口与建议动作            │ 材料 / 证据 / 冲突    │
-│ Task C     │ 运行进度与报告草稿提示      │ 报告版本              │
+│ 会话 A     │ 用户问题与引用回答        │ Run / Search Plan   │
+│ 会话 B     │ 缺口与建议动作            │ Material / Evidence │
+│ 会话 C     │ 运行进度与报告草稿提示      │ Report / Citation   │
 └────────────┴────────────────────────┴────────────────────┘
 ```
 
-任务区仍按 `task_id` 切换。对话区是主要交互面；右侧任务区提供“概览、材料、
-证据、报告”视图并可折叠。点击引用时展开材料侧栏并按 SourceLocator 定位，
+左侧按 `conversation_id` 切换；一个 Conversation 最多绑定一个 Task，一个 Task
+可关联多个 Conversation。Timeline 是展示投影，不参与业务状态判断。右侧按稳定
+对象 ID 打开运行、检索计划、引用和报告。点击引用时按 SourceLocator 定位，
 展示：
 
 - 标题、来源机构、类型、发布时间、抓取时间和原始 URL；
@@ -1187,9 +1203,9 @@ ResearchCheckpoint 与 ReportVersion 的生命周期由实体当前状态和持�
 
 ## 19. 实施状态与首版边界
 
-截至 2026-08-25，首版可用链路已经完成：
+截至 2026-08-26，Conversation-first 首版可用链路已经完成：
 
-- `data/intel/intel.db` 使用 schema version 2、WAL、foreign keys 和 5000 ms
+- `data/intel/intel.db` 使用 schema version 3、WAL、foreign keys 和 5000 ms
   busy timeout，持久化会话、消息、引用、动作、运行、checkpoint、报告版本和
   durable event；
 - 现有 JSON 研究资产在任务首次进入对话时建立 committed 基线索引，SQLite 只
@@ -1200,11 +1216,12 @@ ResearchCheckpoint 与 ReportVersion 的生命周期由实体当前状态和持�
   checkpoint 才公开新增资产；运行失败不会污染 committed allowlist；
 - FastAPI 已提供消息、SSE、动作确认/拒绝/取消、运行取消、报告草稿和发布接口，
   启动时恢复未完成消息；
-- React 工作台已增加“对话”页签，支持材料问答、引用查看、续研控制、运行状态及
-  报告版本操作；
+- React 工作台以历史 Conversation、Timeline 和按需 Context Panel 为主界面，
+  支持 INTAKE、材料问答、引用查看、初始/续研控制、失败重试及报告版本操作；
 - 报告渲染与发布解耦：生成只创建 Draft，发布原子切换当前版本，旧报告不覆盖。
 
-首版保持最小本地边界：单机单用户、一个 Task 一个主 Conversation、同一时刻一个
+首版保持最小本地边界：单机单用户、一个 Conversation 最多绑定一个 Task、一个
+Task 可关联多个 Conversation、同一时刻一个
 研究运行；不包含账户、角色、认证、多租户、跨任务检索、WebSocket、分布式任务
 队列或向量数据库。完整 JSON 研究元数据迁移仍是后续独立工作；在此之前采用
 “JSON/文件系统保存既有研究资产，SQLite 保存新增交互状态与 committed 索引”的

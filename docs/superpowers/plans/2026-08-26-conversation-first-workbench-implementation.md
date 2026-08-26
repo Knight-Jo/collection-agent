@@ -43,11 +43,20 @@
 ```python
 def test_active_conversation_requires_task():
     with pytest.raises(ValidationError):
-        Conversation(id="c1", task_id=None, status="active", title="研究", created_at="now", updated_at="now")
+        Conversation(
+            id="c1",
+            task_id=None,
+            status="active",
+            title="研究",
+            created_at="now",
+            updated_at="now",
+        )
 
 
 def test_report_requires_checkpoint_identity():
-    report = make_report(based_on_checkpoint_id="cp7", based_on_committed_state_version=19)
+    report = make_report(
+        based_on_checkpoint_id="cp7", based_on_committed_state_version=19
+    )
     assert report.based_on_checkpoint_id == "cp7"
 ```
 
@@ -73,14 +82,18 @@ class ResearchBrief(BaseModel):
     scope: ResearchScope = Field(default_factory=ResearchScope)
     entities: list[str] = Field(default_factory=list)
     constraints: list[str] = Field(default_factory=list)
-    requested_outputs: list[str] = Field(default_factory=lambda: ["research_report"])
+    requested_outputs: list[str] = Field(
+        default_factory=lambda: ["research_report"]
+    )
 
 
 class MessageProcessingAttempt(BaseModel):
     id: str
     user_message_id: str
     attempt: int = Field(ge=1)
-    status: Literal["accepted", "processing", "completed", "failed", "cancelled"]
+    status: Literal[
+        "accepted", "processing", "completed", "failed", "cancelled"
+    ]
     assistant_message_id: str | None = None
     error_code: str | None = None
     error_detail: str | None = None
@@ -117,9 +130,15 @@ Run Step 3, then commit the four Task 1 files with
 def test_bind_intake_task_is_atomic_and_idempotent(cwd):
     store = StateStore(cwd)
     conversation = store.create_conversation("browser-c1")
-    message = store.add_user_message(conversation.id, "调研先进封装", "browser-m1")
-    first = store.bind_intake_task(conversation.id, message.id, research_brief("先进封装"))
-    second = store.bind_intake_task(conversation.id, message.id, research_brief("先进封装"))
+    message = store.add_user_message(
+        conversation.id, "调研先进封装", "browser-m1"
+    )
+    first = store.bind_intake_task(
+        conversation.id, message.id, research_brief("先进封装")
+    )
+    second = store.bind_intake_task(
+        conversation.id, message.id, research_brief("先进封装")
+    )
     assert second == first
     assert len(store.list_runs(first.task_id)) == 1
 ```
@@ -236,7 +255,10 @@ def test_run_stopping_and_event_share_transaction(cwd):
     store, run = running_run(cwd)
     store.stop_run(run.id)
     assert store.get_run(run.id).status == "stopping"
-    assert store.events_after(run.conversation_id, 0)[-1].event_type == "run.stopping"
+    assert (
+        store.events_after(run.conversation_id, 0)[-1].event_type
+        == "run.stopping"
+    )
 
 
 def test_event_and_timeline_sequences_are_independent(cwd):
@@ -265,8 +287,7 @@ def _append_durable_event(
     conversation_id: str,
     event_type: str,
     data: dict[str, object],
-) -> ConversationEvent:
-    ...
+) -> ConversationEvent: ...
 ```
 
 All domain transitions call this helper before the same transaction commits.
