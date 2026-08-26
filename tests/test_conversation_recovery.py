@@ -1,0 +1,23 @@
+from intel_agent.state_store import StateStore
+
+
+def test_interrupted_run_keeps_working_assets_out_and_retries_as_new_run(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    run = store.create_run("task-1", "initial", 0, {})
+    store.transition_run(
+        run.id,
+        "running",
+        lease_owner="dead-runtime",
+        lease_expires_at="2026-08-25T00:00:00+00:00",
+    )
+    store.start_checkpoint(run.id, reason="unfinished batch")
+
+    recovered = store.recover_expired_runs("2026-08-25T00:00:01+00:00")
+    retry = store.retry_run(run.id)
+
+    assert recovered[0].status == "interrupted"
+    assert store.committed_state_version("task-1") == 0
+    assert store.committed_asset_ids("task-1", "document") == set()
+    assert retry.id != run.id
+    assert retry.retry_of_run_id == run.id

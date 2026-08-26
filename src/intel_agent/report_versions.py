@@ -38,11 +38,6 @@ class ReportPublisher:
             sha256(path.read_bytes()),
             report_id=report_id,
         )
-        self.store.append_event(
-            task_id,
-            "report.draft_created",
-            {"report_id": report.id, "version": report.version},
-        )
         return report
 
     def publish(
@@ -64,11 +59,6 @@ class ReportPublisher:
             report_id,
             publish_stale=publish_stale,
             expected_current_state_version=expected_current_state_version,
-        )
-        self.store.append_event(
-            report.task_id,
-            "report.published",
-            {"report_id": report.id, "version": report.version},
         )
         return published
 

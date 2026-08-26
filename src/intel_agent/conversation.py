@@ -21,6 +21,7 @@ from .models import (
     IntelError,
     Message,
     ReportVersion,
+    ResearchBrief,
     ResearchRun,
 )
 from .report_versions import ReportPublisher
@@ -71,6 +72,15 @@ class _ContinuationRunner(Protocol):
     ) -> object: ...
 
 
+class _InitialRunner(Protocol):
+    async def run_initial(
+        self,
+        run: ResearchRun,
+        brief: ResearchBrief,
+        cancellation_token: CancellationToken,
+    ) -> object: ...
+
+
 class ConversationRuntime:
     """Process local task messages without mixing research execution state."""
 
@@ -82,6 +92,7 @@ class ConversationRuntime:
         intake: _Intake | None = None,
         dialogue: _Dialogue | None = None,
         retriever: _Retriever | None = None,
+        initial: _InitialRunner | None = None,
         continuation: _ContinuationRunner | None = None,
         publisher: _ReportPublisher | None = None,
     ):
@@ -91,6 +102,7 @@ class ConversationRuntime:
         self.intake = intake or IntakeEngine(settings)
         self.dialogue = dialogue or DialogueEngine(settings)
         self.retriever = retriever or TaskRetriever(cwd, self.store)
+        self.initial = initial
         self.continuation = continuation
         self.publisher = publisher or ReportPublisher(cwd, store=self.store)
         self._dialogue_lock = asyncio.Lock()
@@ -98,6 +110,8 @@ class ConversationRuntime:
         self._action_tasks: set[asyncio.Task[object]] = set()
         self._action_tasks_by_id: dict[str, asyncio.Task[object]] = {}
         self._action_tokens: dict[str, CancellationToken] = {}
+        self._run_tasks: dict[str, asyncio.Task[object]] = {}
+        self._run_tokens: dict[str, CancellationToken] = {}
 
     def create_conversation(self) -> Conversation:
         """Create a new taskless intake conversation."""
@@ -145,7 +159,23 @@ class ConversationRuntime:
         for message in pending:
             if message.id not in self._message_tasks:
                 self._schedule_message(message.id)
-        return len(pending)
+        recovered_runs = 0
+        if self.initial is not None:
+            for conversation in self.store.list_conversations():
+                if conversation.task_id is None:
+                    continue
+                task = load_task(self.cwd, conversation.task_id)
+                brief = ResearchBrief(
+                    topic=task.topic,
+                    objective=task.objective,
+                    key_questions=[item.text for item in task.questions],
+                    scope=task.scope,
+                )
+                for run in self.store.list_runs(task.id):
+                    if run.run_type == "initial" and run.status == "queued":
+                        self._schedule_initial(run, brief)
+                        recovered_runs += 1
+        return len(pending) + recovered_runs
 
     def retry_message(self, message_id: str) -> Message:
         """Retry system processing without duplicating the user message."""
@@ -211,6 +241,9 @@ class ConversationRuntime:
         run = self.store.get_run(run_id)
         if run.action_request_id is None:
             if run.status == "queued":
+                token = self._run_tokens.get(run.id)
+                if token is not None:
+                    token.cancel()
                 return self.store.transition_run(run.id, "cancelled")
             return run
         await self.cancel_action(run.action_request_id)
@@ -219,6 +252,9 @@ class ConversationRuntime:
     def stop_research_run(self, run_id: str) -> ResearchRun:
         """Request stop for a running Run and signal its active worker."""
         run = self.store.stop_run(run_id)
+        token = self._run_tokens.get(run.id)
+        if token is not None:
+            token.cancel()
         if run.action_request_id is not None:
             token = self._action_tokens.get(run.action_request_id)
             if token is not None:
@@ -251,6 +287,7 @@ class ConversationRuntime:
         epoch = self.store.active_epoch_for_conversation(conversation_id)
         messages = self.store.list_messages_for_conversation(conversation_id)
         message_values = []
+        processing_attempts = []
         for message in messages:
             value = message.model_dump(mode="json")
             value["citations"] = [
@@ -258,6 +295,14 @@ class ConversationRuntime:
                 for item in self.store.citations_for_message(message.id)
             ]
             message_values.append(value)
+            if message.role == "user":
+                try:
+                    attempt = self.store.latest_processing_attempt(message.id)
+                except IntelError as error:
+                    if error.code != "NOT_FOUND":
+                        raise
+                else:
+                    processing_attempts.append(attempt.model_dump(mode="json"))
         task_id = conversation.task_id
         actions = self.store.list_actions(task_id) if task_id else []
         runs = self.store.list_runs(task_id) if task_id else []
@@ -266,6 +311,7 @@ class ConversationRuntime:
             "conversation": conversation.model_dump(mode="json"),
             "epoch": epoch.model_dump(mode="json"),
             "messages": message_values,
+            "processing_attempts": processing_attempts,
             "actions": [item.model_dump(mode="json") for item in actions],
             "runs": [item.model_dump(mode="json") for item in runs],
             "reports": [item.model_dump(mode="json") for item in reports],
@@ -311,9 +357,12 @@ class ConversationRuntime:
                         raise RuntimeError(
                             "intake result lacks research brief"
                         )
-                    self.store.bind_intake_task(
+                    bound = self.store.bind_intake_task(
                         conversation.id, user.id, intake.research_brief
                     )
+                    if self.initial is not None and bound.task_id is not None:
+                        run = self.store.list_runs(bound.task_id)[-1]
+                        self._schedule_initial(run, intake.research_brief)
                 assistant = self.store.complete_message(
                     user.id,
                     intake.reply,
@@ -406,6 +455,22 @@ class ConversationRuntime:
             self._action_tasks.discard(completed)
             self._action_tasks_by_id.pop(action.id, None)
             self._action_tokens.pop(action.id, None)
+
+        task.add_done_callback(discard)
+
+    def _schedule_initial(
+        self, run: ResearchRun, brief: ResearchBrief
+    ) -> None:
+        if self.initial is None or run.id in self._run_tasks:
+            return
+        token = CancellationToken()
+        self._run_tokens[run.id] = token
+        task = asyncio.create_task(self.initial.run_initial(run, brief, token))
+        self._run_tasks[run.id] = task
+
+        def discard(_completed: asyncio.Task[object]) -> None:
+            self._run_tasks.pop(run.id, None)
+            self._run_tokens.pop(run.id, None)
 
         task.add_done_callback(discard)
 

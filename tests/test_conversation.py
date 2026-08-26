@@ -9,7 +9,12 @@ from pydantic_ai import CancellationToken
 from intel_agent.conversation import ConversationRuntime
 from intel_agent.dialogue import DialogueAction, DialogueDecision
 from intel_agent.intake import IntakeDecision
-from intel_agent.models import ActionRequest, Message, ResearchBrief
+from intel_agent.models import (
+    ActionRequest,
+    Message,
+    ResearchBrief,
+    ResearchRun,
+)
 from intel_agent.retrieval import RetrievedPassage
 from intel_agent.state_store import StateStore
 from tests.conftest import new_task
@@ -62,12 +67,29 @@ class _ActionRunner:
         self.called.set()
 
 
+class _InitialRunner:
+    def __init__(self):
+        self.calls: list[tuple[ResearchRun, ResearchBrief]] = []
+        self.called = asyncio.Event()
+
+    async def run_initial(
+        self,
+        run: ResearchRun,
+        brief: ResearchBrief,
+        cancellation_token: CancellationToken,
+    ) -> None:
+        del cancellation_token
+        self.calls.append((run, brief))
+        self.called.set()
+
+
 class _Intake:
     def __init__(self, decision: IntakeDecision, *, fail: bool = False):
         self.decision = decision
         self.fail = fail
 
-    async def decide(self, _query: str, _messages: Sequence[Message]):
+    async def decide(self, query: str, messages: Sequence[Message]):
+        del query, messages
         if self.fail:
             raise RuntimeError("intake unavailable")
         return self.decision
@@ -113,11 +135,13 @@ async def test_capability_query_keeps_intake_unbound(cwd):
 
 
 async def test_clear_request_binds_one_task(cwd):
+    initial = _InitialRunner()
     runtime = ConversationRuntime(
         cwd,
         intake=_Intake(_start_research()),
         dialogue=_Dialogue(_decision()),
         retriever=_Retriever(),
+        initial=initial,
     )
     conversation = runtime.create_conversation()
 
@@ -125,11 +149,42 @@ async def test_clear_request_binds_one_task(cwd):
         conversation.id, "调研先进封装产业", "client-intake-1"
     )
     await runtime.wait_message(user.id)
+    await initial.called.wait()
     bound = runtime.store.get_conversation_by_id(conversation.id)
 
     assert bound.status == "active"
     assert bound.task_id is not None
     assert len(runtime.store.list_runs(bound.task_id)) == 1
+    assert initial.calls[0][0].run_type == "initial"
+    assert initial.calls[0][1].topic == "先进封装"
+
+
+async def test_recovery_schedules_queued_initial_run(cwd):
+    first = ConversationRuntime(
+        cwd,
+        intake=_Intake(_start_research()),
+        dialogue=_Dialogue(_decision()),
+        retriever=_Retriever(),
+    )
+    conversation = first.create_conversation()
+    user = first.submit_message(
+        conversation.id, "调研先进封装产业", "client-intake-1"
+    )
+    await first.wait_message(user.id)
+    initial = _InitialRunner()
+    recovered = ConversationRuntime(
+        cwd,
+        intake=_Intake(_start_research()),
+        dialogue=_Dialogue(_decision()),
+        retriever=_Retriever(),
+        initial=initial,
+    )
+
+    count = recovered.recover()
+    await initial.called.wait()
+
+    assert count == 1
+    assert initial.calls[0][0].status == "queued"
 
 
 async def test_intake_failure_does_not_mutate_user_message(cwd):
@@ -147,6 +202,9 @@ async def test_intake_failure_does_not_mutate_user_message(cwd):
     assert runtime.store.get_message(user.id).status == "accepted"
     attempt = runtime.store.latest_processing_attempt(user.id)
     assert attempt.status == "failed"
+    view = runtime.conversation_view_by_id(conversation.id)
+    attempts = cast(list[dict[str, object]], view["processing_attempts"])
+    assert attempts[0]["error_detail"] == "intake unavailable"
 
 
 def _decision(

@@ -1532,18 +1532,26 @@ class StateStore:
                 "FROM report_versions WHERE task_id = ?",
                 (task_id,),
             ).fetchone()[0]
+            checkpoint = connection.execute(
+                "SELECT id FROM research_checkpoints "
+                "WHERE task_id = ? AND status = 'committed' "
+                "ORDER BY output_committed_state_version DESC LIMIT 1",
+                (task_id,),
+            ).fetchone()
             report_id = report_id or new_id("report")
             connection.execute(
                 "INSERT INTO report_versions("
                 "id, task_id, version, status, content_path, content_sha256, "
-                "based_on_committed_state_version, created_at"
-                ") VALUES (?, ?, ?, 'draft', ?, ?, ?, ?)",
+                "based_on_checkpoint_id, based_on_committed_state_version, "
+                "created_at"
+                ") VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?)",
                 (
                     report_id,
                     task_id,
                     version,
                     content_path,
                     content_sha256,
+                    checkpoint["id"] if checkpoint is not None else None,
                     state["current_committed_state_version"],
                     now,
                 ),
@@ -1552,6 +1560,22 @@ class StateStore:
                 "UPDATE task_state SET current_draft_report_version_id = ?, "
                 "updated_at = ? WHERE task_id = ?",
                 (report_id, now, task_id),
+            )
+            conversation_id = _conversation_id_for_task(connection, task_id)
+            event_sequence = _insert_event(
+                connection,
+                conversation_id,
+                "report.created",
+                {"report_id": report_id, "version": version},
+                now,
+            )
+            _insert_timeline_entry(
+                connection,
+                conversation_id,
+                "report_created",
+                {"report_id": report_id, "version": version},
+                now,
+                source_event_sequence=event_sequence,
             )
             row = connection.execute(
                 "SELECT * FROM report_versions WHERE id = ?", (report_id,)
@@ -1647,6 +1671,24 @@ class StateStore:
                 "current_published_report_version_id = ?, updated_at = ? "
                 "WHERE task_id = ?",
                 (report_id, now, report["task_id"]),
+            )
+            conversation_id = _conversation_id_for_task(
+                connection, report["task_id"]
+            )
+            event_sequence = _insert_event(
+                connection,
+                conversation_id,
+                "report.published",
+                {"report_id": report_id, "version": report["version"]},
+                now,
+            )
+            _insert_timeline_entry(
+                connection,
+                conversation_id,
+                "report_published",
+                {"report_id": report_id, "version": report["version"]},
+                now,
+                source_event_sequence=event_sequence,
             )
             row = connection.execute(
                 "SELECT * FROM report_versions WHERE id = ?", (report_id,)
@@ -1903,6 +1945,19 @@ def _conversation_id_for_run(
     ).fetchone()
     if row is None:
         raise IntelError("STORAGE_CORRUPT", "研究运行缺少关联会话")
+    return row["id"]
+
+
+def _conversation_id_for_task(
+    connection: sqlite3.Connection, task_id: str
+) -> str:
+    row = connection.execute(
+        "SELECT id FROM conversations WHERE task_id = ? "
+        "ORDER BY updated_at DESC LIMIT 1",
+        (task_id,),
+    ).fetchone()
+    if row is None:
+        raise IntelError("STORAGE_CORRUPT", "任务缺少关联会话")
     return row["id"]
 
 

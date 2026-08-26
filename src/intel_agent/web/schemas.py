@@ -19,6 +19,7 @@ from ..models import (
     MaterialDigest,
     Message,
     MessageCitation,
+    MessageProcessingAttempt,
     QuestionCoverage,
     ReportDepth,
     ReportVersion,
@@ -245,6 +246,7 @@ class ConversationView(BaseModel):
     conversation: Conversation
     epoch: ConversationEpoch
     messages: list[ConversationMessageView]
+    processing_attempts: list[MessageProcessingAttempt]
     actions: list[ActionRequest]
     runs: list[ResearchRun]
     reports: list[ReportVersion]

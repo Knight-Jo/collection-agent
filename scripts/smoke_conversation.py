@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one real task-conversation smoke check against the local Web API."""
+"""Run one Conversation-first smoke check against the local Web API."""
 
 from __future__ import annotations
 
@@ -15,10 +15,11 @@ Opener = Callable[..., Any]
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Smoke-test task-scoped evidence dialogue"
+        description="Smoke-test the Conversation-first research workbench"
     )
     parser.add_argument("--base-url", default="http://127.0.0.1:6780")
-    parser.add_argument("--task-id", required=True)
+    parser.add_argument("--conversation-id")
+    parser.add_argument("--task-id")
     parser.add_argument("--question", required=True)
     parser.add_argument("--continuation", default=None)
     parser.add_argument("--confirm-proposal", action="store_true")
@@ -29,22 +30,39 @@ def build_parser() -> argparse.ArgumentParser:
 def run_smoke(
     *,
     base_url: str,
-    task_id: str,
+    task_id: str | None,
+    conversation_id: str | None = None,
     question: str,
     timeout: float,
     continuation: str | None = None,
     confirm_proposal: bool = False,
     opener: Opener = urlopen,
 ) -> dict[str, object]:
-    """Ask one evidence question and optionally queue one continuation."""
+    """Ask one question and optionally queue one continuation."""
     base_url = base_url.rstrip("/")
-    task = _request_json(opener, base_url, f"/api/tasks/{task_id}", timeout)
-    if task.get("task", {}).get("id") != task_id:
-        raise RuntimeError("task response does not match --task-id")
+    if task_id is not None:
+        task = _request_json(
+            opener, base_url, f"/api/tasks/{task_id}", timeout
+        )
+        if task.get("task", {}).get("id") != task_id:
+            raise RuntimeError("task response does not match --task-id")
+        resource = f"/api/tasks/{task_id}/conversation"
+    else:
+        if conversation_id is None:
+            created = _request_json(
+                opener,
+                base_url,
+                "/api/conversations",
+                timeout,
+                method="POST",
+                payload={},
+            )
+            conversation_id = str(created["id"])
+        resource = f"/api/conversations/{conversation_id}"
 
-    submitted = _post_message(opener, base_url, task_id, question, timeout)
+    submitted = _post_message(opener, base_url, resource, question, timeout)
     assistant_id = _wait_for_answer(
-        opener, base_url, task_id, str(submitted["id"]), timeout
+        opener, base_url, resource, str(submitted["id"]), timeout
     )
     answer = _request_json(
         opener, base_url, f"/api/messages/{assistant_id}", timeout
@@ -53,17 +71,12 @@ def run_smoke(
     continuation_status = None
     if continuation:
         submitted = _post_message(
-            opener, base_url, task_id, continuation, timeout
+            opener, base_url, resource, continuation, timeout
         )
         _wait_for_answer(
-            opener, base_url, task_id, str(submitted["id"]), timeout
+            opener, base_url, resource, str(submitted["id"]), timeout
         )
-        projection = _request_json(
-            opener,
-            base_url,
-            f"/api/tasks/{task_id}/conversation",
-            timeout,
-        )
+        projection = _request_json(opener, base_url, resource, timeout)
         actions = projection.get("actions", [])
         if actions:
             action = actions[-1]
@@ -79,26 +92,32 @@ def run_smoke(
                 )
                 continuation_status = confirmed.get("status")
 
-    return {
+    if task_id is None:
+        projection = _request_json(opener, base_url, resource, timeout)
+        task_id = projection.get("conversation", {}).get("task_id")
+    result = {
         "task_id": task_id,
         "message_status": answer.get("status"),
         "answer_chars": len(str(answer.get("content", ""))),
         "citation_count": len(answer.get("citations", [])),
         "continuation_status": continuation_status,
     }
+    if conversation_id is not None:
+        result["conversation_id"] = conversation_id
+    return result
 
 
 def _post_message(
     opener: Opener,
     base_url: str,
-    task_id: str,
+    resource: str,
     content: str,
     timeout: float,
 ) -> dict[str, object]:
     return _request_json(
         opener,
         base_url,
-        f"/api/tasks/{task_id}/conversation/messages",
+        f"{resource}/messages",
         timeout,
         method="POST",
         payload={"content": content, "client_message_id": str(uuid.uuid4())},
@@ -108,12 +127,12 @@ def _post_message(
 def _wait_for_answer(
     opener: Opener,
     base_url: str,
-    task_id: str,
+    resource: str,
     user_message_id: str,
     timeout: float,
 ) -> str:
     request = Request(
-        base_url + f"/api/tasks/{task_id}/conversation/events",
+        base_url + f"{resource}/events",
         headers={"Accept": "text/event-stream"},
     )
     event_type = ""
@@ -166,6 +185,7 @@ def main() -> None:
     metrics = run_smoke(
         base_url=args.base_url,
         task_id=args.task_id,
+        conversation_id=args.conversation_id,
         question=args.question,
         continuation=args.continuation,
         confirm_proposal=args.confirm_proposal,

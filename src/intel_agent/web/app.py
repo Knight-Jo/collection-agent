@@ -64,12 +64,14 @@ def create_app(
     )
     if conversation_runtime is None:
         store_publisher = ReportPublisher(app.state.cwd)
+        research_runner = ContinuationRunner(
+            app.state.cwd, settings, gate=gate
+        )
         conversation_runtime = ConversationRuntime(
             app.state.cwd,
             settings,
-            continuation=ContinuationRunner(
-                app.state.cwd, settings, gate=gate
-            ),
+            initial=research_runner,
+            continuation=research_runner,
             publisher=store_publisher,
         )
     app.state.conversation_runtime = conversation_runtime

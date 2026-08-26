@@ -74,6 +74,11 @@ def test_new_draft_abandons_previous_and_publish_is_versioned(cwd):
     assert store.get_report(first.id).status == "abandoned"
     assert second.version == 2
     assert published.status == "published"
+    event_types = [
+        event.event_type for event in store.events_after(task.id, 0)
+    ]
+    assert event_types.count("report.created") == 2
+    assert event_types.count("report.published") == 1
 
 
 def test_publisher_requires_confirmation_for_stale_draft(cwd):
@@ -94,3 +99,15 @@ def test_publisher_requires_confirmation_for_stale_draft(cwd):
         expected_current_state_version=1,
     )
     assert published.status == "published"
+
+
+def test_report_version_records_latest_committed_checkpoint(cwd):
+    task, _facts, _documents = seed_reportable_task(cwd)
+    store, publisher = _publisher(cwd, task.id)
+    run = store.create_run(task.id, "initial", 0, {})
+    checkpoint = store.start_checkpoint(run.id, reason="research complete")
+    store.commit_checkpoint(checkpoint.id)
+
+    draft = publisher.create_draft(task.id)
+
+    assert draft.based_on_checkpoint_id == checkpoint.id

@@ -59,7 +59,8 @@ class _Dialogue:
 
 
 class _Intake:
-    async def decide(self, query: str, _messages: Sequence[Message]):
+    async def decide(self, query: str, messages: Sequence[Message]):
+        del messages
         return IntakeDecision(
             intent="capability_query",
             reply=f"可开展公开信息调研：{query}",

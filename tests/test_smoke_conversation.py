@@ -18,13 +18,11 @@ def _json_response(value):
     return _Response(json.dumps(value).encode())
 
 
-def test_parser_accepts_required_task_and_question():
-    args = build_parser().parse_args(
-        ["--task-id", "task-1", "--question", "当前结论？"]
-    )
+def test_parser_accepts_conversation_first_question():
+    args = build_parser().parse_args(["--question", "你能做什么？"])
 
     assert args.base_url == "http://127.0.0.1:6780"
-    assert args.task_id == "task-1"
+    assert args.task_id is None
 
 
 def test_smoke_runs_question_and_reports_stable_metrics():
@@ -73,3 +71,55 @@ def test_smoke_runs_question_and_reports_stable_metrics():
     assert requests[1][1] == "POST"
     assert requests[2][0].endswith("/conversation/events")
     assert requests[3][0].endswith("/api/messages/message-assistant")
+
+
+def test_smoke_creates_intake_conversation_when_no_id_is_given():
+    responses = iter(
+        [
+            _json_response({"id": "conversation-1", "task_id": None}),
+            _json_response({"id": "message-user"}),
+            _Response(
+                b"id: 1\nevent: answer.completed\n"
+                b'data: {"message_id":"message-assistant",'
+                b'"reply_to_id":"message-user"}\n\n'
+            ),
+            _json_response(
+                {
+                    "id": "message-assistant",
+                    "content": "可以开展公开信息调研",
+                    "status": "completed",
+                    "citations": [],
+                }
+            ),
+            _json_response(
+                {
+                    "conversation": {
+                        "id": "conversation-1",
+                        "task_id": None,
+                    }
+                }
+            ),
+        ]
+    )
+    requests = []
+
+    def opener(request, timeout):
+        requests.append((request.full_url, request.get_method(), timeout))
+        return next(responses)
+
+    metrics = run_smoke(
+        base_url="http://127.0.0.1:6780",
+        task_id=None,
+        conversation_id=None,
+        question="你能做什么？",
+        timeout=5,
+        opener=opener,
+    )
+
+    assert metrics["conversation_id"] == "conversation-1"
+    assert metrics["task_id"] is None
+    assert requests[0][1] == "POST"
+    assert requests[1][0].endswith(
+        "/api/conversations/conversation-1/messages"
+    )
+    assert requests[2][0].endswith("/api/conversations/conversation-1/events")

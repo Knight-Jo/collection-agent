@@ -17,7 +17,10 @@ from .models import (
     ActionRequest,
     CollectionState,
     CommittedAssetType,
+    ResearchBrief,
+    ResearchRun,
 )
+from .runner import TaskRunSpec, run_agent_task
 from .state_store import StateStore
 from .task import activate_task, load_task, save_task
 from .web.views import get_task_view
@@ -90,6 +93,86 @@ class ContinuationRunner:
         self.settings = settings or Settings()
         self.store = store or StateStore(cwd)
         self.gate = gate or ResearchGate()
+
+    async def run_initial(
+        self,
+        run: ResearchRun,
+        brief: ResearchBrief,
+        cancellation_token: CancellationToken | None = None,
+    ) -> ResearchRun:
+        """Execute the queued initial run created by intake."""
+        token = cancellation_token or CancellationToken()
+        if token.cancelled:
+            current = self.store.get_run(run.id)
+            return (
+                self.store.cancel_run(run.id)
+                if current.status == "queued"
+                else current
+            )
+        await self.gate.acquire(run.id)
+        try:
+            if token.cancelled:
+                current = self.store.get_run(run.id)
+                return (
+                    self.store.cancel_run(run.id)
+                    if current.status == "queued"
+                    else current
+                )
+            self.store.transition_run(
+                run.id,
+                "running",
+                phase="planning",
+                lease_owner=run.id,
+                lease_expires_at=(
+                    datetime.now(UTC) + timedelta(minutes=2)
+                ).isoformat(),
+            )
+            task = activate_task(self.cwd, run.task_id)
+            before = _asset_snapshot(self.cwd, task.id)
+            await run_agent_task(
+                self.cwd,
+                self.settings,
+                TaskRunSpec(
+                    topic=brief.topic,
+                    objective=brief.objective,
+                    questions=brief.key_questions,
+                    scope=brief.scope,
+                    report_depth=task.report_depth,
+                    criteria=task.criteria,
+                    deep_crawl=task.deep_crawl,
+                ),
+                cancellation_token=token,
+            )
+            if token.cancelled:
+                raise asyncio.CancelledError
+            added = _asset_snapshot(self.cwd, task.id) - before
+            checkpoint = self.store.start_checkpoint(
+                run.id, reason="initial research completed"
+            )
+            self.store.commit_checkpoint(checkpoint.id, added)
+            latest = load_task(self.cwd, task.id)
+            return self.store.transition_run(
+                run.id,
+                "succeeded",
+                phase="checkpointing",
+                outcome=latest.completion_status or "with_gaps",
+            )
+        except (RunCancelled, asyncio.CancelledError):
+            current = self.store.get_run(run.id)
+            if current.status == "queued":
+                return self.store.cancel_run(run.id)
+            if current.status == "running":
+                self.store.stop_run(run.id)
+            return self.store.finish_stop(run.id)
+        except Exception as error:
+            current = self.store.get_run(run.id)
+            if current.status == "running":
+                return self.store.transition_run(
+                    run.id, "failed", error=str(error)
+                )
+            return current
+        finally:
+            self.gate.release(run.id)
 
     async def run(
         self,

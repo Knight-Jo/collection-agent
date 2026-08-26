@@ -14,9 +14,43 @@ from intel_agent.continuation import (
 )
 from intel_agent.fact import save_fact
 from intel_agent.materials import register_material
+from intel_agent.models import ResearchBrief
 from intel_agent.state_store import StateStore
 from intel_agent.task import load_task
 from tests.conftest import make_document, new_task, save_evidence
+
+
+async def test_initial_run_uses_bound_task_and_commits_assets(
+    monkeypatch, cwd
+):
+    task = new_task(cwd)
+    store = StateStore(cwd)
+    store.register_task(task.id)
+    run = store.create_run(task.id, "initial", 0, {})
+
+    async def fake_agent_task(_cwd, _settings, spec, **_kwargs):
+        assert spec.topic == task.topic
+        document = make_document(cwd, "初次调研材料")
+        register_material(
+            cwd,
+            task.id,
+            document.canonical_url,
+            document_id=document.id,
+        )
+        return SimpleNamespace(output="done")
+
+    monkeypatch.setattr(continuation_module, "run_agent_task", fake_agent_task)
+    runner = ContinuationRunner(cwd, store=store)
+
+    await runner.run_initial(
+        run,
+        ResearchBrief(topic=task.topic, key_questions=["问题"]),
+        CancellationToken(),
+    )
+
+    assert store.get_run(run.id).status == "succeeded"
+    assert store.committed_state_version(task.id) == 1
+    assert store.committed_asset_ids(task.id, "document")
 
 
 def test_build_agent_filters_continuation_tools(monkeypatch, cwd):
