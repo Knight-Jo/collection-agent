@@ -218,6 +218,13 @@ export interface ConversationMessage {
   citations: MessageCitation[];
 }
 
+export interface MessageProcessingAttempt {
+  id: string;
+  user_message_id: string;
+  status: "accepted" | "processing" | "completed" | "failed" | "cancelled";
+  error_detail: string | null;
+}
+
 export interface ConversationAction {
   id: string;
   action_type: string;
@@ -265,6 +272,7 @@ export interface ConversationProjection {
   conversation: Conversation;
   epoch: { id: string; summary: string };
   messages: ConversationMessage[];
+  processing_attempts: MessageProcessingAttempt[];
   actions: ConversationAction[];
   runs: ResearchRun[];
   reports: ReportVersion[];

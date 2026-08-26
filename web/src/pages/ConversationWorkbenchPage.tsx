@@ -2,6 +2,8 @@ import { MessageSquarePlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
+import { ContextPanel } from "../components/ContextPanel";
+import { type ContextSelection, ConversationPanel } from "../components/ConversationPanel";
 import type { Conversation } from "../types";
 
 export function ConversationWorkbenchPage() {
@@ -9,6 +11,7 @@ export function ConversationWorkbenchPage() {
   const navigate = useNavigate();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [error, setError] = useState("");
+  const [context, setContext] = useState<ContextSelection | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -53,21 +56,22 @@ export function ConversationWorkbenchPage() {
           ))}
         </nav>
       </aside>
-      <section className="workbench-empty">
-        {conversationId ? (
-          <p>正在加载会话…</p>
-        ) : (
-          <>
-            <MessageSquarePlus size={34} />
-            <h1>从一个问题开始调研</h1>
-            <p>可以先询问系统能力，也可以直接描述需要调查的主题、范围和产出。</p>
-            <button className="primary-button" type="button" onClick={createConversation}>
-              新建对话
-            </button>
-          </>
-        )}
-        {error && <p className="form-error">{error}</p>}
-      </section>
+      {conversationId ? (
+        <ConversationPanel conversationId={conversationId} onOpenContext={setContext} />
+      ) : (
+        <section className="workbench-empty">
+          <MessageSquarePlus size={34} />
+          <h1>从一个问题开始调研</h1>
+          <p>可以先询问系统能力，也可以直接描述需要调查的主题、范围和产出。</p>
+          <button className="primary-button" type="button" onClick={createConversation}>
+            新建对话
+          </button>
+          {error && <p className="form-error">{error}</p>}
+        </section>
+      )}
+      {context && (
+        <ContextPanel selection={context} onSelect={setContext} onClose={() => setContext(null)} />
+      )}
     </main>
   );
 }

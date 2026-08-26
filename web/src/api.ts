@@ -1,15 +1,15 @@
 import type {
   Artifact,
-  ConversationAction,
   Conversation,
+  ConversationAction,
   ConversationMessage,
   ConversationProjection,
   ReportVersion,
   ResearchRun,
   Run,
   RunInput,
-  SystemStatus,
   SearchPlanVersion,
+  SystemStatus,
   TaskDetail,
   TaskSummary,
   TimelineEntry,
@@ -46,6 +46,8 @@ export const api = {
     }),
   cancelMessage: (messageId: string) =>
     request<ConversationMessage>(`/api/messages/${messageId}/cancel`, { method: "POST" }),
+  retryMessage: (messageId: string) =>
+    request<ConversationMessage>(`/api/messages/${messageId}/retry`, { method: "POST" }),
   confirmAction: (actionId: string, clientMessageId: string) =>
     request<ConversationAction>(`/api/action-requests/${actionId}/confirm`, {
       method: "POST",
@@ -65,11 +67,7 @@ export const api = {
     }),
   conversationById: (conversationId: string) =>
     request<ConversationProjection>(`/api/conversations/${conversationId}`),
-  sendConversationMessage: (
-    conversationId: string,
-    content: string,
-    clientMessageId: string,
-  ) =>
+  sendConversationMessage: (conversationId: string, content: string, clientMessageId: string) =>
     request<ConversationMessage>(`/api/conversations/${conversationId}/messages`, {
       method: "POST",
       body: JSON.stringify({ content, client_message_id: clientMessageId }),
@@ -85,8 +83,7 @@ export const api = {
     request<SearchPlanVersion>(`/api/search-plan-versions/${planId}`),
   activeSearchPlan: (runId: string) =>
     request<SearchPlanVersion>(`/api/research-runs/${runId}/search-plan`),
-  reportVersion: (reportId: string) =>
-    request<ReportVersion>(`/api/report-versions/${reportId}`),
+  reportVersion: (reportId: string) => request<ReportVersion>(`/api/report-versions/${reportId}`),
   createReportVersion: (taskId: string) =>
     request<ReportVersion>(`/api/tasks/${taskId}/report-versions`, { method: "POST" }),
   publishReportVersion: (reportId: string, expectedStateVersion?: number) =>

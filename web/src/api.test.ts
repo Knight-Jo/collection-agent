@@ -29,6 +29,7 @@ it("returns API responses for every workbench endpoint", async () => {
   await expect(api.conversation("task-1")).resolves.toEqual([]);
   await expect(api.sendMessage("task-1", "问题", "client-1")).resolves.toEqual([]);
   await expect(api.cancelMessage("message-1")).resolves.toEqual([]);
+  await expect(api.retryMessage("message-1")).resolves.toEqual([]);
   await expect(api.confirmAction("action-1", "client-2")).resolves.toEqual([]);
   await expect(api.rejectAction("action-1")).resolves.toEqual([]);
   await expect(api.cancelAction("action-1")).resolves.toEqual([]);
@@ -36,9 +37,9 @@ it("returns API responses for every workbench endpoint", async () => {
   await expect(api.conversations()).resolves.toEqual([]);
   await expect(api.createConversation()).resolves.toEqual([]);
   await expect(api.conversationById("conversation-1")).resolves.toEqual([]);
-  await expect(
-    api.sendConversationMessage("conversation-1", "问题", "client-3"),
-  ).resolves.toEqual([]);
+  await expect(api.sendConversationMessage("conversation-1", "问题", "client-3")).resolves.toEqual(
+    [],
+  );
   await expect(api.timeline("conversation-1", 4)).resolves.toEqual([]);
   await expect(api.stopResearchRun("research-run-1")).resolves.toEqual([]);
   await expect(api.researchRun("research-run-1")).resolves.toEqual([]);

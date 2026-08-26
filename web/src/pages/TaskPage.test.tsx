@@ -201,6 +201,7 @@ it("sends follow-up questions and expands task citations", async () => {
         ],
       },
     ],
+    processing_attempts: [],
     actions: [],
     runs: [],
     reports: [],

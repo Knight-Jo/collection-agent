@@ -2,6 +2,8 @@ import { AlertTriangle, ExternalLink, FileText, Library, MessageSquare, Quote } 
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api";
+import { ContextPanel } from "../components/ContextPanel";
+import type { ContextSelection } from "../components/ConversationPanel";
 import { ConversationPanel } from "../components/ConversationPanel";
 import { ReportView } from "../components/ReportView";
 import { ResourceList } from "../components/ResourceList";
@@ -13,6 +15,7 @@ export function TaskPage() {
   const [detail, setDetail] = useState<TaskDetail | null>(null);
   const [artifact, setArtifact] = useState<Artifact | null>(null);
   const [tab, setTab] = useState<"report" | "sources" | "conversation">("report");
+  const [context, setContext] = useState<ContextSelection | null>(null);
   const [error, setError] = useState("");
   const [reportError, setReportError] = useState("");
 
@@ -100,7 +103,7 @@ export function TaskPage() {
           )}
         </section>
       ) : tab === "conversation" ? (
-        <ConversationPanel taskId={taskId} />
+        <ConversationPanel taskId={taskId} onOpenContext={setContext} />
       ) : (
         <>
           {detail.material_digest && (
@@ -194,6 +197,9 @@ export function TaskPage() {
             ))}
           </div>
         </>
+      )}
+      {context && (
+        <ContextPanel selection={context} onSelect={setContext} onClose={() => setContext(null)} />
       )}
     </main>
   );
