@@ -48,19 +48,24 @@ class ReportPublisher:
         expected_current_state_version: int | None = None,
     ) -> ReportVersion:
         """Publish a verified draft, atomically superseding the prior version."""
-        report = self.store.get_report(report_id)
-        path = workspace_path(self.cwd, report.content_path)
-        if (
-            not path.exists()
-            or sha256(path.read_bytes()) != report.content_sha256
-        ):
-            raise IntelError("REPORT_TAMPERED", "报告草稿缺失或哈希不匹配")
+        report, _content = self.read(report_id)
         published = self.store.publish_report(
             report_id,
             publish_stale=publish_stale,
             expected_current_state_version=expected_current_state_version,
         )
         return published
+
+    def read(self, report_id: str) -> tuple[ReportVersion, str]:
+        """Read one report version after path and hash verification."""
+        report = self.store.get_report(report_id)
+        path = workspace_path(self.cwd, report.content_path)
+        if (
+            not path.is_file()
+            or sha256(path.read_bytes()) != report.content_sha256
+        ):
+            raise IntelError("REPORT_TAMPERED", "报告文件缺失或哈希不匹配")
+        return report, path.read_text(encoding="utf-8")
 
     async def run(self, action: ActionRequest) -> ActionRequest:
         """Execute a queued report action for ConversationRuntime."""

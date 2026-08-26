@@ -268,6 +268,10 @@ export interface ReportVersion {
   created_at: string;
 }
 
+export interface ReportVersionDetail extends ReportVersion {
+  content: string;
+}
+
 export interface ConversationProjection {
   conversation: Conversation;
   epoch: { id: string; summary: string };

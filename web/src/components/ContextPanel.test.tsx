@@ -64,3 +64,26 @@ it("shows citation detail and closes with Escape", async () => {
   await user.keyboard("{Escape}");
   expect(onClose).toHaveBeenCalled();
 });
+
+it("renders the verified report Markdown instead of only its path", async () => {
+  vi.mocked(api.reportVersion).mockResolvedValue({
+    id: "report-3",
+    version: 3,
+    status: "published",
+    content_path: "output/report-versions/report-3.md",
+    content: "# 供应链调研报告\n\n核心结论。",
+    based_on_checkpoint_id: "checkpoint-1",
+    based_on_committed_state_version: 1,
+    created_at: "2026-08-26T00:00:00Z",
+  });
+
+  render(
+    <ContextPanel
+      selection={{ kind: "report_version", id: "report-3" }}
+      onClose={() => undefined}
+    />,
+  );
+
+  expect(await screen.findByRole("heading", { name: "供应链调研报告" })).toBeVisible();
+  expect(screen.getByText("核心结论。")).toBeVisible();
+});

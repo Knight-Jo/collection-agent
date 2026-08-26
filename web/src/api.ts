@@ -5,6 +5,7 @@ import type {
   ConversationMessage,
   ConversationProjection,
   ReportVersion,
+  ReportVersionDetail,
   ResearchRun,
   Run,
   RunInput,
@@ -83,7 +84,8 @@ export const api = {
     request<SearchPlanVersion>(`/api/search-plan-versions/${planId}`),
   activeSearchPlan: (runId: string) =>
     request<SearchPlanVersion>(`/api/research-runs/${runId}/search-plan`),
-  reportVersion: (reportId: string) => request<ReportVersion>(`/api/report-versions/${reportId}`),
+  reportVersion: (reportId: string) =>
+    request<ReportVersionDetail>(`/api/report-versions/${reportId}`),
   createReportVersion: (taskId: string) =>
     request<ReportVersion>(`/api/tasks/${taskId}/report-versions`, { method: "POST" }),
   publishReportVersion: (reportId: string, expectedStateVersion?: number) =>

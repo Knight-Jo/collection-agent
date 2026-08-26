@@ -13,6 +13,7 @@ from intel_agent.dialogue import DialogueAction, DialogueDecision
 from intel_agent.intake import IntakeDecision
 from intel_agent.models import Message
 from intel_agent.retrieval import RetrievedPassage
+from intel_agent.storage import sha256, workspace_path
 from intel_agent.web.app import create_app
 from intel_agent.web.conversation import conversation_events
 from tests.conftest import new_task
@@ -312,3 +313,30 @@ def test_report_publish_errors_remain_structured(cwd):
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+def test_report_version_detail_returns_verified_markdown(cwd):
+    task = new_task(cwd)
+    runtime = ConversationRuntime(
+        cwd, dialogue=_Dialogue(), retriever=_Retriever()
+    )
+    runtime.store.register_task(task.id)
+    relative_path = "output/report-versions/report-1.md"
+    path = workspace_path(cwd, relative_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("# 调研报告\n\n核心结论。", encoding="utf-8")
+    report = runtime.store.create_report_draft(
+        task.id, relative_path, sha256(path.read_bytes())
+    )
+    client = TestClient(
+        create_app(
+            cwd=cwd,
+            settings=Settings(),
+            conversation_runtime=runtime,
+        )
+    )
+
+    response = client.get(f"/api/report-versions/{report.id}")
+
+    assert response.status_code == 200
+    assert response.json()["content"] == "# 调研报告\n\n核心结论。"

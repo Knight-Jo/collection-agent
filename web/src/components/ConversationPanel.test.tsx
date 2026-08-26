@@ -91,6 +91,27 @@ it("sends messages through the selected Conversation", async () => {
   );
 });
 
+it("uses Enter to send and Shift+Enter to insert a newline", async () => {
+  const user = userEvent.setup();
+  render(<ConversationPanel conversationId="conversation-1" />);
+  const input = await screen.findByLabelText("输入消息");
+
+  await user.type(input, "第一行");
+  await user.keyboard("{Shift>}{Enter}{/Shift}");
+  await user.type(input, "第二行");
+
+  expect(input).toHaveValue("第一行\n第二行");
+  expect(api.sendConversationMessage).not.toHaveBeenCalled();
+
+  await user.keyboard("{Enter}");
+
+  expect(api.sendConversationMessage).toHaveBeenCalledWith(
+    "conversation-1",
+    "第一行\n第二行",
+    expect.any(String),
+  );
+});
+
 it("offers retry when processing a user message failed", async () => {
   const user = userEvent.setup();
   vi.mocked(api.conversationById).mockResolvedValue({

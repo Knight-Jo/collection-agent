@@ -257,6 +257,10 @@ class ConversationListItem(Conversation):
     run_status: str | None = None
 
 
+class ReportVersionView(ReportVersion):
+    content: str
+
+
 class TimelineView(BaseModel):
     entries: list[TimelineEntry]
     next_sequence: int = Field(ge=0)

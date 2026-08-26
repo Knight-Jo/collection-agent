@@ -1422,6 +1422,9 @@ a {
   background: white;
   overflow-y: auto;
 }
+.context-panel-report {
+  width: min(760px, 55vw);
+}
 .context-panel > header {
   display: flex;
   align-items: center;

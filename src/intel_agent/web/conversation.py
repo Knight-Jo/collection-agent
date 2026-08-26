@@ -25,6 +25,7 @@ from .schemas import (
     ConversationView,
     MessageCreate,
     ReportPublishRequest,
+    ReportVersionView,
 )
 
 router = APIRouter(prefix="/api")
@@ -222,11 +223,12 @@ async def publish_report_version(
     )
 
 
-@router.get("/report-versions/{report_id}", response_model=ReportVersion)
+@router.get("/report-versions/{report_id}", response_model=ReportVersionView)
 async def report_version_detail(
     request: Request, report_id: str
-) -> ReportVersion:
-    return _runtime(request).store.get_report(report_id)
+) -> ReportVersionView:
+    report, content = _runtime(request).publisher.read(report_id)
+    return ReportVersionView(**report.model_dump(), content=content)
 
 
 @router.get("/tasks/{task_id}/conversation/events")

@@ -57,6 +57,8 @@ class _ReportPublisher(Protocol):
 
     def create_draft(self, task_id: str) -> ReportVersion: ...
 
+    def read(self, report_id: str) -> tuple[ReportVersion, str]: ...
+
     def publish(
         self,
         report_id: str,

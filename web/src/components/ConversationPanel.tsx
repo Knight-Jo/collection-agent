@@ -270,6 +270,12 @@ export function ConversationPanel({
           placeholder="输入问题、修改方向或明确要求继续搜索…"
           value={input}
           onChange={(event) => setInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              void send();
+            }
+          }}
           rows={3}
         />
         <button className="primary-button" type="submit" disabled={busy || !input.trim()}>

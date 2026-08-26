@@ -1,8 +1,9 @@
 import { ExternalLink, FileText, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
-import type { ReportVersion, ResearchRun, SearchPlanVersion } from "../types";
+import type { ReportVersionDetail, ResearchRun, SearchPlanVersion } from "../types";
 import type { ContextSelection } from "./ConversationPanel";
+import { ReportView } from "./ReportView";
 
 export function ContextPanel({
   selection,
@@ -16,7 +17,7 @@ export function ContextPanel({
   const closeButton = useRef<HTMLButtonElement>(null);
   const [run, setRun] = useState<ResearchRun | null>(null);
   const [plan, setPlan] = useState<SearchPlanVersion | null>(null);
-  const [report, setReport] = useState<ReportVersion | null>(null);
+  const [report, setReport] = useState<ReportVersionDetail | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -51,7 +52,12 @@ export function ContextPanel({
 
   const citation = selection.kind === "citation" ? selection.value : null;
   return (
-    <aside className="context-panel" role="dialog" aria-modal="true" aria-label="上下文详情">
+    <aside
+      className={`context-panel${selection.kind === "report_version" ? " context-panel-report" : ""}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label="上下文详情"
+    >
       <header>
         <strong>上下文详情</strong>
         <button
@@ -131,7 +137,7 @@ export function ContextPanel({
           <p>{report.status}</p>
           <p>基于研究状态 v{report.based_on_committed_state_version}</p>
           {report.based_on_checkpoint_id && <p>Checkpoint：{report.based_on_checkpoint_id}</p>}
-          <code>{report.content_path}</code>
+          <ReportView markdown={report.content} />
         </article>
       )}
     </aside>
