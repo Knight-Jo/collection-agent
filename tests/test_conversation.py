@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from pydantic_ai import CancellationToken
 
+import intel_agent.state_store as state_store_module
 from intel_agent.conversation import ConversationRuntime
 from intel_agent.dialogue import DialogueAction, DialogueDecision
 from intel_agent.intake import IntakeDecision
@@ -52,6 +53,12 @@ class _Dialogue:
         del messages
         self.summary_calls += 1
         return "早期对话摘要"
+
+
+class _StreamingDialogue(_Dialogue):
+    async def answer(self, **kwargs):
+        await kwargs["on_delta"]("当前材料")
+        return await super().answer(**kwargs)
 
 
 class _ActionRunner:
@@ -134,6 +141,31 @@ async def test_capability_query_keeps_intake_unbound(cwd):
     assert runtime.store.list_runs_for_conversation(conversation.id) == []
 
 
+async def test_runtime_publishes_transient_answer_events(cwd):
+    task = new_task(cwd)
+    runtime = ConversationRuntime(
+        cwd,
+        dialogue=_StreamingDialogue(_decision()),
+        retriever=_Retriever(),
+    )
+    runtime.conversation_view(task.id)
+    conversation = runtime.store.get_conversation(task.id)
+
+    async with runtime.transient_events(conversation.id) as events:
+        user = runtime.submit_message(
+            conversation.id, "当前结论？", "client-stream-1"
+        )
+        started = await asyncio.wait_for(events.get(), timeout=1)
+        delta = await asyncio.wait_for(events.get(), timeout=1)
+        await runtime.wait_message(user.id)
+
+    assert started == ("answer.started", {"reply_to_id": user.id})
+    assert delta == (
+        "answer.delta",
+        {"reply_to_id": user.id, "delta": "当前材料"},
+    )
+
+
 async def test_clear_request_binds_one_task(cwd):
     initial = _InitialRunner()
     runtime = ConversationRuntime(
@@ -205,6 +237,40 @@ async def test_intake_failure_does_not_mutate_user_message(cwd):
     view = runtime.conversation_view_by_id(conversation.id)
     attempts = cast(list[dict[str, object]], view["processing_attempts"])
     assert attempts[0]["error_detail"] == "intake unavailable"
+
+
+def test_conversation_view_uses_fixed_database_reads(cwd, monkeypatch):
+    runtime = ConversationRuntime(
+        cwd,
+        intake=_Intake(_capability()),
+        dialogue=_Dialogue(_decision()),
+        retriever=_Retriever(),
+    )
+    conversation = runtime.create_conversation()
+    for index in range(10):
+        user = runtime.store.add_user_message(
+            conversation.id, f"问题 {index}", f"client-{index}"
+        )
+        runtime.store.ensure_processing_attempt(user.id)
+        runtime.store.complete_message(user.id, f"回答 {index}")
+
+    original = state_store_module.connect_state_db
+    connection_count = 0
+
+    def counted_connect(path):
+        nonlocal connection_count
+        connection_count += 1
+        return original(path)
+
+    monkeypatch.setattr(
+        state_store_module, "connect_state_db", counted_connect
+    )
+
+    view = runtime.conversation_view_by_id(conversation.id)
+
+    messages = cast(list[dict[str, object]], view["messages"])
+    assert len(messages) == 20
+    assert connection_count <= 4
 
 
 def _decision(

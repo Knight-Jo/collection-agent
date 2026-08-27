@@ -88,11 +88,15 @@ class StateStore:
             ).fetchone()
         return _row_to_conversation(_required(row, "conversation"))
 
-    def list_conversations(self) -> list[Conversation]:
-        """List visible conversations by most recent activity."""
+    def list_conversations(
+        self, *, archived: bool = False
+    ) -> list[Conversation]:
+        """List visible or archived conversations by recent activity."""
+        status_filter = "= 'archived'" if archived else "!= 'archived'"
         with connect_state_db(self.cwd) as connection:
             rows = connection.execute(
-                "SELECT * FROM conversations ORDER BY updated_at DESC, rowid DESC"
+                f"SELECT * FROM conversations WHERE status {status_filter} "
+                "ORDER BY updated_at DESC, rowid DESC"
             ).fetchall()
         return [_row_to_conversation(row) for row in rows]
 
@@ -101,15 +105,65 @@ class StateStore:
         now = utc_now()
         with connect_state_db(self.cwd) as connection:
             connection.execute("BEGIN IMMEDIATE")
-            cursor = connection.execute(
+            existing = connection.execute(
+                "SELECT * FROM conversations WHERE id = ?",
+                (conversation_id,),
+            ).fetchone()
+            if existing is None:
+                raise IntelError(
+                    "NOT_FOUND", f"任务会话不存在: {conversation_id}"
+                )
+            if existing["status"] == "archived":
+                return _row_to_conversation(existing)
+            if existing["task_id"] is not None:
+                unfinished = connection.execute(
+                    "SELECT 1 FROM research_runs WHERE task_id = ? "
+                    "AND status IN ('queued', 'running', 'stopping') LIMIT 1",
+                    (existing["task_id"],),
+                ).fetchone()
+                if unfinished is not None:
+                    raise IntelError(
+                        "CONVERSATION_BUSY",
+                        "当前调研尚未结束，请先停止或取消后再归档",
+                    )
+            connection.execute(
                 "UPDATE conversations SET status = 'archived', updated_at = ? "
                 "WHERE id = ?",
                 (now, conversation_id),
             )
-            if cursor.rowcount == 0:
+            _insert_event(
+                connection, conversation_id, "conversation.archived", {}, now
+            )
+            row = connection.execute(
+                "SELECT * FROM conversations WHERE id = ?",
+                (conversation_id,),
+            ).fetchone()
+        return _row_to_conversation(_required(row, "conversation"))
+
+    def restore_conversation(self, conversation_id: str) -> Conversation:
+        """Restore one archived conversation without changing its task."""
+        now = utc_now()
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            existing = connection.execute(
+                "SELECT * FROM conversations WHERE id = ?",
+                (conversation_id,),
+            ).fetchone()
+            if existing is None:
                 raise IntelError(
                     "NOT_FOUND", f"任务会话不存在: {conversation_id}"
                 )
+            if existing["status"] != "archived":
+                return _row_to_conversation(existing)
+            status = "active" if existing["task_id"] else "intake"
+            connection.execute(
+                "UPDATE conversations SET status = ?, updated_at = ? "
+                "WHERE id = ?",
+                (status, now, conversation_id),
+            )
+            _insert_event(
+                connection, conversation_id, "conversation.restored", {}, now
+            )
             row = connection.execute(
                 "SELECT * FROM conversations WHERE id = ?",
                 (conversation_id,),
@@ -293,6 +347,11 @@ class StateStore:
                 raise IntelError(
                     "NOT_FOUND",
                     f"任务会话不存在: {conversation_or_task_id}",
+                )
+            if conversation["status"] == "archived":
+                raise IntelError(
+                    "CONVERSATION_ARCHIVED",
+                    "已归档会话需要恢复后才能继续对话",
                 )
             conversation_id = conversation["id"]
             existing = connection.execute(
@@ -836,6 +895,61 @@ class StateStore:
                 (conversation_id,),
             ).fetchall()
         return [_row_to_message(row) for row in rows]
+
+    def conversation_message_view(
+        self, conversation_id: str
+    ) -> tuple[
+        list[Message],
+        dict[str, list[MessageCitation]],
+        dict[str, MessageProcessingAttempt],
+    ]:
+        """Read active messages and their display metadata in one snapshot."""
+        with connect_state_db(self.cwd) as connection:
+            messages = connection.execute(
+                "SELECT messages.* FROM messages JOIN conversations "
+                "ON conversations.id = messages.conversation_id "
+                "WHERE conversations.id = ? "
+                "AND messages.epoch_id = conversations.active_epoch_id "
+                "ORDER BY messages.sequence",
+                (conversation_id,),
+            ).fetchall()
+            citations = connection.execute(
+                "SELECT message_citations.* FROM message_citations "
+                "JOIN messages ON messages.id = message_citations.message_id "
+                "JOIN conversations ON conversations.id = "
+                "messages.conversation_id "
+                "WHERE conversations.id = ? "
+                "AND messages.epoch_id = conversations.active_epoch_id "
+                "ORDER BY messages.sequence, message_citations.sequence",
+                (conversation_id,),
+            ).fetchall()
+            attempts = connection.execute(
+                "SELECT attempts.* FROM message_processing_attempts attempts "
+                "JOIN messages ON messages.id = attempts.user_message_id "
+                "JOIN conversations ON conversations.id = "
+                "messages.conversation_id "
+                "WHERE conversations.id = ? "
+                "AND messages.epoch_id = conversations.active_epoch_id "
+                "AND attempts.attempt = ("
+                "SELECT MAX(latest.attempt) FROM message_processing_attempts "
+                "latest WHERE latest.user_message_id = attempts.user_message_id"
+                ") ORDER BY messages.sequence",
+                (conversation_id,),
+            ).fetchall()
+        citations_by_message: dict[str, list[MessageCitation]] = {}
+        for row in citations:
+            citations_by_message.setdefault(row["message_id"], []).append(
+                _row_to_citation(row)
+            )
+        attempts_by_message = {
+            row["user_message_id"]: _row_to_processing_attempt(row)
+            for row in attempts
+        }
+        return (
+            [_row_to_message(row) for row in messages],
+            citations_by_message,
+            attempts_by_message,
+        )
 
     def list_messages(
         self, task_id: str, *, active_epoch_only: bool = True

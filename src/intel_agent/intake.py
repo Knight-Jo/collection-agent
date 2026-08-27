@@ -26,6 +26,13 @@ INTAKE_SYSTEM_PROMPT = """\
 research_brief、missing_fields。intent 只能是 capability_query、clarify_research、
 start_research。start_research 必须提供包含 topic、objective、key_questions、scope、
 entities、constraints、requested_outputs 的 research_brief，关键问题为 2 至 6 个。
+research_brief 必须符合以下结构：
+{"topic":"主题","objective":"目标","key_questions":["问题1","问题2"],
+"scope":{"time_range":"时间范围","geography":["地区"],"languages":["语言"]},
+"entities":["实体"],"constraints":["限制"],
+"requested_outputs":["research_report"]}。
+scope 必须是对象；geography、languages、entities、constraints 和
+requested_outputs 必须是字符串数组，不能返回单个字符串。
 """
 
 
@@ -92,11 +99,26 @@ class IntakeEngine:
         raw = (await self.agent.run(prompt)).output
         try:
             return _parse_decision(raw)
-        except (ValueError, ValidationError, json.JSONDecodeError):
+        except (
+            ValueError,
+            ValidationError,
+            json.JSONDecodeError,
+        ) as error:
+            schema = json.dumps(
+                IntakeDecision.model_json_schema(), ensure_ascii=False
+            )
+            details = (
+                json.dumps(error.errors(), ensure_ascii=False, default=str)
+                if isinstance(error, ValidationError)
+                else str(error)
+            )
             repaired = (
                 await self.agent.run(
-                    "修复为协议要求的单个 JSON 对象，只返回 JSON：\n"
-                    + raw[:8_000]
+                    "按照以下 JSON Schema 和校验错误修复原始输出。"
+                    "只返回单个 JSON 对象，不要解释。\n"
+                    f"JSON Schema:\n{schema}\n"
+                    f"校验错误:\n{details}\n"
+                    f"原始输出:\n{raw[:8_000]}"
                 )
             ).output
             try:
@@ -124,4 +146,17 @@ def _parse_decision(raw: str) -> IntakeDecision:
     parsed = json.loads(value)
     if not isinstance(parsed, dict):
         raise ValueError("intake response must be an object")
+    missing_fields = parsed.get("missing_fields")
+    if isinstance(missing_fields, str):
+        parsed["missing_fields"] = [missing_fields]
+    brief = parsed.get("research_brief")
+    if isinstance(brief, dict):
+        for field in ("entities", "constraints", "requested_outputs"):
+            if isinstance(brief.get(field), str):
+                brief[field] = [brief[field]]
+        scope = brief.get("scope")
+        if isinstance(scope, dict):
+            for field in ("geography", "languages"):
+                if isinstance(scope.get(field), str):
+                    scope[field] = [scope[field]]
     return IntakeDecision.model_validate(parsed)

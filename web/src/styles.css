@@ -924,6 +924,17 @@ a {
   line-height: 1.65;
   font-size: 14px;
 }
+.message-optimistic {
+  opacity: 0.78;
+}
+.message-optimistic footer,
+.message-streaming {
+  color: #84918b;
+}
+.message-optimistic footer {
+  margin-top: 6px;
+  font-size: 11px;
+}
 .citation-buttons {
   display: flex;
   gap: 6px;
@@ -1264,16 +1275,20 @@ a {
   font-size: 13px;
 }
 .conversation-workbench {
-  min-height: calc(100vh - 72px);
+  height: calc(100dvh - 72px);
+  min-height: 0;
   display: grid;
   grid-template-columns: 260px minmax(520px, 1fr) auto;
   background: #f8faf7;
+  overflow: hidden;
 }
 .conversation-sidebar {
+  min-height: 0;
   padding: 18px 12px;
   border-right: 1px solid var(--line);
   background: #f2f6f1;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .new-conversation {
   width: 100%;
@@ -1290,35 +1305,87 @@ a {
   font-weight: 650;
   cursor: pointer;
 }
+.archived-conversations {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: #64746e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
 .conversation-sidebar nav {
   display: grid;
   gap: 5px;
   margin-top: 14px;
 }
-.conversation-sidebar nav button {
+.conversation-sidebar-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 3px;
+}
+.conversation-sidebar-item__main,
+.conversation-sidebar-item__label {
+  min-width: 0;
   padding: 11px 12px;
   border: 0;
   border-radius: 10px;
   text-align: left;
   color: #31443c;
   background: transparent;
+  font: inherit;
+}
+.conversation-sidebar-item__main {
   cursor: pointer;
 }
-.conversation-sidebar nav button[data-active="true"] {
+.conversation-sidebar-item__main[data-active="true"] {
   background: #e0ece5;
   color: var(--green);
 }
-.conversation-sidebar nav strong,
-.conversation-sidebar nav small {
+.conversation-sidebar-item strong,
+.conversation-sidebar-item small {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.conversation-sidebar nav small {
+.conversation-sidebar-item small {
   margin-top: 4px;
   color: #84918b;
   font-size: 10px;
+}
+.conversation-sidebar-item__action {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: #8b9892;
+  background: transparent;
+  cursor: pointer;
+}
+.conversation-sidebar-item__action:hover {
+  color: #a44242;
+  background: #f5e6e4;
+}
+.conversation-sidebar-item__action:disabled {
+  cursor: wait;
+  opacity: 0.45;
+}
+.conversation-sidebar-empty,
+.sidebar-error {
+  margin: 12px 8px;
+  color: #84918b;
+  font-size: 12px;
+  line-height: 1.5;
 }
 .workbench-empty {
   min-height: calc(100vh - 72px);
@@ -1339,7 +1406,8 @@ a {
   line-height: 1.65;
 }
 .conversation-workbench > .conversation-main {
-  min-height: calc(100vh - 72px);
+  height: 100%;
+  min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
   padding: 22px clamp(18px, 3vw, 44px);
@@ -1363,11 +1431,14 @@ a {
   font-size: 11px;
 }
 .conversation-workbench .message-list {
+  min-height: 0;
   max-height: none;
   border: 0;
   border-radius: 0;
   padding: 22px 4px;
   background: transparent;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .run-status-card,
 .report-timeline-card {
@@ -1416,11 +1487,13 @@ a {
 }
 .context-panel {
   width: min(360px, 36vw);
-  min-height: calc(100vh - 72px);
+  height: 100%;
+  min-height: 0;
   padding: 18px;
   border-left: 1px solid var(--line);
   background: white;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .context-panel-report {
   width: min(760px, 55vw);
@@ -1480,20 +1553,21 @@ a {
   }
   .conversation-workbench {
     grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 190px) minmax(0, 1fr);
   }
   .conversation-sidebar {
-    max-height: 190px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
   .conversation-workbench > .conversation-main {
-    min-height: calc(100vh - 252px);
+    height: 100%;
+    min-height: 0;
   }
   .context-panel {
     position: fixed;
     inset: 0;
     z-index: 30;
     width: 100%;
-    min-height: 100vh;
+    height: 100dvh;
   }
 }

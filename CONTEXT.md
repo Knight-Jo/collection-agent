@@ -44,8 +44,9 @@ _Avoid_: Live working state
 ## Interaction
 
 **Conversation**:
-The single task-scoped interaction history through which a user asks about or
-requests actions on an IntelTask. It does not own research assets.
+An interaction history through which a user asks about or requests actions on
+an IntelTask. Archiving hides it from active history without deleting the task
+or research assets; restore reopens it. It does not own research assets.
 _Avoid_: Research Agent, knowledge base
 
 **ConversationEpoch**:

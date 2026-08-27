@@ -45,8 +45,28 @@ async def create_conversation(
 
 
 @router.get("/conversations", response_model=list[Conversation])
-async def list_conversations(request: Request) -> list[Conversation]:
-    return _runtime(request).store.list_conversations()
+async def list_conversations(
+    request: Request, archived: bool = False
+) -> list[Conversation]:
+    return _runtime(request).store.list_conversations(archived=archived)
+
+
+@router.post(
+    "/conversations/{conversation_id}/archive", response_model=Conversation
+)
+async def archive_conversation(
+    request: Request, conversation_id: str
+) -> Conversation:
+    return _runtime(request).store.archive_conversation(conversation_id)
+
+
+@router.post(
+    "/conversations/{conversation_id}/restore", response_model=Conversation
+)
+async def restore_conversation(
+    request: Request, conversation_id: str
+) -> Conversation:
+    return _runtime(request).store.restore_conversation(conversation_id)
 
 
 @router.get(
@@ -261,26 +281,35 @@ def _conversation_event_stream(
     async def stream():
         nonlocal cursor
         idle_ticks = 0
-        while not await request.is_disconnected():
-            events = runtime.store.events_after_conversation(
-                conversation_id, cursor
-            )
-            if events:
-                idle_ticks = 0
-                for event in events:
-                    cursor = event.sequence
-                    data = json.dumps(event.data, ensure_ascii=False)
-                    yield (
-                        f"id: {event.sequence}\n"
-                        f"event: {event.event_type}\n"
-                        f"data: {data}\n\n"
+        async with runtime.transient_events(conversation_id) as transient:
+            while not await request.is_disconnected():
+                events = runtime.store.events_after_conversation(
+                    conversation_id, cursor
+                )
+                if events:
+                    idle_ticks = 0
+                    for event in events:
+                        cursor = event.sequence
+                        data = json.dumps(event.data, ensure_ascii=False)
+                        yield (
+                            f"id: {event.sequence}\n"
+                            f"event: {event.event_type}\n"
+                            f"data: {data}\n\n"
+                        )
+                    continue
+                try:
+                    event_type, payload = await asyncio.wait_for(
+                        transient.get(), timeout=0.5
                     )
-                continue
-            idle_ticks += 1
-            if idle_ticks >= 30:
-                idle_ticks = 0
-                yield ": heartbeat\n\n"
-            await asyncio.sleep(0.5)
+                except TimeoutError:
+                    idle_ticks += 1
+                    if idle_ticks >= 30:
+                        idle_ticks = 0
+                        yield ": heartbeat\n\n"
+                else:
+                    idle_ticks = 0
+                    data = json.dumps(payload, ensure_ascii=False)
+                    yield f"event: {event_type}\ndata: {data}\n\n"
 
     return StreamingResponse(
         stream(),

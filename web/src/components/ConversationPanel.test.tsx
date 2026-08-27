@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { ConversationPanel } from "./ConversationPanel";
 
@@ -55,9 +55,37 @@ const projection = {
   committed_state_version: 7,
 };
 
+class FakeEventSource {
+  static current: FakeEventSource | null = null;
+  onerror: (() => void) | null = null;
+  private listeners = new Map<string, EventListener[]>();
+
+  constructor(_url: string) {
+    FakeEventSource.current = this;
+  }
+
+  addEventListener(type: string, listener: EventListener) {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
+  }
+
+  emit(type: string, data: Record<string, unknown>) {
+    const event = { data: JSON.stringify(data) } as MessageEvent;
+    for (const listener of this.listeners.get(type) ?? []) listener(event);
+  }
+
+  close() {}
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.conversationById).mockResolvedValue(projection);
+  vi.mocked(api.createReportVersion).mockResolvedValue({} as never);
+  vi.mocked(api.publishReportVersion).mockResolvedValue({} as never);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  FakeEventSource.current = null;
 });
 
 it("shows committed state separately from live Run progress", async () => {
@@ -89,6 +117,79 @@ it("sends messages through the selected Conversation", async () => {
     "继续调查日本企业",
     expect.any(String),
   );
+});
+
+it("shows the submitted message before the request finishes", async () => {
+  const user = userEvent.setup();
+  let finishSend: ((value: unknown) => void) | undefined;
+  vi.mocked(api.sendConversationMessage).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finishSend = resolve;
+      }) as never,
+  );
+  render(<ConversationPanel conversationId="conversation-1" />);
+
+  const input = await screen.findByLabelText("输入消息");
+  await user.type(input, "这条消息应立即显示");
+  await user.click(screen.getByRole("button", { name: "发送" }));
+
+  expect(input).toHaveValue("");
+  expect(screen.getByText("这条消息应立即显示")).toBeVisible();
+  expect(screen.getByText("正在发送…")).toBeVisible();
+
+  await act(async () =>
+    finishSend?.({
+      id: "message-optimistic",
+      role: "user",
+      content: "这条消息应立即显示",
+      status: "accepted",
+      citations: [],
+    }),
+  );
+});
+
+it("renders transient answer deltas without refreshing the projection", async () => {
+  vi.stubGlobal("EventSource", FakeEventSource);
+  vi.mocked(api.conversationById)
+    .mockResolvedValueOnce(projection)
+    .mockResolvedValue({
+      ...projection,
+      messages: [
+        ...projection.messages,
+        {
+          id: "message-final",
+          role: "assistant",
+          content: "这是完整回答",
+          status: "completed",
+          reply_to_id: "message-user",
+          citations: [],
+        },
+      ],
+    });
+  render(<ConversationPanel conversationId="conversation-1" />);
+  await screen.findByText("目前可以确认竞争格局。");
+  const callsBeforeStreaming = vi.mocked(api.conversationById).mock.calls.length;
+
+  act(() => {
+    FakeEventSource.current?.emit("answer.started", { reply_to_id: "message-user" });
+    FakeEventSource.current?.emit("answer.delta", {
+      reply_to_id: "message-user",
+      delta: "这是部分回答",
+    });
+  });
+
+  expect(screen.getByText("这是部分回答")).toBeVisible();
+  expect(api.conversationById).toHaveBeenCalledTimes(callsBeforeStreaming);
+
+  await act(async () => {
+    FakeEventSource.current?.emit("answer.completed", {
+      reply_to_id: "message-user",
+    });
+  });
+
+  expect(await screen.findByText("这是完整回答")).toBeVisible();
+  expect(screen.queryByText("这是部分回答")).not.toBeInTheDocument();
 });
 
 it("uses Enter to send and Shift+Enter to insert a newline", async () => {
@@ -141,6 +242,31 @@ it("offers retry when processing a user message failed", async () => {
   expect(api.retryMessage).toHaveBeenCalledWith("message-user-1");
 });
 
+it("shows report generation progress and prevents duplicate requests", async () => {
+  const user = userEvent.setup();
+  let finishReport: (() => void) | undefined;
+  vi.mocked(api.conversationById).mockResolvedValue({
+    ...projection,
+    runs: [],
+  });
+  vi.mocked(api.createReportVersion).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finishReport = () => resolve({} as never);
+      }),
+  );
+  render(<ConversationPanel conversationId="conversation-1" />);
+
+  await user.click(await screen.findByRole("button", { name: "生成报告草稿" }));
+
+  const pending = screen.getByRole("button", { name: "正在生成报告…" });
+  expect(pending).toBeDisabled();
+  await user.click(pending);
+  expect(api.createReportVersion).toHaveBeenCalledTimes(1);
+
+  await act(async () => finishReport?.());
+});
+
 it("creates and publishes report drafts explicitly", async () => {
   const user = userEvent.setup();
   vi.mocked(api.conversationById).mockResolvedValue({
@@ -153,14 +279,14 @@ it("creates and publishes report drafts explicitly", async () => {
         status: "draft",
         content_path: "output/report-2.md",
         based_on_checkpoint_id: "checkpoint-7",
-        based_on_committed_state_version: 7,
+        based_on_committed_state_version: 6,
         created_at: "2026-08-26T00:00:00Z",
       },
     ],
   });
   render(<ConversationPanel conversationId="conversation-1" />);
 
-  await user.click(await screen.findByRole("button", { name: "生成报告草稿" }));
+  await user.click(await screen.findByRole("button", { name: "生成新版报告" }));
   await user.click(screen.getByRole("button", { name: "发布 V2" }));
 
   expect(api.createReportVersion).toHaveBeenCalledWith("task-1");

@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Literal, Protocol, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic_ai import Agent
+from pydantic_core import from_json
 
 from .agent import _bounded_model_settings, _build_chat_model
 from .config import Settings
@@ -21,6 +22,9 @@ DIALOGUE_SYSTEM_PROMPT = """\
 
 只返回一个 JSON 对象，字段如下：
 intent, answer, answerability, cited_passage_ids, gaps, action。
+intent 只能是 greeting、ask_evidence、ask_task_status、ask_methodology、
+continue_research、search_gap、search_specific_topic、generate_report 或
+regenerate_report。普通问候使用 greeting，且 action 必须为 null。
 answerability 只能是 answered、partial、not_answerable。
 action 可为 null；非空时包含 type、request_mode、scope。
 仅当用户明确命令继续搜索或生成报告时使用 explicit_message；疑问、建议、
@@ -44,6 +48,7 @@ class DialogueDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     intent: Literal[
+        "greeting",
         "ask_evidence",
         "ask_task_status",
         "ask_methodology",
@@ -151,18 +156,38 @@ class DialogueEngine:
         messages: Sequence[Message],
         passages: Sequence[RetrievedPassage],
         run_status: str,
+        on_delta: Callable[[str], Awaitable[None]] | None = None,
     ) -> DialogueDecision:
         """Return a validated decision with server-filtered citation IDs."""
         prompt = build_dialogue_prompt(
             task, summary, messages, passages, run_status
         )
-        raw = (await self.agent.run(prompt)).output
+        raw = (
+            await self._stream_answer(prompt, on_delta)
+            if on_delta is not None
+            else (await self.agent.run(prompt)).output
+        )
         try:
             decision = _parse_decision(raw)
-        except (ValueError, ValidationError, json.JSONDecodeError):
+        except (
+            ValueError,
+            ValidationError,
+            json.JSONDecodeError,
+        ) as error:
+            schema = json.dumps(
+                DialogueDecision.model_json_schema(), ensure_ascii=False
+            )
+            details = (
+                json.dumps(error.errors(), ensure_ascii=False, default=str)
+                if isinstance(error, ValidationError)
+                else str(error)
+            )
             repair = (
-                "将下面内容修复为协议要求的单个 JSON 对象。只返回 JSON：\n"
-                + _clip(raw, 8_000)
+                "按照以下 JSON Schema 和校验错误修复原始输出。"
+                "只返回单个 JSON 对象，不要解释。\n"
+                f"JSON Schema:\n{schema}\n"
+                f"校验错误:\n{details}\n"
+                f"原始输出:\n{_clip(raw, 8_000)}"
             )
             repaired = (await self.agent.run(repair)).output
             try:
@@ -195,6 +220,24 @@ class DialogueEngine:
             update={"cited_passage_ids": cited_ids, "action": action}
         )
 
+    async def _stream_answer(
+        self,
+        prompt: str,
+        on_delta: Callable[[str], Awaitable[None]],
+    ) -> str:
+        raw = ""
+        previous = ""
+        async with cast(Agent, self.agent).run_stream(prompt) as result:
+            async for chunk in result.stream_text(delta=True, debounce_by=0.1):
+                raw += chunk
+                current = _partial_answer(raw)
+                if current.startswith(previous):
+                    delta = current[len(previous) :]
+                    if delta:
+                        await on_delta(delta)
+                        previous = current
+        return raw
+
     async def summarize(self, messages: Sequence[Message]) -> str:
         """Compact older visible messages for the next bounded prompt."""
         transcript = [
@@ -222,6 +265,19 @@ def _parse_decision(raw: str) -> DialogueDecision:
     if not isinstance(parsed, dict):
         raise ValueError("dialogue response must be an object")
     return DialogueDecision.model_validate(parsed)
+
+
+def _partial_answer(raw: str) -> str:
+    start = raw.find("{")
+    if start < 0:
+        return ""
+    try:
+        parsed = from_json(raw[start:], allow_partial="trailing-strings")
+    except ValueError:
+        return ""
+    if isinstance(parsed, dict) and isinstance(parsed.get("answer"), str):
+        return parsed["answer"]
+    return ""
 
 
 def _is_explicit_action_request(query: str, action_type: ActionType) -> bool:

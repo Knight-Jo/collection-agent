@@ -35,6 +35,40 @@ def test_bind_intake_task_is_atomic_and_idempotent(cwd):
     assert len(store.list_conversations()) == 1
 
 
+def test_conversation_archive_is_reversible_and_filtered(cwd):
+    store = StateStore(cwd)
+    conversation = store.create_conversation("browser-c1")
+
+    archived = store.archive_conversation(conversation.id)
+
+    assert archived.status == "archived"
+    assert store.list_conversations() == []
+    assert store.list_conversations(archived=True) == [archived]
+
+    restored = store.restore_conversation(conversation.id)
+
+    assert restored.status == "intake"
+    assert store.list_conversations() == [restored]
+    assert store.list_conversations(archived=True) == []
+    assert [
+        event.event_type
+        for event in store.events_after_conversation(conversation.id, 0)
+    ] == ["conversation.archived", "conversation.restored"]
+
+
+def test_conversation_with_unfinished_run_cannot_be_archived(cwd):
+    store = StateStore(cwd)
+    conversation = store.register_task("task-1")
+    run = store.create_run("task-1", "initial", 0, {})
+
+    with pytest.raises(IntelError) as caught:
+        store.archive_conversation(conversation.id)
+
+    assert caught.value.code == "CONVERSATION_BUSY"
+    store.transition_run(run.id, "cancelled")
+    assert store.archive_conversation(conversation.id).status == "archived"
+
+
 def test_bind_intake_task_rolls_back_on_event_failure(cwd, monkeypatch):
     store = StateStore(cwd)
     conversation = store.create_conversation()

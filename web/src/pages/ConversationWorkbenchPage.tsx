@@ -1,4 +1,4 @@
-import { MessageSquarePlus } from "lucide-react";
+import { ArchiveRestore, MessageSquarePlus, RotateCcw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
@@ -12,18 +12,25 @@ export function ConversationWorkbenchPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [error, setError] = useState("");
   const [context, setContext] = useState<ContextSelection | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [changingConversation, setChangingConversation] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      setConversations(await api.conversations());
+      setConversations(await api.conversations(showArchived));
+      setError("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "加载历史会话失败");
     }
-  }, []);
+  }, [showArchived]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    setContext(null);
+  }, [conversationId]);
 
   async function createConversation() {
     try {
@@ -35,29 +42,105 @@ export function ConversationWorkbenchPage() {
     }
   }
 
+  async function archiveConversation(conversation: Conversation) {
+    if (
+      !window.confirm(
+        `删除“${conversation.title}”？\n\n该会话将移入已归档，调研材料、证据和报告仍会保留。`,
+      )
+    ) {
+      return;
+    }
+    setChangingConversation(conversation.id);
+    setError("");
+    try {
+      await api.archiveConversation(conversation.id);
+      setConversations((current) => current.filter((item) => item.id !== conversation.id));
+      if (conversation.id === conversationId) navigate("/");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "删除会话失败");
+    } finally {
+      setChangingConversation(null);
+    }
+  }
+
+  async function restoreConversation(conversation: Conversation) {
+    setChangingConversation(conversation.id);
+    setError("");
+    try {
+      await api.restoreConversation(conversation.id);
+      setConversations((current) => current.filter((item) => item.id !== conversation.id));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "恢复会话失败");
+    } finally {
+      setChangingConversation(null);
+    }
+  }
+
+  function toggleArchived() {
+    setConversations([]);
+    setShowArchived((current) => !current);
+    if (conversationId) navigate("/");
+  }
+
   return (
     <main className="conversation-workbench">
       <aside className="conversation-sidebar" aria-label="历史会话">
-        <button className="new-conversation" type="button" onClick={createConversation}>
-          <MessageSquarePlus size={17} />
-          新建对话
+        {!showArchived && (
+          <button className="new-conversation" type="button" onClick={createConversation}>
+            <MessageSquarePlus size={17} />
+            新建对话
+          </button>
+        )}
+        <button className="archived-conversations" type="button" onClick={toggleArchived}>
+          <ArchiveRestore size={16} />
+          {showArchived ? "返回历史会话" : "查看已归档"}
         </button>
+        {error && <p className="form-error sidebar-error">{error}</p>}
         <nav>
           {conversations.map((conversation) => (
-            <button
-              type="button"
-              key={conversation.id}
-              data-active={conversation.id === conversationId}
-              onClick={() => navigate(`/conversations/${conversation.id}`)}
-            >
-              <strong>{conversation.title}</strong>
-              <small>{conversation.status === "intake" ? "待明确调研目标" : "调研会话"}</small>
-            </button>
+            <div className="conversation-sidebar-item" key={conversation.id}>
+              {showArchived ? (
+                <div className="conversation-sidebar-item__label">
+                  <strong>{conversation.title}</strong>
+                  <small>已归档</small>
+                </div>
+              ) : (
+                <button
+                  className="conversation-sidebar-item__main"
+                  type="button"
+                  data-active={conversation.id === conversationId}
+                  onClick={() => navigate(`/conversations/${conversation.id}`)}
+                >
+                  <strong>{conversation.title}</strong>
+                  <small>{conversation.status === "intake" ? "待明确调研目标" : "调研会话"}</small>
+                </button>
+              )}
+              <button
+                type="button"
+                className="conversation-sidebar-item__action"
+                disabled={changingConversation === conversation.id}
+                aria-label={`${showArchived ? "恢复会话" : "删除会话"} ${conversation.title}`}
+                onClick={() =>
+                  void (showArchived
+                    ? restoreConversation(conversation)
+                    : archiveConversation(conversation))
+                }
+              >
+                {showArchived ? <RotateCcw size={15} /> : <Trash2 size={15} />}
+              </button>
+            </div>
           ))}
+          {conversations.length === 0 && showArchived && (
+            <p className="conversation-sidebar-empty">暂无已归档会话</p>
+          )}
         </nav>
       </aside>
       {conversationId ? (
-        <ConversationPanel conversationId={conversationId} onOpenContext={setContext} />
+        <ConversationPanel
+          key={conversationId}
+          conversationId={conversationId}
+          onOpenContext={setContext}
+        />
       ) : (
         <section className="workbench-empty">
           <MessageSquarePlus size={34} />

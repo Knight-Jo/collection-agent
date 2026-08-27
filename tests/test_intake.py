@@ -51,6 +51,58 @@ async def test_intake_repairs_malformed_json_once():
     assert decision.missing_fields == ["geography"]
 
 
+async def test_intake_repair_explains_schema_validation_errors():
+    agent = _FakeAgent(
+        '{"intent":"start_research","reply":"开始。",'
+        '"research_brief":{"topic":"先进封装","objective":"分析产业",'
+        '"key_questions":["市场如何？","竞争如何？"],'
+        '"scope":"近三年、全球范围","entities":[],'
+        '"constraints":"仅基于公开信息",'
+        '"requested_outputs":["research_report"]},'
+        '"missing_fields":[]}',
+        '{"intent":"start_research","reply":"开始。",'
+        '"research_brief":{"topic":"先进封装","objective":"分析产业",'
+        '"key_questions":["市场如何？","竞争如何？"],'
+        '"scope":{"time_range":"近三年","geography":["全球"],'
+        '"languages":[]},"entities":[],'
+        '"constraints":["仅基于公开信息"],'
+        '"requested_outputs":["research_report"]},'
+        '"missing_fields":[]}',
+    )
+    engine = IntakeEngine(agent=agent)
+
+    decision = await engine.decide("调研先进封装", [])
+
+    assert decision.research_brief is not None
+    assert decision.research_brief.scope.geography == ["全球"]
+    assert '"loc": ["research_brief", "scope"]' in agent.prompts[1]
+    assert '"time_range"' in agent.prompts[1]
+
+
+async def test_intake_accepts_single_values_for_list_fields():
+    agent = _FakeAgent(
+        '{"intent":"start_research","reply":"开始。",'
+        '"research_brief":{"topic":"先进封装","objective":"分析产业",'
+        '"key_questions":["市场如何？","竞争如何？"],'
+        '"scope":{"time_range":"近三年","geography":"全球",'
+        '"languages":"中文"},"entities":"企业甲",'
+        '"constraints":"仅基于公开信息",'
+        '"requested_outputs":"research_report"},'
+        '"missing_fields":[]}'
+    )
+    engine = IntakeEngine(agent=agent)
+
+    decision = await engine.decide("调研先进封装", [])
+
+    assert decision.research_brief is not None
+    assert decision.research_brief.scope.geography == ["全球"]
+    assert decision.research_brief.scope.languages == ["中文"]
+    assert decision.research_brief.entities == ["企业甲"]
+    assert decision.research_brief.constraints == ["仅基于公开信息"]
+    assert decision.research_brief.requested_outputs == ["research_report"]
+    assert len(agent.prompts) == 1
+
+
 async def test_start_research_requires_brief():
     engine = IntakeEngine(
         agent=_FakeAgent(

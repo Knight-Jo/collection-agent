@@ -63,11 +63,18 @@ def test_report_draft_preserves_legacy_binding_and_filters_uncommitted_fact(
     assert store.get_report(draft.id) == draft
 
 
-def test_new_draft_abandons_previous_and_publish_is_versioned(cwd):
+def test_report_draft_is_reused_until_research_state_changes(cwd):
     task, _facts, _documents = seed_reportable_task(cwd)
     store, publisher = _publisher(cwd, task.id)
 
     first = publisher.create_draft(task.id)
+    repeated = publisher.create_draft(task.id)
+
+    assert repeated == first
+
+    run = store.create_run(task.id, "continue_research", 0, {})
+    checkpoint = store.start_checkpoint(run.id, reason="new evidence")
+    store.commit_checkpoint(checkpoint.id)
     second = publisher.create_draft(task.id)
     published = publisher.publish(second.id)
 

@@ -134,6 +134,60 @@ def test_conversation_first_intake_round_trip(cwd):
     assert client.get("/api/conversations").json()[0]["id"] == conversation_id
 
 
+def test_conversation_can_be_archived_and_restored(cwd):
+    runtime = ConversationRuntime(
+        cwd,
+        intake=_Intake(),
+        dialogue=_Dialogue(),
+        retriever=_Retriever(),
+    )
+    client = TestClient(
+        create_app(
+            cwd=cwd,
+            settings=Settings(),
+            conversation_runtime=runtime,
+        )
+    )
+    created = client.post("/api/conversations", json={}).json()
+
+    archived = client.post(f"/api/conversations/{created['id']}/archive")
+
+    assert archived.status_code == 200
+    assert archived.json()["status"] == "archived"
+    assert client.get("/api/conversations").json() == []
+    assert (
+        client.get("/api/conversations?archived=true").json()[0]["id"]
+        == (created["id"])
+    )
+
+    restored = client.post(f"/api/conversations/{created['id']}/restore")
+
+    assert restored.status_code == 200
+    assert restored.json()["status"] == "intake"
+    assert client.get("/api/conversations").json()[0]["id"] == created["id"]
+
+
+def test_archived_conversation_rejects_new_messages(cwd):
+    runtime = ConversationRuntime(cwd, intake=_Intake())
+    client = TestClient(
+        create_app(
+            cwd=cwd,
+            settings=Settings(),
+            conversation_runtime=runtime,
+        )
+    )
+    created = client.post("/api/conversations", json={}).json()
+    client.post(f"/api/conversations/{created['id']}/archive")
+
+    response = client.post(
+        f"/api/conversations/{created['id']}/messages",
+        json={"content": "继续", "client_message_id": "browser-1"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "CONVERSATION_ARCHIVED"
+
+
 def test_conversation_timeline_uses_own_cursor(cwd):
     runtime = ConversationRuntime(
         cwd,
@@ -294,6 +348,56 @@ def test_conversation_events_replay_last_event_id(cwd):
 
     assert str(payload).startswith("id: 2")
     assert "event: test.second" in str(payload)
+
+
+def test_conversation_events_forward_transient_answer_delta(cwd):
+    task = new_task(cwd)
+    runtime = ConversationRuntime(
+        cwd, dialogue=_Dialogue(), retriever=_Retriever()
+    )
+    runtime.conversation_view(task.id)
+    conversation = runtime.store.get_conversation(task.id)
+    app = create_app(
+        cwd=cwd,
+        settings=Settings(),
+        conversation_runtime=runtime,
+    )
+
+    async def first_chunk():
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        request = Request(
+            {
+                "type": "http",
+                "method": "GET",
+                "path": f"/api/conversations/{conversation.id}/events",
+                "headers": [(b"last-event-id", b"1")],
+                "app": app,
+            },
+            receive,
+        )
+        response = await conversation_events(request, task.id)
+
+        async def next_chunk():
+            async for chunk in response.body_iterator:
+                return chunk
+            raise AssertionError("event stream returned no events")
+
+        pending = asyncio.create_task(next_chunk())
+        await asyncio.sleep(0)
+        runtime.publish_transient(
+            conversation.id,
+            "answer.delta",
+            {"reply_to_id": "message-user", "delta": "部分回答"},
+        )
+        return await asyncio.wait_for(pending, timeout=1)
+
+    payload = str(asyncio.run(first_chunk()))
+
+    assert "event: answer.delta" in payload
+    assert '"delta": "部分回答"' in payload
+    assert not payload.startswith("id:")
 
 
 def test_report_publish_errors_remain_structured(cwd):

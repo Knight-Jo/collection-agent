@@ -1,12 +1,11 @@
-import { FileText, Search, Send } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { FileText, LoaderCircle, Search, Send } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import type { ConversationProjection, MessageCitation } from "../types";
 import { RunStatusCard } from "./RunStatusCard";
 
 const REFRESH_EVENTS = [
   "message.accepted",
-  "answer.completed",
   "action.proposed",
   "action.queued",
   "run.queued",
@@ -43,6 +42,17 @@ export function ConversationPanel({
   const [input, setInput] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [reportGenerating, setReportGenerating] = useState(false);
+  const [streamingAnswer, setStreamingAnswer] = useState<{
+    replyToId: string;
+    content: string;
+  } | null>(null);
+  const [pendingMessage, setPendingMessage] = useState<{
+    id: string;
+    content: string;
+    sending: boolean;
+  } | null>(null);
+  const reportRequestPending = useRef(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -65,8 +75,30 @@ export function ConversationPanel({
       : `/api/tasks/${taskId}/conversation/events`;
     const events = new EventSource(eventPath);
     for (const eventType of REFRESH_EVENTS) events.addEventListener(eventType, refresh);
+    events.addEventListener("answer.started", (event) => {
+      const data = JSON.parse((event as MessageEvent).data);
+      setStreamingAnswer({ replyToId: data.reply_to_id, content: "" });
+    });
+    events.addEventListener("answer.delta", (event) => {
+      const data = JSON.parse((event as MessageEvent).data);
+      setStreamingAnswer((current) => ({
+        replyToId: data.reply_to_id,
+        content:
+          current && current.replyToId === data.reply_to_id
+            ? current.content + data.delta
+            : data.delta,
+      }));
+    });
+    const finishAnswer = async () => {
+      await refresh();
+      setPendingMessage(null);
+      setStreamingAnswer(null);
+    };
+    events.addEventListener("answer.completed", () => void finishAnswer());
+    events.addEventListener("answer.failed", () => void finishAnswer());
     events.onerror = () => {
       setError("实时连接中断，正在重新同步完整会话。");
+      setStreamingAnswer(null);
       void refresh();
     };
     return () => events.close();
@@ -85,6 +117,18 @@ export function ConversationPanel({
         (view?.processing_attempts ?? []).map((attempt) => [attempt.user_message_id, attempt]),
       ),
     [view],
+  );
+  const reportIsCurrent = useMemo(
+    () =>
+      (view?.reports ?? []).some(
+        (report) =>
+          ["draft", "published"].includes(report.status) &&
+          report.based_on_committed_state_version === view?.committed_state_version,
+      ),
+    [view],
+  );
+  const pendingIsPersisted = Boolean(
+    pendingMessage && view?.messages.some((message) => message.id === pendingMessage.id),
   );
 
   async function mutate(action: () => Promise<unknown>) {
@@ -105,12 +149,37 @@ export function ConversationPanel({
     if (!content || busy) return;
     const targetConversationId = view?.conversation.id ?? conversationId;
     if (!targetConversationId) return;
-    await mutate(() =>
-      conversationId
-        ? api.sendConversationMessage(targetConversationId, content, clientMessageId())
-        : api.sendMessage(taskId ?? "", content, clientMessageId()),
-    );
+    const optimisticId = clientMessageId();
     setInput("");
+    setError("");
+    setBusy(true);
+    setPendingMessage({ id: optimisticId, content, sending: true });
+    try {
+      const submitted = conversationId
+        ? await api.sendConversationMessage(targetConversationId, content, optimisticId)
+        : await api.sendMessage(taskId ?? "", content, optimisticId);
+      setPendingMessage({ id: submitted.id, content, sending: false });
+      await refresh();
+    } catch (cause) {
+      setPendingMessage(null);
+      setInput((current) => current || content);
+      setError(cause instanceof Error ? cause.message : "发送失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function generateReport() {
+    const task = view?.conversation.task_id;
+    if (!task || reportRequestPending.current || reportIsCurrent) return;
+    reportRequestPending.current = true;
+    setReportGenerating(true);
+    try {
+      await mutate(() => api.createReportVersion(task));
+    } finally {
+      reportRequestPending.current = false;
+      setReportGenerating(false);
+    }
   }
 
   if (!view) return <p className="workbench-loading">正在加载会话…</p>;
@@ -165,6 +234,25 @@ export function ConversationPanel({
             )}
           </article>
         ))}
+        {pendingMessage && !pendingIsPersisted && (
+          <article className="message message-user message-optimistic">
+            <header>你</header>
+            <p>{pendingMessage.content}</p>
+            <footer>{pendingMessage.sending ? "正在发送…" : "已发送"}</footer>
+          </article>
+        )}
+        {pendingMessage && !pendingMessage.sending && !streamingAnswer && (
+          <article className="message message-assistant message-streaming">
+            <header>调研助手</header>
+            <p>正在分析已有材料…</p>
+          </article>
+        )}
+        {streamingAnswer && (
+          <article className="message message-assistant message-streaming">
+            <header>调研助手 · 生成中</header>
+            <p>{streamingAnswer.content || "正在生成回答…"}</p>
+          </article>
+        )}
 
         {activeRun && (
           <RunStatusCard
@@ -247,13 +335,21 @@ export function ConversationPanel({
           <button
             type="button"
             className="secondary-button report-create-button"
-            disabled={busy}
-            onClick={() =>
-              void mutate(() => api.createReportVersion(view.conversation.task_id ?? ""))
-            }
+            disabled={busy || reportGenerating || reportIsCurrent}
+            onClick={() => void generateReport()}
           >
-            <FileText size={16} />
-            生成报告草稿
+            {reportGenerating ? (
+              <LoaderCircle className="spin" size={16} />
+            ) : (
+              <FileText size={16} />
+            )}
+            {reportGenerating
+              ? "正在生成报告…"
+              : reportIsCurrent
+                ? "报告已是最新"
+                : view.reports.length > 0
+                  ? "生成新版报告"
+                  : "生成报告草稿"}
           </button>
         )}
       </div>

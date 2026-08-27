@@ -787,8 +787,10 @@ slot，不受该规则限制。先不引入更复杂的动态权重或抢占调�
 
 ```text
 POST /api/conversations
-GET  /api/conversations
+GET  /api/conversations?archived=false|true
 GET  /api/conversations/{conversation_id}
+POST /api/conversations/{conversation_id}/archive
+POST /api/conversations/{conversation_id}/restore
 POST /api/conversations/{conversation_id}/messages
 GET  /api/conversations/{conversation_id}/timeline
 GET  /api/conversations/{conversation_id}/events
@@ -818,6 +820,8 @@ POST /api/report-versions/{report_version_id}/publish
 
 Task-scoped Conversation 路由仅用于兼容旧链接。新 Web 工作台始终先创建
 Conversation；Conversation 在 INTAKE 阶段允许 `task_id=NULL`。
+归档只将 Conversation 移出活动历史，不删除其 Task、材料、证据或报告；有未完成
+ResearchRun 时返回 `409 Conflict`，恢复后才能继续发送消息。
 
 发送消息返回 HTTP 202：
 

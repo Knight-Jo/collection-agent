@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Sequence
-from contextlib import suppress
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import Protocol
 
@@ -114,6 +114,37 @@ class ConversationRuntime:
         self._action_tokens: dict[str, CancellationToken] = {}
         self._run_tasks: dict[str, asyncio.Task[object]] = {}
         self._run_tokens: dict[str, CancellationToken] = {}
+        self._transient_subscribers: dict[
+            str, set[asyncio.Queue[tuple[str, dict[str, object]]]]
+        ] = {}
+
+    @asynccontextmanager
+    async def transient_events(
+        self, conversation_id: str
+    ) -> AsyncIterator[asyncio.Queue[tuple[str, dict[str, object]]]]:
+        """Subscribe to non-durable events for one live response."""
+        self.store.get_conversation_by_id(conversation_id)
+        queue: asyncio.Queue[tuple[str, dict[str, object]]] = asyncio.Queue()
+        subscribers = self._transient_subscribers.setdefault(
+            conversation_id, set()
+        )
+        subscribers.add(queue)
+        try:
+            yield queue
+        finally:
+            subscribers.discard(queue)
+            if not subscribers:
+                self._transient_subscribers.pop(conversation_id, None)
+
+    def publish_transient(
+        self,
+        conversation_id: str,
+        event_type: str,
+        data: dict[str, object],
+    ) -> None:
+        """Publish a best-effort event to currently connected clients."""
+        for queue in self._transient_subscribers.get(conversation_id, ()):
+            queue.put_nowait((event_type, data))
 
     def create_conversation(self) -> Conversation:
         """Create a new taskless intake conversation."""
@@ -287,23 +318,21 @@ class ConversationRuntime:
         """Return a Conversation projection before or after Task binding."""
         conversation = self.store.get_conversation_by_id(conversation_id)
         epoch = self.store.active_epoch_for_conversation(conversation_id)
-        messages = self.store.list_messages_for_conversation(conversation_id)
+        messages, citations, attempts = self.store.conversation_message_view(
+            conversation_id
+        )
         message_values = []
         processing_attempts = []
         for message in messages:
             value = message.model_dump(mode="json")
             value["citations"] = [
                 item.model_dump(mode="json")
-                for item in self.store.citations_for_message(message.id)
+                for item in citations.get(message.id, [])
             ]
             message_values.append(value)
             if message.role == "user":
-                try:
-                    attempt = self.store.latest_processing_attempt(message.id)
-                except IntelError as error:
-                    if error.code != "NOT_FOUND":
-                        raise
-                else:
+                attempt = attempts.get(message.id)
+                if attempt is not None:
                     processing_attempts.append(attempt.model_dump(mode="json"))
         task_id = conversation.task_id
         actions = self.store.list_actions(task_id) if task_id else []
@@ -342,6 +371,7 @@ class ConversationRuntime:
 
     async def _process_message(self, message_id: str) -> None:
         attempt = self.store.ensure_processing_attempt(message_id)
+        conversation: Conversation | None = None
         try:
             self.store.transition_processing_attempt(attempt.id, "processing")
             user = self.store.get_message(message_id)
@@ -383,6 +413,19 @@ class ConversationRuntime:
             messages = self.store.list_messages(task.id)
             runs = self.store.list_runs(task.id)
             run_status = runs[-1].status if runs else "idle"
+            self.publish_transient(
+                conversation.id,
+                "answer.started",
+                {"reply_to_id": user.id},
+            )
+
+            async def publish_delta(delta: str) -> None:
+                self.publish_transient(
+                    conversation.id,
+                    "answer.delta",
+                    {"reply_to_id": user.id, "delta": delta},
+                )
+
             async with self._dialogue_lock:
                 decision = await self.dialogue.answer(
                     task=task,
@@ -391,6 +434,7 @@ class ConversationRuntime:
                     messages=messages,
                     passages=passages,
                     run_status=run_status,
+                    on_delta=publish_delta,
                 )
             passages_by_id = {item.id: item for item in passages}
             citations = [
@@ -429,6 +473,12 @@ class ConversationRuntime:
             )
         except asyncio.CancelledError:
             self.store.transition_processing_attempt(attempt.id, "cancelled")
+            if conversation is not None:
+                self.publish_transient(
+                    conversation.id,
+                    "answer.failed",
+                    {"reply_to_id": message_id},
+                )
             raise
         except Exception as error:
             self.store.transition_processing_attempt(
@@ -437,6 +487,12 @@ class ConversationRuntime:
                 error_code=getattr(error, "code", "PROCESSING_FAILED"),
                 error_detail=str(error),
             )
+            if conversation is not None:
+                self.publish_transient(
+                    conversation.id,
+                    "answer.failed",
+                    {"reply_to_id": message_id},
+                )
             logger.exception("Conversation message processing failed")
 
     def _schedule_action(self, action: ActionRequest) -> None:

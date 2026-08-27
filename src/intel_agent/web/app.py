@@ -89,6 +89,8 @@ def create_app(
         status = {
             "NOT_FOUND": 404,
             "RUN_ALREADY_ACTIVE": 409,
+            "CONVERSATION_BUSY": 409,
+            "CONVERSATION_ARCHIVED": 409,
             "OUTPUT_TAMPERED": 409,
             "DOCUMENT_TAMPERED": 409,
             "REPORT_TAMPERED": 409,

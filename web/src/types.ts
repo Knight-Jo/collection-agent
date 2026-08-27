@@ -214,6 +214,7 @@ export interface ConversationMessage {
   role: "user" | "assistant";
   content: string;
   status: MessageStatus;
+  reply_to_id?: string | null;
   error?: string | null;
   citations: MessageCitation[];
 }

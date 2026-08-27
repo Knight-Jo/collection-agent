@@ -18,7 +18,14 @@ class ReportPublisher:
         self.store = store or StateStore(cwd)
 
     def create_draft(self, task_id: str) -> ReportVersion:
-        """Create a hash-bound draft without replacing the legacy report."""
+        """Return the current report or create a hash-bound draft."""
+        state_version = self.store.committed_state_version(task_id)
+        for existing in reversed(self.store.list_reports(task_id)):
+            if (
+                existing.status in {"draft", "published"}
+                and existing.based_on_committed_state_version == state_version
+            ):
+                return self.read(existing.id)[0]
         report_id = new_id("report")
         relative_path = f"output/report-versions/{report_id}.md"
         result = render_verified_report(

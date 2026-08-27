@@ -60,12 +60,17 @@ export const api = {
     request<ConversationAction>(`/api/action-requests/${actionId}/cancel`, { method: "POST" }),
   cancelResearchRun: (runId: string) =>
     request<ResearchRun>(`/api/research-runs/${runId}/cancel`, { method: "POST" }),
-  conversations: () => request<Conversation[]>("/api/conversations"),
+  conversations: (archived = false) =>
+    request<Conversation[]>(`/api/conversations${archived ? "?archived=true" : ""}`),
   createConversation: () =>
     request<Conversation>("/api/conversations", {
       method: "POST",
       body: JSON.stringify({}),
     }),
+  archiveConversation: (conversationId: string) =>
+    request<Conversation>(`/api/conversations/${conversationId}/archive`, { method: "POST" }),
+  restoreConversation: (conversationId: string) =>
+    request<Conversation>(`/api/conversations/${conversationId}/restore`, { method: "POST" }),
   conversationById: (conversationId: string) =>
     request<ConversationProjection>(`/api/conversations/${conversationId}`),
   sendConversationMessage: (conversationId: string, content: string, clientMessageId: string) =>
