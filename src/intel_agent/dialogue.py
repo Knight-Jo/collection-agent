@@ -124,7 +124,34 @@ def build_dialogue_prompt(
 
 
 class DialogueEngine:
-    """Make one bounded, tool-free model decision for a conversation turn."""
+    """Answer one task-bound turn with a validated, tool-free decision.
+
+    The engine grounds each answer strictly in the provided task snapshot,
+    conversation summary, recent messages, and retrieved passages — no
+    tools or external knowledge — and returns a validated
+    ``DialogueDecision`` with citation IDs filtered to the passages the
+    model actually saw and explicit actions demoted to proposals when the
+    user text is not an explicit command. Answers can be streamed through
+    ``on_delta``, and older messages can be compacted into a short
+    summary for the next bounded prompt.
+
+    Attributes
+    ----------
+    agent:
+        Bounded model agent that produces the decision; built from
+        ``settings`` as a tool-free ``pydantic_ai.Agent`` unless injected.
+
+    Public methods
+    --------------
+    answer:
+        Make one validated dialogue decision for a task-bound turn;
+        streams partial answer text when ``on_delta`` is given, repairs
+        invalid JSON once, and raises ``IntelError`` with
+        ``DIALOGUE_FAILED`` on repeated parse failure.
+    summarize:
+        Compact a message transcript into a short Chinese summary for
+        use in the next bounded prompt.
+    """
 
     def __init__(
         self,

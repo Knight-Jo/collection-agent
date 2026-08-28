@@ -1,4 +1,15 @@
-"""Citation-safe public information research report generation."""
+"""Citation-safe public information research report generation.
+
+The module turns a task's verified facts into an honest Markdown report:
+``build_verified_report_draft`` selects facts with verified support
+evidence into a structured draft, ``generate_research_report`` validates
+that draft against the task's current coverage fingerprint and writes the
+primary report with numbered citations, limitations, and a material
+guide, and ``render_verified_report`` renders a report file without
+changing the task's output binding. Every conclusion must trace to
+verified, archived public sources; URLs, handwritten citations, and
+internal IDs are rejected from conclusion text.
+"""
 
 from __future__ import annotations
 
@@ -140,7 +151,24 @@ def build_verified_report_draft(
     *,
     allowed_fact_ids: set[str] | None = None,
 ) -> ResearchReportInput:
-    """Build an honest report draft from facts with verified support."""
+    """Build an honest report draft from facts with verified support.
+
+    Returns a ``ResearchReportInput`` with one section per core question
+    containing every active fact that has verified support evidence,
+    optionally restricted to ``allowed_fact_ids``. The draft carries no
+    free-form text, so a model can only reorder or select among verified
+    facts.
+
+    Parameters
+    ----------
+    cwd:
+        Working directory containing the task and archived materials.
+    task_id:
+        Task whose active facts are considered.
+    allowed_fact_ids:
+        Optional allow-list of fact IDs; when given, facts outside the
+        set are excluded from the draft.
+    """
     task = load_task(cwd, task_id)
     facts_by_question: dict[str, list[ResearchConclusion]] = {
         question.id: [] for question in task.questions
@@ -172,7 +200,39 @@ def generate_research_report(
     output_path: str | None = None,
     bind_output: bool = True,
 ) -> dict:
-    """Validate structured findings and write the primary research report."""
+    """Validate structured findings and write the primary research report.
+
+    The draft is checked against the task's current coverage fingerprint
+    (which must not be stale), every conclusion must resolve to active
+    facts with verified support evidence, and conclusion text must not
+    contain URLs, handwritten citations, or internal IDs. On success the
+    Markdown report is written atomically, optionally bound as the task
+    output, and the result dict reports ``ok``, the output path, and any
+    per-conclusion errors.
+
+    Parameters
+    ----------
+    cwd:
+        Working directory containing the task and archived materials.
+    task_id:
+        Task the report is generated for.
+    draft:
+        Structured report input produced by
+        ``build_verified_report_draft`` or a model editing that draft.
+    allowed_fact_ids:
+        Optional allow-list of fact IDs the report may use.
+    output_path:
+        Path relative to ``cwd`` for the rendered Markdown file; defaults
+        to ``output/<topic-slug>-research-report.md``.
+    bind_output:
+        When true, record the report as the task's bound output; false
+        for preview renders.
+
+    Returns
+    -------
+    A dict with ``ok``, the output ``path`` on success, and a list of
+    per-conclusion validation ``errors`` (empty on success).
+    """
     task = load_task(cwd, task_id)
     coverage = latest_coverage(cwd, task.id)
     if coverage is None:
@@ -574,7 +634,12 @@ def render_verified_report(
     allowed_fact_ids: set[str],
     output_path: str,
 ) -> dict:
-    """Render a verified report file without changing the task output binding."""
+    """Render a verified report file without changing the task binding.
+
+    Combines ``build_verified_report_draft`` and
+    ``generate_research_report`` with ``bind_output=False`` for previews;
+    ``allowed_fact_ids`` and ``output_path`` are required.
+    """
     draft = build_verified_report_draft(
         cwd, task_id, allowed_fact_ids=allowed_fact_ids
     )

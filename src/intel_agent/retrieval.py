@@ -38,7 +38,36 @@ class RetrievedPassage(BaseModel):
 
 
 class TaskRetriever:
-    """Retrieve only assets committed for one local research task."""
+    """Retrieve only committed assets for one local research task.
+
+    The retriever grounds task dialogue in durable research output: it
+    ranks verified evidence passages and complete-document material
+    chunks by lexical overlap with the query and returns the top
+    passages with validated metadata for the dialogue model to cite.
+    Only assets recorded as committed in the ``StateStore`` are
+    considered, so uncommitted research work is never exposed to
+    dialogue.
+
+    Attributes
+    ----------
+    cwd:
+        Working directory containing task definitions and archived
+        documents.
+    store:
+        ``StateStore`` used to read committed asset IDs and register
+        tasks.
+
+    Public methods
+    --------------
+    seed_completed_task:
+        Expose a completed task's existing verified assets (documents,
+        facts, evidence) to committed-asset visibility exactly once.
+    retrieve:
+        Rank matching committed evidence and material chunks for a query
+        and return up to ``limit`` ``RetrievedPassage`` items ordered by
+        score, evidence first; raises ``INVALID_INPUT`` for a
+        non-positive limit.
+    """
 
     def __init__(self, cwd: Path, store: StateStore):
         self.cwd = cwd

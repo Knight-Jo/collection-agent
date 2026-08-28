@@ -62,7 +62,29 @@ class _IntakeAgent(Protocol):
 
 
 class IntakeEngine:
-    """Classify intake turns with a bounded model and no tools."""
+    """Classify one intake turn into a validated, tool-free decision.
+
+    The engine serves the taskless stage of conversation-first research:
+    it decides whether the user is asking about system capabilities, needs
+    scope clarification, or has given an executable research request, and
+    returns the validated ``IntakeDecision`` (intent, reply,
+    research_brief, missing_fields) that the runtime acts on. The model
+    call is bounded and tool-free, and malformed JSON is repaired once
+    against the schema before failing.
+
+    Attributes
+    ----------
+    agent:
+        Bounded model agent that produces the classification; built from
+        ``settings`` as a tool-free ``pydantic_ai.Agent`` unless injected.
+
+    Public methods
+    --------------
+    decide:
+        Classify one intake turn from the user query and recent messages;
+        repairs invalid JSON once and raises ``IntelError`` with
+        ``INTAKE_FAILED`` if the model still returns no valid structure.
+    """
 
     def __init__(
         self,

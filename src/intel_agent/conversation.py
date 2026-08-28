@@ -84,7 +84,67 @@ class _InitialRunner(Protocol):
 
 
 class ConversationRuntime:
-    """Process local task messages without mixing research execution state."""
+    """Provide the persistent, task-scoped conversation with the agent.
+
+    The class exists so the web layer can drive one user conversation end
+    to end behind the FastAPI routes: from the first intake message,
+    through task binding, cited dialogue answers, and proposed actions,
+    to research runs. That conversation must survive process restarts
+    (durable state in the store, in-memory bookkeeping rebuilt via
+    ``recover``) and must answer promptly even while research executes,
+    so dialogue stays in-process and research work is delegated to the
+    injected runners.
+
+    Attributes
+    ----------
+    cwd:
+        Working directory containing task definitions and durable state.
+    store:
+        ``StateStore`` backing the conversation; all durable reads and
+        writes go through it.
+    intake:
+        Engine that classifies taskless messages and may return a research
+        brief. Built from ``IntakeEngine`` when not injected.
+    dialogue:
+        Engine that answers task-bound questions with citations and may
+        propose actions. Built from ``DialogueEngine`` when not injected.
+    retriever:
+        Passage retriever for answer grounding and baseline seeding. Built
+        from ``TaskRetriever`` when not injected.
+    initial:
+        Runner for initial research runs; ``None`` leaves initial runs
+        queued for an external worker.
+    continuation:
+        Runner for continuation research actions; ``None`` leaves
+        continuation actions queued for an external worker.
+    publisher:
+        Worker for report generation and regeneration actions. Built from
+        ``ReportPublisher`` when not injected.
+    _dialogue_lock / _message_tasks / _action_tasks / _action_tokens /
+    _run_tasks / _run_tokens / _transient_subscribers:
+        In-memory bookkeeping (serialization lock, background-task and
+        cancellation-token registries, transient event subscribers)
+        rebuilt after a restart via ``recover``.
+
+    Public methods
+    --------------
+    create_conversation / submit_message / wait_message:
+        Start an intake conversation, persist a user message, and await its
+        reply.
+    retry_message / cancel_message:
+        Re-run or cancel processing of one message.
+    recover:
+        Reschedule unfinished messages and queued initial runs after a
+        process restart.
+    confirm_action / reject_action / cancel_action:
+        Accept, refuse, or cancel a proposed or running action.
+    stop_research_run / cancel_research_run:
+        Request stop or cancellation of a research run.
+    conversation_view / conversation_view_by_id:
+        Project the full conversation state for the Web UI.
+    transient_events / publish_transient:
+        Subscribe to and publish non-durable live events.
+    """
 
     def __init__(
         self,

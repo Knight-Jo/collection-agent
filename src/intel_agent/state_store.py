@@ -45,7 +45,69 @@ RUN_TRANSITIONS: dict[str, set[str]] = {
 
 
 class StateStore:
-    """Persist single-user task conversations in the local SQLite database."""
+    """Persist conversational research state in a local SQLite database.
+
+    The store is the single durable repository behind the conversation
+    layer: conversations, epochs, messages, processing attempts, actions,
+    runs, checkpoints, reports, and events are all written through here.
+    Mutating methods run in ``BEGIN IMMEDIATE`` transactions and enforce
+    the allowed lifecycle transitions (see ``ACTION_TRANSITIONS`` and
+    ``RUN_TRANSITIONS``), raising ``IntelError`` on invalid moves, so the
+    runtime layer can trust that persisted state stays consistent and
+    survives process restarts.
+
+    Attributes
+    ----------
+    cwd:
+        Working directory where the SQLite state database lives; the
+        schema is created on first use. The store holds no other state,
+        and each call opens and closes its own connection.
+
+    Public methods
+    --------------
+    Conversations and epochs:
+        create_conversation / list_conversations / archive_conversation /
+        restore_conversation / register_task / get_conversation /
+        get_conversation_by_id manage the lifecycle from intake through
+        task binding to archiving. start_epoch / active_epoch /
+        active_epoch_for_conversation / update_epoch_summary keep the
+        active context window and its rolling summary.
+    Messages:
+        add_user_message / complete_message / get_message /
+        reply_for_message / list_messages /
+        list_messages_for_conversation / conversation_message_view /
+        citations_for_message append and read dialogue.
+        bind_intake_task atomically binds an intake conversation to a new
+        task and its queued initial run. set_message_processing /
+        ensure_processing_attempt / retry_processing_attempt /
+        transition_processing_attempt / latest_processing_attempt /
+        fail_message / cancel_message / pending_messages drive the
+        per-message processing lifecycle and restart recovery.
+    Actions:
+        create_action / get_action / list_actions / confirm_action /
+        transition_action persist proposals and apply lifecycle
+        transitions.
+    Runs:
+        create_run / transition_run / get_run / list_runs / retry_run /
+        cancel_run / stop_run / finish_stop / recover_expired_runs manage
+        research execution with leases. create_search_plan_version /
+        get_search_plan_version / active_search_plan record immutable plan
+        versions; list_runs_for_conversation lists runs for one
+        conversation.
+    Checkpoints and assets:
+        start_checkpoint / commit_checkpoint / committed_state_version
+        advance the task's committed research state;
+        seed_committed_assets / committed_asset_ids expose which assets
+        are visible at that state.
+    Reports:
+        create_report_draft / get_report / list_reports /
+        abandon_report / publish_report manage report versions, with
+        publish rejecting stale content unless explicitly pinned.
+    Events:
+        append_event / events_after / events_after_conversation /
+        timeline_after record durable events and the conversation
+        timeline for reconnect catch-up.
+    """
 
     def __init__(self, cwd: Path):
         self.cwd = cwd
