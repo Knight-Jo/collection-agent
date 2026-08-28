@@ -7,28 +7,22 @@ discoverable, and small.
 
 | Directory | Contents |
 | --- | --- |
-| `standards/` | Stable policies, terminology, and engineering rules |
-| `architecture/` | Current system architecture and cross-module design |
-| `plans/` | Approved roadmaps, implementation guidance, and acceptance plans |
-| `evaluations/` | Evaluation methods and evidence-based run/model comparisons |
-| `reports/` | Current written project, capability, progress, and value reports |
+| `architecture/` | Current architecture, stable policies, and cross-module invariants |
+| `development/` | Developer guidance, deployment operations, and active acceptance plans |
+| `reports/` | Current capability, progress, value, and evaluation reports |
 | `presentations/` | Current HTML presentations; keep at most one management and one technical deck |
-| `operations/` | Deployment, runtime, and troubleshooting guidance |
-| `archive/<year>/` | Historical material that must remain available for audit or contract reasons |
-| `agents/` | Instructions used by coding agents |
-| `superpowers/` | Skill-generated specifications and implementation plans |
 
 Keep only `AGENTS.md` and an optional navigation `README.md` directly under
 `docs/`. Put new documents in the directory matching their primary purpose.
-Use `docs/adr/` for architectural decisions when that directory is introduced.
+Architectural decisions belong in the authoritative architecture document;
+introduce ADR files only when decisions require an independent lifecycle.
 
 ## Maintenance
 
 1. Update an existing authoritative document instead of creating a dated or
    renamed copy.
-2. Delete superseded material unless it is required for audit, contract, or
-   experiment reproducibility. Put material meeting that exception under
-   `archive/<year>/` and state why it is retained.
+2. Delete superseded designs and completed implementation plans. Git history
+   preserves them; experiment-reproducibility records belong in `experiments/`.
 3. Keep Markdown as the authoritative source. HTML is a presentation output,
    not a second technical specification.
 4. Keep no more than two current HTML decks: one management briefing and one
@@ -44,3 +38,5 @@ Use `docs/adr/` for architectural decisions when that directory is introduced.
    may keep their names until the document is substantially revised.
 9. Before merging, remove temporary drafts, duplicate introductions, obsolete
    screenshots, machine-specific paths, and unsupported claims.
+10. Do not introduce another top-level documentation category without first
+    proving that none of the four current categories fits.

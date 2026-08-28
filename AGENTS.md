@@ -61,4 +61,4 @@ Follow the repository’s concise Conventional Commit pattern: `feat(run5): ...`
 
 ### Domain docs
 
-Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single-context: one `CONTEXT.md` at the repo root. See `docs/development/domain.md`.

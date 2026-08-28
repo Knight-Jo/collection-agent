@@ -531,8 +531,8 @@ M4 不是“所有指标取平均后及格”，而是关键门槛全部满足�
 
 - 当前 `main` 分支的任务、搜索、采集、提取、证据、报告、上下文、Web 和评测实现；
 - `docs/reports/intelligence-research-agent-progress-report.md`；
-- `docs/plans/情报调研智能体后续建设与量化验收方案.md`；
-- `docs/evaluations/情报搜集智能体评估指标与模型对比方案.md`；
+- `docs/development/情报调研智能体后续建设与量化验收方案.md`；
+- `docs/reports/情报搜集智能体评估指标与模型对比方案.md`；
 - `experiments/ROADMAP.md`；
 - `experiments/evaluation/policy.yaml`；
 - `experiments/runs/038-*` 至 `experiments/runs/052-*` 的真实运行产物。

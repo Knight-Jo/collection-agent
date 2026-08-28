@@ -216,7 +216,7 @@ UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest
 ```
 
 动态采集的生产网络隔离、运行状态和反爬边界参见
-[`docs/operations/js-dynamic-page-deployment.md`](docs/operations/js-dynamic-page-deployment.md)。
+[`docs/development/js-dynamic-page-deployment.md`](docs/development/js-dynamic-page-deployment.md)。
 
 ## 迭代实验
 

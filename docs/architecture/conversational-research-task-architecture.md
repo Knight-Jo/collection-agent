@@ -1,9 +1,7 @@
 # 任务驱动多轮对话重构架构设计
 
-> 本文记录已实现的 Conversation-first 首版基线。完整冻结规格位于
-> [`docs/superpowers/specs/2026-08-25-conversation-runtime-web-design.md`](../superpowers/specs/2026-08-25-conversation-runtime-web-design.md)，
-> 其中关于 Conversation/Task 关系、Intake、API、运行停止、事件序列和 Web
-> 交互的契约为实现依据。
+> 本文是 Conversation-first 首版的权威架构基线，记录 Conversation/Task
+> 关系、Intake、API、运行停止、事件序列和 Web 交互契约。
 
 | 项目 | 内容 |
 | --- | --- |
