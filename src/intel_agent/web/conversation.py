@@ -25,6 +25,7 @@ from .schemas import (
     ConversationView,
     MessageCreate,
     ReportPublishRequest,
+    ReportVersionSummary,
     ReportVersionView,
 )
 
@@ -207,12 +208,19 @@ async def search_plan_version(
 
 
 @router.get(
-    "/tasks/{task_id}/report-versions", response_model=list[ReportVersion]
+    "/tasks/{task_id}/report-versions",
+    response_model=list[ReportVersionSummary],
 )
 async def report_versions(
     request: Request, task_id: str
-) -> list[ReportVersion]:
-    return _runtime(request).store.list_reports(task_id)
+) -> list[ReportVersionSummary]:
+    runtime = _runtime(request)
+    return [
+        ReportVersionSummary(
+            **report.model_dump(), stale=_report_is_stale(runtime, report)
+        )
+        for report in runtime.store.list_reports(task_id)
+    ]
 
 
 @router.post(
@@ -248,7 +256,22 @@ async def report_version_detail(
     request: Request, report_id: str
 ) -> ReportVersionView:
     report, content = _runtime(request).publisher.read(report_id)
-    return ReportVersionView(**report.model_dump(), content=content)
+    runtime = _runtime(request)
+    return ReportVersionView(
+        **report.model_dump(),
+        content=content,
+        stale=_report_is_stale(runtime, report),
+    )
+
+
+def _report_is_stale(
+    runtime: ConversationRuntime, report: ReportVersion
+) -> bool:
+    snapshot = runtime.store.committed_snapshot(report.task_id)
+    return report.based_on_committed_state_version != snapshot.version or (
+        report.snapshot_fingerprint is not None
+        and report.snapshot_fingerprint != snapshot.fingerprint
+    )
 
 
 @router.get("/tasks/{task_id}/conversation/events")

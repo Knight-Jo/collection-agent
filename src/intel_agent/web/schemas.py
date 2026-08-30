@@ -259,6 +259,11 @@ class ConversationListItem(Conversation):
 
 class ReportVersionView(ReportVersion):
     content: str
+    stale: bool = False
+
+
+class ReportVersionSummary(ReportVersion):
+    stale: bool = False
 
 
 class TimelineView(BaseModel):

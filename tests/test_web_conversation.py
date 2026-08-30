@@ -510,3 +510,4 @@ def test_report_version_detail_returns_verified_markdown(cwd):
 
     assert response.status_code == 200
     assert response.json()["content"] == "# 调研报告\n\n核心结论。"
+    assert response.json()["stale"] is False
