@@ -34,6 +34,7 @@ from .models import (
     ResearchReportSection,
     SupportReview,
     normalized_statement,
+    utc_now,
 )
 from .storage import (
     intel_path,
@@ -614,18 +615,25 @@ def generate_research_report(
         if digest_revision is not None
         else None
     )
-    digest = (
-        MaterialDigest.model_validate(
+    if (
+        digest_revision is not None
+        and digest_path is not None
+        and digest_path.exists()
+    ):
+        digest = MaterialDigest.model_validate(
             read_json(
                 cwd,
                 f"materials/revisions/{digest_revision.revision_id}.json",
             )
         )
-        if digest_revision is not None
-        and digest_path is not None
-        and digest_path.exists()
-        else generate_material_digest(cwd, task.id)
-    )
+    elif snapshot is not None and snapshot.asset_manifest:
+        digest = MaterialDigest(
+            task_id=task.id,
+            created_at=utc_now(),
+            updated_at=utc_now(),
+        )
+    else:
+        digest = generate_material_digest(cwd, task.id)
     question_by_id = {question.id: question for question in task.questions}
     lines = [
         f"# 公开信息调研报告：{task.topic}",
