@@ -152,6 +152,8 @@ def save_evidence(
     relation: str,
     quote: str,
     notes: str | None = None,
+    *,
+    run_id: str | None = None,
 ) -> EvidenceSupport:
     fact = load_fact(cwd, fact_id)
     if relation not in ("supports", "contradicts"):
@@ -192,4 +194,13 @@ def save_evidence(
             "relation": relation,
         },
     )
+    if run_id is not None:
+        from .state_store import StateStore
+
+        StateStore(cwd).stage_asset(
+            run_id,
+            "evidence",
+            evidence.id,
+            sha256(evidence.model_dump_json()),
+        )
     return evidence

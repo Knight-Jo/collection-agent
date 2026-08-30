@@ -193,6 +193,7 @@ def get_task_view(
         else None
     )
     if visible_asset_ids is not None:
+        assert document_ids is not None
         fact_ids = visible_asset_ids.get("fact", set())
         evidence_ids = visible_asset_ids.get("evidence", set())
         facts = [item for item in facts if item.id in fact_ids]

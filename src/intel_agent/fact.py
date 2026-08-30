@@ -126,6 +126,8 @@ def save_fact(
     question_id: str,
     statement: str,
     claim_type: ClaimType = "corroborated",
+    *,
+    run_id: str | None = None,
 ) -> Fact:
     task = load_task(cwd, task_id)
     statement = normalized_statement(statement)
@@ -162,6 +164,12 @@ def save_fact(
         {},
         {"status": "active", "claim_type": claim_type, "statement": statement},
     )
+    if run_id is not None:
+        from .state_store import StateStore
+
+        StateStore(cwd).stage_asset(
+            run_id, "fact", fact.id, sha256(fact.model_dump_json())
+        )
     return fact
 
 

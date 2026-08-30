@@ -1676,6 +1676,25 @@ class StateStore:
             )
         return self.run_view(run_id)
 
+    def stage_asset(
+        self,
+        run_id: str,
+        asset_type: CommittedAssetType,
+        logical_id: str,
+        content_sha256: str,
+    ) -> RunWorkspace:
+        """Stage a content-addressed asset produced by the active Run."""
+        return self.stage_revision(
+            run_id,
+            AssetRevisionRef(
+                asset_type=asset_type,
+                logical_id=logical_id,
+                revision_id=logical_id,
+                content_sha256=content_sha256,
+                task_id=self.get_run(run_id).task_id,
+            ),
+        )
+
     def committed_snapshot(
         self, task_id: str, version: int | None = None
     ) -> CommittedResearchSnapshot:

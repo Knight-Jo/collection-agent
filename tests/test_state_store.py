@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import pytest
 
+from intel_agent.evidence import save_evidence
+from intel_agent.fact import save_fact
+from intel_agent.materials import register_material
 from intel_agent.models import (
     AssetRevisionRef,
     CitationDraft,
@@ -11,6 +14,7 @@ from intel_agent.models import (
 )
 from intel_agent.state_db import connect_state_db
 from intel_agent.state_store import StateStore
+from tests.conftest import make_document, new_task
 
 
 def _brief() -> ResearchBrief:
@@ -35,6 +39,46 @@ def test_bind_intake_task_is_atomic_and_idempotent(cwd):
     assert first.task_id is not None
     assert len(store.list_runs(first.task_id)) == 1
     assert len(store.list_conversations()) == 1
+
+
+def test_run_writes_stage_document_fact_and_evidence_revisions(cwd):
+    task = new_task(cwd)
+    store = StateStore(cwd)
+    store.register_task(task.id)
+    run = store.create_run(task.id, "continue_research", 0, {})
+    store.claim_run(run.id, phase="collecting", lease_owner="worker")
+    document = make_document(cwd, "staged source")
+    register_material(
+        cwd,
+        task.id,
+        document.canonical_url,
+        document_id=document.id,
+        run_id=run.id,
+    )
+    fact = save_fact(
+        cwd,
+        task.id,
+        task.questions[0].id,
+        "staged fact",
+        run_id=run.id,
+    )
+    evidence = save_evidence(
+        cwd,
+        fact.id,
+        document.id,
+        "supports",
+        "staged source",
+        "",
+        run_id=run.id,
+    )
+
+    staged = store.run_view(run.id).staged_revisions
+
+    assert {(item.asset_type, item.logical_id) for item in staged} == {
+        ("document", document.id),
+        ("fact", fact.id),
+        ("evidence", evidence.id),
+    }
 
 
 def test_committed_snapshot_is_stable_and_workspace_isolated(cwd):

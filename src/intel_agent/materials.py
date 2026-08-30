@@ -55,6 +55,7 @@ def register_material(
     *,
     document_id: str | None = None,
     error: str | None = None,
+    run_id: str | None = None,
 ) -> MaterialReview:
     """Register one collected resource under a task."""
     load_task(cwd, task_id)
@@ -66,6 +67,9 @@ def register_material(
         verify_document_integrity(cwd, document)
         if document.canonical_url != canonical_url:
             raise IntelError("INVALID_INPUT", "材料 URL 与文档不匹配")
+        document_sha256 = document.text_sha256
+    else:
+        document_sha256 = ""
     digest = load_material_digest(cwd, task_id) or _empty_digest(task_id)
     existing = next(
         (
@@ -100,6 +104,12 @@ def register_material(
         cwd,
         digest.model_copy(update={"materials": materials, "updated_at": now}),
     )
+    if run_id is not None and document_id is not None:
+        from .state_store import StateStore
+
+        StateStore(cwd).stage_asset(
+            run_id, "document", document_id, document_sha256
+        )
     return review
 
 

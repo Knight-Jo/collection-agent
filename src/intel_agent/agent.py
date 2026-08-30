@@ -1213,6 +1213,7 @@ def _fact_save_with_gate(
     question_id: str,
     statement: str,
     claim_type: ClaimType,
+    run_id: str | None = None,
 ) -> dict:
     backlog = _single_source_backlog(cwd, task_id)
     if backlog:
@@ -1237,7 +1238,12 @@ def _fact_save_with_gate(
                 f"（evidence_save → evidence_audit）：{pending}",
             )
     return save_fact(
-        cwd, task_id, question_id, statement, claim_type
+        cwd,
+        task_id,
+        question_id,
+        statement,
+        claim_type,
+        run_id=run_id,
     ).model_dump()
 
 
@@ -1870,6 +1876,7 @@ def build_agent(
                 task.id,
                 canonicalize_url(url),
                 error=str(error),
+                run_id=ctx.deps.run_id,
             )
             raise
         if document.collection_method == "browser":
@@ -1882,6 +1889,7 @@ def build_agent(
             task.id,
             document.canonical_url,
             document_id=document.id,
+            run_id=ctx.deps.run_id,
         )
         preview = _truncate_utf8(
             content,
@@ -1916,6 +1924,7 @@ def build_agent(
                 question_id,
                 statement,
                 claim_type,
+                ctx.deps.run_id,
             )
         )
 
@@ -1969,7 +1978,13 @@ def build_agent(
         _ensure_bound_document(ctx.deps, document.id)
         existing = list_evidence_for_task(ctx.deps.cwd, fact.task_id)
         evidence = save_evidence(
-            ctx.deps.cwd, fact_id, document_id, relation, quote, notes
+            ctx.deps.cwd,
+            fact_id,
+            document_id,
+            relation,
+            quote,
+            notes,
+            run_id=ctx.deps.run_id,
         )
         evidence_count = (
             len(existing)
