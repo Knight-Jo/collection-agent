@@ -2082,12 +2082,28 @@ class StateStore:
         content_sha256: str,
         *,
         report_id: str | None = None,
+        expected_current_state_version: int | None = None,
+        expected_snapshot_fingerprint: str | None = None,
     ) -> ReportVersion:
         """Create a draft and abandon the task's previous draft atomically."""
         now = utc_now()
+        snapshot = self.committed_snapshot(task_id)
         with connect_state_db(self.cwd) as connection:
             connection.execute("BEGIN IMMEDIATE")
             state = _task_state(connection, task_id)
+            current_version = state["current_committed_state_version"]
+            if (
+                expected_current_state_version is not None
+                and expected_current_state_version != current_version
+            ):
+                raise IntelError("STALE_REPORT", "报告基于过期研究状态")
+            if snapshot.version != current_version:
+                raise IntelError("STALE_REPORT", "报告 snapshot 已变化")
+            if (
+                expected_snapshot_fingerprint is not None
+                and expected_snapshot_fingerprint != snapshot.fingerprint
+            ):
+                raise IntelError("STALE_REPORT", "报告 snapshot 指纹已变化")
             connection.execute(
                 "UPDATE report_versions SET status = 'abandoned', "
                 "abandoned_at = ? WHERE task_id = ? AND status = 'draft'",
@@ -2109,8 +2125,8 @@ class StateStore:
                 "INSERT INTO report_versions("
                 "id, task_id, version, status, content_path, content_sha256, "
                 "based_on_checkpoint_id, based_on_committed_state_version, "
-                "created_at"
-                ") VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?)",
+                "snapshot_fingerprint, created_at"
+                ") VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)",
                 (
                     report_id,
                     task_id,
@@ -2119,6 +2135,7 @@ class StateStore:
                     content_sha256,
                     checkpoint["id"] if checkpoint is not None else None,
                     state["current_committed_state_version"],
+                    snapshot.fingerprint,
                     now,
                 ),
             )

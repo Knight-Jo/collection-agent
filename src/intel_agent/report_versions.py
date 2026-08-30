@@ -20,6 +20,7 @@ class ReportPublisher:
     def create_draft(self, task_id: str) -> ReportVersion:
         """Return the current report or create a hash-bound draft."""
         state_version = self.store.committed_state_version(task_id)
+        snapshot = self.store.committed_snapshot(task_id, state_version)
         for existing in reversed(self.store.list_reports(task_id)):
             if (
                 existing.status in {"draft", "published"}
@@ -44,6 +45,8 @@ class ReportPublisher:
             relative_path,
             sha256(path.read_bytes()),
             report_id=report_id,
+            expected_current_state_version=state_version,
+            expected_snapshot_fingerprint=snapshot.fingerprint,
         )
         return report
 

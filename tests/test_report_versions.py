@@ -73,8 +73,9 @@ def test_report_draft_is_reused_until_research_state_changes(cwd):
     assert repeated == first
 
     run = store.create_run(task.id, "continue_research", 0, {})
+    store.transition_run(run.id, "running")
     checkpoint = store.start_checkpoint(run.id, reason="new evidence")
-    store.commit_checkpoint(checkpoint.id)
+    store.commit_checkpoint(checkpoint.id, [("document", "new-doc")])
     second = publisher.create_draft(task.id)
     published = publisher.publish(second.id)
 
@@ -93,8 +94,9 @@ def test_publisher_requires_confirmation_for_stale_draft(cwd):
     store, publisher = _publisher(cwd, task.id)
     draft = publisher.create_draft(task.id)
     run = store.create_run(task.id, "initial", 0, {})
+    store.transition_run(run.id, "running")
     checkpoint = store.start_checkpoint(run.id, reason="new evidence")
-    store.commit_checkpoint(checkpoint.id)
+    store.commit_checkpoint(checkpoint.id, [("document", "new-doc")])
 
     with pytest.raises(IntelError) as caught:
         publisher.publish(draft.id)
@@ -112,8 +114,9 @@ def test_report_version_records_latest_committed_checkpoint(cwd):
     task, _facts, _documents = seed_reportable_task(cwd)
     store, publisher = _publisher(cwd, task.id)
     run = store.create_run(task.id, "initial", 0, {})
+    store.transition_run(run.id, "running")
     checkpoint = store.start_checkpoint(run.id, reason="research complete")
-    store.commit_checkpoint(checkpoint.id)
+    store.commit_checkpoint(checkpoint.id, [("document", "new-doc")])
 
     draft = publisher.create_draft(task.id)
 

@@ -540,6 +540,28 @@ def test_publishing_new_report_supersedes_previous_version(cwd):
     assert published.status == "published"
 
 
+def test_report_draft_binds_snapshot_fingerprint_and_cas(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    snapshot = store.committed_snapshot("task-1")
+    report = store.create_report_draft(
+        "task-1",
+        "output/report.md",
+        "hash",
+        expected_current_state_version=0,
+        expected_snapshot_fingerprint=snapshot.fingerprint,
+    )
+
+    assert report.snapshot_fingerprint == snapshot.fingerprint
+    with pytest.raises(IntelError, match="指纹"):
+        store.create_report_draft(
+            "task-1",
+            "output/other.md",
+            "hash",
+            expected_snapshot_fingerprint="0" * 64,
+        )
+
+
 def test_durable_events_resume_after_sequence(cwd):
     store = StateStore(cwd)
     store.register_task("task-1")

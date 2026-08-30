@@ -534,6 +534,7 @@ class ReportVersion(BaseModel):
     content_sha256: str
     based_on_checkpoint_id: str | None = None
     based_on_committed_state_version: int = Field(ge=0)
+    snapshot_fingerprint: str | None = None
     publication_origin: Literal["native", "legacy_migration"] = "native"
     created_at: str
     published_at: str | None = None

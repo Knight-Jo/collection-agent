@@ -452,8 +452,7 @@ CREATE TABLE committed_snapshots (
     asset_manifest_json TEXT NOT NULL DEFAULT '[]',
     fingerprint TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    UNIQUE (task_id, version),
-    UNIQUE (task_id, fingerprint)
+    UNIQUE (task_id, version)
 );
 
 CREATE TABLE run_workspaces (

@@ -126,7 +126,7 @@
 
 ### Implementation for User Story 4
 
-- [ ] T052 [US4] 在 `src/intel_agent/state_store.py` 为 ReportVersion 保存 snapshot fingerprint，并用 expected committed version/fingerprint CAS 原子创建草稿
+- [X] T052 [US4] 在 `src/intel_agent/state_store.py` 为 ReportVersion 保存 snapshot fingerprint，并用 expected committed version/fingerprint CAS 原子创建草稿
 - [ ] T053 [US4] 在 `src/intel_agent/report_versions.py` 中一次取得固定 committed snapshot、基于其 manifest 渲染并处理 `STALE_REPORT`，不得再次读取 current version
 - [ ] T054 [US4] 在 `src/intel_agent/report.py` 与 `src/intel_agent/audit.py` 保留完整 asset revision coverage fingerprint，并只允许 active Fact、supports Evidence、full Review 和 hash-valid Document 进入正式引用，使 T049/T050 通过
 - [ ] T055 [US4] 在 `src/intel_agent/web/conversation.py` 和 `src/intel_agent/web/views.py` 返回不可变报告版本、stale 标记和固定 snapshot 资源，使 T051 通过
