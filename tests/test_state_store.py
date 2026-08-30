@@ -254,6 +254,20 @@ def test_run_view_includes_base_snapshot_and_staged_replacement(cwd):
     }
 
 
+def test_checkpoint_manifest_includes_explicit_assets(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    run = store.create_run("task-1", "initial", 0, {})
+    store.transition_run(run.id, "running")
+    checkpoint = store.start_checkpoint(run.id, reason="explicit asset")
+    store.commit_checkpoint(checkpoint.id, [("document", "doc-1")])
+
+    snapshot = store.committed_snapshot("task-1", 1)
+    assert {
+        (item.asset_type, item.logical_id) for item in snapshot.asset_manifest
+    } == {("document", "doc-1")}
+
+
 def test_committed_snapshot_rejects_tampered_materialized_revision(cwd):
     task = new_task(cwd)
     store = StateStore(cwd)

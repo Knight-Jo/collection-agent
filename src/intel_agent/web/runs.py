@@ -7,7 +7,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pydantic_ai import CancellationToken
 from pydantic_ai.exceptions import RunCancelled
@@ -17,7 +17,7 @@ from ..continuation import ResearchGate
 from ..crawl import CrawlEvent
 from ..models import IntelError, utc_now
 from ..runner import TaskRunSpec, run_agent_task
-from ..storage import intel_path, read_json_object, write_json_atomic
+from ..state_store import StateStore
 from ..task import load_task
 from ..trajectory import JsonlTrajectoryRecorder
 from .schemas import RunErrorView, RunEvent, RunStatus, RunView, UsageView
@@ -69,6 +69,7 @@ class RunRegistry:
         self.settings = settings
         self.runner = runner
         self.gate = gate or ResearchGate()
+        self.store = StateStore(cwd)
         self._runs: dict[str, _RunState] = {}
         self._lock = asyncio.Lock()
 
@@ -264,9 +265,8 @@ class RunRegistry:
         return state
 
     def _persist(self, state: _RunState) -> None:
-        write_json_atomic(
-            self.cwd,
-            f"web-runs/{state.run_id}.json",
+        self.store.save_web_run_projection(
+            state.run_id,
             {
                 "run_id": state.run_id,
                 "spec": state.spec.model_dump(mode="json"),
@@ -289,10 +289,10 @@ class RunRegistry:
         )
 
     def _load(self, run_id: str) -> _RunState | None:
-        path = intel_path(self.cwd, f"web-runs/{run_id}.json")
-        if not path.exists():
+        raw = self.store.load_web_run_projection(run_id)
+        if raw is None:
             return None
-        raw = read_json_object(self.cwd, f"web-runs/{run_id}.json")
+        raw = cast(dict[str, Any], raw)
         try:
             state = _RunState(
                 run_id=run_id,

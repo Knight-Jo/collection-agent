@@ -52,7 +52,7 @@ def test_initialize_enables_sqlite_safety_and_schema(cwd):
             )
         ]
 
-        assert versions == [1, 2, 3, 4, 5]
+        assert versions == [1, 2, 3, 4, 5, 6]
 
 
 def test_schema_supports_intake_and_multiple_conversations_per_task(cwd):
@@ -175,7 +175,7 @@ def test_initialize_upgrades_database_missing_v4_objects(cwd):
         "run_workspace_assets",
         "research_outcomes",
     } <= tables
-    assert versions == [1, 2, 3, 4, 5]
+    assert versions == [1, 2, 3, 4, 5, 6]
 
 
 def test_schema_rejects_duplicate_citation_sequence(cwd):

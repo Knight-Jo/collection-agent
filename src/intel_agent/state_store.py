@@ -1272,6 +1272,32 @@ class StateStore:
             ).fetchall()
         return {row[0] for row in rows}
 
+    def save_web_run_projection(
+        self, run_id: str, state: dict[str, object]
+    ) -> None:
+        """Persist the compatibility Web run projection in StateStore."""
+        with connect_state_db(self.cwd) as connection:
+            connection.execute(
+                "INSERT INTO web_run_projections(run_id, state_json, updated_at) "
+                "VALUES (?, ?, ?) ON CONFLICT(run_id) DO UPDATE SET "
+                "state_json = excluded.state_json, updated_at = excluded.updated_at",
+                (run_id, _json(state), utc_now()),
+            )
+
+    def load_web_run_projection(self, run_id: str) -> dict[str, object] | None:
+        """Load one persisted compatibility Web run projection."""
+        with connect_state_db(self.cwd) as connection:
+            row = connection.execute(
+                "SELECT state_json FROM web_run_projections WHERE run_id = ?",
+                (run_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        value = json.loads(row["state_json"])
+        if not isinstance(value, dict):
+            raise IntelError("STORAGE_CORRUPT", f"运行记录格式无效: {run_id}")
+        return value
+
     def create_action(
         self,
         task_id: str,
@@ -2502,6 +2528,16 @@ class StateStore:
                 }
                 for row in staged_rows
             ]
+            manifest.extend(
+                {
+                    "asset_type": asset_type,
+                    "logical_id": asset_id,
+                    "revision_id": asset_id,
+                    "content_sha256": "",
+                    "task_id": checkpoint["task_id"],
+                }
+                for asset_type, asset_id in asset_values
+            )
             manifest = _merge_snapshot_manifest(
                 connection,
                 checkpoint["task_id"],

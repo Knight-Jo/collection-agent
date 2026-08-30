@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .storage import ensure_intel_dirs
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -534,6 +534,14 @@ ALTER TABLE task_committed_assets_v5 RENAME TO task_committed_assets;
 ALTER TABLE checkpoint_assets_v5 RENAME TO checkpoint_assets;
 """
 
+SCHEMA_V6 = """
+CREATE TABLE IF NOT EXISTS web_run_projections (
+    run_id TEXT PRIMARY KEY,
+    state_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
 
 def state_db_path(cwd: Path) -> Path:
     """Return the local SQLite state database path."""
@@ -622,6 +630,14 @@ def initialize_state_db(cwd: Path) -> Path:
                 raise sqlite3.IntegrityError(
                     f"state migration violated foreign keys: {violations}"
                 )
+        migrated = connection.execute(
+            "SELECT 1 FROM schema_migrations WHERE version = 6"
+        ).fetchone()
+        if SCHEMA_VERSION >= 6 and migrated is None:
+            connection.executescript(SCHEMA_V6)
+            connection.execute(
+                "INSERT INTO schema_migrations(version) VALUES (?)", (6,)
+            )
     return path
 
 
