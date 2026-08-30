@@ -215,11 +215,11 @@ def test_credentialed_providers_require_explicit_enablement(monkeypatch):
 
 
 def test_credentialed_provider_without_key_degrades(monkeypatch):
-    from intel_agent.config import AiNativeSearchConfig
+    from intel_agent.config import AiNativeProviderConfig, AiNativeSearchConfig
 
     monkeypatch.delenv("EXA_API_KEY", raising=False)
     cfg = AiNativeSearchConfig(
-        exa={"enabled": True, "api_key_env": "EXA_API_KEY"}
+        exa=AiNativeProviderConfig(enabled=True, api_key_env="EXA_API_KEY")
     )
 
     assert credentialed_providers(cfg) == []
