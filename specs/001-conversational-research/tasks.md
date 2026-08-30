@@ -45,7 +45,7 @@
 - [ ] T016 将 SupportReview、Conflict、Coverage 和 Task 更新改为当前 Run workspace 中的新 revision，修改 `src/intel_agent/audit.py`、`src/intel_agent/conflicts.py`、`src/intel_agent/coverage.py` 与 `src/intel_agent/task.py`
 - [ ] T017 让 Agent context、TaskView、资源下载和通用任务读取只使用 committed snapshot 或当前 run view，修改 `src/intel_agent/context.py`、`src/intel_agent/web/views.py` 与 `src/intel_agent/storage.py`
 - [X] T018 添加 Action 原子 claim、唯一 Run、checkpoint 状态守卫、expected-version CAS、原子 finish 和幂等重放测试到 `tests/test_state_store.py`
-- [ ] T019 在 `src/intel_agent/state_store.py` 实施 `claim_action`、queued Run claim 和 `finish_run` 事务，使 checkpoint、Run、Action、workspace 与 durable event 原子收敛并通过 T018
+- [X] T019 在 `src/intel_agent/state_store.py` 实施 `claim_action`、queued Run claim 和 `finish_run` 事务，使 checkpoint、Run、Action、workspace 与 durable event 原子收敛并通过 T018
 - [ ] T020 [P] 添加工作区单实例锁、旧 active Run 中断、queued initial/action/report/retry 恢复及 executing 状态收敛测试到 `tests/test_conversation_recovery.py`
 - [ ] T021 在 `src/intel_agent/conversation.py` 和 `src/intel_agent/web/app.py` 实施工作区锁与完整启动恢复矩阵，移除无 heartbeat 的固定两分钟 lease 作为活性依据
 - [ ] T022 添加 Agent 绑定 Task/Run 后拒绝跨任务 Fact、Evidence、Document、Plan、Checkpoint 和 Report 读写的测试到 `tests/test_runner.py` 与 `tests/test_continuation.py`

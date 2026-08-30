@@ -1313,6 +1313,57 @@ class StateStore:
             ).fetchone()
         return _row_to_action(_required(row, "action request"))
 
+    def claim_run(
+        self,
+        run_id: str,
+        *,
+        phase: str,
+        lease_owner: str,
+        lease_expires_at: str | None = None,
+    ) -> ResearchRun:
+        """Atomically claim one queued Run against its input version."""
+        now = utc_now()
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            run = _find_run(connection, run_id)
+            if run["status"] == "running":
+                return _row_to_run(run)
+            if run["status"] != "queued":
+                raise _invalid_transition("run", run["status"], "running")
+            state = _task_state(connection, run["task_id"])
+            if (
+                state["current_committed_state_version"]
+                != run["input_committed_state_version"]
+            ):
+                raise IntelError("STALE_RUN", "运行基于过期的研究状态")
+            connection.execute(
+                "UPDATE research_runs SET status = 'running', phase = ?, "
+                "started_at = ?, lease_owner = ?, lease_expires_at = ? "
+                "WHERE id = ? AND status = 'queued'",
+                (phase, now, lease_owner, lease_expires_at, run_id),
+            )
+            conversation_id = _conversation_id_for_run(connection, run)
+            event_sequence = _insert_event(
+                connection,
+                conversation_id,
+                "run.running",
+                {"run_id": run_id, "status": "running", "phase": phase},
+                now,
+                research_run_id=run_id,
+            )
+            _insert_timeline_entry(
+                connection,
+                conversation_id,
+                "run_status",
+                {"run_id": run_id, "status": "running", "phase": phase},
+                now,
+                source_event_sequence=event_sequence,
+            )
+            row = connection.execute(
+                "SELECT * FROM research_runs WHERE id = ?", (run_id,)
+            ).fetchone()
+        return _row_to_run(_required(row, "research run"))
+
     def finish_run(
         self,
         run_id: str,

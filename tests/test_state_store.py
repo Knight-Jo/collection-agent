@@ -75,6 +75,39 @@ def test_claim_action_is_idempotent_and_expires_stale_precondition(cwd):
     assert store.claim_action(action.id).status == "executing"
 
 
+def test_claim_run_is_idempotent_and_checks_input_version(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    run = store.create_run("task-1", "initial", 0, {})
+
+    claimed = store.claim_run(run.id, phase="planning", lease_owner="worker-1")
+
+    assert claimed.status == "running"
+    assert (
+        store.claim_run(run.id, phase="planning", lease_owner="worker-1")
+        == claimed
+    )
+
+    committed = store.create_run("task-1", "continue_research", 0, {})
+    store.finish_run(
+        run.id,
+        expected_input_version=0,
+        staged_manifest=[
+            AssetRevisionRef(
+                asset_type="document",
+                logical_id="doc-1",
+                revision_id="rev-1",
+                content_sha256="",
+                task_id="task-1",
+            )
+        ],
+    )
+    with pytest.raises(IntelError, match="过期"):
+        store.claim_run(
+            committed.id, phase="collecting", lease_owner="worker-2"
+        )
+
+
 def test_finish_run_atomically_commits_and_replays(cwd):
     store = StateStore(cwd)
     store.register_task("task-1")

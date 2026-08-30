@@ -119,9 +119,8 @@ class ContinuationRunner:
                     if current.status == "queued"
                     else current
                 )
-            self.store.transition_run(
+            self.store.claim_run(
                 run.id,
-                "running",
                 phase="planning",
                 lease_owner=run.id,
                 lease_expires_at=(
@@ -214,9 +213,8 @@ class ContinuationRunner:
             self.store.transition_action(
                 action.id, "executing", created_research_run_id=run.id
             )
-            self.store.transition_run(
+            self.store.claim_run(
                 run.id,
-                "running",
                 phase="collecting",
                 lease_owner=run.id,
                 lease_expires_at=(
