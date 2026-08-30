@@ -597,6 +597,27 @@ def test_stale_report_requires_explicit_current_version(cwd):
     assert published.status == "published"
 
 
+def test_report_fingerprint_mismatch_is_stale_even_at_same_version(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    snapshot = store.committed_snapshot("task-1")
+    draft = store.create_report_draft(
+        "task-1",
+        "output/report.md",
+        "abc",
+        expected_snapshot_fingerprint=snapshot.fingerprint,
+    )
+
+    with connect_state_db(cwd) as connection:
+        connection.execute(
+            "UPDATE report_versions SET snapshot_fingerprint = ? WHERE id = ?",
+            ("0" * 64, draft.id),
+        )
+
+    with pytest.raises(IntelError, match="旧研究状态"):
+        store.publish_report(draft.id)
+
+
 def test_new_report_draft_abandons_previous_draft(cwd):
     store = StateStore(cwd)
     store.register_task("task-1")

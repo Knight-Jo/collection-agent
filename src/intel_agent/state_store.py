@@ -2358,8 +2358,20 @@ class StateStore:
                 )
             state = _task_state(connection, report["task_id"])
             current_version = state["current_committed_state_version"]
-            is_stale = (
-                report["based_on_committed_state_version"] != current_version
+            snapshot = connection.execute(
+                "SELECT fingerprint FROM committed_snapshots "
+                "WHERE task_id = ? AND version = ?",
+                (report["task_id"], current_version),
+            ).fetchone()
+            is_stale = report[
+                "based_on_committed_state_version"
+            ] != current_version or (
+                report["snapshot_fingerprint"] is not None
+                and (
+                    snapshot is None
+                    or report["snapshot_fingerprint"]
+                    != snapshot["fingerprint"]
+                )
             )
             stale_confirmed = (
                 publish_stale
