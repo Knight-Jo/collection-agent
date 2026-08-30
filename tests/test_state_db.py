@@ -144,6 +144,40 @@ def test_initialize_is_idempotent(cwd):
     assert second == first
 
 
+def test_initialize_upgrades_database_missing_v4_objects(cwd):
+    initialize_state_db(cwd)
+    with connect_state_db(cwd) as connection:
+        connection.execute("DROP TABLE research_outcomes")
+        connection.execute("DROP TABLE run_workspace_assets")
+        connection.execute("DROP TABLE run_workspaces")
+        connection.execute("DROP TABLE committed_snapshots")
+        connection.execute("DELETE FROM schema_migrations WHERE version = 4")
+
+    initialize_state_db(cwd)
+
+    with connect_state_db(cwd) as connection:
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
+        versions = [
+            row[0]
+            for row in connection.execute(
+                "SELECT version FROM schema_migrations ORDER BY version"
+            )
+        ]
+
+    assert {
+        "committed_snapshots",
+        "run_workspaces",
+        "run_workspace_assets",
+        "research_outcomes",
+    } <= tables
+    assert versions == [1, 2, 3, 4]
+
+
 def test_schema_rejects_duplicate_citation_sequence(cwd):
     initialize_state_db(cwd)
 

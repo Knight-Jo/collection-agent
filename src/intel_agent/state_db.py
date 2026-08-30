@@ -441,10 +441,7 @@ ON research_runs(task_id) WHERE status IN ('running', 'stopping');
 """
 
 SCHEMA_V4 = """
-ALTER TABLE research_checkpoints ADD COLUMN snapshot_fingerprint TEXT;
-ALTER TABLE report_versions ADD COLUMN snapshot_fingerprint TEXT;
-
-CREATE TABLE committed_snapshots (
+CREATE TABLE IF NOT EXISTS committed_snapshots (
     id TEXT PRIMARY KEY,
     task_id TEXT NOT NULL REFERENCES task_state(task_id) ON DELETE CASCADE,
     version INTEGER NOT NULL CHECK (version >= 0),
@@ -455,14 +452,14 @@ CREATE TABLE committed_snapshots (
     UNIQUE (task_id, version)
 );
 
-CREATE TABLE run_workspaces (
+CREATE TABLE IF NOT EXISTS run_workspaces (
     run_id TEXT PRIMARY KEY REFERENCES research_runs(id) ON DELETE CASCADE,
     task_id TEXT NOT NULL REFERENCES task_state(task_id) ON DELETE CASCADE,
     base_version INTEGER NOT NULL CHECK (base_version >= 0),
     status TEXT NOT NULL CHECK (status IN ('open', 'committed', 'abandoned'))
 );
 
-CREATE TABLE run_workspace_assets (
+CREATE TABLE IF NOT EXISTS run_workspace_assets (
     run_id TEXT NOT NULL REFERENCES run_workspaces(run_id) ON DELETE CASCADE,
     task_id TEXT NOT NULL REFERENCES task_state(task_id) ON DELETE CASCADE,
     asset_type TEXT NOT NULL,
@@ -472,7 +469,7 @@ CREATE TABLE run_workspace_assets (
     PRIMARY KEY (run_id, asset_type, logical_id, revision_id)
 );
 
-CREATE TABLE research_outcomes (
+CREATE TABLE IF NOT EXISTS research_outcomes (
     run_id TEXT PRIMARY KEY REFERENCES research_runs(id) ON DELETE CASCADE,
     task_id TEXT NOT NULL REFERENCES task_state(task_id) ON DELETE CASCADE,
     outcome TEXT NOT NULL CHECK (outcome IN (
@@ -484,7 +481,7 @@ CREATE TABLE research_outcomes (
     created_at TEXT NOT NULL
 );
 
-CREATE UNIQUE INDEX one_run_per_action
+CREATE UNIQUE INDEX IF NOT EXISTS one_run_per_action
 ON research_runs(action_request_id) WHERE action_request_id IS NOT NULL;
 """
 
@@ -542,8 +539,35 @@ def initialize_state_db(cwd: Path) -> Path:
             "SELECT 1 FROM schema_migrations WHERE version = 4"
         ).fetchone()
         if SCHEMA_VERSION >= 4 and migrated is None:
+            _add_column_if_missing(
+                connection,
+                "research_checkpoints",
+                "snapshot_fingerprint",
+                "TEXT",
+            )
+            _add_column_if_missing(
+                connection,
+                "report_versions",
+                "snapshot_fingerprint",
+                "TEXT",
+            )
             connection.executescript(SCHEMA_V4)
             connection.execute(
                 "INSERT INTO schema_migrations(version) VALUES (?)", (4,)
             )
     return path
+
+
+def _add_column_if_missing(
+    connection: sqlite3.Connection,
+    table: str,
+    column: str,
+    definition: str,
+) -> None:
+    columns = {
+        row[1] for row in connection.execute(f"PRAGMA table_info({table})")
+    }
+    if column not in columns:
+        connection.execute(
+            f"ALTER TABLE {table} ADD COLUMN {column} {definition}"
+        )

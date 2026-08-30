@@ -37,7 +37,7 @@
 - [X] T008 在 `src/intel_agent/fetch.py`、`src/intel_agent/search/__init__.py`、`src/intel_agent/extract.py`、`src/intel_agent/crawl.py`、`src/intel_agent/web/schemas.py` 与 `src/intel_agent/web/runs.py` 实施解析前流式限额和有界集合，使 T007 通过
 - [X] T009 添加敏感 URL 查询参数和认证值不进入日志、trace、SSE、文档 metadata 或报告的回归测试到 `tests/test_logging.py`、`tests/test_trajectory.py` 与 `tests/test_web_api.py`
 - [X] T010 复用 `src/intel_agent/logging.py` 的脱敏路径并补齐 `src/intel_agent/fetch.py`、`src/intel_agent/trajectory.py`、`src/intel_agent/state_store.py` 与 `src/intel_agent/web/app.py` 的 URL/secret 持久化调用，使 T009 通过
-- [ ] T011 [P] 添加旧数据库升级、baseline snapshot、asset revision manifest、run workspace 和 `research_runs(action_request_id)` 唯一约束测试到 `tests/test_state_db.py` 与 `tests/test_state_models.py`
+- [X] T011 [P] 添加旧数据库升级、baseline snapshot、asset revision manifest、run workspace 和 `research_runs(action_request_id)` 唯一约束测试到 `tests/test_state_db.py` 与 `tests/test_state_models.py`
 - [X] T012 在 `src/intel_agent/state_db.py` 和 `src/intel_agent/models.py` 实施 T011 所需的最小向前迁移及 `CommittedResearchSnapshot`、`AssetRevisionRef`、`RunWorkspace`、`ResearchOutcome` 模型
 - [X] T013 添加固定版本 snapshot、hash 验证、未提交/abandoned workspace 不可见和幂等读取测试到 `tests/test_state_store.py`
 - [X] T014 在 `src/intel_agent/state_store.py` 和 `src/intel_agent/storage.py` 实施 `committed_snapshot(task_id, version)`、`run_view(run_id)`、staged revision 和确定性 fingerprint，使 T013 通过
