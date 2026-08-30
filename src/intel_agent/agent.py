@@ -269,7 +269,17 @@ def _resolve_bound_task_id(
             raise IntelError("INVALID_INPUT", "工具 task_id 与当前运行不匹配")
         return deps.bound_task_id
     if not requested_task_id:
-        raise IntelError("INVALID_INPUT", "工具必须提供 task_id")
+        # Direct CLI and legacy callers do not carry a Run binding. Preserve
+        # their single active task behavior; bound runs always take the path
+        # above and cannot fall back across tasks.
+        try:
+            return load_task(deps.cwd).id
+        except IntelError as error:
+            if error.code == "NOT_FOUND":
+                raise IntelError(
+                    "INVALID_INPUT", "工具必须提供 task_id"
+                ) from error
+            raise
     return requested_task_id
 
 
@@ -1390,6 +1400,14 @@ def build_agent(
         # search call yields a wider candidate pool for the same budget
         # (run 011: unbounded-breadth direction).
         recall = max(max_results, 10)
+        native_providers = credentialed_providers(
+            ctx.deps.settings.search.ai_native
+        )
+        provider_kwargs = (
+            {"ai_native_providers": native_providers}
+            if native_providers
+            else {}
+        )
         result = await web_search(
             query,
             recall,
@@ -1402,9 +1420,7 @@ def build_agent(
             }
             if time_range
             else {"category": category, "language": language},
-            ai_native_providers=credentialed_providers(
-                ctx.deps.settings.search.ai_native
-            ),
+            **provider_kwargs,
         )
         if category == "news" and not result.get("results"):
             # news engines can be entirely down (searxng backends timing
@@ -1417,9 +1433,7 @@ def build_agent(
                 client=ctx.deps.http,
                 searxng_url=ctx.deps.settings.search.searxng_url,
                 opts={"category": "general", "language": language},
-                ai_native_providers=credentialed_providers(
-                    ctx.deps.settings.search.ai_native
-                ),
+                **provider_kwargs,
             )
         _seed_active_crawl(ctx.deps.cwd, ctx.deps.settings, result)
         try:
