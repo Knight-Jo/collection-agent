@@ -11,12 +11,13 @@ from intel_agent.config import Settings
 from intel_agent.conversation import ConversationRuntime
 from intel_agent.dialogue import DialogueAction, DialogueDecision
 from intel_agent.intake import IntakeDecision
+from intel_agent.materials import register_material
 from intel_agent.models import Message
 from intel_agent.retrieval import RetrievedPassage
 from intel_agent.storage import sha256, workspace_path
 from intel_agent.web.app import create_app
 from intel_agent.web.conversation import conversation_events
-from tests.conftest import new_task
+from tests.conftest import make_document, new_task
 
 
 class _Retriever:
@@ -101,6 +102,30 @@ def test_conversation_message_round_trip(cwd):
     assert completed.status_code == 200
     assert completed.json()["content"] == "当前材料回答"
     assert len(projection.json()["messages"]) == 2
+
+
+def test_task_view_hides_assets_staged_after_committed_baseline(cwd):
+    task = new_task(cwd)
+    runtime = ConversationRuntime(
+        cwd, dialogue=_Dialogue(), retriever=_Retriever()
+    )
+    runtime.conversation_view(task.id)
+    document = make_document(cwd, "uncommitted material")
+    register_material(
+        cwd, task.id, document.canonical_url, document_id=document.id
+    )
+    client = TestClient(
+        create_app(
+            cwd=cwd,
+            settings=Settings(),
+            conversation_runtime=runtime,
+        )
+    )
+
+    response = client.get(f"/api/tasks/{task.id}")
+
+    assert response.status_code == 200
+    assert response.json()["resources"] == []
 
 
 def test_conversation_first_intake_round_trip(cwd):

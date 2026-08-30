@@ -25,6 +25,7 @@ from .evidence import list_evidence_for_task, load_document
 from .fact import list_active_facts_for_task
 from .materials import load_material_digest
 from .models import IntelError
+from .state_store import StateStore
 from .task import load_task, summarize_task
 
 CONTEXT_SNAPSHOT_PREFIX = "[CONTEXT_SNAPSHOT]\n"
@@ -33,15 +34,24 @@ CONTEXT_SNAPSHOT_PREFIX = "[CONTEXT_SNAPSHOT]\n"
 class _ContextDeps(Protocol):
     cwd: Path
     read_document_ids: set[str]
+    bound_task_id: str | None
+    run_id: str | None
 
 
-def _archived_documents(cwd: Path, task_id: str) -> list[dict[str, str]]:
+def _archived_documents(
+    cwd: Path, task_id: str, visible_document_ids: set[str] | None = None
+) -> list[dict[str, str]]:
     digest = load_material_digest(cwd, task_id)
     if digest is None:
         return []
     documents: list[dict[str, str]] = []
     for material in reversed(digest.materials):
         if not material.document_id or material.error:
+            continue
+        if (
+            visible_document_ids is not None
+            and material.document_id not in visible_document_ids
+        ):
             continue
         try:
             document = load_document(cwd, material.document_id)
@@ -60,20 +70,48 @@ def _archived_documents(cwd: Path, task_id: str) -> list[dict[str, str]]:
 
 
 def build_context_snapshot(
-    cwd: Path, *, read_document_ids: set[str] | None = None
+    cwd: Path,
+    *,
+    read_document_ids: set[str] | None = None,
+    task_id: str | None = None,
+    run_id: str | None = None,
 ) -> str:
     """Build a compact, deterministic snapshot from persisted task state."""
     try:
-        task = load_task(cwd)
+        task = load_task(cwd, task_id)
     except IntelError as error:
         if error.code == "NOT_FOUND":
             return json.dumps({"task": None}, ensure_ascii=False)
         raise
+    visible_asset_ids = _visible_asset_ids(cwd, task_id or task.id, run_id)
+    visible_document_ids = (
+        visible_asset_ids.get("document")
+        if visible_asset_ids is not None
+        else None
+    )
+    visible_fact_ids = (
+        visible_asset_ids.get("fact")
+        if visible_asset_ids is not None
+        else None
+    )
+    visible_evidence_ids = (
+        visible_asset_ids.get("evidence")
+        if visible_asset_ids is not None
+        else None
+    )
     coverage = latest_coverage(cwd, task.id)
-    facts = list_active_facts_for_task(cwd, task.id)[:20]
-    documents = _archived_documents(cwd, task.id)
+    facts = [
+        item
+        for item in list_active_facts_for_task(cwd, task.id)
+        if visible_fact_ids is None or item.id in visible_fact_ids
+    ][:20]
+    documents = _archived_documents(cwd, task.id, visible_document_ids)
     material_digest = load_material_digest(cwd, task.id)
-    evidence = list_evidence_for_task(cwd, task.id)
+    evidence = [
+        item
+        for item in list_evidence_for_task(cwd, task.id)
+        if visible_evidence_ids is None or item.id in visible_evidence_ids
+    ]
     reviews = {
         item.id: review
         for item in evidence
@@ -292,7 +330,42 @@ def make_history_processor(config: ContextConfig):
                 read_document_ids=getattr(
                     ctx.deps, "read_document_ids", set()
                 ),
+                task_id=getattr(ctx.deps, "bound_task_id", None),
+                run_id=getattr(ctx.deps, "run_id", None),
             ),
         )
 
     return process
+
+
+def _visible_asset_ids(
+    cwd: Path, task_id: str, run_id: str | None
+) -> dict[str, set[str]] | None:
+    """Return committed plus current-run staged asset IDs when registered."""
+    store = StateStore(cwd)
+    try:
+        snapshot = store.committed_snapshot(task_id)
+    except IntelError as error:
+        if error.code == "NOT_FOUND":
+            return None
+        raise
+    visible: dict[str, set[str]] = {
+        asset_type: store.committed_asset_ids(task_id, asset_type)
+        for asset_type in ("document", "fact", "evidence")
+    }
+    for item in snapshot.asset_manifest:
+        visible.setdefault(item.asset_type, set()).add(item.logical_id)
+    if run_id is None and snapshot.version == 0 and not any(visible.values()):
+        # Legacy tasks are registered lazily by load_task; preserve their
+        # existing context until a durable baseline or active run exists.
+        return None
+    if run_id is not None:
+        try:
+            workspace = store.run_view(run_id)
+        except IntelError as error:
+            if error.code == "WORKSPACE_CLOSED":
+                return visible
+            raise
+        for item in workspace.staged_revisions:
+            visible.setdefault(item.asset_type, set()).add(item.logical_id)
+    return visible

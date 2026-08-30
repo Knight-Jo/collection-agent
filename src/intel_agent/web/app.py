@@ -217,14 +217,42 @@ def create_app(
 
     @app.get("/api/tasks/{task_id}", response_model=TaskView)
     async def task_detail(task_id: str) -> TaskView:
-        return get_task_view(app.state.cwd, task_id)
+        runtime = app.state.conversation_runtime
+        runtime.conversation_view(task_id)
+        snapshot = runtime.store.committed_snapshot(task_id)
+        visible = {}
+        for item in snapshot.asset_manifest:
+            visible.setdefault(item.asset_type, set()).add(item.logical_id)
+        if not snapshot.asset_manifest:
+            visible = {
+                asset_type: runtime.store.committed_asset_ids(
+                    task_id, asset_type
+                )
+                for asset_type in ("document", "fact", "evidence")
+            }
+        return get_task_view(app.state.cwd, task_id, visible_asset_ids=visible)
 
     @app.get("/api/tasks/{task_id}/resources/{document_id}/download")
     async def resource_download(
         task_id: str, document_id: str
     ) -> FileResponse:
+        runtime = app.state.conversation_runtime
+        runtime.conversation_view(task_id)
+        snapshot = runtime.store.committed_snapshot(task_id)
+        visible_document_ids = {
+            item.logical_id
+            for item in snapshot.asset_manifest
+            if item.asset_type == "document"
+        }
+        if not snapshot.asset_manifest:
+            visible_document_ids = runtime.store.committed_asset_ids(
+                task_id, "document"
+            )
         path, document = get_resource_download(
-            app.state.cwd, task_id, document_id
+            app.state.cwd,
+            task_id,
+            document_id,
+            visible_document_ids=visible_document_ids,
         )
         filename = Path(urlparse(document.final_url).path).name or document.id
         return FileResponse(

@@ -207,3 +207,46 @@ async def test_stop_running_continuation_preserves_committed_boundary(
     assert result.status == "cancelled"
     assert store.list_runs(task.id)[0].status == "stopped"
     assert store.committed_state_version(task.id) == 0
+
+
+async def test_continuations_create_run_only_after_workspace_claim(
+    monkeypatch, cwd
+):
+    task = new_task(cwd)
+    store = StateStore(cwd)
+    store.register_task(task.id)
+    first_trigger = store.add_user_message(task.id, "继续搜索", "client-1")
+    second_trigger = store.add_user_message(task.id, "继续搜索", "client-2")
+    first = store.create_action(
+        task.id, first_trigger.id, "continue_research", {"topic": "甲"}
+    )
+    second = store.create_action(
+        task.id, second_trigger.id, "continue_research", {"topic": "乙"}
+    )
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    class _WaitingAgent:
+        async def run(self, _prompt, **_kwargs):
+            started.set()
+            await release.wait()
+            return SimpleNamespace(output="done")
+
+    monkeypatch.setattr(
+        continuation_module,
+        "build_agent",
+        lambda *_args, **_kwargs: _WaitingAgent(),
+    )
+    runner = ContinuationRunner(cwd, store=store)
+    first_task = asyncio.create_task(runner.run(first))
+    await started.wait()
+    second_task = asyncio.create_task(runner.run(second))
+    await asyncio.sleep(0)
+
+    assert len(store.list_runs(task.id)) == 1
+    assert store.get_action(second.id).status == "queued"
+
+    release.set()
+    await first_task
+    await second_task
+    assert len(store.list_runs(task.id)) == 2

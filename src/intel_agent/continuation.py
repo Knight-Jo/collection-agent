@@ -189,27 +189,36 @@ class ContinuationRunner:
     ) -> ActionRequest:
         """Execute one queued continuation and return its terminal action."""
         token = cancellation_token or CancellationToken()
-        run = self.store.create_run(
-            action.task_id,
-            "continue_research",
-            self.store.committed_state_version(action.task_id),
-            {
-                "action_type": action.action_type,
-                "scope": action.immutable_payload,
-            },
-            trigger_message_id=action.trigger_message_id,
-            action_request_id=action.id,
-        )
-        if token.cancelled:
-            self.store.transition_run(run.id, "cancelled")
-            return self.store.transition_action(action.id, "cancelled")
-
-        await self.gate.acquire(run.id)
+        owner = f"action:{action.id}"
+        await self.gate.acquire(owner)
+        run: ResearchRun | None = None
         saved_collection: CollectionState | None = None
         try:
             if token.cancelled:
+                run = self.store.create_run(
+                    action.task_id,
+                    "continue_research",
+                    self.store.committed_state_version(action.task_id),
+                    {
+                        "action_type": action.action_type,
+                        "scope": action.immutable_payload,
+                    },
+                    trigger_message_id=action.trigger_message_id,
+                    action_request_id=action.id,
+                )
                 self.store.transition_run(run.id, "cancelled")
                 return self.store.transition_action(action.id, "cancelled")
+            run = self.store.create_run(
+                action.task_id,
+                "continue_research",
+                self.store.committed_state_version(action.task_id),
+                {
+                    "action_type": action.action_type,
+                    "scope": action.immutable_payload,
+                },
+                trigger_message_id=action.trigger_message_id,
+                action_request_id=action.id,
+            )
             self.store.transition_action(
                 action.id, "executing", created_research_run_id=run.id
             )
@@ -284,6 +293,8 @@ class ContinuationRunner:
             )
             return self.store.get_action(action.id)
         except (RunCancelled, asyncio.CancelledError):
+            if run is None:
+                return self.store.get_action(action.id)
             current_run = self.store.get_run(run.id)
             if current_run.status == "running":
                 self.store.stop_run(run.id)
@@ -295,6 +306,13 @@ class ContinuationRunner:
                 return self.store.transition_action(action.id, "cancelled")
             return current_action
         except Exception as error:
+            if run is None:
+                current_action = self.store.get_action(action.id)
+                if current_action.status == "executing":
+                    return self.store.transition_action(
+                        action.id, "failed", error=str(error)
+                    )
+                return current_action
             current_run = self.store.get_run(run.id)
             if current_run.status == "running":
                 self.store.transition_run(run.id, "failed", error=str(error))
@@ -314,7 +332,7 @@ class ContinuationRunner:
                     self.cwd,
                     latest.model_copy(update={"collection": restored}),
                 )
-            self.gate.release(run.id)
+            self.gate.release(owner)
 
 
 def _asset_snapshot(

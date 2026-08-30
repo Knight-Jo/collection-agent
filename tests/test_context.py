@@ -21,6 +21,7 @@ from intel_agent.coverage import eval_coverage
 from intel_agent.evidence import save_evidence
 from intel_agent.fact import save_fact
 from intel_agent.materials import generate_material_digest, register_material
+from intel_agent.state_store import StateStore
 from intel_agent.task import create_task, load_task, save_task
 from tests.conftest import DEFAULT_CRITERIA, make_document
 
@@ -124,6 +125,31 @@ def test_context_snapshot_restores_task_fact_and_coverage(cwd):
     assert fact.id in snapshot
     assert "测试主题已有一个待验证事实" in snapshot
     assert '"level": "insufficient"' in snapshot
+
+
+def test_context_snapshot_hides_uncommitted_assets_for_active_run(cwd):
+    task = create_task(
+        cwd,
+        "测试主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+    )
+    store = StateStore(cwd)
+    store.register_task(task.id)
+    run = store.create_run(task.id, "initial", 0, {})
+    store.transition_run(run.id, "running")
+    document = make_document(cwd, "运行中材料不应进入上下文")
+    register_material(
+        cwd,
+        task.id,
+        document.canonical_url,
+        document_id=document.id,
+    )
+
+    snapshot = build_context_snapshot(cwd, task_id=task.id, run_id=run.id)
+
+    assert document.id not in snapshot
+    assert "运行中材料不应进入上下文" not in snapshot
 
 
 def test_context_snapshot_directs_small_model_to_archived_document(cwd):

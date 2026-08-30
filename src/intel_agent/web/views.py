@@ -58,7 +58,10 @@ def _source_chain(
 
 
 def _crawl_resources(
-    cwd: Path, task_id: str, digest: MaterialDigest | None
+    cwd: Path,
+    task_id: str,
+    digest: MaterialDigest | None,
+    document_ids: set[str] | None = None,
 ) -> list[CrawlResourceView]:
     try:
         crawl = load_crawl(cwd, task_id)
@@ -76,6 +79,8 @@ def _crawl_resources(
     entries_by_url = {entry.canonical_url: entry for entry in entries}
     resources: list[CrawlResourceView] = []
     for entry in entries:
+        if document_ids is not None and entry.document_id not in document_ids:
+            continue
         review = reviews.get(entry.canonical_url)
         resources.append(
             CrawlResourceView(
@@ -95,6 +100,11 @@ def _crawl_resources(
         )
     for material in digest.materials if digest else []:
         if material.canonical_url in entries_by_url:
+            continue
+        if (
+            document_ids is not None
+            and material.document_id not in document_ids
+        ):
             continue
         document = (
             load_document(cwd, material.document_id)
@@ -165,13 +175,44 @@ def list_task_summaries(cwd: Path) -> list[TaskSummary]:
     return sorted(summaries, key=lambda item: item.updated_at, reverse=True)
 
 
-def get_task_view(cwd: Path, task_id: str) -> TaskView:
+def get_task_view(
+    cwd: Path,
+    task_id: str,
+    *,
+    visible_asset_ids: dict[str, set[str]] | None = None,
+) -> TaskView:
     """Build a question-first task view with nested evidence and reviews."""
     task = load_task(cwd, task_id)
     material_digest = load_material_digest(cwd, task.id)
     coverage = latest_coverage(cwd, task.id)
     facts = list_facts_for_task(cwd, task.id)
     evidence = list_evidence_for_task(cwd, task.id)
+    document_ids = (
+        visible_asset_ids.get("document", set())
+        if visible_asset_ids is not None
+        else None
+    )
+    if visible_asset_ids is not None:
+        fact_ids = visible_asset_ids.get("fact", set())
+        evidence_ids = visible_asset_ids.get("evidence", set())
+        facts = [item for item in facts if item.id in fact_ids]
+        evidence = [
+            item
+            for item in evidence
+            if item.id in evidence_ids
+            and item.fact_id in fact_ids
+            and item.document_id in document_ids
+        ]
+        if material_digest is not None:
+            material_digest = material_digest.model_copy(
+                update={
+                    "materials": [
+                        item
+                        for item in material_digest.materials
+                        if item.document_id in document_ids
+                    ]
+                }
+            )
     reviews = {
         review.evidence_id: review
         for review in list_support_reviews_for_task(cwd, task.id)
@@ -239,16 +280,27 @@ def get_task_view(cwd: Path, task_id: str) -> TaskView:
         ],
         conflicts=load_conflicts(cwd, task.id),
         challenges=list_challenge_rounds(cwd, task.id),
-        resources=_crawl_resources(cwd, task.id, material_digest),
+        resources=_crawl_resources(
+            cwd, task.id, material_digest, document_ids
+        ),
         material_digest=material_digest,
     )
 
 
 def get_resource_download(
-    cwd: Path, task_id: str, document_id: str
+    cwd: Path,
+    task_id: str,
+    document_id: str,
+    *,
+    visible_document_ids: set[str] | None = None,
 ) -> tuple[Path, IntelDocument]:
     """Resolve a task-owned original only after document integrity checks."""
     load_task(cwd, task_id)
+    if (
+        visible_document_ids is not None
+        and document_id not in visible_document_ids
+    ):
+        raise IntelError("NOT_FOUND", f"任务资源不存在: {document_id}")
     crawl_document_ids: set[str] = set()
     try:
         crawl = load_crawl(cwd, task_id)
