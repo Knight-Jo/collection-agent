@@ -171,6 +171,13 @@
 - [X] T069 执行并修复 `ruff format --check .`、`ruff check .`、`pyright`、`pytest` 与 `uv build` 发现的问题，必要修改限定在对应失败文件和 `tests/`
 - [ ] T070 执行并修复 `web/` 下 `bun run test`、`bun run typecheck`、`bun run check`、`bun run build`，随后按 `specs/001-conversational-research/quickstart.md` 完成 P0/P1 故障注入和 AI-native smoke 验收
 
+## Phase 8: Convergence
+
+- [ ] T071 将 `/api/runs` 查询、取消、事件和重启恢复统一到持久 `ResearchRun`/event，移除 `RunRegistry` 作为第二状态真相（plan: lifecycle persistence, partial）
+- [ ] T072 让报告渲染一次固定 `CommittedResearchSnapshot`，保存完整 revision fingerprint，并返回历史报告的 stale 状态（US4/AC, partial）
+- [ ] T073 补齐 bound Task/Run 的跨任务拒绝、queued/executing 恢复、取消与重试验收，并确保所有生命周期路径只提交有效 workspace revision（FR-生命周期, partial）
+- [ ] T074 完成多 Provider 降级、深爬附件边界、独立 supports 交叉验证、运行级预算和全栈故障注入验收（US2/AC, partial）
+
 ---
 
 ## Dependencies & Execution Order
