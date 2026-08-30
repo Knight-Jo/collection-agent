@@ -87,7 +87,7 @@
 
 ### Tests for User Story 2
 
-- [ ] T032 [P] [US2] 添加 initial/continuation Run 各有不可变 SearchPlanVersion、active plan endpoint 可读及旧计划前置条件过期测试到 `tests/test_state_store.py` 与 `tests/test_web_conversation.py`
+- [X] T032 [P] [US2] 添加 initial/continuation Run 各有不可变 SearchPlanVersion、active plan endpoint 可读及旧计划前置条件过期测试到 `tests/test_state_store.py` 与 `tests/test_web_conversation.py`
 - [ ] T033 [P] [US2] 添加 AI-native 配置约束、缺密钥 degraded、disabled 不调用和 credentialed admission 测试到 `tests/test_config.py` 与 `tests/test_search_providers.py`
 - [ ] T034 [P] [US2] 添加 Exa、Brave、Tavily 官方响应映射、认证头、超限响应、无效 schema 和 secret 不泄漏契约测试到 `tests/test_search_providers.py`
 - [ ] T035 [P] [US2] 添加现有国内外渠道与 AI-native Provider 并发、URL 去重、单点失败降级、总预算和“摘要不是证据”组合测试到 `tests/test_search.py`

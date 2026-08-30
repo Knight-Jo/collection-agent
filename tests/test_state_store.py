@@ -116,6 +116,19 @@ def test_finish_run_no_progress_keeps_version(cwd):
     assert store.committed_state_version("task-1") == 0
 
 
+def test_search_plan_versions_are_immutable_and_run_scoped(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    run = store.create_run("task-1", "initial", 0, {})
+    first = store.create_search_plan_version(run.id, {"query": "one"})
+    second = store.create_search_plan_version(run.id, {"query": "two"})
+
+    assert first.sequence == 1
+    assert second.sequence == 2
+    assert store.get_search_plan_version(first.id).plan == {"query": "one"}
+    assert store.active_search_plan(run.id).id == second.id
+
+
 def test_conversation_archive_is_reversible_and_filtered(cwd):
     store = StateStore(cwd)
     conversation = store.create_conversation("browser-c1")
