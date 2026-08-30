@@ -927,11 +927,11 @@ a {
 .message-optimistic {
   opacity: 0.78;
 }
-.message-optimistic footer,
+:where(.message-optimistic footer),
 .message-streaming {
   color: #84918b;
 }
-.message-optimistic footer {
+:where(.message-optimistic footer) {
   margin-top: 6px;
   font-size: 11px;
 }
