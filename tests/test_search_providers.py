@@ -188,6 +188,17 @@ def test_credentialed_providers_require_explicit_enablement(monkeypatch):
     assert [provider.metadata.name for provider in providers] == ["exa"]
 
 
+def test_credentialed_provider_without_key_degrades(monkeypatch):
+    from intel_agent.config import AiNativeSearchConfig
+
+    monkeypatch.delenv("EXA_API_KEY", raising=False)
+    cfg = AiNativeSearchConfig(
+        exa={"enabled": True, "api_key_env": "EXA_API_KEY"}
+    )
+
+    assert credentialed_providers(cfg) == []
+
+
 @pytest.mark.asyncio
 async def test_github_parses_repos_and_issues_with_roles():
     def handler(request: httpx.Request) -> httpx.Response:
