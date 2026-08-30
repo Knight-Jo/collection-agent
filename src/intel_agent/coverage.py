@@ -271,9 +271,22 @@ def _load_history(cwd: Path, task_id: str) -> CoverageHistory:
     return CoverageHistory.model_validate(read_json(cwd, path))
 
 
-def latest_coverage(cwd: Path, task_id: str) -> CoverageSnapshot | None:
+def latest_coverage(
+    cwd: Path,
+    task_id: str,
+    visible_snapshot_ids: set[str] | None = None,
+) -> CoverageSnapshot | None:
     snapshots = _load_history(cwd, task_id).snapshots
-    return snapshots[-1] if snapshots else None
+    if visible_snapshot_ids is None:
+        return snapshots[-1] if snapshots else None
+    return next(
+        (
+            snapshot
+            for snapshot in reversed(snapshots)
+            if snapshot.id in visible_snapshot_ids
+        ),
+        None,
+    )
 
 
 def _coverage_fingerprint(per_question: list[QuestionCoverage]) -> str:
@@ -302,7 +315,11 @@ def current_coverage_fingerprint(
 
 
 def eval_coverage(
-    cwd: Path, task_id: str, now: datetime | None = None
+    cwd: Path,
+    task_id: str,
+    now: datetime | None = None,
+    *,
+    run_id: str | None = None,
 ) -> CoverageSnapshot:
     now = now or datetime.now(UTC)
     task = load_task(cwd, task_id)
@@ -372,4 +389,13 @@ def eval_coverage(
             task_id=task.id, snapshots=[*history.snapshots, snapshot]
         ).model_dump(),
     )
+    if run_id is not None:
+        from .state_store import StateStore
+
+        StateStore(cwd).stage_asset(
+            run_id,
+            "coverage",
+            snapshot.id,
+            sha256(snapshot.model_dump_json()),
+        )
     return snapshot

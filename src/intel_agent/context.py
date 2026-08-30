@@ -99,7 +99,13 @@ def build_context_snapshot(
         if visible_asset_ids is not None
         else None
     )
-    coverage = latest_coverage(cwd, task.id)
+    coverage = latest_coverage(
+        cwd,
+        task.id,
+        visible_asset_ids["coverage"]
+        if visible_asset_ids is not None and "coverage" in visible_asset_ids
+        else None,
+    )
     facts = [
         item
         for item in list_active_facts_for_task(cwd, task.id)
@@ -107,17 +113,33 @@ def build_context_snapshot(
     ][:20]
     documents = _archived_documents(cwd, task.id, visible_document_ids)
     material_digest = load_material_digest(cwd, task.id)
+    if (
+        material_digest is not None
+        and visible_asset_ids is not None
+        and "material_digest" in visible_asset_ids
+        and task.id not in visible_asset_ids["material_digest"]
+    ):
+        material_digest = None
     evidence = [
         item
         for item in list_evidence_for_task(cwd, task.id)
         if visible_evidence_ids is None or item.id in visible_evidence_ids
     ]
-    reviews = {
-        item.id: review
-        for item in evidence
-        if item.relation == "supports"
-        and (review := review_for_evidence(cwd, item.id)) is not None
-    }
+    reviews = {}
+    visible_review_ids = (
+        visible_asset_ids["review"]
+        if visible_asset_ids is not None and "review" in visible_asset_ids
+        else None
+    )
+    for item in evidence:
+        if item.relation != "supports":
+            continue
+        review = review_for_evidence(cwd, item.id)
+        if review is None:
+            continue
+        if visible_review_ids and review.id not in visible_review_ids:
+            continue
+        reviews[item.id] = review
     pending_evidence_ids = [
         item.id
         for item in evidence
@@ -351,7 +373,16 @@ def _visible_asset_ids(
         raise
     visible: dict[str, set[str]] = {
         asset_type: store.committed_asset_ids(task_id, asset_type)
-        for asset_type in ("document", "fact", "evidence")
+        for asset_type in (
+            "document",
+            "fact",
+            "evidence",
+            "review",
+            "conflict",
+            "coverage",
+            "material_digest",
+            "task_revision",
+        )
     }
     for item in snapshot.asset_manifest:
         visible.setdefault(item.asset_type, set()).add(item.logical_id)

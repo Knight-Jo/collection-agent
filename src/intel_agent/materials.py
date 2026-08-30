@@ -19,6 +19,7 @@ from .storage import (
     intel_path,
     load_crawl,
     read_json,
+    sha256,
     verify_document_integrity,
     workspace_path,
     write_json_atomic,
@@ -100,10 +101,26 @@ def register_material(
         if item.canonical_url != canonical_url
     ]
     materials.append(review)
-    _save_digest(
-        cwd,
-        digest.model_copy(update={"materials": materials, "updated_at": now}),
+    updated_digest = digest.model_copy(
+        update={"materials": materials, "updated_at": now}
     )
+    _save_digest(cwd, updated_digest)
+    if run_id is not None:
+        from .state_store import StateStore
+
+        digest_hash = sha256(updated_digest.model_dump_json())
+        write_json_atomic(
+            cwd,
+            f"materials/revisions/{digest_hash}.json",
+            updated_digest.model_dump(),
+        )
+        StateStore(cwd).stage_asset(
+            run_id,
+            "material_digest",
+            task_id,
+            digest_hash,
+            revision_id=digest_hash,
+        )
     if run_id is not None and document_id is not None:
         from .state_store import StateStore
 
@@ -177,7 +194,9 @@ def _description(
     return f"{title}已归档，但与核心问题的直接关联有限。"[:120]
 
 
-def generate_material_digest(cwd: Path, task_id: str) -> MaterialDigest:
+def generate_material_digest(
+    cwd: Path, task_id: str, *, run_id: str | None = None
+) -> MaterialDigest:
     """Rate all task materials and persist a concise reading guide."""
     task = load_task(cwd, task_id)
     digest = _sync_crawl_materials(
@@ -318,4 +337,18 @@ def generate_material_digest(cwd: Path, task_id: str) -> MaterialDigest:
         }
     )
     _save_digest(cwd, result)
+    if run_id is not None:
+        from .state_store import StateStore
+
+        digest_hash = sha256(result.model_dump_json())
+        write_json_atomic(
+            cwd, f"materials/revisions/{digest_hash}.json", result.model_dump()
+        )
+        StateStore(cwd).stage_asset(
+            run_id,
+            "material_digest",
+            task_id,
+            digest_hash,
+            revision_id=digest_hash,
+        )
     return result

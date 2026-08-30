@@ -19,6 +19,7 @@ from .models import (
     ConversationEpoch,
     ConversationEvent,
     IntelError,
+    MaterialDigest,
     Message,
     MessageCitation,
     MessageProcessingAttempt,
@@ -35,6 +36,7 @@ from .models import (
     utc_now,
 )
 from .state_db import connect_state_db, initialize_state_db
+from .storage import intel_path, read_json, sha256, verify_document_integrity
 from .trajectory import _redact_payload
 
 
@@ -47,6 +49,161 @@ ACTION_TRANSITIONS: dict[str, set[str]] = {
     "queued": {"executing", "expired", "cancelled"},
     "executing": {"succeeded", "failed", "cancelled"},
 }
+
+
+def _materialized_asset_hash(
+    cwd: Path, revision: AssetRevisionRef
+) -> str | None:
+    """Return a stored revision hash when its legacy materialized record exists."""
+    asset_type = revision.asset_type
+    logical_id = revision.logical_id
+    if asset_type == "document":
+        path = intel_path(cwd, f"documents/{logical_id}.json")
+        if not path.exists():
+            return None
+        from .evidence import load_document
+
+        document = load_document(cwd, logical_id)
+        verify_document_integrity(cwd, document)
+        return document.text_sha256
+    if asset_type == "fact":
+        revision_path = intel_path(
+            cwd, f"facts/revisions/{revision.revision_id}.json"
+        )
+        path = (
+            revision_path
+            if revision_path.exists()
+            else intel_path(cwd, f"facts/{logical_id}.json")
+        )
+        if not path.exists():
+            return None
+        from .fact import load_fact
+
+        if path == revision_path:
+            from .models import Fact
+
+            fact = Fact.model_validate(
+                read_json(cwd, f"facts/revisions/{revision.revision_id}.json")
+            )
+            return sha256(fact.model_dump_json())
+        return sha256(load_fact(cwd, logical_id).model_dump_json())
+    if asset_type == "evidence":
+        path = intel_path(cwd, f"evidence/{logical_id}.json")
+        if not path.exists():
+            return None
+        from .evidence import load_evidence
+
+        return sha256(load_evidence(cwd, logical_id).model_dump_json())
+    if asset_type == "review":
+        path = intel_path(cwd, f"reviews/{logical_id}.json")
+        if not path.exists():
+            return None
+        from .models import SupportReview
+
+        return sha256(
+            SupportReview.model_validate(
+                read_json(cwd, f"reviews/{logical_id}.json")
+            ).model_dump_json()
+        )
+    if asset_type == "material_digest":
+        revision_path = intel_path(
+            cwd, f"materials/revisions/{revision.revision_id}.json"
+        )
+        path = (
+            revision_path
+            if revision_path.exists()
+            else intel_path(cwd, f"materials/{logical_id}.json")
+        )
+        if not path.exists():
+            return None
+        from .materials import load_material_digest
+
+        digest = (
+            load_material_digest(cwd, logical_id)
+            if path == intel_path(cwd, f"materials/{logical_id}.json")
+            else MaterialDigest.model_validate(
+                read_json(
+                    cwd,
+                    f"materials/revisions/{revision.revision_id}.json",
+                )
+            )
+        )
+        return sha256(digest.model_dump_json()) if digest else None
+    if asset_type == "task_revision":
+        revision_path = intel_path(
+            cwd, f"tasks/revisions/{revision.revision_id}.json"
+        )
+        path = (
+            revision_path
+            if revision_path.exists()
+            else intel_path(cwd, f"tasks/{logical_id}.json")
+        )
+        if not path.exists():
+            return None
+        if path == revision_path:
+            from .models import IntelTask
+
+            task = IntelTask.model_validate(
+                read_json(cwd, f"tasks/revisions/{revision.revision_id}.json")
+            )
+            return sha256(task.model_dump_json())
+        from .task import load_task
+
+        return sha256(load_task(cwd, logical_id).model_dump_json())
+    if asset_type == "conflict":
+        revision_path = intel_path(
+            cwd, f"conflicts/revisions/{revision.revision_id}.json"
+        )
+        path = (
+            revision_path
+            if revision_path.exists()
+            else intel_path(cwd, "conflicts.json")
+        )
+        if not path.exists():
+            return None
+        from .models import EvidenceConflict
+
+        if path == revision_path:
+            conflict = EvidenceConflict.model_validate(
+                read_json(
+                    cwd,
+                    f"conflicts/revisions/{revision.revision_id}.json",
+                )
+            )
+            return sha256(conflict.model_dump_json())
+        items = read_json(cwd, "conflicts.json")
+        if not isinstance(items, dict):
+            return None
+        match = next(
+            (
+                item
+                for item in items.get("items", [])
+                if item.get("id") == logical_id
+            ),
+            None,
+        )
+        return (
+            sha256(EvidenceConflict.model_validate(match).model_dump_json())
+            if match is not None
+            else None
+        )
+    if asset_type == "coverage":
+        path = intel_path(cwd, f"coverage/{revision.task_id}.json")
+        if not path.exists():
+            return None
+        from .models import CoverageHistory
+
+        history = CoverageHistory.model_validate(
+            read_json(cwd, f"coverage/{revision.task_id}.json")
+        )
+        match = next(
+            (item for item in history.snapshots if item.id == logical_id),
+            None,
+        )
+        return sha256(match.model_dump_json()) if match is not None else None
+    return None
+
+
 RUN_TRANSITIONS: dict[str, set[str]] = {
     "queued": {"running", "cancelled"},
     "running": {"stopping", "succeeded", "failed", "interrupted"},
@@ -1523,6 +1680,12 @@ class StateStore:
                 }
                 for row in manifest_rows
             ]
+            self._validate_snapshot_manifest(
+                [
+                    AssetRevisionRef.model_validate(item)
+                    for item in normalized_manifest
+                ]
+            )
             has_progress = outcome == "committed" and bool(normalized_manifest)
             output_version = (
                 expected_input_version + 1
@@ -1764,6 +1927,8 @@ class StateStore:
         asset_type: CommittedAssetType,
         logical_id: str,
         content_sha256: str,
+        *,
+        revision_id: str | None = None,
     ) -> RunWorkspace:
         """Stage a content-addressed asset produced by the active Run."""
         return self.stage_revision(
@@ -1771,7 +1936,7 @@ class StateStore:
             AssetRevisionRef(
                 asset_type=asset_type,
                 logical_id=logical_id,
-                revision_id=logical_id,
+                revision_id=revision_id or logical_id,
                 content_sha256=content_sha256,
                 task_id=self.get_run(run_id).task_id,
             ),
@@ -1812,7 +1977,28 @@ class StateStore:
                     "SELECT * FROM committed_snapshots WHERE task_id = ? AND version = 0",
                     (task_id,),
                 ).fetchone()
-        return _row_to_snapshot(_required(row, "committed snapshot"))
+        snapshot = _row_to_snapshot(_required(row, "committed snapshot"))
+        self._validate_snapshot_manifest(snapshot.asset_manifest)
+        return snapshot
+
+    def _validate_snapshot_manifest(
+        self, manifest: list[AssetRevisionRef]
+    ) -> None:
+        """Verify hashes for materialized revisions without scanning orphan files."""
+        for revision in manifest:
+            if not revision.content_sha256:
+                continue
+            actual = _materialized_asset_hash(self.cwd, revision)
+            if actual is None:
+                raise IntelError(
+                    "STORAGE_CORRUPT",
+                    f"快照资产缺失: {revision.asset_type}/{revision.logical_id}",
+                )
+            if actual != revision.content_sha256:
+                raise IntelError(
+                    "STORAGE_CORRUPT",
+                    f"快照资产哈希不匹配: {revision.asset_type}/{revision.logical_id}",
+                )
 
     def run_view(self, run_id: str) -> RunWorkspace:
         """Return staged revisions for an open run only."""
@@ -2259,6 +2445,9 @@ class StateStore:
                 }
                 for row in staged_rows
             ]
+            self._validate_snapshot_manifest(
+                [AssetRevisionRef.model_validate(item) for item in manifest]
+            )
             fingerprint = _manifest_fingerprint(manifest)
             connection.execute(
                 "INSERT OR IGNORE INTO committed_snapshots("

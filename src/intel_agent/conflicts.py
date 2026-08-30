@@ -8,7 +8,7 @@ from .audit import is_full_support
 from .evidence import list_evidence_for_fact
 from .fact import load_fact
 from .models import EvidenceConflict, IntelError, new_id, utc_now
-from .storage import intel_path, read_json, write_json_atomic
+from .storage import intel_path, read_json, sha256, write_json_atomic
 from .trajectory import emit_state_updated
 
 
@@ -60,7 +60,11 @@ def load_conflicts(
 
 
 def save_conflict(
-    cwd: Path, fact_id: str, evidence_ids: list[str]
+    cwd: Path,
+    fact_id: str,
+    evidence_ids: list[str],
+    *,
+    run_id: str | None = None,
 ) -> EvidenceConflict:
     fact = load_fact(cwd, fact_id)
     evidence_ids = list(dict.fromkeys(evidence_ids))
@@ -99,6 +103,22 @@ def save_conflict(
             + [conflict.model_dump()]
         },
     )
+    if run_id is not None:
+        from .state_store import StateStore
+
+        conflict_hash = sha256(conflict.model_dump_json())
+        write_json_atomic(
+            cwd,
+            f"conflicts/revisions/{conflict_hash}.json",
+            conflict.model_dump(),
+        )
+        StateStore(cwd).stage_asset(
+            run_id,
+            "conflict",
+            conflict.id,
+            conflict_hash,
+            revision_id=conflict_hash,
+        )
     emit_state_updated(
         "conflict",
         conflict.id,
@@ -109,7 +129,11 @@ def save_conflict(
 
 
 def resolve_conflict(
-    cwd: Path, conflict_id: str, note: str
+    cwd: Path,
+    conflict_id: str,
+    note: str,
+    *,
+    run_id: str | None = None,
 ) -> EvidenceConflict:
     if not note.strip():
         raise IntelError("INVALID_INPUT", "消解矛盾必须提供依据")
@@ -134,6 +158,22 @@ def resolve_conflict(
             ]
         },
     )
+    if run_id is not None:
+        from .state_store import StateStore
+
+        conflict_hash = sha256(updated.model_dump_json())
+        write_json_atomic(
+            cwd,
+            f"conflicts/revisions/{conflict_hash}.json",
+            updated.model_dump(),
+        )
+        StateStore(cwd).stage_asset(
+            run_id,
+            "conflict",
+            updated.id,
+            conflict_hash,
+            revision_id=conflict_hash,
+        )
     emit_state_updated(
         "conflict",
         conflict.id,

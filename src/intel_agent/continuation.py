@@ -160,11 +160,12 @@ class ContinuationRunner:
             if token.cancelled:
                 raise asyncio.CancelledError
             added = _asset_snapshot(self.cwd, task.id, run.id) - before
+            manifest = _run_manifest(self.cwd, run.id, task.id, added)
             self.store.finish_run(
                 run.id,
                 expected_input_version=run.input_committed_state_version,
-                staged_manifest=_asset_revisions(task.id, added),
-                outcome="committed" if added else "no_progress",
+                staged_manifest=manifest,
+                outcome="committed" if manifest else "no_progress",
             )
             return self.store.get_run(run.id)
         except (RunCancelled, asyncio.CancelledError):
@@ -265,11 +266,12 @@ class ContinuationRunner:
                 raise asyncio.CancelledError
             after = _asset_snapshot(self.cwd, action.task_id, run.id)
             added = after - before
+            manifest = _run_manifest(self.cwd, run.id, action.task_id, added)
             self.store.finish_run(
                 run.id,
                 expected_input_version=run.input_committed_state_version,
-                staged_manifest=_asset_revisions(action.task_id, added),
-                outcome="committed" if added else "no_progress",
+                staged_manifest=manifest,
+                outcome="committed" if manifest else "no_progress",
             )
             return self.store.get_action(action.id)
         except (RunCancelled, asyncio.CancelledError):
@@ -303,7 +305,7 @@ class ContinuationRunner:
                 )
             return current_action
         finally:
-            if saved_collection is not None:
+            if saved_collection is not None and run is not None:
                 latest = load_task(self.cwd, action.task_id)
                 restored = saved_collection.model_copy(
                     update={"evidence_count": latest.collection.evidence_count}
@@ -318,6 +320,7 @@ class ContinuationRunner:
 def _asset_snapshot(
     cwd: Path, task_id: str, run_id: str | None = None
 ) -> set[tuple[CommittedAssetType, str]]:
+    assets: set[tuple[CommittedAssetType, str]] = set()
     if run_id is not None:
         store = StateStore(cwd)
         try:
@@ -326,18 +329,24 @@ def _asset_snapshot(
             if error.code != "WORKSPACE_CLOSED":
                 raise
             workspace = None
-        if workspace is not None and workspace.staged_revisions:
-            return {
-                (cast(CommittedAssetType, item.asset_type), item.logical_id)
-                for item in workspace.staged_revisions
-                if item.asset_type in {"document", "fact", "evidence"}
-            }
+        if workspace is not None:
+            assets.update(
+                {
+                    (
+                        cast(CommittedAssetType, item.asset_type),
+                        item.logical_id,
+                    )
+                    for item in workspace.staged_revisions
+                }
+            )
     view = get_task_view(cwd, task_id)
-    assets: set[tuple[CommittedAssetType, str]] = {
-        ("document", resource.document_id)
-        for resource in view.resources
-        if resource.document_id is not None
-    }
+    assets.update(
+        {
+            ("document", resource.document_id)
+            for resource in view.resources
+            if resource.document_id is not None
+        }
+    )
     for question in view.questions:
         for fact in question.facts:
             assets.add(("fact", fact.id))
@@ -345,6 +354,30 @@ def _asset_snapshot(
                 assets.add(("evidence", evidence.id))
                 assets.add(("document", evidence.document.id))
     return assets
+
+
+def _run_manifest(
+    cwd: Path,
+    run_id: str,
+    task_id: str,
+    fallback: set[tuple[CommittedAssetType, str]],
+) -> list[AssetRevisionRef]:
+    """Prefer the durable workspace revisions over legacy JSON discovery."""
+    store = StateStore(cwd)
+    try:
+        staged = store.run_view(run_id).staged_revisions
+    except IntelError as error:
+        if error.code != "WORKSPACE_CLOSED":
+            raise
+        staged = []
+    revisions = {(item.asset_type, item.logical_id): item for item in staged}
+    revisions.update(
+        {
+            (item.asset_type, item.logical_id): item
+            for item in _asset_revisions(task_id, fallback)
+        }
+    )
+    return list(revisions.values())
 
 
 def _asset_revisions(

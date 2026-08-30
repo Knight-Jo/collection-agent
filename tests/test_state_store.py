@@ -14,6 +14,7 @@ from intel_agent.models import (
 )
 from intel_agent.state_db import connect_state_db
 from intel_agent.state_store import StateStore
+from intel_agent.storage import workspace_path
 from tests.conftest import make_document, new_task
 
 
@@ -78,6 +79,7 @@ def test_run_writes_stage_document_fact_and_evidence_revisions(cwd):
         ("document", document.id),
         ("fact", fact.id),
         ("evidence", evidence.id),
+        ("material_digest", task.id),
     }
 
 
@@ -127,6 +129,57 @@ def test_committed_snapshot_is_stable_and_workspace_isolated(cwd):
     store.transition_run(run.id, "cancelled")
     with pytest.raises(IntelError, match="已关闭"):
         store.run_view(run.id)
+
+
+def test_snapshot_manifest_accepts_derived_asset_revisions(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    run = store.create_run("task-1", "initial", 0, {})
+    store.transition_run(run.id, "running")
+
+    for asset_type in (
+        "document",
+        "fact",
+        "evidence",
+        "review",
+        "conflict",
+        "coverage",
+        "material_digest",
+        "task_revision",
+    ):
+        store.stage_asset(run.id, asset_type, f"{asset_type}-1", "")
+
+    store.finish_run(run.id, expected_input_version=0)
+    snapshot = store.committed_snapshot("task-1", 1)
+
+    assert {item.asset_type for item in snapshot.asset_manifest} == {
+        "document",
+        "fact",
+        "evidence",
+        "review",
+        "conflict",
+        "coverage",
+        "material_digest",
+        "task_revision",
+    }
+
+
+def test_committed_snapshot_rejects_tampered_materialized_revision(cwd):
+    task = new_task(cwd)
+    store = StateStore(cwd)
+    store.register_task(task.id)
+    run = store.create_run(task.id, "initial", 0, {})
+    store.transition_run(run.id, "running")
+    document = make_document(cwd, "immutable source")
+    store.stage_asset(run.id, "document", document.id, document.text_sha256)
+    store.finish_run(run.id, expected_input_version=0)
+
+    workspace_path(cwd, document.text_path).write_text(
+        "tampered", encoding="utf-8"
+    )
+
+    with pytest.raises(IntelError, match="哈希不匹配"):
+        store.committed_snapshot(task.id, 1)
 
 
 def test_claim_action_is_idempotent_and_expires_stale_precondition(cwd):
@@ -182,7 +235,7 @@ def test_finish_run_atomically_commits_and_replays(cwd):
         asset_type="document",
         logical_id="doc-1",
         revision_id="rev-1",
-        content_sha256="b" * 64,
+        content_sha256="",
         task_id="task-1",
     )
 

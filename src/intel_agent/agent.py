@@ -36,7 +36,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from .audit import Judge, audit_task_evidence, list_support_reviews_for_task
 from .browser import BrowserRenderer
 from .config import ContextConfig, ModelConfig, Settings
-from .conflicts import resolve_conflict, save_conflict
+from .conflicts import load_conflicts, resolve_conflict, save_conflict
 from .context import make_history_processor
 from .coverage import eval_coverage, latest_coverage
 from .crawl import CrawlEventCallback, create_crawl, summarize_crawl
@@ -553,6 +553,7 @@ async def _run_query_matrix(
     client: httpx.AsyncClient,
     result: dict,
     task: IntelTask,
+    run_id: str | None = None,
 ) -> dict:
     """Deterministically execute pending query-matrix slots (run 014).
 
@@ -602,7 +603,9 @@ async def _run_query_matrix(
                         continue
                     try:
                         record_search_attempt(
-                            cwd, limit=settings.budgets.search_attempts
+                            cwd,
+                            limit=settings.budgets.search_attempts,
+                            run_id=run_id,
                         )
                     except IntelError as error:
                         if error.code == "SEARCH_BUDGET_EXHAUSTED":
@@ -832,7 +835,7 @@ def _document_search(cwd: Path, task_id: str, query: str, limit: int) -> dict:
 
 async def _coverage_eval_with_backlog(deps: AgentDeps, task_id: str) -> dict:
     cwd = deps.cwd
-    snapshot = eval_coverage(cwd, task_id)
+    snapshot = eval_coverage(cwd, task_id, run_id=deps.run_id)
     data = snapshot.model_dump()
     task = load_task(cwd, task_id)
     if snapshot.stop_reason == "no_progress" and task.stage == "collect":
@@ -841,7 +844,7 @@ async def _coverage_eval_with_backlog(deps: AgentDeps, task_id: str) -> dict:
         # to assess deterministically instead of waiting for the model to
         # notice. An executable crawl frontier keeps collection going.
         try:
-            set_task_stage(cwd, task_id, "assess")
+            set_task_stage(cwd, task_id, "assess", run_id=deps.run_id)
         except IntelError as error:
             if error.code != "CRAWL_INCOMPLETE":
                 raise
@@ -993,7 +996,9 @@ async def _gap_driven_vertical_search(
     for capability in missing:
         try:
             record_search_attempt(
-                deps.cwd, limit=settings.budgets.search_attempts
+                deps.cwd,
+                limit=settings.budgets.search_attempts,
+                run_id=deps.run_id,
             )
         except IntelError as error:
             if error.code == "SEARCH_BUDGET_EXHAUSTED":
@@ -1401,6 +1406,7 @@ def build_agent(
         record_search_attempt(
             ctx.deps.cwd,
             limit=ctx.deps.settings.budgets.search_attempts,
+            run_id=ctx.deps.run_id,
         )
         # The model habitually passes max_results=5; raise the floor so one
         # search call yields a wider candidate pool for the same budget
@@ -1455,6 +1461,7 @@ def build_agent(
                 ctx.deps.http,
                 result,
                 task,
+                ctx.deps.run_id,
             )
         _finalize_search_result(ctx, result)
         return result
@@ -1547,6 +1554,7 @@ def build_agent(
         record_search_attempt(
             ctx.deps.cwd,
             limit=ctx.deps.settings.budgets.search_attempts,
+            run_id=ctx.deps.run_id,
         )
         result = await run(query, max(max_results, 5), time_range)
         emit(
@@ -1780,7 +1788,9 @@ def build_agent(
         """Rate collected materials and build a task-specific reading guide."""
         return _guarded_sync(
             lambda: generate_material_digest(
-                ctx.deps.cwd, _resolve_bound_task_id(ctx.deps, task_id)
+                ctx.deps.cwd,
+                _resolve_bound_task_id(ctx.deps, task_id),
+                run_id=ctx.deps.run_id,
             ).model_dump()
         )
 
@@ -1805,6 +1815,7 @@ def build_agent(
         collection = record_fetch_attempt(
             ctx.deps.cwd,
             limit=ctx.deps.settings.budgets.fetch_attempts_since_evidence,
+            run_id=ctx.deps.run_id,
         )
         task = load_task(
             ctx.deps.cwd,
@@ -1996,7 +2007,10 @@ def build_agent(
             else len(existing) + 1
         )
         record_evidence_progress(
-            ctx.deps.cwd, evidence.task_id, evidence_count
+            ctx.deps.cwd,
+            evidence.task_id,
+            evidence_count,
+            run_id=ctx.deps.run_id,
         )
         return evidence.model_dump()
 
@@ -2024,6 +2038,7 @@ def build_agent(
                 ctx.deps.judge_model,
                 concurrency=ctx.deps.settings.context.audit_concurrency,
                 timeout_seconds=ctx.deps.settings.context.audit_timeout_seconds,
+                run_id=ctx.deps.run_id,
             )
             if summary["reviewed"]:
                 # Deterministic chain (WP4): fresh reviews must reach the
@@ -2040,22 +2055,45 @@ def build_agent(
         ctx: RunContext[AgentDeps], fact_id: str, evidence_ids: list[str]
     ) -> dict:
         """登记同一 Fact 的支持与反驳证据。未消解矛盾会阻止该 Fact 达到充分覆盖。"""
-        return _guarded_sync(
-            lambda: save_conflict(
-                ctx.deps.cwd, fact_id, evidence_ids
+
+        def create() -> dict:
+            fact = load_fact(ctx.deps.cwd, fact_id)
+            _resolve_bound_task_id(ctx.deps, fact.task_id)
+            return save_conflict(
+                ctx.deps.cwd,
+                fact_id,
+                evidence_ids,
+                run_id=ctx.deps.run_id,
             ).model_dump()
-        )
+
+        return _guarded_sync(create)
 
     @agent.tool(name="evidence_conflict_resolve")
     def evidence_conflict_resolve_tool(
         ctx: RunContext[AgentDeps], conflict_id: str, note: str
     ) -> dict:
         """用可审查说明消解已登记的来源矛盾。"""
-        return _guarded_sync(
-            lambda: resolve_conflict(
-                ctx.deps.cwd, conflict_id, note
+
+        def resolve() -> dict:
+            conflict = next(
+                (
+                    item
+                    for item in load_conflicts(ctx.deps.cwd)
+                    if item.id == conflict_id
+                ),
+                None,
+            )
+            if conflict is None:
+                raise IntelError("NOT_FOUND", f"矛盾不存在: {conflict_id}")
+            _resolve_bound_task_id(ctx.deps, conflict.task_id)
+            return resolve_conflict(
+                ctx.deps.cwd,
+                conflict_id,
+                note,
+                run_id=ctx.deps.run_id,
             ).model_dump()
-        )
+
+        return _guarded_sync(resolve)
 
     @agent.tool(name="coverage_eval")
     async def coverage_eval_tool(

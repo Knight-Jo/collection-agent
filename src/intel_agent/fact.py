@@ -234,7 +234,17 @@ def supersede_fact(
     if run_id is not None:
         from .state_store import StateStore
 
+        revision_hash = sha256(updated.model_dump_json())
+        write_json_atomic(
+            cwd,
+            f"facts/revisions/{revision_hash}.json",
+            updated.model_dump(),
+        )
         StateStore(cwd).stage_asset(
-            run_id, "fact", updated.id, sha256(updated.model_dump_json())
+            run_id,
+            "fact",
+            updated.id,
+            revision_hash,
+            revision_id=revision_hash,
         )
     return load_fact(cwd, fact.id)

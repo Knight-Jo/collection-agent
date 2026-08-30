@@ -73,7 +73,6 @@ DialogueIntent = Literal[
     "regenerate_report",
     "new_topic",
 ]
-CommittedAssetType = Literal["document", "fact", "evidence"]
 SUPPORT_REVIEW_PROMPT_VERSION = "support-entailment-v2"
 
 
@@ -453,6 +452,8 @@ AssetType = Literal[
     "material_digest",
     "task_revision",
 ]
+
+CommittedAssetType = AssetType
 
 
 class AssetRevisionRef(BaseModel):

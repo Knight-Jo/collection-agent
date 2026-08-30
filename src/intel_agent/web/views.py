@@ -14,8 +14,11 @@ from ..evidence import list_evidence_for_task, load_document
 from ..fact import list_facts_for_task
 from ..materials import load_material_digest
 from ..models import (
+    CommittedResearchSnapshot,
     CrawlEntry,
+    EvidenceConflict,
     ExtractionState,
+    Fact,
     IntelDocument,
     IntelError,
     IntelTask,
@@ -23,8 +26,10 @@ from ..models import (
 )
 from ..state_db import connect_state_db, initialize_state_db
 from ..storage import (
+    intel_path,
     list_json,
     load_crawl,
+    read_json,
     sha256,
     verify_document_integrity,
     workspace_path,
@@ -180,13 +185,72 @@ def get_task_view(
     task_id: str,
     *,
     visible_asset_ids: dict[str, set[str]] | None = None,
+    snapshot: CommittedResearchSnapshot | None = None,
 ) -> TaskView:
     """Build a question-first task view with nested evidence and reviews."""
     task = load_task(cwd, task_id)
+    if snapshot is not None:
+        task_revision = next(
+            (
+                item
+                for item in snapshot.asset_manifest
+                if item.asset_type == "task_revision"
+            ),
+            None,
+        )
+        if task_revision is not None:
+            path = intel_path(
+                cwd, f"tasks/revisions/{task_revision.revision_id}.json"
+            )
+            if path.exists():
+                task = IntelTask.model_validate(
+                    read_json(
+                        cwd,
+                        f"tasks/revisions/{task_revision.revision_id}.json",
+                    )
+                )
     material_digest = load_material_digest(cwd, task.id)
-    coverage = latest_coverage(cwd, task.id)
+    if snapshot is not None:
+        digest_revision = next(
+            (
+                item
+                for item in snapshot.asset_manifest
+                if item.asset_type == "material_digest"
+            ),
+            None,
+        )
+        if digest_revision is not None:
+            path = intel_path(
+                cwd,
+                f"materials/revisions/{digest_revision.revision_id}.json",
+            )
+            if path.exists():
+                material_digest = MaterialDigest.model_validate(
+                    read_json(
+                        cwd,
+                        f"materials/revisions/{digest_revision.revision_id}.json",
+                    )
+                )
+    coverage_ids = (
+        visible_asset_ids["coverage"]
+        if visible_asset_ids is not None and "coverage" in visible_asset_ids
+        else None
+    )
+    coverage = latest_coverage(cwd, task.id, coverage_ids)
     facts = list_facts_for_task(cwd, task.id)
     evidence = list_evidence_for_task(cwd, task.id)
+    if snapshot is not None:
+        fact_revisions = {
+            item.logical_id: item.revision_id
+            for item in snapshot.asset_manifest
+            if item.asset_type == "fact"
+        }
+        if fact_revisions:
+            facts = [
+                _revision_or_current_fact(cwd, fact, fact_revisions)
+                for fact in facts
+                if fact.id in fact_revisions
+            ]
     document_ids = (
         visible_asset_ids.get("document", set())
         if visible_asset_ids is not None
@@ -214,9 +278,18 @@ def get_task_view(
                     ]
                 }
             )
+            digest_ids = visible_asset_ids.get("material_digest")
+            if digest_ids is not None and task.id not in digest_ids:
+                material_digest = None
+    visible_review_ids = (
+        visible_asset_ids.get("review")
+        if visible_asset_ids is not None and "review" in visible_asset_ids
+        else None
+    )
     reviews = {
         review.evidence_id: review
         for review in list_support_reviews_for_task(cwd, task.id)
+        if visible_review_ids is None or review.id in visible_review_ids
     }
     evidence_by_fact = defaultdict(list)
     for item in evidence:
@@ -279,13 +352,69 @@ def get_task_view(
             )
             for question in task.questions
         ],
-        conflicts=load_conflicts(cwd, task.id),
+        conflicts=_visible_conflicts(
+            cwd, task.id, visible_asset_ids, snapshot
+        ),
         challenges=list_challenge_rounds(cwd, task.id),
         resources=_crawl_resources(
             cwd, task.id, material_digest, document_ids
         ),
         material_digest=material_digest,
     )
+
+
+def _revision_or_current_fact(
+    cwd: Path, fact: Fact, revisions: dict[str, str]
+) -> Fact:
+    revision_id = revisions.get(fact.id)
+    if not revision_id or revision_id == fact.id:
+        return fact
+    path = intel_path(cwd, f"facts/revisions/{revision_id}.json")
+    return (
+        Fact.model_validate(
+            read_json(cwd, f"facts/revisions/{revision_id}.json")
+        )
+        if path.exists()
+        else fact
+    )
+
+
+def _visible_conflicts(
+    cwd: Path,
+    task_id: str,
+    visible_asset_ids: dict[str, set[str]] | None,
+    snapshot: CommittedResearchSnapshot | None,
+) -> list[EvidenceConflict]:
+    allowed = (
+        visible_asset_ids.get("conflict")
+        if visible_asset_ids is not None and "conflict" in visible_asset_ids
+        else None
+    )
+    revisions = (
+        {
+            item.logical_id: item.revision_id
+            for item in snapshot.asset_manifest
+            if snapshot is not None and item.asset_type == "conflict"
+        }
+        if snapshot is not None
+        else {}
+    )
+    conflicts = []
+    for conflict in load_conflicts(cwd, task_id):
+        if allowed is not None and conflict.id not in allowed:
+            continue
+        revision_id = revisions.get(conflict.id)
+        path = (
+            intel_path(cwd, f"conflicts/revisions/{revision_id}.json")
+            if revision_id and revision_id != conflict.id
+            else None
+        )
+        if path is not None and path.exists():
+            conflict = EvidenceConflict.model_validate(
+                read_json(cwd, f"conflicts/revisions/{revision_id}.json")
+            )
+        conflicts.append(conflict)
+    return conflicts
 
 
 def get_resource_download(

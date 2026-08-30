@@ -228,9 +228,23 @@ def create_app(
                 asset_type: runtime.store.committed_asset_ids(
                     task_id, asset_type
                 )
-                for asset_type in ("document", "fact", "evidence")
+                for asset_type in (
+                    "document",
+                    "fact",
+                    "evidence",
+                    "review",
+                    "conflict",
+                    "coverage",
+                    "material_digest",
+                    "task_revision",
+                )
             }
-        return get_task_view(app.state.cwd, task_id, visible_asset_ids=visible)
+        return get_task_view(
+            app.state.cwd,
+            task_id,
+            visible_asset_ids=visible,
+            snapshot=snapshot,
+        )
 
     @app.get("/api/tasks/{task_id}/resources/{document_id}/download")
     async def resource_download(

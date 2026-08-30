@@ -185,7 +185,9 @@ def activate_task(cwd: Path, task_id: str) -> IntelTask:
     return task
 
 
-def save_task(cwd: Path, task: IntelTask) -> None:
+def save_task(
+    cwd: Path, task: IntelTask, *, run_id: str | None = None
+) -> None:
     set_task_id(task.id)
     initialize_state_db(cwd)
     with connect_state_db(cwd) as connection:
@@ -194,6 +196,20 @@ def save_task(cwd: Path, task: IntelTask) -> None:
             "VALUES (?, ?, ?) ON CONFLICT(task_id) DO UPDATE SET "
             "task_json = excluded.task_json, updated_at = excluded.updated_at",
             (task.id, task.model_dump_json(), task.updated_at),
+        )
+    if run_id is not None:
+        revision_hash = sha256(task.model_dump_json())
+        write_json_atomic(
+            cwd, f"tasks/revisions/{revision_hash}.json", task.model_dump()
+        )
+        from .state_store import StateStore
+
+        StateStore(cwd).stage_asset(
+            run_id,
+            "task_revision",
+            task.id,
+            revision_hash,
+            revision_id=revision_hash,
         )
 
 
@@ -219,6 +235,8 @@ def record_fetch_attempt(
     cwd: Path,
     task_id: str | None = None,
     limit: int = FETCH_ATTEMPT_LIMIT,
+    *,
+    run_id: str | None = None,
 ) -> dict:
     task = load_task(cwd, task_id)
     before = task.collection.model_dump()
@@ -232,7 +250,7 @@ def record_fetch_attempt(
                     "updated_at": utc_now(),
                 }
             )
-            save_task(cwd, task)
+            save_task(cwd, task, run_id=run_id)
             emit_state_updated(
                 "task", task.id, before, task.collection.model_dump()
             )
@@ -269,7 +287,7 @@ def record_fetch_attempt(
             "updated_at": utc_now(),
         }
     )
-    save_task(cwd, task)
+    save_task(cwd, task, run_id=run_id)
     emit_state_updated("task", task.id, before, task.collection.model_dump())
     return task.collection.model_dump()
 
@@ -278,6 +296,8 @@ def record_search_attempt(
     cwd: Path,
     task_id: str | None = None,
     limit: int = SEARCH_ATTEMPT_LIMIT,
+    *,
+    run_id: str | None = None,
 ) -> dict:
     task = load_task(cwd, task_id)
     before = task.collection.model_dump()
@@ -293,7 +313,7 @@ def record_search_attempt(
                     "updated_at": utc_now(),
                 }
             )
-            save_task(cwd, task)
+            save_task(cwd, task, run_id=run_id)
             emit_state_updated(
                 "task", task.id, before, task.collection.model_dump()
             )
@@ -325,13 +345,17 @@ def record_search_attempt(
             "updated_at": utc_now(),
         }
     )
-    save_task(cwd, task)
+    save_task(cwd, task, run_id=run_id)
     emit_state_updated("task", task.id, before, task.collection.model_dump())
     return task.collection.model_dump()
 
 
 def record_evidence_progress(
-    cwd: Path, task_id: str, evidence_count: int
+    cwd: Path,
+    task_id: str,
+    evidence_count: int,
+    *,
+    run_id: str | None = None,
 ) -> dict:
     # Real progress resets the fetch window and clears the stop reason: the
     # fetch budget is a "attempts since last evidence" counter, not a total cap.
@@ -353,7 +377,7 @@ def record_evidence_progress(
             "updated_at": utc_now(),
         }
     )
-    save_task(cwd, task)
+    save_task(cwd, task, run_id=run_id)
     emit_state_updated("task", task.id, before, task.collection.model_dump())
     return task.collection.model_dump()
 
@@ -455,7 +479,13 @@ def _verify_current_outputs(cwd: Path, task: IntelTask) -> CoverageSnapshot:
     return coverage
 
 
-def set_task_stage(cwd: Path, task_id: str, stage: TaskStage) -> IntelTask:
+def set_task_stage(
+    cwd: Path,
+    task_id: str,
+    stage: TaskStage,
+    *,
+    run_id: str | None = None,
+) -> IntelTask:
     """Advance stage by exactly one step; assess/done enforce hard preconditions."""
     task = load_task(cwd, task_id)
     current = STAGE_ORDER.index(task.stage)
@@ -511,7 +541,7 @@ def set_task_stage(cwd: Path, task_id: str, stage: TaskStage) -> IntelTask:
             else "with_gaps"
         )
     updated = task.model_copy(update=updates)
-    save_task(cwd, updated)
+    save_task(cwd, updated, run_id=run_id)
     logger.info("stage %s -> %s", task.stage, updated.stage)
     emit_state_updated(
         "task", updated.id, {"stage": task.stage}, {"stage": updated.stage}

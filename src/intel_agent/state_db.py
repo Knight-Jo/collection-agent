@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .storage import ensure_intel_dirs
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -289,7 +289,10 @@ CREATE TABLE IF NOT EXISTS message_citations (
 CREATE TABLE IF NOT EXISTS task_committed_assets (
     task_id TEXT NOT NULL REFERENCES task_state(task_id) ON DELETE CASCADE,
     asset_type TEXT NOT NULL CHECK (
-        asset_type IN ('document', 'fact', 'evidence')
+        asset_type IN (
+            'document', 'fact', 'evidence', 'review', 'conflict', 'coverage',
+            'material_digest', 'task_revision'
+        )
     ),
     asset_id TEXT NOT NULL,
     committed_state_version INTEGER NOT NULL
@@ -302,7 +305,10 @@ CREATE TABLE IF NOT EXISTS checkpoint_assets (
         ON DELETE CASCADE,
     task_id TEXT NOT NULL REFERENCES task_state(task_id) ON DELETE CASCADE,
     asset_type TEXT NOT NULL CHECK (
-        asset_type IN ('document', 'fact', 'evidence')
+        asset_type IN (
+            'document', 'fact', 'evidence', 'review', 'conflict', 'coverage',
+            'material_digest', 'task_revision'
+        )
     ),
     asset_id TEXT NOT NULL,
     PRIMARY KEY (checkpoint_id, asset_type, asset_id)
@@ -485,6 +491,49 @@ CREATE UNIQUE INDEX IF NOT EXISTS one_run_per_action
 ON research_runs(action_request_id) WHERE action_request_id IS NOT NULL;
 """
 
+SCHEMA_V5 = """
+CREATE TABLE task_committed_assets_v5 (
+    task_id TEXT NOT NULL REFERENCES task_state(task_id) ON DELETE CASCADE,
+    asset_type TEXT NOT NULL CHECK (
+        asset_type IN (
+            'document', 'fact', 'evidence', 'review', 'conflict', 'coverage',
+            'material_digest', 'task_revision'
+        )
+    ),
+    asset_id TEXT NOT NULL,
+    committed_state_version INTEGER NOT NULL
+        CHECK (committed_state_version >= 0),
+    PRIMARY KEY (task_id, asset_type, asset_id)
+);
+
+CREATE TABLE checkpoint_assets_v5 (
+    checkpoint_id TEXT NOT NULL REFERENCES research_checkpoints(id)
+        ON DELETE CASCADE,
+    task_id TEXT NOT NULL REFERENCES task_state(task_id) ON DELETE CASCADE,
+    asset_type TEXT NOT NULL CHECK (
+        asset_type IN (
+            'document', 'fact', 'evidence', 'review', 'conflict', 'coverage',
+            'material_digest', 'task_revision'
+        )
+    ),
+    asset_id TEXT NOT NULL,
+    PRIMARY KEY (checkpoint_id, asset_type, asset_id)
+);
+
+INSERT INTO task_committed_assets_v5
+SELECT task_id, asset_type, asset_id, committed_state_version
+FROM task_committed_assets;
+
+INSERT INTO checkpoint_assets_v5
+SELECT checkpoint_id, task_id, asset_type, asset_id
+FROM checkpoint_assets;
+
+DROP TABLE task_committed_assets;
+DROP TABLE checkpoint_assets;
+ALTER TABLE task_committed_assets_v5 RENAME TO task_committed_assets;
+ALTER TABLE checkpoint_assets_v5 RENAME TO checkpoint_assets;
+"""
+
 
 def state_db_path(cwd: Path) -> Path:
     """Return the local SQLite state database path."""
@@ -555,6 +604,24 @@ def initialize_state_db(cwd: Path) -> Path:
             connection.execute(
                 "INSERT INTO schema_migrations(version) VALUES (?)", (4,)
             )
+        migrated = connection.execute(
+            "SELECT 1 FROM schema_migrations WHERE version = 5"
+        ).fetchone()
+        if SCHEMA_VERSION >= 5 and migrated is None:
+            connection.commit()
+            connection.execute("PRAGMA foreign_keys = OFF")
+            connection.executescript(SCHEMA_V5)
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute(
+                "INSERT INTO schema_migrations(version) VALUES (?)", (5,)
+            )
+            violations = connection.execute(
+                "PRAGMA foreign_key_check"
+            ).fetchall()
+            if violations:
+                raise sqlite3.IntegrityError(
+                    f"state migration violated foreign keys: {violations}"
+                )
     return path
 
 

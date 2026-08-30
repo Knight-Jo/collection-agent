@@ -7,10 +7,11 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from .audit import is_full_support
+from .audit import is_full_support, list_support_reviews_for_task
+from .conflicts import load_conflicts
 from .evidence import load_document, load_evidence
 from .fact import list_active_facts_for_task, load_fact
-from .models import IntelError
+from .models import CommittedAssetType, IntelError
 from .search_queries import tokenize_query
 from .state_store import StateStore
 from .storage import verify_document_integrity, workspace_path
@@ -78,7 +79,7 @@ class TaskRetriever:
         """Expose the task's existing verified JSON assets once."""
         view = get_task_view(self.cwd, task_id)
         self.store.register_task(task_id)
-        assets: set[tuple[Literal["document", "fact", "evidence"], str]] = {
+        assets: set[tuple[CommittedAssetType, str]] = {
             ("document", resource.document_id)
             for resource in view.resources
             if resource.document_id is not None
@@ -89,6 +90,19 @@ class TaskRetriever:
                 for evidence in fact.evidence:
                     assets.add(("evidence", evidence.id))
                     assets.add(("document", evidence.document.id))
+        assets.update(
+            ("review", review.id)
+            for review in list_support_reviews_for_task(self.cwd, task_id)
+        )
+        assets.update(
+            ("conflict", conflict.id)
+            for conflict in load_conflicts(self.cwd, task_id)
+        )
+        if view.coverage is not None:
+            assets.add(("coverage", view.coverage.id))
+        if view.material_digest is not None:
+            assets.add(("material_digest", task_id))
+        assets.add(("task_revision", task_id))
         self.store.seed_committed_assets(task_id, assets)
 
     def retrieve(

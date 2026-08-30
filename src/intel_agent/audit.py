@@ -169,6 +169,7 @@ async def audit_task_evidence(
     *,
     concurrency: int = 2,
     timeout_seconds: float = 60.0,
+    run_id: str | None = None,
 ) -> dict:
     task = load_task(cwd, task_id)
     if judge is None or not judge_provider.strip() or not judge_model.strip():
@@ -221,6 +222,15 @@ async def audit_task_evidence(
                 write_json_atomic(
                     cwd, f"reviews/{review.id}.json", review.model_dump()
                 )
+                if run_id is not None:
+                    from .state_store import StateStore
+
+                    StateStore(cwd).stage_asset(
+                        run_id,
+                        "review",
+                        review.id,
+                        sha256(review.model_dump_json()),
+                    )
             return ("ok", reviews)
 
     results: list[SupportReview] = []
