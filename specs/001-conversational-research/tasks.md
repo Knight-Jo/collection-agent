@@ -147,7 +147,7 @@
 - [ ] T057 [P] [US3] 添加 DialogueDecision 在结构/引用/action 校验完成前不发送答案、material clue 最多 partial 的测试到 `tests/test_dialogue.py`
 - [ ] T058 [P] [US3] 添加已绑定对话中的实质性新主题返回“新建对话/任务”且不创建 Action 或资产的测试到 `tests/test_dialogue.py` 与 `tests/test_conversation.py`
 - [ ] T059 [P] [US3] 添加 expired confirm 不发送 queued、一个 Action 一个 Run、queued cancel、report cancel、retry 调度和崩溃恢复测试到 `tests/test_continuation.py` 与 `tests/test_conversation_recovery.py`
-- [ ] T060 [P] [US3] 添加极端 history cap 下保持总字节上限及 ToolCall/ToolReturn 配对的测试到 `tests/test_context.py`
+- [X] T060 [P] [US3] 添加极端 history cap 下保持总字节上限及 ToolCall/ToolReturn 配对的测试到 `tests/test_context.py`
 
 ### Implementation for User Story 3
 
@@ -155,7 +155,7 @@
 - [ ] T062 [US3] 在 `src/intel_agent/dialogue.py` 先完成 DialogueDecision 解析、repair、引用和 action 校验再发布可见答案，使 T057 通过
 - [ ] T063 [US3] 在 `src/intel_agent/models.py`、`src/intel_agent/dialogue.py` 与 `src/intel_agent/conversation.py` 增加确定性 new-topic 分流且不改绑现有 Conversation，使 T058 通过
 - [ ] T064 [US3] 在 `src/intel_agent/conversation.py`、`src/intel_agent/continuation.py` 与 `src/intel_agent/web/conversation.py` 依据原子 claim 结果发送事件，并接通 continuation/report/retry 的恢复和取消，使 T059 通过
-- [ ] T065 [US3] 在 `src/intel_agent/context.py` 实施有界 fallback，必要时丢弃完整旧工具交换而不留下孤立 ToolReturn，使 T060 通过
+- [X] T065 [US3] 在 `src/intel_agent/context.py` 实施有界 fallback，必要时丢弃完整旧工具交换而不留下孤立 ToolReturn，使 T060 通过
 
 **Checkpoint**: 四类续研生命周期和证据问答均可对预置任务独立验收；失败、取消、新主题不会改变旧 committed snapshot。
 

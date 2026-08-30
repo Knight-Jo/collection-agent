@@ -78,6 +78,30 @@ def test_compaction_keeps_initial_request_and_recent_complete_exchanges():
     )
 
 
+def test_compaction_drops_orphan_tool_returns_at_tight_limit():
+    initial = ModelRequest(parts=[UserPromptPart(content="original task")])
+    orphan = ModelRequest(
+        parts=[
+            ToolReturnPart(
+                tool_name="web_search",
+                content="unpaired",
+                tool_call_id="missing-call",
+            )
+        ]
+    )
+
+    compacted = compact_message_history(
+        [initial, orphan], max_bytes=400, snapshot='{"stage":"collect"}'
+    )
+
+    assert all(
+        not isinstance(part, ToolReturnPart)
+        for message in compacted
+        if isinstance(message, ModelRequest)
+        for part in message.parts
+    )
+
+
 def test_context_snapshot_restores_task_fact_and_coverage(cwd):
     task = create_task(
         cwd,

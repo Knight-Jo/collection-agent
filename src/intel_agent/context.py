@@ -13,6 +13,8 @@ from pydantic_ai import (
     ModelRequest,
     ModelResponse,
     RunContext,
+    ToolCallPart,
+    ToolReturnPart,
     UserPromptPart,
 )
 
@@ -229,7 +231,13 @@ def compact_message_history(
 ) -> list[ModelMessage]:
     """Keep the initial task and newest complete exchanges under a byte cap."""
     prepared = _with_snapshot(_without_old_snapshots(messages), snapshot)
-    if len(prepared) <= 2 or _serialized_size(prepared) <= max_bytes:
+    if len(prepared) <= 2:
+        if isinstance(prepared[-1], ModelRequest) and any(
+            isinstance(part, ToolReturnPart) for part in prepared[-1].parts
+        ):
+            return [*prepared[:-1], *_complete_tail(prepared)[-1:]]
+        return prepared
+    if _serialized_size(prepared) <= max_bytes:
         return prepared
 
     first = prepared[0]
@@ -240,7 +248,34 @@ def compact_message_history(
         if _serialized_size(candidate) <= max_bytes:
             return candidate
 
-    return [first, prepared[-1]]
+    return [first, *_complete_tail(prepared)]
+
+
+def _complete_tail(messages: list[ModelMessage]) -> list[ModelMessage]:
+    """Keep the newest exchange without leaving an orphan tool return."""
+    last = messages[-1]
+    if not isinstance(last, ModelRequest):
+        return [last]
+    tool_returns = [
+        part for part in last.parts if isinstance(part, ToolReturnPart)
+    ]
+    if not tool_returns:
+        return messages[-2:]
+    if len(messages) >= 2 and isinstance(messages[-2], ModelResponse):
+        calls = {
+            part.tool_call_id
+            for part in messages[-2].parts
+            if isinstance(part, ToolCallPart)
+        }
+        if all(part.tool_call_id in calls for part in tool_returns):
+            return messages[-2:]
+    cleaned = replace(
+        last,
+        parts=[
+            part for part in last.parts if not isinstance(part, ToolReturnPart)
+        ],
+    )
+    return [cleaned]
 
 
 def make_history_processor(config: ContextConfig):
