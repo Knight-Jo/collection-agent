@@ -152,7 +152,7 @@
 ### Implementation for User Story 3
 
 - [X] T061 [US3] 在 `src/intel_agent/retrieval.py` 只从 committed snapshot 构建 passage，并按 T056 的五项条件设置 verified_evidence
-- [ ] T062 [US3] 在 `src/intel_agent/dialogue.py` 先完成 DialogueDecision 解析、repair、引用和 action 校验再发布可见答案，使 T057 通过
+- [X] T062 [US3] 在 `src/intel_agent/dialogue.py` 先完成 DialogueDecision 解析、repair、引用和 action 校验再发布可见答案，使 T057 通过
 - [ ] T063 [US3] 在 `src/intel_agent/models.py`、`src/intel_agent/dialogue.py` 与 `src/intel_agent/conversation.py` 增加确定性 new-topic 分流且不改绑现有 Conversation，使 T058 通过
 - [ ] T064 [US3] 在 `src/intel_agent/conversation.py`、`src/intel_agent/continuation.py` 与 `src/intel_agent/web/conversation.py` 依据原子 claim 结果发送事件，并接通 continuation/report/retry 的恢复和取消，使 T059 通过
 - [X] T065 [US3] 在 `src/intel_agent/context.py` 实施有界 fallback，必要时丢弃完整旧工具交换而不留下孤立 ToolReturn，使 T060 通过

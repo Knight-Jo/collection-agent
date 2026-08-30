@@ -9,7 +9,6 @@ from typing import Literal, Protocol, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic_ai import Agent
-from pydantic_core import from_json
 
 from .agent import _bounded_model_settings, _build_chat_model
 from .config import Settings
@@ -236,6 +235,15 @@ class DialogueEngine:
                 if item in allowed_ids
             )
         )
+        cited_passages = [
+            passage for passage in passages[:8] if passage.id in cited_ids
+        ]
+        answerability = decision.answerability
+        if any(
+            passage.citation_kind == "material_clue"
+            for passage in cited_passages
+        ):
+            answerability = "partial"
         action = decision.action
         if (
             action is not None
@@ -243,9 +251,16 @@ class DialogueEngine:
             and not _is_explicit_action_request(query, action.type)
         ):
             action = action.model_copy(update={"request_mode": "proposed"})
-        return decision.model_copy(
-            update={"cited_passage_ids": cited_ids, "action": action}
+        validated = decision.model_copy(
+            update={
+                "cited_passage_ids": cited_ids,
+                "answerability": answerability,
+                "action": action,
+            }
         )
+        if on_delta is not None:
+            await on_delta(validated.answer)
+        return validated
 
     async def _stream_answer(
         self,
@@ -253,16 +268,9 @@ class DialogueEngine:
         on_delta: Callable[[str], Awaitable[None]],
     ) -> str:
         raw = ""
-        previous = ""
         async with cast(Agent, self.agent).run_stream(prompt) as result:
             async for chunk in result.stream_text(delta=True, debounce_by=0.1):
                 raw += chunk
-                current = _partial_answer(raw)
-                if current.startswith(previous):
-                    delta = current[len(previous) :]
-                    if delta:
-                        await on_delta(delta)
-                        previous = current
         return raw
 
     async def summarize(self, messages: Sequence[Message]) -> str:
@@ -292,19 +300,6 @@ def _parse_decision(raw: str) -> DialogueDecision:
     if not isinstance(parsed, dict):
         raise ValueError("dialogue response must be an object")
     return DialogueDecision.model_validate(parsed)
-
-
-def _partial_answer(raw: str) -> str:
-    start = raw.find("{")
-    if start < 0:
-        return ""
-    try:
-        parsed = from_json(raw[start:], allow_partial="trailing-strings")
-    except ValueError:
-        return ""
-    if isinstance(parsed, dict) and isinstance(parsed.get("answer"), str):
-        return parsed["answer"]
-    return ""
 
 
 def _is_explicit_action_request(query: str, action_type: ActionType) -> bool:

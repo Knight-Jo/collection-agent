@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
@@ -62,6 +63,30 @@ def _passage(passage_id: str = "evidence:one") -> RetrievedPassage:
         source_content_hash="abc",
         score=2,
     )
+
+
+def test_material_clue_cannot_produce_answered_status(cwd):
+    task = new_task(cwd)
+    clue = _passage("material:one")
+    clue = clue.model_copy(update={"citation_kind": "material_clue"})
+    fake = _FakeAgent(
+        '{"intent":"ask_evidence","answer":"可能已发布。",'
+        '"answerability":"answered","cited_passage_ids":["material:one"],'
+        '"gaps":[]}'
+    )
+
+    decision = asyncio.run(
+        DialogueEngine(agent=fake).answer(
+            task=task,
+            query="当前状态？",
+            summary="",
+            messages=[],
+            passages=[clue],
+            run_status="idle",
+        )
+    )
+
+    assert decision.answerability == "partial"
 
 
 async def test_dialogue_filters_citations_outside_allow_list(cwd):
