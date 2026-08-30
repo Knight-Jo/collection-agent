@@ -81,6 +81,26 @@ def test_run_writes_stage_document_fact_and_evidence_revisions(cwd):
     }
 
 
+def test_claim_action_run_is_idempotent_and_atomic(cwd):
+    store = StateStore(cwd)
+    task_id = "task-claim"
+    store.register_task(task_id)
+    trigger = store.add_user_message(task_id, "继续搜索", "claim-client")
+    action = store.create_action(
+        task_id, trigger.id, "continue_research", {"topic": "原子"}
+    )
+
+    claimed, run = store.claim_action_run(action.id)
+    replayed, replay_run = store.claim_action_run(action.id)
+
+    assert claimed.status == "executing"
+    assert run is not None
+    assert replayed == claimed
+    assert replay_run == run
+    assert run.action_request_id == action.id
+    assert store.list_runs(task_id) == [run]
+
+
 def test_committed_snapshot_is_stable_and_workspace_isolated(cwd):
     store = StateStore(cwd)
     store.register_task("task-1")

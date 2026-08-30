@@ -1313,6 +1313,88 @@ class StateStore:
             ).fetchone()
         return _row_to_action(_required(row, "action request"))
 
+    def claim_action_run(
+        self, action_id: str
+    ) -> tuple[ActionRequest, ResearchRun | None]:
+        """Atomically claim one action and create its continuation Run."""
+        now = utc_now()
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            action = _find_action(connection, action_id)
+            if action["status"] == "executing":
+                if action["created_research_run_id"] is None:
+                    raise IntelError(
+                        "STORAGE_CORRUPT", "执行中的动作缺少 ResearchRun"
+                    )
+                run = _find_run(connection, action["created_research_run_id"])
+                return _row_to_action(action), _row_to_run(run)
+            if action["status"] != "queued":
+                return _row_to_action(action), None
+            state = _task_state(connection, action["task_id"])
+            if (
+                state["current_committed_state_version"]
+                != action["precondition_committed_state_version"]
+            ):
+                connection.execute(
+                    "UPDATE action_requests SET status = 'expired', "
+                    "completed_at = ? WHERE id = ?",
+                    (now, action_id),
+                )
+                row = connection.execute(
+                    "SELECT * FROM action_requests WHERE id = ?",
+                    (action_id,),
+                ).fetchone()
+                return _row_to_action(_required(row, "action request")), None
+
+            run_id = new_id("run")
+            connection.execute(
+                "INSERT INTO research_runs("
+                "id, task_id, run_type, trigger_message_id, action_request_id, "
+                "input_committed_state_version, input_snapshot_json, status, created_at"
+                ") VALUES (?, ?, 'continue_research', ?, ?, ?, ?, 'queued', ?)",
+                (
+                    run_id,
+                    action["task_id"],
+                    action["trigger_message_id"],
+                    action_id,
+                    state["current_committed_state_version"],
+                    _json(
+                        {
+                            "action_type": action["action_type"],
+                            "scope": json.loads(
+                                action["immutable_payload_json"]
+                            ),
+                        }
+                    ),
+                    now,
+                ),
+            )
+            connection.execute(
+                "INSERT INTO run_workspaces(run_id, task_id, base_version, status) "
+                "VALUES (?, ?, ?, 'open')",
+                (
+                    run_id,
+                    action["task_id"],
+                    state["current_committed_state_version"],
+                ),
+            )
+            connection.execute(
+                "UPDATE action_requests SET status = 'executing', "
+                "executing_at = ?, created_research_run_id = ? "
+                "WHERE id = ? AND status = 'queued'",
+                (now, run_id, action_id),
+            )
+            action_row = connection.execute(
+                "SELECT * FROM action_requests WHERE id = ?", (action_id,)
+            ).fetchone()
+            run_row = connection.execute(
+                "SELECT * FROM research_runs WHERE id = ?", (run_id,)
+            ).fetchone()
+        return (
+            _row_to_action(_required(action_row, "action request")),
+            _row_to_run(_required(run_row, "research run")),
+        )
+
     def claim_run(
         self,
         run_id: str,

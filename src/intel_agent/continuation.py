@@ -194,34 +194,12 @@ class ContinuationRunner:
         run: ResearchRun | None = None
         saved_collection: CollectionState | None = None
         try:
+            claimed_action, run = self.store.claim_action_run(action.id)
+            if run is None:
+                return claimed_action
             if token.cancelled:
-                run = self.store.create_run(
-                    action.task_id,
-                    "continue_research",
-                    self.store.committed_state_version(action.task_id),
-                    {
-                        "action_type": action.action_type,
-                        "scope": action.immutable_payload,
-                    },
-                    trigger_message_id=action.trigger_message_id,
-                    action_request_id=action.id,
-                )
                 self.store.transition_run(run.id, "cancelled")
                 return self.store.transition_action(action.id, "cancelled")
-            run = self.store.create_run(
-                action.task_id,
-                "continue_research",
-                self.store.committed_state_version(action.task_id),
-                {
-                    "action_type": action.action_type,
-                    "scope": action.immutable_payload,
-                },
-                trigger_message_id=action.trigger_message_id,
-                action_request_id=action.id,
-            )
-            self.store.transition_action(
-                action.id, "executing", created_research_run_id=run.id
-            )
             self.store.claim_run(
                 run.id,
                 phase="collecting",
