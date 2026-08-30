@@ -32,7 +32,13 @@ class ReportPublisher:
         result = render_verified_report(
             self.cwd,
             task_id,
-            allowed_fact_ids=self.store.committed_asset_ids(task_id, "fact"),
+            allowed_fact_ids={
+                item.logical_id
+                for item in snapshot.asset_manifest
+                if item.asset_type == "fact"
+            }
+            if snapshot.asset_manifest
+            else self.store.committed_asset_ids(task_id, "fact"),
             output_path=relative_path,
         )
         if not result.get("ok"):
