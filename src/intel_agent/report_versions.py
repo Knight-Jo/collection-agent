@@ -6,7 +6,6 @@ from pathlib import Path
 
 from .models import (
     ActionRequest,
-    CommittedResearchSnapshot,
     IntelError,
     ReportVersion,
     new_id,
