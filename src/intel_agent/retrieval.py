@@ -99,7 +99,6 @@ class TaskRetriever:
         snapshot: object | None = None,
     ) -> list[RetrievedPassage]:
         """Rank matching committed evidence and material text."""
-        del snapshot  # Reserved for a precomputed task projection.
         if limit < 1:
             raise IntelError("INVALID_INPUT", "检索结果数量必须大于零")
         query_tokens = set(tokenize_query(query))
@@ -108,9 +107,29 @@ class TaskRetriever:
 
         task = load_task(self.cwd, task_id)
         questions = {question.id: question.text for question in task.questions}
-        document_ids = self.store.committed_asset_ids(task_id, "document")
-        fact_ids = self.store.committed_asset_ids(task_id, "fact")
-        evidence_ids = self.store.committed_asset_ids(task_id, "evidence")
+        committed = snapshot or self.store.committed_snapshot(task_id)
+        manifest = getattr(committed, "asset_manifest", [])
+        if manifest:
+            document_ids = {
+                item.logical_id
+                for item in manifest
+                if item.asset_type == "document"
+            }
+            fact_ids = {
+                item.logical_id
+                for item in manifest
+                if item.asset_type == "fact"
+            }
+            evidence_ids = {
+                item.logical_id
+                for item in manifest
+                if item.asset_type == "evidence"
+            }
+        else:
+            # Legacy tasks have committed IDs but no revision manifest yet.
+            document_ids = self.store.committed_asset_ids(task_id, "document")
+            fact_ids = self.store.committed_asset_ids(task_id, "fact")
+            evidence_ids = self.store.committed_asset_ids(task_id, "evidence")
         passages: list[RetrievedPassage] = []
 
         for evidence_id in evidence_ids:

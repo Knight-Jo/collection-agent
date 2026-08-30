@@ -4,7 +4,11 @@ import pytest
 
 from intel_agent.fact import save_fact
 from intel_agent.materials import register_material
-from intel_agent.models import IntelError
+from intel_agent.models import (
+    AssetRevisionRef,
+    CommittedResearchSnapshot,
+    IntelError,
+)
 from intel_agent.retrieval import TaskRetriever
 from intel_agent.state_store import StateStore
 from intel_agent.storage import workspace_path
@@ -131,3 +135,40 @@ def test_retrieve_rejects_tampered_document(cwd):
         retriever.retrieve(task.id, "launch detail")
 
     assert caught.value.code == "DOCUMENT_TAMPERED"
+
+
+def test_retrieve_honors_fixed_snapshot_manifest(cwd):
+    task = new_task(cwd, ["Find launch details", "Find launch risks"])
+    first = make_document(
+        cwd, "Launch baseline detail", "https://example.com/first"
+    )
+    second = make_document(
+        cwd, "Launch second detail", "https://example.com/second"
+    )
+    for document in (first, second):
+        register_material(
+            cwd, task.id, document.canonical_url, document_id=document.id
+        )
+    store = StateStore(cwd)
+    retriever = TaskRetriever(cwd, store)
+    retriever.seed_completed_task(task.id)
+    snapshot = CommittedResearchSnapshot(
+        task_id=task.id,
+        version=1,
+        asset_manifest=[
+            AssetRevisionRef(
+                asset_type="document",
+                logical_id=first.id,
+                revision_id=first.id,
+                content_sha256=first.text_sha256,
+                task_id=task.id,
+            )
+        ],
+        fingerprint="f" * 64,
+        created_at="2026-01-01T00:00:00+00:00",
+    )
+
+    passages = retriever.retrieve(task.id, "launch", snapshot=snapshot)
+
+    assert passages
+    assert all(item.document_id == first.id for item in passages)
