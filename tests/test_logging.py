@@ -56,6 +56,17 @@ def test_failure_logs_error(caplog):
     assert "tool failed code=UNSAFE_URL" in caplog.text
 
 
+def test_logging_redacts_sensitive_url_query(tmp_path):
+    agent_logging.configure_logging(tmp_path, Settings())
+    logger = logging.getLogger("probe")
+    logger.info("fetch %s", "https://example.com/?token=secret&ok=1")
+
+    log_file = next((tmp_path / "data" / "logs").glob("agent-*.log"))
+    content = log_file.read_text(encoding="utf-8")
+    assert "token=secret" not in content
+    assert "token=%2A%2A%2A" in content
+
+
 def test_budget_exhaustion_logs_warning(caplog, cwd):
     task = create_task(
         cwd, "主题", ["问题一", "问题二"], SufficiencyCriteria()
