@@ -111,6 +111,24 @@ async def test_dialogue_filters_citations_outside_allow_list(cwd):
     assert decision.action is None
 
 
+async def test_dialogue_routes_explicit_new_topic_without_model(cwd):
+    task = new_task(cwd)
+    fake = _FakeAgent("not called")
+    decision = await DialogueEngine(agent=fake).answer(
+        task=task,
+        query="换个主题，调研新能源汽车出口",
+        summary="",
+        messages=[],
+        passages=[_passage()],
+        run_status="idle",
+    )
+
+    assert decision.intent == "new_topic"
+    assert decision.action is None
+    assert decision.cited_passage_ids == []
+    assert fake.prompts == []
+
+
 async def test_dialogue_streams_answer_text_from_partial_json(cwd):
     task = new_task(cwd)
     fake = _FakeStreamingAgent(
@@ -134,7 +152,7 @@ async def test_dialogue_streams_answer_text_from_partial_json(cwd):
         on_delta=receive,
     )
 
-    assert "".join(deltas) == "当前状态良好"
+    assert deltas == ["当前状态良好"]
     assert decision.answer == "当前状态良好"
     assert len(fake.prompts) == 1
 

@@ -11,7 +11,7 @@ from typing import Protocol
 from pydantic_ai import CancellationToken
 
 from .config import Settings
-from .dialogue import DialogueDecision, DialogueEngine
+from .dialogue import DialogueDecision, DialogueEngine, is_new_topic_request
 from .intake import IntakeDecision, IntakeEngine
 from .logging import get_logger
 from .models import (
@@ -489,6 +489,19 @@ class ConversationRuntime:
                 return
             task_id = conversation.task_id
             task = load_task(self.cwd, task_id)
+            if is_new_topic_request(user.content):
+                assistant = self.store.complete_message(
+                    user.id,
+                    "这看起来是新的调研主题。请新建一个对话和任务，"
+                    "当前任务不会被改绑。",
+                    mark_user_completed=False,
+                )
+                self.store.transition_processing_attempt(
+                    attempt.id,
+                    "completed",
+                    assistant_message_id=assistant.id,
+                )
+                return
             passages = self.retriever.retrieve(task.id, user.content, limit=8)
             epoch = self.store.active_epoch(task.id)
             messages = self.store.list_messages(task.id)

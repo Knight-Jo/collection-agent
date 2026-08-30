@@ -12,7 +12,7 @@ from pydantic_ai import Agent
 
 from .agent import _bounded_model_settings, _build_chat_model
 from .config import Settings
-from .models import ActionType, IntelError, IntelTask, Message
+from .models import ActionType, DialogueIntent, IntelError, IntelTask, Message
 from .retrieval import RetrievedPassage
 
 DIALOGUE_SYSTEM_PROMPT = """\
@@ -21,7 +21,7 @@ DIALOGUE_SYSTEM_PROMPT = """\
 
 只返回一个 JSON 对象，字段如下：
 intent, answer, answerability, cited_passage_ids, gaps, action。
-intent 只能是 greeting、ask_evidence、ask_task_status、ask_methodology、
+intent 只能是 greeting、ask_evidence、ask_task_status、ask_methodology、new_topic、
 continue_research、search_gap、search_specific_topic、generate_report 或
 regenerate_report。普通问候使用 greeting，且 action 必须为 null。
 answerability 只能是 answered、partial、not_answerable。
@@ -46,17 +46,7 @@ class DialogueDecision(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    intent: Literal[
-        "greeting",
-        "ask_evidence",
-        "ask_task_status",
-        "ask_methodology",
-        "continue_research",
-        "search_gap",
-        "search_specific_topic",
-        "generate_report",
-        "regenerate_report",
-    ]
+    intent: DialogueIntent
     answer: str = Field(min_length=1)
     answerability: Literal["answered", "partial", "not_answerable"]
     cited_passage_ids: list[str] = Field(default_factory=list)
@@ -185,6 +175,15 @@ class DialogueEngine:
         on_delta: Callable[[str], Awaitable[None]] | None = None,
     ) -> DialogueDecision:
         """Return a validated decision with server-filtered citation IDs."""
+        if is_new_topic_request(query):
+            decision = DialogueDecision(
+                intent="new_topic",
+                answer="这看起来是新的调研主题。请新建一个对话和任务，当前任务不会被改绑。",
+                answerability="not_answerable",
+            )
+            if on_delta is not None:
+                await on_delta(decision.answer)
+            return decision
         prompt = build_dialogue_prompt(
             task, summary, messages, passages, run_status
         )
@@ -320,6 +319,22 @@ def _is_explicit_action_request(query: str, action_type: ActionType) -> bool:
             "continue research",
         )
     return any(marker in normalized for marker in markers)
+
+
+def is_new_topic_request(content: str) -> bool:
+    """Recognize explicit requests to leave the current research topic."""
+    normalized = content.casefold().strip()
+    return any(
+        marker in normalized
+        for marker in (
+            "新主题",
+            "换个主题",
+            "另一个主题",
+            "另一个调研",
+            "改为研究",
+            "重新研究",
+        )
+    )
 
 
 def _clip(value: str, limit: int) -> str:

@@ -230,6 +230,29 @@ async def test_clear_request_binds_one_task(cwd):
     assert initial.calls[0][1].topic == "先进封装"
 
 
+async def test_explicit_new_topic_does_not_rebind_existing_conversation(cwd):
+    task = new_task(cwd)
+    runtime = ConversationRuntime(
+        cwd,
+        dialogue=_Dialogue(_decision()),
+        retriever=_Retriever(),
+    )
+    runtime.conversation_view(task.id)
+    conversation = runtime.store.get_conversation(task.id)
+
+    user = runtime.submit_message(
+        conversation.id, "换个主题，调研新能源汽车出口", "new-topic-1"
+    )
+    reply = await runtime.wait_message(user.id)
+
+    assert "新建一个对话和任务" in reply.content
+    assert (
+        runtime.store.get_conversation_by_id(conversation.id).task_id
+        == task.id
+    )
+    assert runtime.store.list_actions(task.id) == []
+
+
 async def test_recovery_schedules_queued_initial_run(cwd):
     first = ConversationRuntime(
         cwd,

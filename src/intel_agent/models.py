@@ -61,6 +61,18 @@ ActionType = Literal[
     "generate_report",
     "regenerate_report",
 ]
+DialogueIntent = Literal[
+    "greeting",
+    "ask_evidence",
+    "ask_task_status",
+    "ask_methodology",
+    "continue_research",
+    "search_gap",
+    "search_specific_topic",
+    "generate_report",
+    "regenerate_report",
+    "new_topic",
+]
 CommittedAssetType = Literal["document", "fact", "evidence"]
 SUPPORT_REVIEW_PROMPT_VERSION = "support-entailment-v2"
 
