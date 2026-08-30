@@ -116,7 +116,7 @@ def test_api_routes_install_legacy_adapter(cwd, monkeypatch):
         cwd=cwd, settings=Settings(), conversation_runtime=runtime
     )
 
-    assert isinstance(app.state.registry, LegacyRunAdapter)
+    assert isinstance(app.state.legacy_adapter, LegacyRunAdapter)
     response = TestClient(app).post(
         "/api/runs",
         json={"topic": "兼容主题", "questions": ["问题一", "问题二"]},
@@ -128,9 +128,10 @@ def test_api_routes_install_legacy_adapter(cwd, monkeypatch):
     with connect_state_db(cwd) as connection:
         assert (
             connection.execute(
-                "SELECT COUNT(*) FROM web_run_projections"
-            ).fetchone()[0]
-            == 0
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type = 'table' AND name = 'web_run_projections'"
+            ).fetchone()
+            is None
         )
 
 

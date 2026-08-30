@@ -56,42 +56,28 @@ class SearchProvider(Protocol):
     ) -> list[SearchResult]: ...
 
 
-class ProviderRegistry:
-    def __init__(self) -> None:
-        self._providers: dict[str, SearchProvider] = {}
+def validate_public_provider(metadata: ProviderMetadata) -> None:
+    """Reject providers that violate the anonymous production policy."""
+    if metadata.requires_payment:
+        raise ValueError(
+            f"provider {metadata.name}: requires_payment is not allowed "
+            "in the production search stack"
+        )
+    if metadata.requires_credentials:
+        raise ValueError(
+            f"provider {metadata.name}: requires_credentials is not "
+            "allowed in the production search stack"
+        )
+    if metadata.access_mode not in ALLOWED_ACCESS_MODES:
+        raise ValueError(
+            f"provider {metadata.name}: access_mode "
+            f"{metadata.access_mode!r} not in {sorted(ALLOWED_ACCESS_MODES)}"
+        )
+    if not metadata.supports_anonymous:
+        raise ValueError(
+            f"provider {metadata.name}: anonymous access required"
+        )
 
-    def register(self, provider: SearchProvider) -> SearchProvider:
-        metadata = provider.metadata
-        if metadata.requires_payment:
-            raise ValueError(
-                f"provider {metadata.name}: requires_payment is not allowed "
-                "in the production search stack"
-            )
-        if metadata.requires_credentials:
-            raise ValueError(
-                f"provider {metadata.name}: requires_credentials is not "
-                "allowed in the production search stack"
-            )
-        if metadata.access_mode not in ALLOWED_ACCESS_MODES:
-            raise ValueError(
-                f"provider {metadata.name}: access_mode "
-                f"{metadata.access_mode!r} not in {sorted(ALLOWED_ACCESS_MODES)}"
-            )
-        if not metadata.supports_anonymous:
-            raise ValueError(
-                f"provider {metadata.name}: anonymous access required"
-            )
-        self._providers[metadata.name] = provider
-        return provider
-
-    def providers(self) -> list[SearchProvider]:
-        return list(self._providers.values())
-
-    def get(self, name: str) -> SearchProvider | None:
-        return self._providers.get(name)
-
-
-REGISTRY = ProviderRegistry()
 
 # name -> (min_interval_seconds, asyncio.Lock, last_call_monotonic)
 _rate_state: dict[str, tuple[float, asyncio.Lock, float]] = {}

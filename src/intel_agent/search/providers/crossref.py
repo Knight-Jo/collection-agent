@@ -6,10 +6,10 @@ from datetime import UTC, datetime, timedelta
 
 from .. import SearchResult, _provider_result
 from ..provider import (
-    REGISTRY,
     ProviderMetadata,
     SearchRequest,
     rate_limit,
+    validate_public_provider,
 )
 
 _CROSSREF_API = "https://api.crossref.org/works"
@@ -116,4 +116,4 @@ def _crossref_date_range(time_range: str) -> tuple[str | None, str | None]:
     return start.isoformat(), end.isoformat()
 
 
-REGISTRY.register(CrossrefProvider())
+validate_public_provider(CrossrefProvider.metadata)

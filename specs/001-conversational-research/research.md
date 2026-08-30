@@ -50,7 +50,7 @@
 | P2 | JudgeAgent 使用独立 usage，未计入注释声称的统一 request budget | `config.py:73-79`, `agent.py:275-313`, `audit.py:177-229` | 审核请求可超过运行预算和成本上限 |
 | P2 | 每次 build_deps 创建 AsyncClient，runner/continuation 未关闭 | `agent.py:230-253`, `runner.py:333`, `continuation.py:240` | 长期运行积累连接与资源 |
 | P2 | 通用 web_search 绕过已有 SearchProvider | `search/__init__.py:317-427`, `search/provider.py:42-90` | AI-native Adapter 会复制缓存、限流、准入和降级逻辑 |
-| P2 | 旧 `/api/runs` 使用纯内存 RunRegistry | `web/app.py:53-78`, `web/runs.py:54-239` | 与 SQLite ResearchRun 形成第二套状态真相，重启丢失 |
+| P2 | 旧 `/api/runs` 使用独立 RunRegistry | 已由 `LegacyRunAdapter` 收敛到 `ResearchRun/event` | 保留兼容接口但不再维护第二套状态真相 |
 | P2 | Pydantic AI 依赖没有主版本上限 | `pyproject.toml:7-18` | 非 lockfile 安装可能静默进入破坏性主版本 |
 
 ## Decision 1: 先建立可信 committed snapshot

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from .. import SearchResult, _provider_result
 from ..provider import (
-    REGISTRY,
     ProviderMetadata,
     SearchRequest,
     rate_limit,
+    validate_public_provider,
 )
 
 _GDELT_API = "https://api.gdeltproject.org/api/v2/doc/doc"
@@ -72,4 +72,4 @@ class GDELTProvider:
         return out[: request.max_results]
 
 
-REGISTRY.register(GDELTProvider())
+validate_public_provider(GDELTProvider.metadata)

@@ -10,10 +10,10 @@ import asyncio
 
 from .. import SearchResult, _provider_result
 from ..provider import (
-    REGISTRY,
     ProviderMetadata,
     SearchRequest,
     rate_limit,
+    validate_public_provider,
 )
 
 _GITEE_API = "https://gitee.com/api/v5"
@@ -138,4 +138,4 @@ class GiteeProvider:
         return repos + issues
 
 
-REGISTRY.register(GiteeProvider())
+validate_public_provider(GiteeProvider.metadata)

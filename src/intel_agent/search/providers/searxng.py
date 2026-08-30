@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from .. import SearchResult, searxng_search
 from ..provider import (
-    REGISTRY,
     ProviderMetadata,
     SearchRequest,
     rate_limit,
+    validate_public_provider,
 )
 
 
@@ -54,4 +54,4 @@ class SearXNGProvider:
         return results
 
 
-REGISTRY.register(SearXNGProvider("http://127.0.0.1:8888"))
+validate_public_provider(SearXNGProvider.metadata)

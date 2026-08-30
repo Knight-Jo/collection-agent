@@ -11,10 +11,10 @@ import re
 
 from .. import UA, SearchResult, _provider_result, strip_tags
 from ..provider import (
-    REGISTRY,
     ProviderMetadata,
     SearchRequest,
     rate_limit,
+    validate_public_provider,
 )
 
 _SO360_NEWS = "https://news.so.com/ns"
@@ -93,4 +93,4 @@ class So360NewsProvider:
         return out
 
 
-REGISTRY.register(So360NewsProvider())
+validate_public_provider(So360NewsProvider.metadata)

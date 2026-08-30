@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from .. import SearchResult, _provider_result
 from ..provider import (
-    REGISTRY,
     ProviderMetadata,
     SearchRequest,
     rate_limit,
+    validate_public_provider,
 )
 
 _S2_API = "https://api.semanticscholar.org/graph/v1/paper/search"
@@ -82,4 +82,4 @@ class SemanticScholarProvider:
         return out
 
 
-REGISTRY.register(SemanticScholarProvider())
+validate_public_provider(SemanticScholarProvider.metadata)

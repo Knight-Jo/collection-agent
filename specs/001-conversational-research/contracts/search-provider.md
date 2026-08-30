@@ -65,7 +65,7 @@ Adapter MUST：
 
 ## Admission Contract
 
-- 当前匿名 `REGISTRY` 默认规则保持不变。
+- 当前匿名 Provider 的静态 admission 规则保持不变。
 - AI-native Adapter 必须显式启用，并且其 `api_key_env` 在运行时存在，才可加入 credentialed 调用集合。
 - 允许 credentialed 的路径不得成为所有 Provider 的全局默认值。
 - 付费/配额行为必须在配置文档说明；系统不得在缺省配置下静默产生第三方费用。

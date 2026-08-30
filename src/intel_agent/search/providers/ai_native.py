@@ -16,19 +16,20 @@ class CredentialedProvider:
     """Small common base; instances are created only after key admission."""
 
     metadata: ProviderMetadata
+    DEFAULT_BASE_URL: str
 
     def __init__(
         self,
         *,
         api_key: str,
-        base_url: str,
-        min_interval: float,
-        max_results: int,
+        base_url: str | None = None,
+        min_interval: float = 1.0,
+        max_results: int = 10,
     ) -> None:
         if not api_key.strip():
             raise ValueError("api_key must not be empty")
         self.api_key = api_key
-        self.base_url = base_url.rstrip("/")
+        self.base_url = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
         self.min_interval = min_interval
         self.max_results = max_results
         self.last_calls = 0

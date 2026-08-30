@@ -6,10 +6,10 @@ import xml.etree.ElementTree as ET
 
 from .. import SearchResult, _provider_result
 from ..provider import (
-    REGISTRY,
     ProviderMetadata,
     SearchRequest,
     rate_limit,
+    validate_public_provider,
 )
 
 _ARXIV_API = "https://export.arxiv.org/api/query"
@@ -96,4 +96,4 @@ def _arxiv_date_range(time_range: str) -> tuple[str | None, str | None]:
     return start.isoformat(), end.isoformat()
 
 
-REGISTRY.register(ArxivProvider())
+validate_public_provider(ArxivProvider.metadata)

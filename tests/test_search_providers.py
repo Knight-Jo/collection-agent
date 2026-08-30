@@ -16,11 +16,11 @@ from intel_agent.search.academic import academic_search
 from intel_agent.search.news import news_search
 from intel_agent.search.provider import (
     ALLOWED_ACCESS_MODES,
-    REGISTRY,
     ProviderMetadata,
     SearchRequest,
     credentialed_providers,
     search_cache_key,
+    validate_public_provider,
 )
 from intel_agent.search.providers.arxiv import ArxivProvider
 from intel_agent.search.providers.brave import BraveProvider
@@ -60,20 +60,17 @@ def _searxng_response(results):
 
 @pytest.mark.asyncio
 async def test_search_stack_without_credentials():
-    # Import every production provider so the registry is fully populated.
-    import intel_agent.search.providers.arxiv  # noqa: F401
-    import intel_agent.search.providers.crossref  # noqa: F401
-    import intel_agent.search.providers.gdelt  # noqa: F401
-    import intel_agent.search.providers.gitee  # noqa: F401
-    import intel_agent.search.providers.github  # noqa: F401
-    import intel_agent.search.providers.searxng  # noqa: F401
-    import intel_agent.search.providers.semantic_scholar  # noqa: F401  # noqa: F401
-    import intel_agent.search.providers.so360  # noqa: F401
-
-    providers = REGISTRY.providers()
-    assert providers, "no providers registered"
-    for provider in providers:
-        metadata = provider.metadata
+    providers = [
+        ArxivProvider,
+        CrossrefProvider,
+        GDELTProvider,
+        GiteeProvider,
+        GitHubProvider,
+        SemanticScholarProvider,
+        So360NewsProvider,
+    ]
+    for provider_type in providers:
+        metadata = provider_type.metadata
         assert metadata.requires_credentials is False, metadata.name
         assert metadata.requires_payment is False, metadata.name
         assert metadata.supports_anonymous is True, metadata.name
@@ -81,23 +78,15 @@ async def test_search_stack_without_credentials():
 
 
 def test_registry_rejects_paid_provider():
-    from intel_agent.search.provider import ProviderRegistry
-
-    registry = ProviderRegistry()
-
-    class Paid:
-        metadata = ProviderMetadata(
-            name="exa",
-            access_mode="OPEN_ANONYMOUS",
-            requires_payment=True,
-            supports_anonymous=True,
-        )
-
-        async def search(self, client, request):
-            return []
+    metadata = ProviderMetadata(
+        name="exa",
+        access_mode="OPEN_ANONYMOUS",
+        requires_payment=True,
+        supports_anonymous=True,
+    )
 
     with pytest.raises(ValueError, match="requires_payment"):
-        registry.register(Paid())  # type: ignore[arg-type]
+        validate_public_provider(metadata)
 
 
 @pytest.mark.asyncio

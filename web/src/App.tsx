@@ -1,7 +1,6 @@
 import { Aperture } from "lucide-react";
-import { Link, Navigate, Route, Routes } from "react-router-dom";
+import { Link, Route, Routes } from "react-router-dom";
 import { ConversationWorkbenchPage } from "./pages/ConversationWorkbenchPage";
-import { RunPage } from "./pages/RunPage";
 import { TaskPage } from "./pages/TaskPage";
 
 export default function App() {
@@ -21,8 +20,6 @@ export default function App() {
       <Routes>
         <Route path="/" element={<ConversationWorkbenchPage />} />
         <Route path="/conversations/:conversationId" element={<ConversationWorkbenchPage />} />
-        <Route path="/new" element={<Navigate to="/" replace />} />
-        <Route path="/runs/:runId" element={<RunPage />} />
         <Route path="/tasks/:taskId" element={<TaskPage />} />
       </Routes>
     </div>

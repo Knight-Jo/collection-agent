@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .storage import ensure_intel_dirs
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -542,6 +542,10 @@ CREATE TABLE IF NOT EXISTS web_run_projections (
 );
 """
 
+SCHEMA_V7 = """
+DROP TABLE IF EXISTS web_run_projections;
+"""
+
 
 def state_db_path(cwd: Path) -> Path:
     """Return the local SQLite state database path."""
@@ -637,6 +641,14 @@ def initialize_state_db(cwd: Path) -> Path:
             connection.executescript(SCHEMA_V6)
             connection.execute(
                 "INSERT INTO schema_migrations(version) VALUES (?)", (6,)
+            )
+        migrated = connection.execute(
+            "SELECT 1 FROM schema_migrations WHERE version = 7"
+        ).fetchone()
+        if SCHEMA_VERSION >= 7 and migrated is None:
+            connection.executescript(SCHEMA_V7)
+            connection.execute(
+                "INSERT INTO schema_migrations(version) VALUES (?)", (7,)
             )
     return path
 

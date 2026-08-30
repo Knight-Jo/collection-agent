@@ -18,21 +18,6 @@ class BraveProvider(CredentialedProvider):
         supports_anonymous=False,
     )
 
-    def __init__(
-        self,
-        *,
-        api_key: str,
-        base_url: str = DEFAULT_BASE_URL,
-        min_interval: float = 1.0,
-        max_results: int = 10,
-    ) -> None:
-        super().__init__(
-            api_key=api_key,
-            base_url=base_url,
-            min_interval=min_interval,
-            max_results=max_results,
-        )
-
     async def search(self, client, request: SearchRequest):
         await self._admit()
         response = await client.get(

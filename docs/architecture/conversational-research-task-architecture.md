@@ -62,7 +62,7 @@ POST /api/runs
 - [`document_read`](../../src/intel_agent/agent.py) 已有的行号、正文大小、
   哈希验证和不可信内容边界；
 - [`context.py`](../../src/intel_agent/context.py) 已验证的有界上下文思想；
-- [`RunRegistry`](../../src/intel_agent/web/runs.py) 和现有 SSE 协议的运行事件
+- [`LegacyRunAdapter`](../../src/intel_agent/web/runs.py) 和现有 SSE 协议的兼容运行事件
   投影；
 - 前端已有的 Markdown 安全渲染、报告视图和材料列表。
 

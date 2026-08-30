@@ -28,7 +28,7 @@ from ..logging import configure_logging
 from ..models import IntelError
 from ..report_versions import ReportPublisher
 from .conversation import router as conversation_router
-from .runs import LegacyRunAdapter, RunRegistry
+from .runs import LegacyRunAdapter
 from .schemas import (
     ArtifactView,
     BrowserStatus,
@@ -55,7 +55,6 @@ def create_app(
     *,
     cwd: Path,
     settings: Settings,
-    registry: RunRegistry | None = None,
     conversation_runtime: ConversationRuntime | None = None,
     static_dir: Path | None = None,
 ) -> FastAPI:
@@ -123,9 +122,7 @@ def create_app(
                     )
         return await call_next(request)
 
-    if registry is not None:
-        gate = registry.gate
-    elif conversation_runtime is not None:
+    if conversation_runtime is not None:
         gate = getattr(conversation_runtime.initial, "gate", None)
         if gate is None:
             gate = getattr(conversation_runtime.continuation, "gate", None)
@@ -145,7 +142,7 @@ def create_app(
             publisher=store_publisher,
         )
     app.state.conversation_runtime = conversation_runtime
-    app.state.registry = registry or LegacyRunAdapter(
+    app.state.legacy_adapter = LegacyRunAdapter(
         app.state.cwd,
         settings,
         runtime=conversation_runtime,
@@ -303,22 +300,22 @@ def create_app(
                 "MODEL_NOT_CONFIGURED",
                 f"缺少模型 API key，请设置环境变量 {settings.model.api_key_env}",
             )
-        return await app.state.registry.create(request.to_spec())
+        return await app.state.legacy_adapter.create(request.to_spec())
 
     @app.get("/api/runs/{run_id}", response_model=RunView)
     async def run_detail(run_id: str) -> RunView:
-        return app.state.registry.get(run_id)
+        return app.state.legacy_adapter.get(run_id)
 
     @app.post("/api/runs/{run_id}/cancel", response_model=RunView)
     async def cancel_run(run_id: str) -> RunView:
-        result = app.state.registry.cancel(run_id)
+        result = app.state.legacy_adapter.cancel(run_id)
         if inspect.isawaitable(result):
             result = await result
         return result
 
     @app.get("/api/runs/{run_id}/events")
     async def run_events(request: Request, run_id: str) -> StreamingResponse:
-        app.state.registry.get(run_id)
+        app.state.legacy_adapter.get(run_id)
         header = request.headers.get("last-event-id", "0")
         try:
             after_id = int(header)
@@ -326,7 +323,9 @@ def create_app(
             after_id = 0
 
         async def stream():
-            async for event in app.state.registry.subscribe(run_id, after_id):
+            async for event in app.state.legacy_adapter.subscribe(
+                run_id, after_id
+            ):
                 if event is None:
                     yield ": heartbeat\n\n"
                     continue

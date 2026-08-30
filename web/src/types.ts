@@ -1,70 +1,10 @@
 export type Stage = "collect" | "assess" | "challenge" | "done";
-export type RunStatus =
-  | "queued"
-  | "running"
-  | "completed_sufficient"
-  | "completed_with_gaps"
-  | "failed"
-  | "cancelled";
 
 export interface Criteria {
   min_independent_sources: number;
   min_high_quality_sources: number;
   recency_days: number;
   require_recency: boolean;
-}
-
-export interface RunInput {
-  topic: string;
-  objective?: string;
-  questions?: string[];
-  scope?: { time_range: string; geography: string[]; languages: string[] };
-  report_depth?: "brief" | "standard" | "deep";
-  deep_crawl: boolean | null;
-  criteria: Criteria;
-}
-
-export interface Run {
-  run_id: string;
-  status: RunStatus;
-  task_id: string | null;
-  created_at: string;
-  started_at: string | null;
-  finished_at: string | null;
-  result: string | null;
-  error: { code: string; message: string } | null;
-}
-
-export interface RunEvent {
-  id: number;
-  type: string;
-  timestamp: string;
-  data: Record<string, unknown>;
-}
-
-export type TrajectoryEventType =
-  | "run_started"
-  | "model_call"
-  | "decision"
-  | "action"
-  | "observation"
-  | "state_updated"
-  | "run_finished";
-
-export interface TrajectoryEnvelope {
-  schema_version: string;
-  run_id: string;
-  task_id: string | null;
-  event_id: string;
-  sequence: number;
-  parent_event_id: string | null;
-  timestamp: string;
-  layer: "technical" | "business" | "evaluation";
-  event_type: TrajectoryEventType;
-  origin: "model" | "deterministic" | "policy" | "human" | "system" | "tool";
-  question_id: string | null;
-  step_id: number | null;
-  payload: Record<string, unknown>;
 }
 
 export interface TaskSummary {

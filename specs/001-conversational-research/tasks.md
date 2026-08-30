@@ -166,14 +166,14 @@
 **Purpose**: 删除第二状态真相，完成文档、兼容性和全栈门禁。
 
 - [ ] T066 添加 `/api/runs` 在重启后仍读取持久 ResearchRun、不会保留无界终态内存记录的测试到 `tests/test_web_runs.py`
-- [ ] T067 将 `src/intel_agent/web/app.py` 的旧 `/api/runs` 路由迁移到 `StateStore` ResearchRun/event，删除或缩减 `src/intel_agent/web/runs.py` 的 `RunRegistry` 第二状态真相，使 T066 通过
+- [x] T067 将旧 `/api/runs` 路由收敛到 `LegacyRunAdapter` 的 `StateStore` ResearchRun/event，移除 `RunRegistry` 第二状态真相
 - [X] T068 [P] 更新开发默认 `0.0.0.0`、未认证警告、生产认证、Provider 配置、密钥、费用、降级和证据边界文档于 `README.md`、`config.example.yaml` 与 `specs/001-conversational-research/quickstart.md`
 - [X] T069 执行并修复 `ruff format --check .`、`ruff check .`、`pyright`、`pytest` 与 `uv build` 发现的问题，必要修改限定在对应失败文件和 `tests/`
 - [ ] T070 执行并修复 `web/` 下 `bun run test`、`bun run typecheck`、`bun run check`、`bun run build`，随后按 `specs/001-conversational-research/quickstart.md` 完成 P0/P1 故障注入和 AI-native smoke 验收
 
 ## Phase 8: Convergence
 
-- [ ] T071 将 `/api/runs` 查询、取消、事件和重启恢复统一到持久 `ResearchRun`/event，移除 `RunRegistry` 作为第二状态真相（plan: lifecycle persistence, partial）
+- [x] T071 将 `/api/runs` 查询、取消、事件和重启恢复统一到持久 `ResearchRun`/event，移除 `RunRegistry` 作为第二状态真相
 - [ ] T072 让报告渲染一次固定 `CommittedResearchSnapshot`，保存完整 revision fingerprint，并返回历史报告的 stale 状态（US4/AC, partial）
 - [ ] T073 补齐 bound Task/Run 的跨任务拒绝、queued/executing 恢复、取消与重试验收，并确保所有生命周期路径只提交有效 workspace revision（FR-生命周期, partial）
 - [ ] T074 完成多 Provider 降级、深爬附件边界、独立 supports 交叉验证、运行级预算和全栈故障注入验收（US2/AC, partial）

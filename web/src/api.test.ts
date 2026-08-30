@@ -11,21 +11,6 @@ it("returns API responses for every workbench endpoint", async () => {
   await expect(api.tasks()).resolves.toEqual([]);
   await expect(api.task("task-1")).resolves.toEqual([]);
   await expect(api.artifact("task-1", "assessment")).resolves.toEqual([]);
-  await expect(
-    api.createRun({
-      topic: "topic",
-      questions: ["one", "two"],
-      deep_crawl: false,
-      criteria: {
-        min_independent_sources: 2,
-        min_high_quality_sources: 1,
-        recency_days: 90,
-        require_recency: false,
-      },
-    }),
-  ).resolves.toEqual([]);
-  await expect(api.run("run-1")).resolves.toEqual([]);
-  await expect(api.cancelRun("run-1")).resolves.toEqual([]);
   await expect(api.conversation("task-1")).resolves.toEqual([]);
   await expect(api.sendMessage("task-1", "问题", "client-1")).resolves.toEqual([]);
   await expect(api.cancelMessage("message-1")).resolves.toEqual([]);
@@ -48,11 +33,6 @@ it("returns API responses for every workbench endpoint", async () => {
   await expect(api.reportVersion("report-1")).resolves.toEqual([]);
   await expect(api.createReportVersion("task-1")).resolves.toEqual([]);
   await expect(api.publishReportVersion("report-1")).resolves.toEqual([]);
-  expect(fetchMock).toHaveBeenCalledWith("/api/runs", expect.objectContaining({ method: "POST" }));
-  expect(fetchMock).toHaveBeenCalledWith(
-    "/api/runs/run-1/cancel",
-    expect.objectContaining({ method: "POST" }),
-  );
   expect(fetchMock).toHaveBeenCalledWith(
     "/api/tasks/task-1/conversation/messages",
     expect.objectContaining({ method: "POST" }),

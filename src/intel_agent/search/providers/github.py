@@ -11,10 +11,10 @@ import asyncio
 
 from .. import SearchResult, _provider_result
 from ..provider import (
-    REGISTRY,
     ProviderMetadata,
     SearchRequest,
     rate_limit,
+    validate_public_provider,
 )
 from .gitee import GiteeProvider
 
@@ -170,4 +170,4 @@ class GitHubProvider:
         )
 
 
-REGISTRY.register(GitHubProvider())
+validate_public_provider(GitHubProvider.metadata)

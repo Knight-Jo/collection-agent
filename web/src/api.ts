@@ -7,8 +7,6 @@ import type {
   ReportVersion,
   ReportVersionDetail,
   ResearchRun,
-  Run,
-  RunInput,
   SearchPlanVersion,
   SystemStatus,
   TaskDetail,
@@ -34,10 +32,6 @@ export const api = {
   task: (id: string) => request<TaskDetail>(`/api/tasks/${id}`),
   artifact: (id: string, kind: Artifact["kind"]) =>
     request<Artifact>(`/api/tasks/${id}/artifacts/${kind}`),
-  createRun: (input: RunInput) =>
-    request<Run>("/api/runs", { method: "POST", body: JSON.stringify(input) }),
-  run: (id: string) => request<Run>(`/api/runs/${id}`),
-  cancelRun: (id: string) => request<Run>(`/api/runs/${id}/cancel`, { method: "POST" }),
   conversation: (taskId: string) =>
     request<ConversationProjection>(`/api/tasks/${taskId}/conversation`),
   sendMessage: (taskId: string, content: string, clientMessageId: string) =>
