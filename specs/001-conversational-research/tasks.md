@@ -39,7 +39,7 @@
 - [X] T010 复用 `src/intel_agent/logging.py` 的脱敏路径并补齐 `src/intel_agent/fetch.py`、`src/intel_agent/trajectory.py`、`src/intel_agent/state_store.py` 与 `src/intel_agent/web/app.py` 的 URL/secret 持久化调用，使 T009 通过
 - [ ] T011 [P] 添加旧数据库升级、baseline snapshot、asset revision manifest、run workspace 和 `research_runs(action_request_id)` 唯一约束测试到 `tests/test_state_db.py` 与 `tests/test_state_models.py`
 - [X] T012 在 `src/intel_agent/state_db.py` 和 `src/intel_agent/models.py` 实施 T011 所需的最小向前迁移及 `CommittedResearchSnapshot`、`AssetRevisionRef`、`RunWorkspace`、`ResearchOutcome` 模型
-- [ ] T013 添加固定版本 snapshot、hash 验证、未提交/abandoned workspace 不可见和幂等读取测试到 `tests/test_state_store.py`
+- [X] T013 添加固定版本 snapshot、hash 验证、未提交/abandoned workspace 不可见和幂等读取测试到 `tests/test_state_store.py`
 - [X] T014 在 `src/intel_agent/state_store.py` 和 `src/intel_agent/storage.py` 实施 `committed_snapshot(task_id, version)`、`run_view(run_id)`、staged revision 和确定性 fingerprint，使 T013 通过
 - [ ] T015 将 Document、Fact、Evidence 和 MaterialDigest 的运行中写入改为 append-only revision staging，修改 `src/intel_agent/fetch.py`、`src/intel_agent/fact.py`、`src/intel_agent/evidence.py` 与 `src/intel_agent/materials.py`
 - [ ] T016 将 SupportReview、Conflict、Coverage 和 Task 更新改为当前 Run workspace 中的新 revision，修改 `src/intel_agent/audit.py`、`src/intel_agent/conflicts.py`、`src/intel_agent/coverage.py` 与 `src/intel_agent/task.py`

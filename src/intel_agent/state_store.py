@@ -2756,14 +2756,18 @@ def _row_to_search_plan(row: sqlite3.Row) -> SearchPlanVersion:
 
 
 def _row_to_snapshot(row: sqlite3.Row) -> CommittedResearchSnapshot:
+    raw_manifest = json.loads(row["asset_manifest_json"])
+    if not isinstance(raw_manifest, list):
+        raise IntelError("STORAGE_CORRUPT", "研究快照清单格式无效")
+    manifest = [AssetRevisionRef.model_validate(item) for item in raw_manifest]
+    normalized = [item.model_dump(mode="json") for item in manifest]
+    if _manifest_fingerprint(normalized) != row["fingerprint"]:
+        raise IntelError("STORAGE_CORRUPT", "研究快照指纹不匹配")
     return CommittedResearchSnapshot(
         task_id=row["task_id"],
         version=row["version"],
         checkpoint_id=row["checkpoint_id"],
-        asset_manifest=[
-            AssetRevisionRef.model_validate(item)
-            for item in json.loads(row["asset_manifest_json"])
-        ],
+        asset_manifest=manifest,
         fingerprint=row["fingerprint"],
         created_at=row["created_at"],
     )

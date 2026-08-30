@@ -9,6 +9,7 @@ from intel_agent.models import (
     IntelError,
     ResearchBrief,
 )
+from intel_agent.state_db import connect_state_db
 from intel_agent.state_store import StateStore
 
 
@@ -162,6 +163,24 @@ def test_finish_run_rejects_stale_input_version(cwd):
     store.transition_run(stale.id, "running")
     with pytest.raises(IntelError, match="过期"):
         store.finish_run(stale.id, expected_input_version=0)
+
+
+def test_committed_snapshot_rejects_tampered_manifest_fingerprint(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    run = store.create_run("task-1", "initial", 0, {})
+    store.transition_run(run.id, "running")
+    store.finish_run(run.id, expected_input_version=0)
+
+    with connect_state_db(cwd) as connection:
+        connection.execute(
+            "UPDATE committed_snapshots SET fingerprint = ? "
+            "WHERE task_id = ? AND version = 0",
+            ("0" * 64, "task-1"),
+        )
+
+    with pytest.raises(IntelError, match="指纹不匹配"):
+        store.committed_snapshot("task-1", 0)
 
 
 def test_finish_run_no_progress_keeps_version(cwd):
