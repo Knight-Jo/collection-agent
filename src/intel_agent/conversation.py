@@ -37,7 +37,12 @@ logger = get_logger(__name__)
 class _Dialogue(Protocol):
     async def answer(self, **kwargs: object) -> DialogueDecision: ...
 
-    async def summarize(self, messages: Sequence[Message]) -> str: ...
+    async def summarize(
+        self,
+        messages: Sequence[Message],
+        *,
+        previous_summary: str = "",
+    ) -> str: ...
 
 
 class _Intake(Protocol):
@@ -691,14 +696,16 @@ class ConversationRuntime:
         ]
         if len(unsummarized) <= 12 or len(messages) <= 8:
             return
-        older = messages[:-8]
-        if not older:
+        batch = unsummarized[:-8][:12]
+        if not batch:
             return
         try:
             async with self._dialogue_lock:
-                summary = await self.dialogue.summarize(older)
+                summary = await self.dialogue.summarize(
+                    batch, previous_summary=epoch.summary
+                )
             self.store.update_epoch_summary(
-                epoch.id, summary, older[-1].sequence
+                epoch.id, summary, batch[-1].sequence
             )
         except Exception:
             logger.exception("Conversation summary update failed")

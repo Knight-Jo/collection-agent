@@ -44,6 +44,8 @@ class _Dialogue:
         self.fail = fail
         self.answer_calls = 0
         self.summary_calls = 0
+        self.summary_batches: list[list[int]] = []
+        self.previous_summaries: list[str] = []
 
     async def answer(self, **_kwargs):
         self.answer_calls += 1
@@ -51,9 +53,15 @@ class _Dialogue:
             raise RuntimeError("model unavailable")
         return self.decision
 
-    async def summarize(self, messages: Sequence[Message]) -> str:
-        del messages
+    async def summarize(
+        self,
+        messages: Sequence[Message],
+        *,
+        previous_summary: str = "",
+    ) -> str:
         self.summary_calls += 1
+        self.summary_batches.append([item.sequence for item in messages])
+        self.previous_summaries.append(previous_summary)
         return "早期对话摘要"
 
 
@@ -526,6 +534,27 @@ async def test_runtime_updates_epoch_summary_after_twelve_messages(cwd):
     assert view["epoch"]["summary"] == "早期对话摘要"
     assert view["epoch"]["summary_through_sequence"] == 6
     assert dialogue.summary_calls == 1
+
+
+async def test_runtime_summary_only_processes_new_messages(cwd):
+    task = new_task(cwd)
+    dialogue = _Dialogue(_decision())
+    runtime = ConversationRuntime(
+        cwd,
+        dialogue=dialogue,
+        retriever=_Retriever(),
+    )
+
+    for number in range(10):
+        message = runtime.submit_message(
+            task.id, f"问题 {number}", f"client-{number}"
+        )
+        await runtime.wait_message(message.id)
+
+    view = cast(dict[str, Any], runtime.conversation_view(task.id))
+    assert view["epoch"]["summary_through_sequence"] == 12
+    assert dialogue.summary_batches == [list(range(1, 7)), list(range(7, 13))]
+    assert dialogue.previous_summaries == ["", "早期对话摘要"]
 
 
 async def test_ordinary_question_never_calls_continuation(cwd):

@@ -198,6 +198,17 @@ async def test_dialogue_rejects_non_object_json_after_repair(cwd):
     assert caught.value.code == "DIALOGUE_FAILED"
 
 
+async def test_summary_merges_prior_memory_without_storing_research_facts():
+    fake = _FakeAgent("更新后的对话记忆")
+    engine = DialogueEngine(agent=fake)
+
+    result = await engine.summarize([], previous_summary="用户要求中文简报")
+
+    assert result == "更新后的对话记忆"
+    assert "用户要求中文简报" in fake.prompts[0]
+    assert "不得记录研究事实" in fake.prompts[0]
+
+
 async def test_dialogue_accepts_greeting_without_action(cwd):
     task = new_task(cwd)
     greeting = (

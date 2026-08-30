@@ -55,7 +55,13 @@ class _Dialogue:
             action=action,
         )
 
-    async def summarize(self, messages: Sequence[Message]) -> str:
+    async def summarize(
+        self,
+        messages: Sequence[Message],
+        *,
+        previous_summary: str = "",
+    ) -> str:
+        del previous_summary
         del messages
         return "摘要"
 

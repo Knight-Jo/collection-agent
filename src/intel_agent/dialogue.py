@@ -272,15 +272,23 @@ class DialogueEngine:
                 raw += chunk
         return raw
 
-    async def summarize(self, messages: Sequence[Message]) -> str:
-        """Compact older visible messages for the next bounded prompt."""
+    async def summarize(
+        self,
+        messages: Sequence[Message],
+        *,
+        previous_summary: str = "",
+    ) -> str:
+        """Merge new dialogue into bounded non-factual conversation memory."""
         transcript = [
             {"role": item.role, "content": _clip(item.content, 2_000)}
             for item in messages
         ]
         prompt = (
-            "请用不超过 800 个汉字概括以下对话中已确认结论、未解决缺口和用户明确要求。"
-            "不要添加新事实：\n" + json.dumps(transcript, ensure_ascii=False)
+            "请把已有对话记忆与新增对话合并为不超过 800 个汉字的新记忆。"
+            "只保留用户约束、输出偏好、已讨论问题、未解决问题和待执行动作；"
+            "不得记录研究事实、证据结论、URL 或模型推测，这些内容必须从研究资产检索。\n"
+            f"已有对话记忆：\n{_clip(previous_summary, 4_000)}\n"
+            "新增对话：\n" + json.dumps(transcript, ensure_ascii=False)
         )
         return _clip((await self.agent.run(prompt)).output.strip(), 4_000)
 

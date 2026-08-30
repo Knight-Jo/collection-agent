@@ -29,6 +29,9 @@ from .state_store import StateStore
 from .task import load_task, summarize_task
 
 CONTEXT_SNAPSHOT_PREFIX = "[CONTEXT_SNAPSHOT]\n"
+MAX_CONTEXT_SNAPSHOT_BYTES = 16_384
+MAX_SNAPSHOT_IDS = 20
+MIN_CONTEXT_SNAPSHOT_BYTES = 256
 
 
 class _ContextDeps(Protocol):
@@ -75,6 +78,7 @@ def build_context_snapshot(
     read_document_ids: set[str] | None = None,
     task_id: str | None = None,
     run_id: str | None = None,
+    max_bytes: int = MAX_CONTEXT_SNAPSHOT_BYTES,
 ) -> str:
     """Build a compact, deterministic snapshot from persisted task state."""
     try:
@@ -201,14 +205,17 @@ def build_context_snapshot(
         "stage": task.stage,
         "completion_status": task.completion_status,
         "questions": [
-            {"id": question.id, "text": question.text}
+            {"id": question.id, "text": question.text[:500]}
             for question in task.questions
         ],
         "collection": task.collection.model_dump(),
         "archived_documents": documents,
-        "read_document_ids": sorted(read_document_ids),
-        "pending_evidence_ids": pending_evidence_ids,
-        "reviewed_evidence_ids": sorted(reviews),
+        "read_document_count": len(read_document_ids),
+        "read_document_ids": sorted(read_document_ids)[:MAX_SNAPSHOT_IDS],
+        "pending_evidence_count": len(pending_evidence_ids),
+        "pending_evidence_ids": pending_evidence_ids[:MAX_SNAPSHOT_IDS],
+        "reviewed_evidence_count": len(reviews),
+        "reviewed_evidence_ids": sorted(reviews)[:MAX_SNAPSHOT_IDS],
         "material_digest_ready": bool(
             material_digest is not None and material_digest.overview
         ),
@@ -241,7 +248,45 @@ def build_context_snapshot(
         ),
         "next_action": next_action,
     }
-    return json.dumps(snapshot, ensure_ascii=False, separators=(",", ": "))
+    return _serialize_snapshot(snapshot, max_bytes)
+
+
+def _serialize_snapshot(snapshot: dict, max_bytes: int) -> str:
+    """Serialize a valid snapshot without exceeding its byte budget."""
+    if max_bytes < MIN_CONTEXT_SNAPSHOT_BYTES:
+        raise ValueError(
+            f"context snapshot budget must be at least "
+            f"{MIN_CONTEXT_SNAPSHOT_BYTES} bytes"
+        )
+    serialized = json.dumps(
+        snapshot, ensure_ascii=False, separators=(",", ": ")
+    )
+    if len(serialized.encode("utf-8")) <= max_bytes:
+        return serialized
+
+    minimal = {
+        "task_id": snapshot.get("task_id"),
+        "stage": snapshot.get("stage"),
+        "completion_status": snapshot.get("completion_status"),
+        "collection": snapshot.get("collection"),
+        "pending_evidence_count": snapshot.get("pending_evidence_count", 0),
+        "reviewed_evidence_count": snapshot.get("reviewed_evidence_count", 0),
+        "next_action": snapshot.get("next_action"),
+        "truncated": True,
+    }
+    for key in ("collection", "completion_status", "next_action"):
+        serialized = json.dumps(
+            minimal, ensure_ascii=False, separators=(",", ": ")
+        )
+        if len(serialized.encode("utf-8")) <= max_bytes:
+            return serialized
+        minimal.pop(key, None)
+    serialized = json.dumps(
+        minimal, ensure_ascii=False, separators=(",", ": ")
+    )
+    if len(serialized.encode("utf-8")) > max_bytes:
+        raise ValueError("context snapshot identity exceeds byte budget")
+    return serialized
 
 
 def _without_old_snapshots(messages: list[ModelMessage]) -> list[ModelMessage]:

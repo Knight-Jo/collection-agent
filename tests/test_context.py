@@ -1,5 +1,8 @@
 """Bounded model history backed by durable research state."""
 
+import json
+from types import SimpleNamespace
+
 from pydantic_ai import (
     ModelMessage,
     ModelMessagesTypeAdapter,
@@ -14,6 +17,8 @@ from intel_agent.agent import build_agent, build_deps
 from intel_agent.config import Settings
 from intel_agent.context import (
     CONTEXT_SNAPSHOT_PREFIX,
+    MAX_CONTEXT_SNAPSHOT_BYTES,
+    MAX_SNAPSHOT_IDS,
     build_context_snapshot,
     compact_message_history,
 )
@@ -207,6 +212,52 @@ def test_context_snapshot_directs_pending_evidence_to_audit(cwd):
     assert evidence.id in snapshot
     assert "停止搜索、抓取和覆盖评估" in snapshot
     assert "evidence_audit" in snapshot
+
+
+def test_context_snapshot_caps_identifier_lists(cwd, monkeypatch):
+    task = create_task(
+        cwd,
+        "测试主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+    )
+    evidence = [
+        SimpleNamespace(id=f"evidence-{number}", relation="supports")
+        for number in range(100)
+    ]
+    monkeypatch.setattr(
+        "intel_agent.context.list_evidence_for_task",
+        lambda _cwd, _task_id: evidence,
+    )
+    monkeypatch.setattr(
+        "intel_agent.context.review_for_evidence",
+        lambda _cwd, _evidence_id: None,
+    )
+
+    snapshot = json.loads(build_context_snapshot(cwd, task_id=task.id))
+
+    assert snapshot["pending_evidence_count"] == 100
+    assert len(snapshot["pending_evidence_ids"]) == MAX_SNAPSHOT_IDS
+    assert (
+        len(json.dumps(snapshot, ensure_ascii=False).encode("utf-8"))
+        <= MAX_CONTEXT_SNAPSHOT_BYTES
+    )
+
+
+def test_context_snapshot_remains_valid_json_under_tight_byte_limit(cwd):
+    task = create_task(
+        cwd,
+        "测试主题",
+        ["很长的问题" * 2_000, "问题乙"],
+        DEFAULT_CRITERIA,
+    )
+
+    raw = build_context_snapshot(cwd, task_id=task.id, max_bytes=1_024)
+    snapshot = json.loads(raw)
+
+    assert len(raw.encode("utf-8")) <= 1_024
+    assert snapshot["task_id"] == task.id
+    assert snapshot["truncated"] is True
 
 
 def test_context_snapshot_does_not_reenter_assess(cwd):
