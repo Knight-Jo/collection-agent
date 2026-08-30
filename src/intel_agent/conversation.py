@@ -253,21 +253,31 @@ class ConversationRuntime:
             if message.id not in self._message_tasks:
                 self._schedule_message(message.id)
         recovered_runs = 0
-        if self.initial is not None:
-            for conversation in self.store.list_conversations():
-                if conversation.task_id is None:
-                    continue
-                task = load_task(self.cwd, conversation.task_id)
-                brief = ResearchBrief(
-                    topic=task.topic,
-                    objective=task.objective,
-                    key_questions=[item.text for item in task.questions],
-                    scope=task.scope,
-                )
+        for conversation in self.store.list_conversations():
+            if conversation.task_id is None:
+                continue
+            task = load_task(self.cwd, conversation.task_id)
+            brief = ResearchBrief(
+                topic=task.topic,
+                objective=task.objective,
+                key_questions=[item.text for item in task.questions],
+                scope=task.scope,
+            )
+            if self.initial is not None:
                 for run in self.store.list_runs(task.id):
-                    if run.run_type == "initial" and run.status == "queued":
+                    if (
+                        run.run_type in {"initial", "retry"}
+                        and run.status == "queued"
+                    ):
                         self._schedule_initial(run, brief)
                         recovered_runs += 1
+            for action in self.store.list_actions(task.id):
+                if (
+                    action.status == "queued"
+                    and action.id not in self._action_tasks_by_id
+                ):
+                    self._schedule_action(action)
+                    recovered_runs += 1
         return len(pending) + recovered_runs
 
     def retry_message(self, message_id: str) -> Message:

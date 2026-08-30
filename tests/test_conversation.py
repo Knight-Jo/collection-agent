@@ -258,6 +258,29 @@ async def test_recovery_schedules_queued_initial_run(cwd):
     assert initial.calls[0][0].status == "queued"
 
 
+async def test_recovery_schedules_queued_action(cwd):
+    task = new_task(cwd)
+    store = StateStore(cwd)
+    store.register_task(task.id)
+    trigger = store.add_user_message(task.id, "继续搜索", "recovery-action")
+    action = store.create_action(
+        task.id, trigger.id, "continue_research", {"topic": task.topic}
+    )
+    action_runner = _ActionRunner()
+    runtime = ConversationRuntime(
+        cwd,
+        continuation=action_runner,
+        retriever=_Retriever(),
+    )
+    runtime.store = store
+
+    recovered = runtime.recover()
+    await action_runner.called.wait()
+
+    assert recovered >= 1
+    assert action_runner.calls[0].id == action.id
+
+
 async def test_intake_failure_does_not_mutate_user_message(cwd):
     runtime = ConversationRuntime(
         cwd,

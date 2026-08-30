@@ -47,7 +47,7 @@
 - [X] T018 添加 Action 原子 claim、唯一 Run、checkpoint 状态守卫、expected-version CAS、原子 finish 和幂等重放测试到 `tests/test_state_store.py`
 - [X] T019 在 `src/intel_agent/state_store.py` 实施 `claim_action`、queued Run claim 和 `finish_run` 事务，使 checkpoint、Run、Action、workspace 与 durable event 原子收敛并通过 T018
 - [ ] T020 [P] 添加工作区单实例锁、旧 active Run 中断、queued initial/action/report/retry 恢复及 executing 状态收敛测试到 `tests/test_conversation_recovery.py`
-- [ ] T021 在 `src/intel_agent/conversation.py` 和 `src/intel_agent/web/app.py` 实施工作区锁与完整启动恢复矩阵，移除无 heartbeat 的固定两分钟 lease 作为活性依据
+- [X] T021 在 `src/intel_agent/conversation.py` 和 `src/intel_agent/web/app.py` 实施工作区锁与完整启动恢复矩阵，移除无 heartbeat 的固定两分钟 lease 作为活性依据
 - [ ] T022 添加 Agent 绑定 Task/Run 后拒绝跨任务 Fact、Evidence、Document、Plan、Checkpoint 和 Report 读写的测试到 `tests/test_runner.py` 与 `tests/test_continuation.py`
 - [ ] T023 在 `src/intel_agent/agent.py` 的 `AgentDeps` 注入 `bound_task_id`/`run_id`，让 task-scoped 工具从依赖派生归属或拒绝不匹配 ID，并停止把全局 active-task 指针当授权
 - [X] T024 添加零 staged revision 的 `no_progress`、queued cancellation、stopping 禁止 commit、失败/取消 workspace abandoned 测试到 `tests/test_continuation.py`
