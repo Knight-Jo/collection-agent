@@ -556,6 +556,21 @@ def test_archive_document_preserves_raw_and_rendered_html(cwd):
     verify_document_integrity(cwd, document)
 
 
+def test_archive_document_redacts_sensitive_query_in_metadata(cwd):
+    document = archive_document(
+        cwd,
+        "https://example.com/download?token=secret",
+        "https://example.com/download?token=secret",
+        "text/plain",
+        b"safe",
+        "safe",
+        "complete",
+    )
+
+    assert "token=secret" not in document.requested_url
+    assert "token=secret" not in document.final_url
+
+
 def test_archive_document_keeps_static_id_formula(cwd):
     url = "https://example.com/static"
     raw = b"<main>static body</main>"

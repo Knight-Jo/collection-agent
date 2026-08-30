@@ -64,7 +64,7 @@ def test_logging_redacts_sensitive_url_query(tmp_path):
     log_file = next((tmp_path / "data" / "logs").glob("agent-*.log"))
     content = log_file.read_text(encoding="utf-8")
     assert "token=secret" not in content
-    assert "token=%2A%2A%2A" in content
+    assert "token=***" in content
 
 
 def test_budget_exhaustion_logs_warning(caplog, cwd):

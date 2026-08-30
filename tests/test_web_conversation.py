@@ -350,6 +350,47 @@ def test_conversation_events_replay_last_event_id(cwd):
     assert "event: test.second" in str(payload)
 
 
+def test_conversation_event_stream_redacts_credentials(cwd):
+    task = new_task(cwd)
+    runtime = ConversationRuntime(
+        cwd, dialogue=_Dialogue(), retriever=_Retriever()
+    )
+    runtime.store.register_task(task.id)
+    runtime.store.append_event(
+        task.id,
+        "test.secret",
+        {"url": "https://example.com/?token=secret"},
+    )
+    app = create_app(
+        cwd=cwd, settings=Settings(), conversation_runtime=runtime
+    )
+
+    async def read_chunk():
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        response = await conversation_events(
+            Request(
+                {
+                    "type": "http",
+                    "method": "GET",
+                    "path": f"/api/tasks/{task.id}/conversation/events",
+                    "headers": [],
+                    "app": app,
+                },
+                receive,
+            ),
+            task.id,
+        )
+        async for chunk in response.body_iterator:
+            return str(chunk)
+        raise AssertionError("event stream returned no events")
+
+    payload = asyncio.run(read_chunk())
+    assert "token=secret" not in payload
+    assert "token=%2A%2A%2A" in payload
+
+
 def test_conversation_events_forward_transient_answer_delta(cwd):
     task = new_task(cwd)
     runtime = ConversationRuntime(

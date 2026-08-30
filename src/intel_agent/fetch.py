@@ -53,6 +53,26 @@ DEFAULT_TIMEOUT_MS = 25_000
 REDIRECT_STATUSES = {301, 302, 303, 307, 308}
 MAX_REDIRECTS = 5
 USER_AGENT = "pi-intelligence-collector/1.0"
+_SENSITIVE_URL_KEYS = {
+    "api_key",
+    "auth",
+    "key",
+    "secret",
+    "signature",
+    "token",
+    "password",
+}
+
+
+def _safe_metadata_url(value: str | None) -> str | None:
+    if value is None:
+        return None
+    parsed = urlsplit(value)
+    query = [
+        (key, "***" if key.casefold() in _SENSITIVE_URL_KEYS else item)
+        for key, item in parse_qsl(parsed.query, keep_blank_values=True)
+    ]
+    return urlunsplit(parsed._replace(query=urlencode(query)))
 
 
 @dataclass
@@ -559,8 +579,8 @@ def archive_document(
         source_group = hostname.lower()
     document = IntelDocument(
         id=document_id,
-        requested_url=requested_url,
-        final_url=final_url,
+        requested_url=_safe_metadata_url(requested_url) or requested_url,
+        final_url=_safe_metadata_url(final_url) or final_url,
         canonical_url=canonical_url,
         title=title or Path(urlparse(final_url).path).name or final_url,
         content_type=mime_type,
@@ -584,7 +604,7 @@ def archive_document(
             else "http"
         ),
         evidence_role=evidence_role,
-        rendered_url=rendered_url,
+        rendered_url=_safe_metadata_url(rendered_url),
         rendered_path=rendered_path,
         rendered_sha256=rendered_hash,
         render_error=render_error,
