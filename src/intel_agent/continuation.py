@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
@@ -26,6 +27,7 @@ from .models import (
 from .runner import TaskRunSpec, run_agent_task
 from .state_store import StateStore
 from .task import activate_task, load_task, save_task
+from .trajectory import TrajectoryRecorder
 from .web.views import get_task_view
 
 ALLOWED_CONTINUATION_TOOLS = {
@@ -102,6 +104,9 @@ class ContinuationRunner:
         run: ResearchRun,
         brief: ResearchBrief,
         cancellation_token: CancellationToken | None = None,
+        *,
+        on_event: Callable[[object], Awaitable[None]] | None = None,
+        recorder: TrajectoryRecorder | None = None,
     ) -> ResearchRun:
         """Execute the queued initial run created by intake."""
         token = cancellation_token or CancellationToken()
@@ -156,6 +161,8 @@ class ContinuationRunner:
                 cancellation_token=token,
                 bound_task_id=task.id,
                 run_id=run.id,
+                on_event=on_event,
+                recorder=recorder,
             )
             if token.cancelled:
                 raise asyncio.CancelledError

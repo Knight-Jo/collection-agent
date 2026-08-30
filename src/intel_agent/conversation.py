@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Sequence
+import inspect
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol, cast
 
 from pydantic_ai import CancellationToken
 
@@ -28,6 +29,7 @@ from .report_versions import ReportPublisher
 from .retrieval import RetrievedPassage, TaskRetriever
 from .state_store import StateStore
 from .task import load_task
+from .trajectory import TrajectoryRecorder
 
 logger = get_logger(__name__)
 
@@ -611,13 +613,35 @@ class ConversationRuntime:
         task.add_done_callback(discard)
 
     def _schedule_initial(
-        self, run: ResearchRun, brief: ResearchBrief
+        self,
+        run: ResearchRun,
+        brief: ResearchBrief,
+        *,
+        on_event: Callable[[object], Awaitable[None]] | None = None,
+        recorder: TrajectoryRecorder | None = None,
     ) -> None:
         if self.initial is None or run.id in self._run_tasks:
             return
         token = CancellationToken()
         self._run_tokens[run.id] = token
-        task = asyncio.create_task(self.initial.run_initial(run, brief, token))
+        initial_runner = cast(Any, self.initial.run_initial)
+        if (
+            on_event is None
+            and recorder is None
+            or not {"on_event", "recorder"}.issubset(
+                inspect.signature(initial_runner).parameters
+            )
+        ):
+            initial_task = initial_runner(run, brief, token)
+        else:
+            initial_task = initial_runner(
+                run,
+                brief,
+                token,
+                on_event=on_event,
+                recorder=recorder,
+            )
+        task = asyncio.create_task(initial_task)
         self._run_tasks[run.id] = task
 
         def discard(_completed: asyncio.Task[object]) -> None:
@@ -625,6 +649,37 @@ class ConversationRuntime:
             self._run_tokens.pop(run.id, None)
 
         task.add_done_callback(discard)
+
+    def schedule_legacy_run(
+        self,
+        run_id: str,
+        *,
+        on_event: Callable[[object], Awaitable[None]] | None = None,
+        recorder: TrajectoryRecorder | None = None,
+    ) -> None:
+        """Schedule a topic-only compatibility Run through the normal runtime."""
+        if self.initial is None:
+            return
+        run = self.store.get_run(run_id)
+        task = load_task(self.cwd, run.task_id)
+        brief = ResearchBrief(
+            topic=task.topic,
+            objective=task.objective,
+            key_questions=[item.text for item in task.questions],
+            scope=task.scope,
+        )
+        self._schedule_initial(
+            run,
+            brief,
+            on_event=on_event,
+            recorder=recorder,
+        )
+
+    async def wait_research_run(self, run_id: str) -> None:
+        """Wait for an in-process initial or continuation Run when scheduled."""
+        task = self._run_tasks.get(run_id)
+        if task is not None:
+            await task
 
     async def _maybe_update_summary(self, task_id: str) -> None:
         epoch = self.store.active_epoch(task_id)

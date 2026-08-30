@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import inspect
 import json
 import logging
 import os
@@ -27,7 +28,7 @@ from ..logging import configure_logging
 from ..models import IntelError
 from ..report_versions import ReportPublisher
 from .conversation import router as conversation_router
-from .runs import RunRegistry
+from .runs import LegacyRunAdapter, RunRegistry
 from .schemas import (
     ArtifactView,
     BrowserStatus,
@@ -122,10 +123,15 @@ def create_app(
                     )
         return await call_next(request)
 
-    gate = registry.gate if registry is not None else ResearchGate()
-    app.state.registry = registry or RunRegistry(
-        app.state.cwd, settings, gate=gate
-    )
+    if registry is not None:
+        gate = registry.gate
+    elif conversation_runtime is not None:
+        gate = getattr(conversation_runtime.initial, "gate", None)
+        if gate is None:
+            gate = getattr(conversation_runtime.continuation, "gate", None)
+        gate = gate or ResearchGate()
+    else:
+        gate = ResearchGate()
     if conversation_runtime is None:
         store_publisher = ReportPublisher(app.state.cwd)
         research_runner = ContinuationRunner(
@@ -139,6 +145,12 @@ def create_app(
             publisher=store_publisher,
         )
     app.state.conversation_runtime = conversation_runtime
+    app.state.registry = registry or LegacyRunAdapter(
+        app.state.cwd,
+        settings,
+        runtime=conversation_runtime,
+        gate=gate,
+    )
     app.include_router(conversation_router)
 
     @app.on_event("startup")
@@ -299,7 +311,10 @@ def create_app(
 
     @app.post("/api/runs/{run_id}/cancel", response_model=RunView)
     async def cancel_run(run_id: str) -> RunView:
-        return app.state.registry.cancel(run_id)
+        result = app.state.registry.cancel(run_id)
+        if inspect.isawaitable(result):
+            result = await result
+        return result
 
     @app.get("/api/runs/{run_id}/events")
     async def run_events(request: Request, run_id: str) -> StreamingResponse:

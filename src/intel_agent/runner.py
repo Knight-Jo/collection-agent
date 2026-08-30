@@ -359,7 +359,7 @@ async def run_agent_task(
     message_history: list[ModelMessage] | None = None
 
     if recorder is not None:
-        trajectory.bind_run(f"run-{uuid.uuid4()}")
+        trajectory.bind_run(run_id or f"run-{uuid.uuid4()}")
         trajectory.set_recorder(recorder)
         trajectory.emit(
             make_event(

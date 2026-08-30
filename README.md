@@ -91,6 +91,10 @@ POST /api/runs
 {"topic": "量子计算产业发展情况"}
 ```
 
+该兼容接口内部会创建持久化 Conversation 和 ResearchRun；查询、取消、恢复及
+事件均复用 SQLite StateStore。新集成优先使用会话接口和
+`/api/research-runs`，`/api/runs` 仅用于无界面或旧客户端。
+
 ### Web 工作台
 
 工作台以持久会话为入口，提供需求确认、实时调研进度、材料问答、引用定位和版本化报告。前端依赖与脚本统一使用 Bun 1.3.14：

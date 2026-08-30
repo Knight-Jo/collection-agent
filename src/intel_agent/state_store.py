@@ -19,6 +19,7 @@ from .models import (
     ConversationEpoch,
     ConversationEvent,
     IntelError,
+    IntelTask,
     MaterialDigest,
     Message,
     MessageCitation,
@@ -1275,7 +1276,7 @@ class StateStore:
     def save_web_run_projection(
         self, run_id: str, state: dict[str, object]
     ) -> None:
-        """Persist the compatibility Web run projection in StateStore."""
+        """Persist the deprecated pre-conversation Web projection."""
         with connect_state_db(self.cwd) as connection:
             connection.execute(
                 "INSERT INTO web_run_projections(run_id, state_json, updated_at) "
@@ -1285,7 +1286,7 @@ class StateStore:
             )
 
     def load_web_run_projection(self, run_id: str) -> dict[str, object] | None:
-        """Load one persisted compatibility Web run projection."""
+        """Load a deprecated projection for old direct RunRegistry callers."""
         with connect_state_db(self.cwd) as connection:
             row = connection.execute(
                 "SELECT state_json FROM web_run_projections WHERE run_id = ?",
@@ -1955,6 +1956,98 @@ class StateStore:
             )
         return _row_to_run(_required(row, "research run"))
 
+    def create_legacy_run(
+        self,
+        task: IntelTask,
+        *,
+        input_snapshot: dict[str, object],
+    ) -> ResearchRun:
+        """Create a task, conversation, workspace, and initial Run atomically.
+
+        This is the persistence seam used by the legacy topic-only Web API;
+        execution and lifecycle remain owned by the normal ResearchRun path.
+        """
+        now = utc_now()
+        conversation_id = new_id("conversation")
+        epoch_id = new_id("epoch")
+        run_id = new_id("run")
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                "INSERT INTO task_state(task_id, task_json, updated_at) "
+                "VALUES (?, ?, ?)",
+                (task.id, task.model_dump_json(), task.updated_at),
+            )
+            connection.execute(
+                "INSERT INTO conversations("
+                "id, task_id, status, title, created_at, updated_at) "
+                "VALUES (?, ?, 'active', ?, ?, ?)",
+                (
+                    conversation_id,
+                    task.id,
+                    task.topic,
+                    now,
+                    now,
+                ),
+            )
+            connection.execute(
+                "INSERT INTO conversation_epochs("
+                "id, conversation_id, sequence, started_at) VALUES (?, ?, 1, ?)",
+                (epoch_id, conversation_id, now),
+            )
+            connection.execute(
+                "UPDATE conversations SET active_epoch_id = ? WHERE id = ?",
+                (epoch_id, conversation_id),
+            )
+            connection.execute(
+                "INSERT INTO research_runs("
+                "id, task_id, run_type, provenance, input_committed_state_version, "
+                "input_snapshot_json, status, created_at) "
+                "VALUES (?, ?, 'initial', 'native', 0, ?, 'queued', ?)",
+                (run_id, task.id, _json(input_snapshot), now),
+            )
+            connection.execute(
+                "INSERT INTO run_workspaces(run_id, task_id, base_version, status) "
+                "VALUES (?, ?, 0, 'open')",
+                (run_id, task.id),
+            )
+            task_event_sequence = _insert_event(
+                connection,
+                conversation_id,
+                "task.created",
+                {"task_id": task.id, "source": "legacy_api"},
+                now,
+                research_run_id=run_id,
+            )
+            run_event_sequence = _insert_event(
+                connection,
+                conversation_id,
+                "run.queued",
+                {"run_id": run_id, "status": "queued"},
+                now,
+                research_run_id=run_id,
+            )
+            _insert_timeline_entry(
+                connection,
+                conversation_id,
+                "task_created",
+                {"task_id": task.id, "run_id": run_id},
+                now,
+                source_event_sequence=task_event_sequence,
+            )
+            _insert_timeline_entry(
+                connection,
+                conversation_id,
+                "run_status",
+                {"run_id": run_id, "status": "queued"},
+                now,
+                source_event_sequence=run_event_sequence,
+            )
+            row = connection.execute(
+                "SELECT * FROM research_runs WHERE id = ?", (run_id,)
+            ).fetchone()
+        return _row_to_run(_required(row, "research run"))
+
     def stage_revision(
         self, run_id: str, revision: AssetRevisionRef
     ) -> RunWorkspace:
@@ -2360,6 +2453,16 @@ class StateStore:
                 "SELECT * FROM research_runs WHERE task_id = ? "
                 "ORDER BY created_at, rowid",
                 (task_id,),
+            ).fetchall()
+        return [_row_to_run(row) for row in rows]
+
+    def active_runs(self) -> list[ResearchRun]:
+        """Return queued or executing Runs across this local workspace."""
+        with connect_state_db(self.cwd) as connection:
+            rows = connection.execute(
+                "SELECT * FROM research_runs "
+                "WHERE status IN ('queued', 'running', 'stopping') "
+                "ORDER BY created_at, rowid"
             ).fetchall()
         return [_row_to_run(row) for row in rows]
 
@@ -2899,6 +3002,24 @@ class StateStore:
                 "WHERE conversation_id = ? AND sequence > ? "
                 "ORDER BY sequence",
                 (conversation_id, sequence),
+            ).fetchall()
+        return [_row_to_event(row) for row in rows]
+
+    def events_after_run(
+        self, run_id: str, sequence: int
+    ) -> list[ConversationEvent]:
+        """Return durable conversation events associated with one Run."""
+        with connect_state_db(self.cwd) as connection:
+            rows = connection.execute(
+                "SELECT conversation_events.* FROM conversation_events "
+                "JOIN conversations ON conversations.id = "
+                "conversation_events.conversation_id "
+                "JOIN research_runs ON research_runs.task_id = conversations.task_id "
+                "WHERE research_runs.id = ? "
+                "AND conversation_events.research_run_id = ? "
+                "AND conversation_events.sequence > ? "
+                "ORDER BY conversation_events.sequence",
+                (run_id, run_id, sequence),
             ).fetchall()
         return [_row_to_event(row) for row in rows]
 

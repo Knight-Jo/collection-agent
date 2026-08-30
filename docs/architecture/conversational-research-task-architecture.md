@@ -46,9 +46,9 @@
 
 ```text
 POST /api/runs
-  → 内存 RunRegistry
-  → run_agent_task
-  → 原子 JSON 保存任务、材料、事实、证据和覆盖
+  → LegacyRunAdapter
+  → ConversationRuntime / ResearchRun
+  → SQLite StateStore + RunWorkspace
   → GET /api/tasks/{task_id}
   → 报告/材料页面
 ```
