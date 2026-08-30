@@ -136,8 +136,7 @@ class RunRegistry:
     async def _execute(self, state: _RunState) -> None:
         state.status = "running"
         state.started_at = utc_now()
-        if state.run_id in self._runs:
-            self._persist(state)
+        self._persist(state)
         previous_task_id = self._active_task_id()
         await self._append(state, "run.started", {"topic": state.spec.topic})
         loop = asyncio.get_running_loop()
@@ -242,7 +241,17 @@ class RunRegistry:
         )
         if len(state.events) > MAX_RETAINED_EVENTS:
             del state.events[: len(state.events) - MAX_RETAINED_EVENTS]
-        if state.run_id in self._runs:
+        if state.run_id in self._runs and (
+            event_type
+            in {
+                "run.started",
+                "run.completed",
+                "run.failed",
+                "run.cancelled",
+                "task.updated",
+            }
+            or len(state.events) % 100 == 0
+        ):
             self._persist(state)
         async with state.condition:
             state.condition.notify_all()
