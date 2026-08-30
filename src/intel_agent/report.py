@@ -595,9 +595,8 @@ def generate_research_report(
         )
         for evidence_group in evidence_by_conclusion
     ]
-    digest = generate_material_digest(cwd, task.id)
-    if snapshot is not None:
-        digest_revision = next(
+    digest_revision = (
+        next(
             (
                 item
                 for item in snapshot.asset_manifest
@@ -605,18 +604,28 @@ def generate_research_report(
             ),
             None,
         )
-        if digest_revision is not None:
-            path = intel_path(
+        if snapshot is not None
+        else None
+    )
+    digest_path = (
+        intel_path(
+            cwd, f"materials/revisions/{digest_revision.revision_id}.json"
+        )
+        if digest_revision is not None
+        else None
+    )
+    digest = (
+        MaterialDigest.model_validate(
+            read_json(
                 cwd,
                 f"materials/revisions/{digest_revision.revision_id}.json",
             )
-            if path.exists():
-                digest = MaterialDigest.model_validate(
-                    read_json(
-                        cwd,
-                        f"materials/revisions/{digest_revision.revision_id}.json",
-                    )
-                )
+        )
+        if digest_revision is not None
+        and digest_path is not None
+        and digest_path.exists()
+        else generate_material_digest(cwd, task.id)
+    )
     question_by_id = {question.id: question for question in task.questions}
     lines = [
         f"# 公开信息调研报告：{task.topic}",
