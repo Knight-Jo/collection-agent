@@ -103,7 +103,7 @@ cd ..
 intel-agent-web --config config.yaml
 ```
 
-默认访问 `http://127.0.0.1:6780`。监听地址和端口通过 `config.yaml` 的 `web.host`、`web.port` 配置；`--host` 与 `--port` 可用于临时覆盖。开发时分别运行后端和 `cd web && bun run dev`；Vite 会将 `/api` 转发到本地后端。
+默认监听 `0.0.0.0:6780`，本机访问地址为 `http://127.0.0.1:6780`。监听地址和端口通过 `config.yaml` 的 `web.host`、`web.port` 配置；`--host` 与 `--port` 可用于临时覆盖。开发时分别运行后端和 `cd web && bun run dev`；Vite 会将 `/api` 转发到本地后端。局域网或外网使用前应配置 `web.auth_token_env` 与 `web.trusted_hosts`，未认证默认仅适合受控开发网络。
 
 打开首页后点击“新建对话”即可使用：
 
@@ -150,6 +150,7 @@ python scripts/smoke_conversation.py \
 | `audit_model` | 语义审核独立模型（默认同主模型） |
 | `search.searxng_url` | 本地 SearXNG 地址；`null` 则只用 Bing/Baidu 直连 |
 | `search.github` / `search.academic` / `search.news` / `search.archive` | 垂直搜索开关与调优（匿名、零密钥）：GitHub 仓库/Issue（额度受限降级 Gitee）、arXiv+Crossref(+S2 匿名补充)、国内直达新闻级联（百度→360→SearXNG，GDELT 默认关）、Wayback 死链兜底 |
+| `search.ai_native.exa` / `.brave` / `.tavily` | 显式启用的 AI-native Provider；密钥只从 `api_key_env` 指定的环境变量读取，缺密钥或单点失败会降级，不会把摘要直接当作证据 |
 | `budgets` | 搜索/抓取/模型请求预算（request_limit 默认 200） |
 | `context` | 32K/64K/128K/256K 上下文档位、输出上限和搜索转抓取门控 |
 | `fetch.enable_httpx_fallback` | 单次 `web_fetch` 的 pinned 抓取失败时回退 httpx（兼容 WAF/Cloudflare 站点）；递归 crawler 始终仅使用 pinned fetch |
@@ -167,6 +168,7 @@ python scripts/smoke_conversation.py \
 | `crawl.obey_robots` | 是否逐跳遵守 robots.txt（默认 `true`） |
 | `crawl.ocr_languages` / `crawl.whisper_model` | Tesseract 语言与 faster-whisper 模型（默认 `chi_sim+eng` / `small`） |
 | `web.host` / `web.port` | Web 工作台监听地址与端口（默认 `0.0.0.0:6780`） |
+| `web.auth_token_env` / `web.trusted_hosts` | 可选 bearer token 环境变量名与 Host 白名单；生产/外网部署必须配置 |
 | `sources` | 可选的部署级直连来源提示；默认留空，由 Agent 针对主题检索 |
 
 ## 项目结构
