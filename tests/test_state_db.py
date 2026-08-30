@@ -38,6 +38,10 @@ def test_initialize_enables_sqlite_safety_and_schema(cwd):
         "research_briefs",
         "message_processing_attempts",
         "timeline_entries",
+        "committed_snapshots",
+        "run_workspaces",
+        "run_workspace_assets",
+        "research_outcomes",
     } <= tables
 
     with connect_state_db(cwd) as connection:
@@ -48,7 +52,7 @@ def test_initialize_enables_sqlite_safety_and_schema(cwd):
             )
         ]
 
-    assert versions == [1, 2, 3]
+        assert versions == [1, 2, 3, 4]
 
 
 def test_schema_supports_intake_and_multiple_conversations_per_task(cwd):

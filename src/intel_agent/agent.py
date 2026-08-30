@@ -55,7 +55,11 @@ from .fact import (
 )
 from .fetch import DEFAULT_MAX_BYTES, canonicalize_url, fetch_document
 from .logging import get_logger
-from .materials import generate_material_digest, register_material
+from .materials import (
+    generate_material_digest,
+    load_material_digest,
+    register_material,
+)
 from .models import (
     ClaimType,
     IntelError,
@@ -74,7 +78,7 @@ from .report import (
 from .search import web_search
 from .search.academic import academic_search
 from .search.news import news_search
-from .search.provider import SearchRequest
+from .search.provider import SearchRequest, credentialed_providers
 from .search.providers.arxiv import ArxivProvider
 from .search.providers.crossref import CrossrefProvider
 from .search.providers.gdelt import GDELTProvider
@@ -231,6 +235,8 @@ def _parse_judge_verdicts(text: str) -> list[dict]:
 class AgentDeps:
     cwd: Path
     settings: Settings
+    bound_task_id: str | None = None
+    run_id: str | None = None
     deep_crawl: bool = False
     objective: str = ""
     scope: ResearchScope = field(default_factory=ResearchScope)
@@ -252,6 +258,30 @@ class AgentDeps:
     # Provenance of vertical candidates survives web_fetch clearing the
     # in-memory candidate list (V1 attribution chain: candidate -> archive).
     vertical_url_meta: dict[str, dict[str, str]] = field(default_factory=dict)
+
+
+def _resolve_bound_task_id(
+    deps: AgentDeps, requested_task_id: str | None
+) -> str:
+    """Resolve a task id without allowing model input to cross its binding."""
+    if deps.bound_task_id is not None:
+        if requested_task_id and requested_task_id != deps.bound_task_id:
+            raise IntelError("INVALID_INPUT", "工具 task_id 与当前运行不匹配")
+        return deps.bound_task_id
+    if not requested_task_id:
+        raise IntelError("INVALID_INPUT", "工具必须提供 task_id")
+    return requested_task_id
+
+
+def _ensure_bound_document(deps: AgentDeps, document_id: str) -> None:
+    """Reject document IDs that are not known by the bound task."""
+    if deps.bound_task_id is None:
+        return
+    digest = load_material_digest(deps.cwd, deps.bound_task_id)
+    if digest is None or not any(
+        item.document_id == document_id for item in digest.materials
+    ):
+        raise IntelError("INVALID_INPUT", "文档不属于当前任务")
 
 
 def _build_chat_model(cfg: ModelConfig, api_key: str | None):
@@ -1372,6 +1402,9 @@ def build_agent(
             }
             if time_range
             else {"category": category, "language": language},
+            ai_native_providers=credentialed_providers(
+                ctx.deps.settings.search.ai_native
+            ),
         )
         if category == "news" and not result.get("results"):
             # news engines can be entirely down (searxng backends timing
@@ -1384,6 +1417,9 @@ def build_agent(
                 client=ctx.deps.http,
                 searxng_url=ctx.deps.settings.search.searxng_url,
                 opts={"category": "general", "language": language},
+                ai_native_providers=credentialed_providers(
+                    ctx.deps.settings.search.ai_native
+                ),
             )
         _seed_active_crawl(ctx.deps.cwd, ctx.deps.settings, result)
         try:
@@ -1650,7 +1686,9 @@ def build_agent(
         return await _guarded(lambda: _crawl_collect(ctx, task_id))
 
     async def _crawl_collect(ctx, task_id) -> dict:
-        task = load_task(ctx.deps.cwd, task_id)
+        task = load_task(
+            ctx.deps.cwd, _resolve_bound_task_id(ctx.deps, task_id)
+        )
         if not task.deep_crawl:
             raise IntelError("INVALID_INPUT", "该任务未启用深度抓取")
         async with AsyncExitStack() as stack:
@@ -1681,7 +1719,12 @@ def build_agent(
         Params: task_id + query（全文关键词检索，不是按 document_id 读单篇；
         读单篇用 document_read）。"""
         return _guarded_sync(
-            lambda: _document_search(ctx.deps.cwd, task_id, query, limit)
+            lambda: _document_search(
+                ctx.deps.cwd,
+                _resolve_bound_task_id(ctx.deps, task_id),
+                query,
+                limit,
+            )
         )
 
     @agent.tool(name="document_read")
@@ -1694,6 +1737,8 @@ def build_agent(
         """按 1-based 行号读取已校验且完整提取的归档正文。"""
 
         def read() -> dict:
+            document = load_document(ctx.deps.cwd, document_id)
+            _ensure_bound_document(ctx.deps, document.id)
             result = _read_document_lines(
                 ctx.deps.cwd,
                 document_id,
@@ -1715,7 +1760,7 @@ def build_agent(
         """Rate collected materials and build a task-specific reading guide."""
         return _guarded_sync(
             lambda: generate_material_digest(
-                ctx.deps.cwd, task_id
+                ctx.deps.cwd, _resolve_bound_task_id(ctx.deps, task_id)
             ).model_dump()
         )
 
@@ -1741,7 +1786,10 @@ def build_agent(
             ctx.deps.cwd,
             limit=ctx.deps.settings.budgets.fetch_attempts_since_evidence,
         )
-        task = load_task(ctx.deps.cwd)
+        task = load_task(
+            ctx.deps.cwd,
+            _resolve_bound_task_id(ctx.deps, ctx.deps.bound_task_id),
+        )
         # Vertical search candidates carry provider-declared provenance; carry
         # it into the archived document (provider source type wins over
         # hostname classification).
@@ -1850,7 +1898,7 @@ def build_agent(
         return _guarded_sync(
             lambda: _fact_save_with_gate(
                 ctx.deps.cwd,
-                task_id,
+                _resolve_bound_task_id(ctx.deps, task_id),
                 question_id,
                 statement,
                 claim_type,
@@ -1866,10 +1914,21 @@ def build_agent(
     ) -> dict:
         """用同任务、同问题下的活跃原子 Facts 无损替换复合或错误 Fact，保留旧事实和证据供审计。"""
         return _guarded_sync(
-            lambda: supersede_fact(
-                ctx.deps.cwd, fact_id, replacement_fact_ids, reason
-            ).model_dump()
+            lambda: _supersede_bound_fact(
+                ctx, fact_id, replacement_fact_ids, reason
+            )
         )
+
+    def _supersede_bound_fact(ctx, fact_id, replacement_fact_ids, reason):
+        fact = load_fact(ctx.deps.cwd, fact_id)
+        _resolve_bound_task_id(ctx.deps, fact.task_id)
+        for replacement_id in replacement_fact_ids:
+            replacement = load_fact(ctx.deps.cwd, replacement_id)
+            if replacement.task_id != fact.task_id:
+                raise IntelError("INVALID_INPUT", "替换事实不属于当前任务")
+        return supersede_fact(
+            ctx.deps.cwd, fact_id, replacement_fact_ids, reason
+        ).model_dump()
 
     @agent.tool(name="evidence_save")
     def evidence_save_tool(
@@ -1891,6 +1950,9 @@ def build_agent(
         ctx, fact_id, document_id, relation, quote, notes
     ) -> dict:
         fact = load_fact(ctx.deps.cwd, fact_id)
+        _resolve_bound_task_id(ctx.deps, fact.task_id)
+        document = load_document(ctx.deps.cwd, document_id)
+        _ensure_bound_document(ctx.deps, document.id)
         existing = list_evidence_for_task(ctx.deps.cwd, fact.task_id)
         evidence = save_evidence(
             ctx.deps.cwd, fact_id, document_id, relation, quote, notes
@@ -1920,9 +1982,10 @@ def build_agent(
             }
 
         async def run() -> dict:
+            bound_task_id = _resolve_bound_task_id(ctx.deps, task_id)
             summary = await audit_task_evidence(
                 ctx.deps.cwd,
-                task_id,
+                bound_task_id,
                 ctx.deps.judge,
                 ctx.deps.judge_provider,
                 ctx.deps.judge_model,
@@ -1933,7 +1996,7 @@ def build_agent(
                 # Deterministic chain (WP4): fresh reviews must reach the
                 # coverage snapshot immediately, not on the model's schedule.
                 summary["coverage"] = await _coverage_eval_with_backlog(
-                    ctx.deps, task_id
+                    ctx.deps, bound_task_id
                 )
             return summary
 
@@ -1967,7 +2030,9 @@ def build_agent(
     ) -> dict:
         """按 Question→Fact 评估独立来源、质量、时效和矛盾。覆盖缺口连续五轮未下降即停止检索。"""
         return await _guarded(
-            lambda: _coverage_eval_with_backlog(ctx.deps, task_id)
+            lambda: _coverage_eval_with_backlog(
+                ctx.deps, _resolve_bound_task_id(ctx.deps, task_id)
+            )
         )
 
     @agent.tool(name="generate_research_report")
@@ -1980,6 +2045,7 @@ def build_agent(
         # `draft` is a raw JSON string: pydantic-ai must not pre-validate it
         # (a truncated/malformed string would otherwise exhaust tool retries
         # and abort the run). Parse here with a deterministic fallback instead.
+        task_id = _resolve_bound_task_id(ctx.deps, task_id)
         parsed: ResearchReportInput
         try:
             parsed = ResearchReportInput.model_validate_json(draft)
@@ -2107,9 +2173,8 @@ def build_agent(
         return _guarded_sync(lambda: _intel_status(ctx, task_id, stage))
 
     def _intel_status(ctx, task_id, stage) -> dict:
+        task_id = _resolve_bound_task_id(ctx.deps, task_id)
         if stage:
-            if not task_id:
-                raise IntelError("INVALID_INPUT", "推进阶段必须提供 task_id")
             set_task_stage(ctx.deps.cwd, task_id, stage)
         return summarize_task(ctx.deps.cwd, task_id)
 
@@ -2121,10 +2186,18 @@ def build_deps(
     settings: Settings | None = None,
     *,
     deep_crawl: bool = False,
+    task_id: str | None = None,
+    run_id: str | None = None,
 ) -> AgentDeps:
     settings = settings or Settings()
     ensure_intel_dirs(cwd)
-    deps = AgentDeps(cwd=cwd, settings=settings, deep_crawl=deep_crawl)
+    deps = AgentDeps(
+        cwd=cwd,
+        settings=settings,
+        deep_crawl=deep_crawl,
+        bound_task_id=task_id,
+        run_id=run_id,
+    )
     if settings.audit_api_key():
         judge = JudgeAgent(
             settings.audit_model or settings.model,

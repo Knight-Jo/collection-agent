@@ -23,13 +23,28 @@ from intel_agent.fetch import FetchedResponse
 from intel_agent.models import IntelError
 from intel_agent.storage import load_crawl
 from intel_agent.task import create_task
-from intel_agent.web.runs import RunRegistry
+from intel_agent.web.runs import (
+    MAX_RETAINED_EVENTS,
+    RunRegistry,
+    _RunState,
+)
 from tests.test_runner import make_spec
 
 
 def _blocking_whisper_worker(_audio, marker_path, _results):
     Path(marker_path).write_text(str(os.getpid()), encoding="utf-8")
     time.sleep(30)
+
+
+@pytest.mark.asyncio
+async def test_registry_caps_retained_events(cwd):
+    registry = RunRegistry(cwd, Settings())
+    state = _RunState(run_id="run-1", spec=make_spec())
+
+    for _ in range(MAX_RETAINED_EVENTS + 10):
+        await registry._append(state, "observation", {})
+
+    assert len(state.events) == MAX_RETAINED_EVENTS
 
 
 @pytest.mark.asyncio

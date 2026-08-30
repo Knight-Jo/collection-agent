@@ -11,9 +11,13 @@ from pydantic_ai.messages import FunctionToolCallEvent, ToolCallPart
 
 from intel_agent import runner as runner_module
 from intel_agent import trajectory
-from intel_agent.agent import build_agent, build_deps
+from intel_agent.agent import (
+    _resolve_bound_task_id,
+    build_agent,
+    build_deps,
+)
 from intel_agent.config import BudgetConfig, Settings
-from intel_agent.models import ResearchScope, SufficiencyCriteria
+from intel_agent.models import IntelError, ResearchScope, SufficiencyCriteria
 from intel_agent.runner import TaskRunSpec, build_task_prompt, run_agent_task
 from intel_agent.task import (
     create_task,
@@ -35,6 +39,14 @@ def make_spec() -> TaskRunSpec:
             require_recency=False,
         ),
     )
+
+
+def test_agent_deps_reject_cross_task_binding(cwd):
+    deps = build_deps(cwd, Settings(), task_id="task-a", run_id="run-a")
+
+    assert _resolve_bound_task_id(deps, None) == "task-a"
+    with pytest.raises(IntelError, match="不匹配"):
+        _resolve_bound_task_id(deps, "task-b")
 
 
 def test_parse_time_range_recognizes_single_year_and_ranges():

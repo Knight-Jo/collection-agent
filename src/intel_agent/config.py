@@ -60,8 +60,41 @@ class ArchiveSearchConfig(BaseModel):
     enabled: bool = True
 
 
+class AiNativeProviderConfig(BaseModel):
+    """Configuration for an optional credentialed search provider."""
+
+    enabled: bool = False
+    api_key_env: str = Field(min_length=1)
+    base_url: str | None = None
+    rate_limit: float = Field(default=1.0, ge=0)
+    max_results: int = Field(default=10, ge=1, le=50)
+    cache_ttl: int = Field(default=3600, ge=0)
+    timeout_seconds: float = Field(default=15.0, gt=0)
+
+
+class AiNativeSearchConfig(BaseModel):
+    exa: AiNativeProviderConfig = Field(
+        default_factory=lambda: AiNativeProviderConfig(
+            api_key_env="EXA_API_KEY"
+        )
+    )
+    brave: AiNativeProviderConfig = Field(
+        default_factory=lambda: AiNativeProviderConfig(
+            api_key_env="BRAVE_SEARCH_API_KEY"
+        )
+    )
+    tavily: AiNativeProviderConfig = Field(
+        default_factory=lambda: AiNativeProviderConfig(
+            api_key_env="TAVILY_API_KEY"
+        )
+    )
+
+
 class SearchConfig(BaseModel):
     searxng_url: str | None = "http://127.0.0.1:8888"
+    ai_native: AiNativeSearchConfig = Field(
+        default_factory=AiNativeSearchConfig
+    )
     github: GitHubSearchConfig = Field(default_factory=GitHubSearchConfig)
     academic: AcademicSearchConfig = Field(
         default_factory=AcademicSearchConfig
@@ -105,7 +138,7 @@ class ContextConfig(BaseModel):
 
 
 class FetchConfig(BaseModel):
-    enable_httpx_fallback: bool = True
+    enable_httpx_fallback: bool = False
     enable_browser_fallback: bool = False
     browser_network_mode: Literal["validated", "isolated"] = "validated"
     browser_timeout_seconds: float = Field(default=15.0, gt=0)
@@ -138,6 +171,8 @@ class CrawlConfig(BaseModel):
 class WebConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = Field(default=6780, ge=1, le=65_535)
+    auth_token_env: str | None = None
+    trusted_hosts: list[str] = Field(default_factory=list)
 
 
 class LoggingConfig(BaseModel):

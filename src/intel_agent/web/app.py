@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
+import os
 from importlib.util import find_spec
 from pathlib import Path
 from shutil import which
@@ -45,6 +47,8 @@ from .views import (
     list_task_summaries,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def create_app(
     *,
@@ -54,10 +58,70 @@ def create_app(
     conversation_runtime: ConversationRuntime | None = None,
     static_dir: Path | None = None,
 ) -> FastAPI:
-    """Create an app bound to one workspace and one in-memory run registry."""
+    """Create an app bound to one workspace and its configured runtime."""
     app = FastAPI(title="Intel Agent Workbench", version="0.1.0")
     app.state.cwd = cwd.resolve()
     app.state.settings = settings
+    auth_env = settings.web.auth_token_env
+    auth_token = os.environ.get(auth_env) if auth_env else None
+    trusted_hosts = {
+        host.strip().lower()
+        for host in settings.web.trusted_hosts
+        if host.strip()
+    }
+    if settings.web.host not in {"127.0.0.1", "::1", "localhost"}:
+        if auth_env and not auth_token:
+            logger.warning(
+                "Web auth is configured but %s is missing; API requests will "
+                "be rejected",
+                auth_env,
+            )
+        elif not auth_token:
+            logger.warning(
+                "Web workbench listens on %s without authentication; "
+                "use this development mode only",
+                settings.web.host,
+            )
+
+    @app.middleware("http")
+    async def protect_api(request: Request, call_next):
+        if request.url.path.startswith("/api"):
+            hostname = (request.url.hostname or "").lower()
+            if trusted_hosts and hostname not in trusted_hosts:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "error": {
+                            "code": "INVALID_HOST",
+                            "message": "不受信任的 Host",
+                        }
+                    },
+                )
+            if auth_env and not auth_token:
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "error": {
+                            "code": "AUTH_NOT_CONFIGURED",
+                            "message": f"缺少 Web 认证密钥环境变量 {auth_env}",
+                        }
+                    },
+                )
+            if auth_token:
+                authorization = request.headers.get("authorization", "")
+                if authorization != f"Bearer {auth_token}":
+                    return JSONResponse(
+                        status_code=401,
+                        headers={"WWW-Authenticate": "Bearer"},
+                        content={
+                            "error": {
+                                "code": "UNAUTHORIZED",
+                                "message": "需要有效的 bearer token",
+                            }
+                        },
+                    )
+        return await call_next(request)
+
     gate = registry.gate if registry is not None else ResearchGate()
     app.state.registry = registry or RunRegistry(
         app.state.cwd, settings, gate=gate

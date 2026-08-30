@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import html
+import json
 import re
 
 import httpx
 from pydantic import BaseModel, Field
 
-from ..models import EvidenceRole, SourceType, utc_now
+from ..models import EvidenceRole, IntelError, SourceType, utc_now
 from ..search_queries import (
     PUNCT_RE,
     STOP_TERMS,
@@ -23,6 +24,7 @@ UA = (
 )
 
 SEARCH_TIMEOUT = 25.0
+MAX_SEARCH_RESPONSE_BYTES = 2_000_000
 
 
 class SearchResult(BaseModel):
@@ -75,6 +77,18 @@ def strip_tags(s: str) -> str:
     s = html.unescape(s).replace("\xa0", " ")
     s = s.replace("\u200b", "").replace("\u200c", "").replace("\ufeff", "")
     return " ".join(s.split()).strip()
+
+
+def _response_text(response: httpx.Response) -> str:
+    body = response.content
+    if len(body) > MAX_SEARCH_RESPONSE_BYTES:
+        raise IntelError(
+            "RESPONSE_TOO_LARGE",
+            f"搜索响应超过 {MAX_SEARCH_RESPONSE_BYTES} 字节",
+            downloaded_bytes=len(body),
+        )
+    encoding = response.encoding or "utf-8"
+    return body.decode(encoding, errors="replace")
 
 
 def _result(
@@ -171,7 +185,7 @@ async def bing_search(
         },
     )
     res.raise_for_status()
-    html = res.text
+    html = _response_text(res)
     out: list[SearchResult] = []
     for block in re.findall(r'<li class="b_algo"[\s\S]*?</li>', html)[:n]:
         am = re.search(
@@ -202,7 +216,7 @@ async def baidu_search(
         url, headers={"User-Agent": UA, "Accept-Language": "zh-CN,zh;q=0.9"}
     )
     res.raise_for_status()
-    html = res.text
+    html = _response_text(res)
     out: list[SearchResult] = []
     for block in re.findall(r"<h3[\s\S]*?</h3>", html)[:n]:
         am = re.search(r'<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)</a>', block)
@@ -245,7 +259,7 @@ async def baidu_news_search(
         url, headers={"User-Agent": UA, "Accept-Language": "zh-CN,zh;q=0.9"}
     )
     res.raise_for_status()
-    html = res.text
+    html = _response_text(res)
     out: list[SearchResult] = []
     for block in re.findall(r"<h3[\s\S]*?</h3>", html)[:n]:
         am = re.search(r'<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)</a>', block)
@@ -289,7 +303,7 @@ async def searxng_search(
         headers={"Accept": "application/json"},
     )
     res.raise_for_status()
-    data = res.json()
+    data = json.loads(_response_text(res))
     if unresponsive is not None:
         for engine in data.get("unresponsive_engines", []):
             unresponsive.append(str(engine[0]))
@@ -320,12 +334,15 @@ async def web_search(
     client: httpx.AsyncClient | None = None,
     searxng_url: str | None = "http://127.0.0.1:8888",
     opts: dict | None = None,
+    ai_native_providers: list | None = None,
 ) -> dict:
     """Search SearXNG, Bing, Baidu and Baidu News concurrently, merging deduped results."""
     opts = opts or {}
     close_client = client is None
     client = client or httpx.AsyncClient(timeout=SEARCH_TIMEOUT)
     try:
+        from .provider import SearchRequest
+
         has_zh = re.search(r"[\u4e00-\u9fa5]", query) is not None
         language = opts.get("language") or ("zh-CN" if has_zh else "en")
         merged: list[SearchResult] = []
@@ -361,6 +378,20 @@ async def web_search(
             asyncio.create_task(baidu_search(client, query, max_results)),
             asyncio.create_task(baidu_news_search(client, query, max_results)),
         ]
+        for provider in ai_native_providers or []:
+            engines.append(
+                asyncio.create_task(
+                    provider.search(
+                        client,
+                        SearchRequest(
+                            query=query,
+                            max_results=max_results,
+                            language=language,
+                            time_range=opts.get("time_range"),
+                        ),
+                    )
+                )
+            )
         done = await asyncio.gather(*engines, return_exceptions=True)
         for result in done:
             if isinstance(result, BaseException):

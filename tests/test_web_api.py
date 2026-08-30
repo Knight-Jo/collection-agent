@@ -37,6 +37,39 @@ def test_system_and_task_endpoints(cwd, monkeypatch):
     assert detail.json()["task"]["topic"] == "测试主题"
 
 
+def test_configured_web_token_protects_api(cwd, monkeypatch):
+    monkeypatch.setenv("WORKBENCH_TOKEN", "secret-token")
+    settings = Settings.model_validate(
+        {
+            "web": {
+                "auth_token_env": "WORKBENCH_TOKEN",
+                "trusted_hosts": ["testserver"],
+            }
+        }
+    )
+    client = TestClient(create_app(cwd=cwd, settings=settings))
+
+    assert client.get("/api/system").status_code == 401
+    assert (
+        client.get(
+            "/api/system",
+            headers={"Authorization": "Bearer secret-token"},
+        ).status_code
+        == 200
+    )
+
+
+def test_trusted_host_rejects_unknown_host(cwd):
+    settings = Settings.model_validate(
+        {"web": {"trusted_hosts": ["allowed.example"]}}
+    )
+    client = TestClient(create_app(cwd=cwd, settings=settings))
+
+    response = client.get("/api/system", headers={"host": "blocked.example"})
+
+    assert response.status_code == 400
+
+
 def test_system_reports_keyless_local_model_as_configured(cwd):
     settings = Settings.model_validate(
         {
@@ -148,6 +181,11 @@ def test_run_create_accepts_topic_only_research_brief():
     assert spec.objective == "了解现状"
     assert spec.scope.geography == ["中国"]
     assert spec.report_depth == "brief"
+
+
+def test_run_create_rejects_unbounded_text_inputs():
+    with pytest.raises(ValidationError):
+        RunCreate.model_validate({"topic": "x" * 2_001})
 
 
 def test_resource_download_checks_ownership_and_integrity(cwd):

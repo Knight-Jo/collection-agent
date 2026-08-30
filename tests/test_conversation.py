@@ -4,9 +4,11 @@ import asyncio
 from collections.abc import Sequence
 from typing import Any, cast
 
+import pytest
 from pydantic_ai import CancellationToken
 
 import intel_agent.state_store as state_store_module
+from intel_agent.config import Settings
 from intel_agent.conversation import ConversationRuntime
 from intel_agent.dialogue import DialogueAction, DialogueDecision
 from intel_agent.intake import IntakeDecision
@@ -118,6 +120,43 @@ def _start_research() -> IntakeDecision:
             key_questions=["产业规模如何？", "竞争格局如何？"],
         ),
     )
+
+
+@pytest.mark.asyncio
+async def test_confirm_expired_action_does_not_queue_or_schedule(cwd):
+    task = new_task(cwd)
+    store = StateStore(cwd)
+    store.register_task(task.id)
+    trigger = store.add_user_message(task.id, "继续搜索", "trigger")
+    action = store.create_action(
+        task.id, trigger.id, "continue_research", {}, proposed=True
+    )
+    run = store.create_run(task.id, "initial", 0, {})
+    store.transition_run(run.id, "running")
+    checkpoint = store.start_checkpoint(run.id, reason="advance")
+    store.commit_checkpoint(checkpoint.id, [("document", "doc")])
+
+    action_runner = _ActionRunner()
+    runtime = ConversationRuntime(
+        cwd,
+        settings=Settings(),
+        intake=_Intake(_capability()),
+        dialogue=_Dialogue(
+            DialogueDecision(
+                intent="greeting",
+                answer="ok",
+                answerability="answered",
+            )
+        ),
+        continuation=action_runner,
+    )
+    runtime.store = store
+
+    result = runtime.confirm_action(action.id, "confirmation")
+    await asyncio.sleep(0)
+
+    assert result.status == "expired"
+    assert not action_runner.calls
 
 
 async def test_capability_query_keeps_intake_unbound(cwd):

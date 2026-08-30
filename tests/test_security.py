@@ -24,6 +24,19 @@ def test_public_address_blocklist():
     assert is_public_address("1.1.1.1")
 
 
+def test_ipv4_mapped_ipv6_addresses_use_ipv4_policy():
+    assert not is_public_address("::ffff:127.0.0.1")
+    assert not is_public_address("::ffff:10.0.0.1")
+    assert not is_public_address("::ffff:169.254.169.254")
+
+
+@pytest.mark.asyncio
+async def test_resolve_public_url_rejects_mapped_loopback_literal():
+    with pytest.raises(IntelError) as error:
+        await resolve_public_url("http://[::ffff:127.0.0.1]/")
+    assert error.value.code == "UNSAFE_URL"
+
+
 @pytest.mark.asyncio
 async def test_resolve_public_url_rejects_bad_inputs():
     with pytest.raises(IntelError) as e:

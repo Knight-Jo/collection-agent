@@ -24,6 +24,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -58,6 +59,47 @@ _question_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 _recorder_var: contextvars.ContextVar[Any] = contextvars.ContextVar(
     "traj_recorder", default=None
 )
+
+_SENSITIVE_QUERY_KEYS = {
+    "api_key",
+    "auth",
+    "key",
+    "secret",
+    "signature",
+    "token",
+}
+_SENSITIVE_FIELD_NAMES = {
+    "api_key",
+    "authorization",
+    "auth_token",
+    "password",
+    "secret",
+    "token",
+}
+
+
+def _redact_payload(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: (
+                "***"
+                if str(key).casefold() in _SENSITIVE_FIELD_NAMES
+                else _redact_payload(item)
+            )
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_payload(item) for item in value]
+    if not isinstance(value, str) or not value.startswith(
+        ("http://", "https://")
+    ):
+        return value
+    parsed = urlsplit(value)
+    query = [
+        (key, "***" if key.casefold() in _SENSITIVE_QUERY_KEYS else item)
+        for key, item in parse_qsl(parsed.query, keep_blank_values=True)
+    ]
+    return urlunsplit(parsed._replace(query=urlencode(query)))
 
 
 def bind_run(run_id: str) -> None:
@@ -200,7 +242,7 @@ def make_event(
         event_type=event_type,
         layer=layer,
         origin=origin,
-        payload=data,
+        payload=_redact_payload(data),
         parent_event_id=parent_event_id,
         question_id=question_id,
         step_id=step_id,

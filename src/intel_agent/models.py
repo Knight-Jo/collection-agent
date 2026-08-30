@@ -431,6 +431,67 @@ class SearchPlanVersion(BaseModel):
     created_at: str
 
 
+AssetType = Literal[
+    "document",
+    "fact",
+    "evidence",
+    "review",
+    "conflict",
+    "coverage",
+    "material_digest",
+    "task_revision",
+]
+
+
+class AssetRevisionRef(BaseModel):
+    """Immutable reference to one logical asset revision."""
+
+    asset_type: AssetType
+    logical_id: str
+    revision_id: str
+    content_sha256: str
+    task_id: str
+
+
+class CommittedResearchSnapshot(BaseModel):
+    """Fixed committed read view for one task version."""
+
+    task_id: str
+    version: int = Field(ge=0)
+    checkpoint_id: str | None = None
+    asset_manifest: list[AssetRevisionRef] = Field(default_factory=list)
+    fingerprint: str
+    created_at: str
+
+
+class RunWorkspace(BaseModel):
+    """Staged revisions visible only to one research run."""
+
+    run_id: str
+    task_id: str
+    base_version: int = Field(ge=0)
+    staged_revisions: list[AssetRevisionRef] = Field(default_factory=list)
+    status: Literal["open", "committed", "abandoned"]
+
+
+class ResearchOutcome(BaseModel):
+    """Durable outcome of a run and its version effect."""
+
+    run_id: str
+    task_id: str
+    outcome: Literal[
+        "committed",
+        "no_progress",
+        "failed",
+        "cancelled",
+        "stopped",
+        "interrupted",
+    ]
+    committed_state_version: int = Field(ge=0)
+    snapshot_fingerprint: str | None = None
+    created_at: str
+
+
 class ResearchCheckpoint(BaseModel):
     """A durable boundary that commits research state atomically."""
 

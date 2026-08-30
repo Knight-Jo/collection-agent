@@ -19,6 +19,28 @@ from intel_agent.trajectory import (
 )
 
 
+def test_make_event_redacts_sensitive_url_query_values():
+    event = make_event(
+        "action",
+        "tool",
+        {"url": "https://example.com/x?token=secret&keep=value"},
+    )
+
+    assert event.payload["url"] == (
+        "https://example.com/x?token=%2A%2A%2A&keep=value"
+    )
+
+
+def test_make_event_redacts_sensitive_fields():
+    event = make_event(
+        "action",
+        "tool",
+        {"api_key": "secret", "authorization": "Bearer secret"},
+    )
+
+    assert event.payload == {"api_key": "***", "authorization": "***"}
+
+
 def _records(path) -> list[dict]:
     return [
         json.loads(line)

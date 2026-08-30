@@ -9,6 +9,7 @@ module deliberately does not re-log them.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -19,6 +20,27 @@ from .config import Settings
 _NOISY_LOGGERS = ("httpx", "httpcore", "openai", "urllib3", "uvicorn")
 
 _configured = False
+_SECRET_URL_RE = re.compile(
+    r"([?&](?:api_key|auth|key|secret|signature|token|password)=)[^&#\s]*",
+    re.IGNORECASE,
+)
+
+
+class _RedactionFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = _SECRET_URL_RE.sub(r"\1***", str(record.msg))
+        if record.args:
+            record.args = tuple(
+                _SECRET_URL_RE.sub(r"\1***", value)
+                if isinstance(value, str)
+                else value
+                for value in (
+                    record.args
+                    if isinstance(record.args, tuple)
+                    else (record.args,)
+                )
+            )
+        return True
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -53,6 +75,7 @@ def configure_logging(
     stderr = logging.StreamHandler()
     stderr.setLevel(level)
     stderr.setFormatter(formatter)
+    stderr.addFilter(_RedactionFilter())
     root.addHandler(stderr)
 
     log_dir = cwd / settings.logging.dir
@@ -63,6 +86,7 @@ def configure_logging(
     )
     file_handler.setLevel(level)
     file_handler.setFormatter(formatter)
+    file_handler.addFilter(_RedactionFilter())
     root.addHandler(file_handler)
 
     third_party_level = (

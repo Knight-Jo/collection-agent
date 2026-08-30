@@ -70,3 +70,21 @@ def test_settings_only_exposes_effective_options():
     assert not hasattr(settings.search.github, "timeout")
     assert not hasattr(settings.search.github, "retry")
     assert not hasattr(settings.search.archive, "wayback")
+
+
+def test_web_development_defaults_and_provider_config():
+    settings = Settings()
+
+    assert settings.web.host == "0.0.0.0"
+    assert settings.web.auth_token_env is None
+    assert settings.web.trusted_hosts == []
+    assert settings.fetch.enable_httpx_fallback is False
+    assert settings.search.ai_native.exa.enabled is False
+    assert settings.search.ai_native.exa.api_key_env == "EXA_API_KEY"
+
+
+def test_ai_native_provider_limits_are_validated():
+    with pytest.raises(ValidationError):
+        Settings.model_validate(
+            {"search": {"ai_native": {"exa": {"max_results": 51}}}}
+        )

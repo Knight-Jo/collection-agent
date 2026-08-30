@@ -59,6 +59,17 @@ search:
     # cache_ttl: 3600
   archive:
     enabled: true            # 抓取 404/410/DNS 失败时回退 Wayback 快照
+  # AI-native providers are opt-in; keys are read from environment variables.
+  ai_native:
+    exa:
+      enabled: false
+      api_key_env: EXA_API_KEY
+    brave:
+      enabled: false
+      api_key_env: BRAVE_SEARCH_API_KEY
+    tavily:
+      enabled: false
+      api_key_env: TAVILY_API_KEY
 
 budgets:
   # 检索广度优先：预算充足时穷尽检索（run 011 起放宽）
@@ -69,7 +80,7 @@ budgets:
 
 fetch:
   # pinned_fetch 超时/失败时回退到 httpx 抓取（兼容 WAF/Cloudflare 站点，如投资者关系页）
-  enable_httpx_fallback: true
+  enable_httpx_fallback: false
   # 静态 HTML 无有效正文时按需使用 Playwright；需安装 browser extra 和 Chromium
   enable_browser_fallback: false
   # validated 仅执行应用层公网 URL 校验；生产环境应配置隔离网络并设为 isolated
@@ -99,9 +110,12 @@ crawl:
   enabled_by_default: false
 
 web:
-  # Web 工作台监听地址和端口；仅本机访问可将 host 设为 127.0.0.1
+  # 开发默认允许局域网访问；无认证启动时会输出网络暴露警告。
   host: 0.0.0.0
   port: 6780
+  # 生产/外网部署必须设置环境变量名并配置可信 Host。
+  auth_token_env: null
+  trusted_hosts: []
 
 sources:
   # 可选的部署级直连来源；留空时由 Agent 针对主题检索。

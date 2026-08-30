@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 import re
 import time
 from pathlib import Path
@@ -181,3 +182,30 @@ def dedupe_results(results: list[SearchResult]) -> list[SearchResult]:
         seen.add(key)
         out.append(result)
     return out
+
+
+def credentialed_providers(config) -> list[SearchProvider]:
+    """Build only explicitly enabled providers with present environment keys."""
+    from .providers.brave import BraveProvider
+    from .providers.exa import ExaProvider
+    from .providers.tavily import TavilyProvider
+
+    providers: list[SearchProvider] = []
+    for name, cls in (
+        ("exa", ExaProvider),
+        ("brave", BraveProvider),
+        ("tavily", TavilyProvider),
+    ):
+        cfg = getattr(config, name)
+        key = os.environ.get(cfg.api_key_env, "").strip()
+        if not cfg.enabled or not key:
+            continue
+        providers.append(
+            cls(
+                api_key=key,
+                base_url=cfg.base_url or cls.DEFAULT_BASE_URL,
+                min_interval=cfg.rate_limit,
+                max_results=cfg.max_results,
+            )
+        )
+    return providers

@@ -53,8 +53,8 @@ CrawlResourceStatus = Literal[
 
 
 class RunCreate(BaseModel):
-    topic: str
-    objective: str = ""
+    topic: str = Field(min_length=1, max_length=2_000)
+    objective: str = Field(default="", max_length=10_000)
     questions: list[str] = Field(default_factory=list)
     scope: ResearchScope = Field(default_factory=ResearchScope)
     report_depth: ReportDepth = "standard"

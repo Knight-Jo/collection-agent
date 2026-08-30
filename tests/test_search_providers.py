@@ -19,10 +19,13 @@ from intel_agent.search.provider import (
     REGISTRY,
     ProviderMetadata,
     SearchRequest,
+    credentialed_providers,
     search_cache_key,
 )
 from intel_agent.search.providers.arxiv import ArxivProvider
+from intel_agent.search.providers.brave import BraveProvider
 from intel_agent.search.providers.crossref import CrossrefProvider
+from intel_agent.search.providers.exa import ExaProvider
 from intel_agent.search.providers.gdelt import GDELTProvider
 from intel_agent.search.providers.gitee import GiteeProvider
 from intel_agent.search.providers.github import GitHubProvider
@@ -30,6 +33,7 @@ from intel_agent.search.providers.semantic_scholar import (
     SemanticScholarProvider,
 )
 from intel_agent.search.providers.so360 import So360NewsProvider
+from intel_agent.search.providers.tavily import TavilyProvider
 from tests.conftest import new_task
 
 ARXIV_ATOM = """<?xml version="1.0" encoding="UTF-8"?>
@@ -94,6 +98,94 @@ def test_registry_rejects_paid_provider():
 
     with pytest.raises(ValueError, match="requires_payment"):
         registry.register(Paid())  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("provider_cls", "host", "path", "payload", "expected"),
+    [
+        (
+            ExaProvider,
+            "exa.test",
+            "/search",
+            {
+                "results": [
+                    {
+                        "title": "Exa",
+                        "url": "https://example.com/exa",
+                        "summary": "summary",
+                    }
+                ]
+            },
+            "exa",
+        ),
+        (
+            BraveProvider,
+            "brave.test",
+            "/web/search",
+            {
+                "web": {
+                    "results": [
+                        {
+                            "title": "Brave",
+                            "url": "https://example.com/brave",
+                            "description": "summary",
+                        }
+                    ]
+                }
+            },
+            "brave",
+        ),
+        (
+            TavilyProvider,
+            "tavily.test",
+            "/search",
+            {
+                "results": [
+                    {
+                        "title": "Tavily",
+                        "url": "https://example.com/tavily",
+                        "content": "summary",
+                    }
+                ]
+            },
+            "tavily",
+        ),
+    ],
+)
+async def test_credentialed_adapters_map_results_without_leaking_key(
+    provider_cls, host, path, payload, expected
+):
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.host == host
+        assert (
+            "secret-key" in request.headers.get("x-api-key", "")
+            or "secret-key" in request.headers.get("X-Subscription-Token", "")
+            or b"secret-key" in request.content
+        )
+        return httpx.Response(200, json=payload)
+
+    provider = provider_cls(
+        api_key="secret-key", base_url=f"https://{host}", min_interval=0
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler)
+    ) as client:
+        results = await provider.search(client, SearchRequest(query="topic"))
+    assert len(results) == 1
+    assert results[0].provider == expected
+    assert results[0].url.startswith("https://example.com/")
+
+
+def test_credentialed_providers_require_explicit_enablement(monkeypatch):
+    from intel_agent.config import AiNativeSearchConfig
+
+    monkeypatch.setenv("EXA_API_KEY", "secret-key")
+    cfg = AiNativeSearchConfig()
+    assert credentialed_providers(cfg) == []
+    cfg.exa.enabled = True
+    providers = credentialed_providers(cfg)
+    assert [provider.metadata.name for provider in providers] == ["exa"]
 
 
 @pytest.mark.asyncio

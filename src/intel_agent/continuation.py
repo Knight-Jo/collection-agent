@@ -127,6 +127,16 @@ class ContinuationRunner:
                     datetime.now(UTC) + timedelta(minutes=2)
                 ).isoformat(),
             )
+            self.store.create_search_plan_version(
+                run.id,
+                {
+                    "topic": brief.topic,
+                    "objective": brief.objective,
+                    "questions": brief.key_questions,
+                    "scope": brief.scope.model_dump(mode="json"),
+                },
+                trigger_message_id=run.trigger_message_id,
+            )
             task = activate_task(self.cwd, run.task_id)
             before = _asset_snapshot(self.cwd, task.id)
             await run_agent_task(
@@ -142,6 +152,8 @@ class ContinuationRunner:
                     deep_crawl=task.deep_crawl,
                 ),
                 cancellation_token=token,
+                bound_task_id=task.id,
+                run_id=run.id,
             )
             if token.cancelled:
                 raise asyncio.CancelledError
@@ -214,6 +226,15 @@ class ContinuationRunner:
                     datetime.now(UTC) + timedelta(minutes=2)
                 ).isoformat(),
             )
+            self.store.create_search_plan_version(
+                run.id,
+                {
+                    "action_type": action.action_type,
+                    "scope": action.immutable_payload,
+                },
+                trigger_message_id=action.trigger_message_id,
+                action_request_id=action.id,
+            )
             task = activate_task(self.cwd, action.task_id)
             saved_collection = task.collection
             save_task(
@@ -241,6 +262,8 @@ class ContinuationRunner:
                 self.cwd,
                 self.settings,
                 deep_crawl=task.deep_crawl,
+                task_id=action.task_id,
+                run_id=run.id,
             )
             prompt = (
                 "继续当前任务，严格限定在以下用户请求范围：\n"

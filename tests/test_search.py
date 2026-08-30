@@ -1,8 +1,15 @@
 """Search query analysis tests."""
 
 import httpx
+import pytest
 
-from intel_agent.search import _result, bing_search, strip_tags
+from intel_agent.models import IntelError
+from intel_agent.search import (
+    MAX_SEARCH_RESPONSE_BYTES,
+    _result,
+    bing_search,
+    strip_tags,
+)
 from intel_agent.search_queries import (
     authoritative_variants,
     extract_keywords,
@@ -102,6 +109,22 @@ async def test_bing_search_uses_direct_endpoint_and_cjk_language():
 
     assert len(results) == 1
     assert results[0].url == "https://www.gov.cn/policy"
+
+
+@pytest.mark.asyncio
+async def test_search_response_is_rejected_before_html_parsing():
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, content=b"x" * (MAX_SEARCH_RESPONSE_BYTES + 1)
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler)
+    ) as client:
+        with pytest.raises(IntelError) as error:
+            await bing_search(client, "test", 5)
+
+    assert error.value.code == "RESPONSE_TOO_LARGE"
 
 
 def test_query_plan_includes_document_and_media_discovery():

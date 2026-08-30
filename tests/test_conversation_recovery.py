@@ -21,3 +21,20 @@ def test_interrupted_run_keeps_working_assets_out_and_retries_as_new_run(cwd):
     assert store.committed_asset_ids("task-1", "document") == set()
     assert retry.id != run.id
     assert retry.retry_of_run_id == run.id
+
+
+def test_startup_recovery_interrupts_all_active_runs_without_lease(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    run = store.create_run("task-1", "initial", 0, {})
+    store.transition_run(
+        run.id,
+        "running",
+        lease_owner="old-runtime",
+        lease_expires_at="2999-01-01T00:00:00+00:00",
+    )
+
+    recovered = store.recover_expired_runs()
+
+    assert [item.id for item in recovered] == [run.id]
+    assert recovered[0].status == "interrupted"

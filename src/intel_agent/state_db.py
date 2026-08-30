@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .storage import ensure_intel_dirs
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -440,6 +440,55 @@ CREATE UNIQUE INDEX one_running_run_per_task
 ON research_runs(task_id) WHERE status IN ('running', 'stopping');
 """
 
+SCHEMA_V4 = """
+ALTER TABLE research_checkpoints ADD COLUMN snapshot_fingerprint TEXT;
+ALTER TABLE report_versions ADD COLUMN snapshot_fingerprint TEXT;
+
+CREATE TABLE committed_snapshots (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES task_state(task_id) ON DELETE CASCADE,
+    version INTEGER NOT NULL CHECK (version >= 0),
+    checkpoint_id TEXT REFERENCES research_checkpoints(id),
+    asset_manifest_json TEXT NOT NULL DEFAULT '[]',
+    fingerprint TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (task_id, version),
+    UNIQUE (task_id, fingerprint)
+);
+
+CREATE TABLE run_workspaces (
+    run_id TEXT PRIMARY KEY REFERENCES research_runs(id) ON DELETE CASCADE,
+    task_id TEXT NOT NULL REFERENCES task_state(task_id) ON DELETE CASCADE,
+    base_version INTEGER NOT NULL CHECK (base_version >= 0),
+    status TEXT NOT NULL CHECK (status IN ('open', 'committed', 'abandoned'))
+);
+
+CREATE TABLE run_workspace_assets (
+    run_id TEXT NOT NULL REFERENCES run_workspaces(run_id) ON DELETE CASCADE,
+    task_id TEXT NOT NULL REFERENCES task_state(task_id) ON DELETE CASCADE,
+    asset_type TEXT NOT NULL,
+    logical_id TEXT NOT NULL,
+    revision_id TEXT NOT NULL,
+    content_sha256 TEXT NOT NULL,
+    PRIMARY KEY (run_id, asset_type, logical_id, revision_id)
+);
+
+CREATE TABLE research_outcomes (
+    run_id TEXT PRIMARY KEY REFERENCES research_runs(id) ON DELETE CASCADE,
+    task_id TEXT NOT NULL REFERENCES task_state(task_id) ON DELETE CASCADE,
+    outcome TEXT NOT NULL CHECK (outcome IN (
+        'committed', 'no_progress', 'failed', 'cancelled', 'stopped',
+        'interrupted'
+    )),
+    committed_state_version INTEGER NOT NULL CHECK (committed_state_version >= 0),
+    snapshot_fingerprint TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX one_run_per_action
+ON research_runs(action_request_id) WHERE action_request_id IS NOT NULL;
+"""
+
 
 def state_db_path(cwd: Path) -> Path:
     """Return the local SQLite state database path."""
@@ -490,4 +539,12 @@ def initialize_state_db(cwd: Path) -> Path:
                 raise sqlite3.IntegrityError(
                     f"state migration violated foreign keys: {violations}"
                 )
+        migrated = connection.execute(
+            "SELECT 1 FROM schema_migrations WHERE version = 4"
+        ).fetchone()
+        if SCHEMA_VERSION >= 4 and migrated is None:
+            connection.executescript(SCHEMA_V4)
+            connection.execute(
+                "INSERT INTO schema_migrations(version) VALUES (?)", (4,)
+            )
     return path

@@ -8,6 +8,7 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_ai import (
@@ -299,6 +300,8 @@ async def run_agent_task(
     cancellation_token: CancellationToken | None = None,
     recorder: TrajectoryRecorder | None = None,
     conversation_path: Path | None = None,
+    bound_task_id: str | None = None,
+    run_id: str | None = None,
 ) -> AgentRunResult[str]:
     """Run one task, forwarding native Pydantic AI events and, optionally,
     recording a structured run trajectory (run/step lifecycle, model calls) and
@@ -330,7 +333,14 @@ async def run_agent_task(
         )
     else:
         agent = build_agent(settings)
-    deps = build_deps(cwd, settings, deep_crawl=bool(resolved_spec.deep_crawl))
+    deps_kwargs: dict[str, Any] = {
+        "deep_crawl": bool(resolved_spec.deep_crawl)
+    }
+    if bound_task_id is not None:
+        deps_kwargs["task_id"] = bound_task_id
+    if run_id is not None:
+        deps_kwargs["run_id"] = run_id
+    deps = build_deps(cwd, settings, **deps_kwargs)
     for name in ("objective", "scope", "report_depth"):
         if hasattr(deps, name):
             setattr(deps, name, getattr(resolved_spec, name))

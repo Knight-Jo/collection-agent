@@ -6,6 +6,7 @@ import pytest
 
 import intel_agent.fetch as fetch_module
 from intel_agent.browser import RenderedPage
+from intel_agent.extract import _LinkParser
 from intel_agent.fetch import (
     FetchedResponse,
     _read_chunked_body,
@@ -228,6 +229,38 @@ async def test_pinned_fetch_uses_html_url_suffix_for_stream_cap(
     assert error.value.code == "RESPONSE_TOO_LARGE"
     assert error.value.downloaded_bytes == 5
     assert reader.downloaded_body_bytes == 5
+
+
+@pytest.mark.asyncio
+async def test_httpx_fallback_keeps_validated_address(monkeypatch):
+    calls = []
+
+    async def fake_pinned(url, init, address, *, max_bytes):
+        calls.append((url, init, address, max_bytes))
+        return FetchedResponse(status=200, headers={}, body=b"ok")
+
+    monkeypatch.setattr(fetch_module, "pinned_fetch", fake_pinned)
+
+    response = await fetch_module.httpx_fallback_fetch(
+        "https://example.com/", {"headers": {}}, "93.184.216.34", 123
+    )
+
+    assert response.body == b"ok"
+    assert calls == [
+        ("https://example.com/", {"headers": {}}, "93.184.216.34", 123)
+    ]
+
+
+def test_html_link_extraction_has_a_hard_unique_link_cap():
+    parser = _LinkParser("https://example.com/")
+    parser.feed(
+        "".join(
+            f'<a href="https://example.com/{index}">x</a>'
+            for index in range(2_000)
+        )
+    )
+
+    assert len(parser.links) <= 1_000
 
 
 @pytest.mark.asyncio

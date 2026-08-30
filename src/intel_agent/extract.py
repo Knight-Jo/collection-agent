@@ -23,6 +23,8 @@ from urllib.parse import urljoin, urlparse
 from .document_extract import decode_body, extract_docx_text, extract_html
 from .models import ExtractionResult
 
+MAX_EXTRACTED_LINKS = 1_000
+
 _REJECTED_SUFFIXES = {
     ".7z",
     ".apk",
@@ -213,9 +215,9 @@ def _append_link(links: list[str], raw: str, base_url: str) -> str | None:
     parsed = urlparse(url)
     if parsed.scheme in ("http", "https") and parsed.hostname:
         url = parsed._replace(fragment="").geturl()
-        if url not in links:
+        if url not in links and len(links) < MAX_EXTRACTED_LINKS:
             links.append(url)
-        return url
+        return url if url in links else None
     return None
 
 

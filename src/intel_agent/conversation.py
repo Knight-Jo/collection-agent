@@ -289,6 +289,17 @@ class ConversationRuntime:
             action.task_id, "确认执行建议", client_message_id
         )
         queued = self.store.confirm_action(action_id, confirmation.id)
+        if queued.status != "queued":
+            self.store.complete_message(
+                confirmation.id, "该调研建议已过期，请重新发起续研。"
+            )
+            self.store.append_event(
+                action.task_id,
+                "action.expired",
+                {"action_id": action_id},
+                action_request_id=action_id,
+            )
+            return queued
         self.store.complete_message(
             confirmation.id, "已确认，任务进入执行队列。"
         )

@@ -11,8 +11,10 @@ from .models import (
     ActionRequest,
     ActionRequestStatus,
     ActionType,
+    AssetRevisionRef,
     CitationDraft,
     CommittedAssetType,
+    CommittedResearchSnapshot,
     Conversation,
     ConversationEpoch,
     ConversationEvent,
@@ -23,14 +25,22 @@ from .models import (
     ReportVersion,
     ResearchBrief,
     ResearchCheckpoint,
+    ResearchOutcome,
     ResearchRun,
     ResearchRunStatus,
+    RunWorkspace,
     SearchPlanVersion,
     TimelineEntry,
     new_id,
     utc_now,
 )
 from .state_db import connect_state_db, initialize_state_db
+from .trajectory import _redact_payload
+
+
+def _redact_event_data(data: dict[str, object]) -> dict[str, object]:
+    return _redact_payload(data)
+
 
 ACTION_TRANSITIONS: dict[str, set[str]] = {
     "proposed": {"queued", "rejected", "expired"},
@@ -1271,6 +1281,198 @@ class StateStore:
             ).fetchone()
         return _row_to_action(_required(row, "action request"))
 
+    def claim_action(self, action_id: str) -> ActionRequest:
+        """Atomically claim a queued action for one executor."""
+        now = utc_now()
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            action = _find_action(connection, action_id)
+            if action["status"] == "executing":
+                return _row_to_action(action)
+            if action["status"] != "queued":
+                raise _invalid_transition(
+                    "action", action["status"], "executing"
+                )
+            current = _task_state(connection, action["task_id"])[
+                "current_committed_state_version"
+            ]
+            if current != action["precondition_committed_state_version"]:
+                connection.execute(
+                    "UPDATE action_requests SET status = 'expired', completed_at = ? "
+                    "WHERE id = ?",
+                    (now, action_id),
+                )
+            else:
+                connection.execute(
+                    "UPDATE action_requests SET status = 'executing', executing_at = ? "
+                    "WHERE id = ? AND status = 'queued'",
+                    (now, action_id),
+                )
+            row = connection.execute(
+                "SELECT * FROM action_requests WHERE id = ?", (action_id,)
+            ).fetchone()
+        return _row_to_action(_required(row, "action request"))
+
+    def finish_run(
+        self,
+        run_id: str,
+        *,
+        expected_input_version: int,
+        staged_manifest: Iterable[AssetRevisionRef] = (),
+        outcome: str = "committed",
+    ) -> ResearchOutcome:
+        """Atomically finalize a running Run and its committed snapshot."""
+        if outcome not in {"committed", "no_progress"}:
+            raise IntelError("INVALID_INPUT", "无效的运行结果")
+        now = utc_now()
+        manifest = list(staged_manifest)
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            run = _find_run(connection, run_id)
+            existing = connection.execute(
+                "SELECT * FROM research_outcomes WHERE run_id = ?", (run_id,)
+            ).fetchone()
+            if existing is not None:
+                return _row_to_outcome(existing)
+            if run["status"] != "running":
+                raise IntelError(
+                    "RUN_NOT_RUNNING", "只有 running 运行可以完成"
+                )
+            state = _task_state(connection, run["task_id"])
+            if (
+                state["current_committed_state_version"]
+                != expected_input_version
+            ):
+                raise IntelError("STALE_CHECKPOINT", "运行基于过期的研究状态")
+            workspace = _find_workspace(connection, run_id)
+            if workspace["status"] != "open":
+                raise IntelError("WORKSPACE_CLOSED", "运行工作区已关闭")
+            seen: set[tuple[str, str, str]] = set()
+            for revision in manifest:
+                key = (
+                    revision.asset_type,
+                    revision.logical_id,
+                    revision.revision_id,
+                )
+                if key in seen:
+                    continue
+                seen.add(key)
+                if revision.task_id != run["task_id"]:
+                    raise IntelError(
+                        "TASK_MISMATCH", "revision 不属于运行任务"
+                    )
+                connection.execute(
+                    "INSERT OR IGNORE INTO run_workspace_assets("
+                    "run_id, task_id, asset_type, logical_id, revision_id, content_sha256) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (
+                        run_id,
+                        revision.task_id,
+                        revision.asset_type,
+                        revision.logical_id,
+                        revision.revision_id,
+                        revision.content_sha256,
+                    ),
+                )
+            manifest_rows = connection.execute(
+                "SELECT asset_type, logical_id, revision_id, content_sha256, task_id "
+                "FROM run_workspace_assets WHERE run_id = ? "
+                "ORDER BY asset_type, logical_id, revision_id",
+                (run_id,),
+            ).fetchall()
+            normalized_manifest = [
+                {
+                    "asset_type": row["asset_type"],
+                    "logical_id": row["logical_id"],
+                    "revision_id": row["revision_id"],
+                    "content_sha256": row["content_sha256"],
+                    "task_id": row["task_id"],
+                }
+                for row in manifest_rows
+            ]
+            has_progress = outcome == "committed" and bool(normalized_manifest)
+            output_version = (
+                expected_input_version + 1
+                if has_progress
+                else expected_input_version
+            )
+            checkpoint_sequence = connection.execute(
+                "SELECT COALESCE(MAX(sequence), 0) + 1 FROM research_checkpoints "
+                "WHERE research_run_id = ?",
+                (run_id,),
+            ).fetchone()[0]
+            checkpoint_id = new_id("checkpoint")
+            fingerprint = _manifest_fingerprint(normalized_manifest)
+            connection.execute(
+                "INSERT INTO research_checkpoints("
+                "id, task_id, research_run_id, sequence, input_committed_state_version, "
+                "output_committed_state_version, status, reason, started_at, committed_at, "
+                "snapshot_fingerprint) VALUES (?, ?, ?, ?, ?, ?, 'committed', ?, ?, ?, ?)",
+                (
+                    checkpoint_id,
+                    run["task_id"],
+                    run_id,
+                    checkpoint_sequence,
+                    expected_input_version,
+                    output_version,
+                    "run finished" if has_progress else "no progress",
+                    now,
+                    now,
+                    fingerprint,
+                ),
+            )
+            connection.execute(
+                "INSERT OR IGNORE INTO committed_snapshots("
+                "id, task_id, version, checkpoint_id, asset_manifest_json, fingerprint, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    new_id("snapshot"),
+                    run["task_id"],
+                    output_version,
+                    checkpoint_id,
+                    _json(normalized_manifest),
+                    fingerprint,
+                    now,
+                ),
+            )
+            connection.execute(
+                "UPDATE task_state SET current_committed_state_version = ?, updated_at = ? "
+                "WHERE task_id = ?",
+                (output_version, now, run["task_id"]),
+            )
+            connection.execute(
+                "UPDATE run_workspaces SET status = 'committed' WHERE run_id = ?",
+                (run_id,),
+            )
+            connection.execute(
+                "UPDATE research_runs SET status = 'succeeded', completed_at = ?, "
+                "outcome = ?, phase = 'checkpointing', lease_owner = NULL, lease_expires_at = NULL "
+                "WHERE id = ?",
+                (now, "sufficient" if has_progress else "with_gaps", run_id),
+            )
+            if run["action_request_id"]:
+                connection.execute(
+                    "UPDATE action_requests SET status = 'succeeded', completed_at = ?, "
+                    "applied_checkpoint_id = ? WHERE id = ? AND status = 'executing'",
+                    (now, checkpoint_id, run["action_request_id"]),
+                )
+            connection.execute(
+                "INSERT INTO research_outcomes(run_id, task_id, outcome, committed_state_version, "
+                "snapshot_fingerprint, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    run_id,
+                    run["task_id"],
+                    outcome,
+                    output_version,
+                    fingerprint,
+                    now,
+                ),
+            )
+            row = connection.execute(
+                "SELECT * FROM research_outcomes WHERE run_id = ?", (run_id,)
+            ).fetchone()
+        return _row_to_outcome(_required(row, "research outcome"))
+
     def create_run(
         self,
         task_id: str,
@@ -1312,7 +1514,103 @@ class StateStore:
             row = connection.execute(
                 "SELECT * FROM research_runs WHERE id = ?", (run_id,)
             ).fetchone()
+            connection.execute(
+                "INSERT INTO run_workspaces(run_id, task_id, base_version, status) "
+                "VALUES (?, ?, ?, 'open')",
+                (run_id, task_id, input_committed_state_version),
+            )
         return _row_to_run(_required(row, "research run"))
+
+    def stage_revision(
+        self, run_id: str, revision: AssetRevisionRef
+    ) -> RunWorkspace:
+        """Stage one immutable asset reference in the run workspace."""
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            workspace = _find_workspace(connection, run_id)
+            if workspace["status"] != "open":
+                raise IntelError("WORKSPACE_CLOSED", "运行工作区已关闭")
+            if revision.task_id != workspace["task_id"]:
+                raise IntelError("TASK_MISMATCH", "revision 不属于运行任务")
+            connection.execute(
+                "INSERT OR IGNORE INTO run_workspace_assets("
+                "run_id, task_id, asset_type, logical_id, revision_id, content_sha256) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    run_id,
+                    revision.task_id,
+                    revision.asset_type,
+                    revision.logical_id,
+                    revision.revision_id,
+                    revision.content_sha256,
+                ),
+            )
+        return self.run_view(run_id)
+
+    def committed_snapshot(
+        self, task_id: str, version: int | None = None
+    ) -> CommittedResearchSnapshot:
+        """Read one immutable snapshot, creating an empty version-zero baseline."""
+        with connect_state_db(self.cwd) as connection:
+            _task_state(connection, task_id)
+            if version is None:
+                version = connection.execute(
+                    "SELECT current_committed_state_version FROM task_state WHERE task_id = ?",
+                    (task_id,),
+                ).fetchone()[0]
+            row = connection.execute(
+                "SELECT * FROM committed_snapshots WHERE task_id = ? AND version = ?",
+                (task_id, version),
+            ).fetchone()
+            if row is None and version == 0:
+                manifest: list[dict[str, object]] = []
+                fingerprint = _manifest_fingerprint(manifest)
+                snapshot_id = new_id("snapshot")
+                connection.execute(
+                    "INSERT OR IGNORE INTO committed_snapshots("
+                    "id, task_id, version, asset_manifest_json, fingerprint, created_at) "
+                    "VALUES (?, ?, 0, ?, ?, ?)",
+                    (
+                        snapshot_id,
+                        task_id,
+                        _json(manifest),
+                        fingerprint,
+                        utc_now(),
+                    ),
+                )
+                row = connection.execute(
+                    "SELECT * FROM committed_snapshots WHERE task_id = ? AND version = 0",
+                    (task_id,),
+                ).fetchone()
+        return _row_to_snapshot(_required(row, "committed snapshot"))
+
+    def run_view(self, run_id: str) -> RunWorkspace:
+        """Return staged revisions for an open run only."""
+        with connect_state_db(self.cwd) as connection:
+            workspace = _find_workspace(connection, run_id)
+            if workspace["status"] != "open":
+                raise IntelError("WORKSPACE_CLOSED", "运行工作区已关闭")
+            rows = connection.execute(
+                "SELECT * FROM run_workspace_assets WHERE run_id = ? "
+                "ORDER BY asset_type, logical_id, revision_id",
+                (run_id,),
+            ).fetchall()
+        return RunWorkspace(
+            run_id=workspace["run_id"],
+            task_id=workspace["task_id"],
+            base_version=workspace["base_version"],
+            status=workspace["status"],
+            staged_revisions=[
+                AssetRevisionRef(
+                    asset_type=row["asset_type"],
+                    logical_id=row["logical_id"],
+                    revision_id=row["revision_id"],
+                    content_sha256=row["content_sha256"],
+                    task_id=row["task_id"],
+                )
+                for row in rows
+            ],
+        )
 
     def transition_run(
         self,
@@ -1367,6 +1665,35 @@ class StateStore:
                     run_id,
                 ),
             )
+            if new_status in {
+                "stopped",
+                "succeeded",
+                "failed",
+                "cancelled",
+                "interrupted",
+            }:
+                workspace_status = (
+                    "committed" if new_status == "succeeded" else "abandoned"
+                )
+                connection.execute(
+                    "UPDATE run_workspaces SET status = ? WHERE run_id = ?",
+                    (workspace_status, run_id),
+                )
+                connection.execute(
+                    "INSERT OR REPLACE INTO research_outcomes("
+                    "run_id, task_id, outcome, committed_state_version, created_at) "
+                    "VALUES (?, ?, ?, (SELECT current_committed_state_version "
+                    "FROM task_state WHERE task_id = ?), ?)",
+                    (
+                        run_id,
+                        run["task_id"],
+                        "committed"
+                        if new_status == "succeeded"
+                        else new_status,
+                        run["task_id"],
+                        now,
+                    ),
+                )
             conversation_id = _conversation_id_for_run(connection, run)
             event_sequence = _insert_event(
                 connection,
@@ -1474,16 +1801,29 @@ class StateStore:
     def recover_expired_runs(
         self, now: str | None = None
     ) -> list[ResearchRun]:
-        """Mark abandoned active runs interrupted; never resume them in place."""
-        now = now or utc_now()
+        """Mark abandoned active runs interrupted; never resume them in place.
+
+        Startup recovery has no reliable cross-process heartbeat, so the
+        no-argument form treats every active run as belonging to an exited
+        runtime.  Tests and explicit reapers may pass a timestamp to retain
+        the legacy expiry-only behavior.
+        """
         recovered: list[ResearchRun] = []
         with connect_state_db(self.cwd) as connection:
-            rows = connection.execute(
-                "SELECT * FROM research_runs WHERE status IN ('running', 'stopping') "
-                "AND (lease_expires_at IS NULL OR lease_expires_at < ?) "
-                "ORDER BY created_at, rowid",
-                (now,),
-            ).fetchall()
+            if now is None:
+                rows = connection.execute(
+                    "SELECT * FROM research_runs "
+                    "WHERE status IN ('running', 'stopping') "
+                    "ORDER BY created_at, rowid"
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT * FROM research_runs "
+                    "WHERE status IN ('running', 'stopping') "
+                    "AND (lease_expires_at IS NULL OR lease_expires_at < ?) "
+                    "ORDER BY created_at, rowid",
+                    (now,),
+                ).fetchall()
         for row in rows:
             recovered.append(
                 self.transition_run(
@@ -1545,6 +1885,10 @@ class StateStore:
         with connect_state_db(self.cwd) as connection:
             connection.execute("BEGIN IMMEDIATE")
             run = _find_run(connection, run_id)
+            if run["status"] != "running":
+                raise IntelError(
+                    "RUN_NOT_RUNNING", "只有 running 运行可以开始检查点"
+                )
             state = _task_state(connection, run["task_id"])
             sequence = connection.execute(
                 "SELECT COALESCE(MAX(sequence), 0) + 1 "
@@ -1602,6 +1946,10 @@ class StateStore:
                 raise IntelError(
                     "RUN_STOPPING", "运行停止后未提交材料不能进入事实状态"
                 )
+            if run["status"] != "running":
+                raise IntelError(
+                    "RUN_NOT_RUNNING", "只有 running 运行可以提交检查点"
+                )
             state = _task_state(connection, checkpoint["task_id"])
             input_version = checkpoint["input_committed_state_version"]
             if state["current_committed_state_version"] != input_version:
@@ -1610,6 +1958,8 @@ class StateStore:
                 )
             output_version = input_version + 1
             asset_values = list(assets)
+            if not asset_values:
+                output_version = input_version
             connection.executemany(
                 "INSERT OR IGNORE INTO checkpoint_assets("
                 "checkpoint_id, task_id, asset_type, asset_id"
@@ -1648,6 +1998,46 @@ class StateStore:
                 "UPDATE task_state SET current_committed_state_version = ?, "
                 "updated_at = ? WHERE task_id = ?",
                 (output_version, now, checkpoint["task_id"]),
+            )
+            staged_rows = connection.execute(
+                "SELECT asset_type, logical_id, revision_id, content_sha256, task_id "
+                "FROM run_workspace_assets WHERE run_id = ? "
+                "ORDER BY asset_type, logical_id, revision_id",
+                (checkpoint["research_run_id"],),
+            ).fetchall()
+            manifest = [
+                {
+                    "asset_type": row["asset_type"],
+                    "logical_id": row["logical_id"],
+                    "revision_id": row["revision_id"],
+                    "content_sha256": row["content_sha256"],
+                    "task_id": row["task_id"],
+                }
+                for row in staged_rows
+            ]
+            fingerprint = _manifest_fingerprint(manifest)
+            connection.execute(
+                "INSERT OR IGNORE INTO committed_snapshots("
+                "id, task_id, version, checkpoint_id, asset_manifest_json, "
+                "fingerprint, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    new_id("snapshot"),
+                    checkpoint["task_id"],
+                    output_version,
+                    checkpoint_id,
+                    _json(manifest),
+                    fingerprint,
+                    now,
+                ),
+            )
+            connection.execute(
+                "UPDATE research_checkpoints SET snapshot_fingerprint = ? "
+                "WHERE id = ?",
+                (fingerprint, checkpoint_id),
+            )
+            connection.execute(
+                "UPDATE run_workspaces SET status = 'committed' WHERE run_id = ?",
+                (checkpoint["research_run_id"],),
             )
             conversation_id = _conversation_id_for_run(connection, run)
             event_sequence = _insert_event(
@@ -1887,6 +2277,7 @@ class StateStore:
                 "INVALID_INPUT", f"瞬时事件不能持久化: {event_type}"
             )
         now = utc_now()
+        data = _redact_event_data(data)
         with connect_state_db(self.cwd) as connection:
             connection.execute("BEGIN IMMEDIATE")
             conversation = connection.execute(
@@ -2216,6 +2607,44 @@ def _row_to_search_plan(row: sqlite3.Row) -> SearchPlanVersion:
     value = dict(row)
     value["plan"] = json.loads(value.pop("plan_json"))
     return SearchPlanVersion.model_validate(value)
+
+
+def _row_to_snapshot(row: sqlite3.Row) -> CommittedResearchSnapshot:
+    return CommittedResearchSnapshot(
+        task_id=row["task_id"],
+        version=row["version"],
+        checkpoint_id=row["checkpoint_id"],
+        asset_manifest=[
+            AssetRevisionRef.model_validate(item)
+            for item in json.loads(row["asset_manifest_json"])
+        ],
+        fingerprint=row["fingerprint"],
+        created_at=row["created_at"],
+    )
+
+
+def _row_to_outcome(row: sqlite3.Row) -> ResearchOutcome:
+    return ResearchOutcome.model_validate(dict(row))
+
+
+def _find_workspace(
+    connection: sqlite3.Connection, run_id: str
+) -> sqlite3.Row:
+    row = connection.execute(
+        "SELECT * FROM run_workspaces WHERE run_id = ?", (run_id,)
+    ).fetchone()
+    if row is None:
+        raise IntelError("NOT_FOUND", f"运行工作区不存在: {run_id}")
+    return row
+
+
+def _manifest_fingerprint(manifest: list[dict[str, object]]) -> str:
+    import hashlib
+
+    payload = json.dumps(
+        manifest, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def _row_to_checkpoint(row: sqlite3.Row) -> ResearchCheckpoint:

@@ -381,7 +381,7 @@ requires-dist = [
     { name = "openpyxl", marker = "extra == 'media'" },
     { name = "pillow", marker = "extra == 'media'" },
     { name = "playwright", marker = "extra == 'browser'", specifier = ">=1.48,<2" },
-    { name = "pydantic-ai" },
+    { name = "pydantic-ai", specifier = ">=2,<3" },
     { name = "pymupdf", specifier = ">=1.28.2" },
     { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.411" },
     { name = "pytest", marker = "extra == 'dev'" },

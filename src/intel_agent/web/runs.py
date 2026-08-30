@@ -28,6 +28,7 @@ TERMINAL_STATUSES = {
     "failed",
     "cancelled",
 }
+MAX_RETAINED_EVENTS = 5_000
 
 
 @dataclass
@@ -231,6 +232,8 @@ class RunRegistry:
                 data=data,
             )
         )
+        if len(state.events) > MAX_RETAINED_EVENTS:
+            del state.events[: len(state.events) - MAX_RETAINED_EVENTS]
         async with state.condition:
             state.condition.notify_all()
 

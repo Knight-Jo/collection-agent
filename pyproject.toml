@@ -5,7 +5,7 @@ description = "Pydantic AI agent for OSINT collection (port of pi-prototype-coll
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",
-    "pydantic-ai",
+    "pydantic-ai>=2,<3",
     "httpx",
     "pyyaml",
     "tldextract",

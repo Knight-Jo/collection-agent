@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from intel_agent.models import (
+    AssetRevisionRef,
     CitationDraft,
     CommittedAssetType,
     IntelError,
@@ -33,6 +34,86 @@ def test_bind_intake_task_is_atomic_and_idempotent(cwd):
     assert first.task_id is not None
     assert len(store.list_runs(first.task_id)) == 1
     assert len(store.list_conversations()) == 1
+
+
+def test_committed_snapshot_is_stable_and_workspace_isolated(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    baseline = store.committed_snapshot("task-1")
+    assert baseline.version == 0
+    assert baseline.asset_manifest == []
+    assert store.committed_snapshot("task-1", 0) == baseline
+
+    run = store.create_run("task-1", "initial", 0, {})
+    revision = AssetRevisionRef(
+        asset_type="document",
+        logical_id="doc-1",
+        revision_id="rev-1",
+        content_sha256="a" * 64,
+        task_id="task-1",
+    )
+    workspace = store.stage_revision(run.id, revision)
+    assert workspace.staged_revisions == [revision]
+    with pytest.raises(IntelError, match="不属于"):
+        store.stage_revision(
+            run.id, revision.model_copy(update={"task_id": "task-2"})
+        )
+
+    store.transition_run(run.id, "cancelled")
+    with pytest.raises(IntelError, match="已关闭"):
+        store.run_view(run.id)
+
+
+def test_claim_action_is_idempotent_and_expires_stale_precondition(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    message = store.add_user_message("task-1", "继续", "client-1")
+    action = store.create_action("task-1", message.id, "continue_research", {})
+
+    claimed = store.claim_action(action.id)
+    assert claimed.status == "executing"
+    assert store.claim_action(action.id).status == "executing"
+
+
+def test_finish_run_atomically_commits_and_replays(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    run = store.create_run("task-1", "initial", 0, {})
+    store.transition_run(run.id, "running")
+    revision = AssetRevisionRef(
+        asset_type="document",
+        logical_id="doc-1",
+        revision_id="rev-1",
+        content_sha256="b" * 64,
+        task_id="task-1",
+    )
+
+    outcome = store.finish_run(
+        run.id, expected_input_version=0, staged_manifest=[revision]
+    )
+    replay = store.finish_run(
+        run.id, expected_input_version=0, staged_manifest=[revision]
+    )
+
+    assert outcome == replay
+    assert outcome.outcome == "committed"
+    assert outcome.committed_state_version == 1
+    assert store.committed_snapshot("task-1", 1).fingerprint
+    assert store.get_run(run.id).status == "succeeded"
+
+
+def test_finish_run_no_progress_keeps_version(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    run = store.create_run("task-1", "initial", 0, {})
+    store.transition_run(run.id, "running")
+
+    outcome = store.finish_run(
+        run.id, expected_input_version=0, outcome="no_progress"
+    )
+
+    assert outcome.committed_state_version == 0
+    assert store.committed_state_version("task-1") == 0
 
 
 def test_conversation_archive_is_reversible_and_filtered(cwd):
@@ -363,9 +444,12 @@ def test_checkpoint_commit_advances_version_once(cwd):
     store = StateStore(cwd)
     store.register_task("task-1")
     run = store.create_run("task-1", "initial", 0, {})
+    store.transition_run(run.id, "running")
     checkpoint = store.start_checkpoint(run.id, reason="final")
 
-    committed = store.commit_checkpoint(checkpoint.id)
+    committed = store.commit_checkpoint(
+        checkpoint.id, [("document", "working-doc")]
+    )
     repeated = store.commit_checkpoint(checkpoint.id)
 
     assert committed.input_committed_state_version == 0
@@ -374,13 +458,38 @@ def test_checkpoint_commit_advances_version_once(cwd):
     assert store.committed_state_version("task-1") == 1
 
 
+def test_checkpoint_requires_running_run(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    run = store.create_run("task-1", "initial", 0, {})
+
+    with pytest.raises(IntelError) as caught:
+        store.start_checkpoint(run.id, reason="queued")
+
+    assert caught.value.code == "RUN_NOT_RUNNING"
+
+
+def test_empty_checkpoint_is_no_progress(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    run = store.create_run("task-1", "initial", 0, {})
+    store.transition_run(run.id, "running")
+    checkpoint = store.start_checkpoint(run.id, reason="no new evidence")
+
+    committed = store.commit_checkpoint(checkpoint.id)
+
+    assert committed.output_committed_state_version == 0
+    assert store.committed_state_version("task-1") == 0
+
+
 def test_stale_report_requires_explicit_current_version(cwd):
     store = StateStore(cwd)
     store.register_task("task-1")
     draft = store.create_report_draft("task-1", "output/report.md", "abc")
     run = store.create_run("task-1", "initial", 0, {})
+    store.transition_run(run.id, "running")
     checkpoint = store.start_checkpoint(run.id, reason="new evidence")
-    store.commit_checkpoint(checkpoint.id)
+    store.commit_checkpoint(checkpoint.id, [("document", "new-evidence")])
 
     with pytest.raises(IntelError) as caught:
         store.publish_report(draft.id)
@@ -436,6 +545,21 @@ def test_transient_events_are_not_persisted(cwd):
 
     assert caught.value.code == "INVALID_INPUT"
     assert store.events_after("task-1", 0) == []
+
+
+def test_durable_event_redacts_credentials_in_urls_and_fields(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    event = store.append_event(
+        "task-1",
+        "message.accepted",
+        {"url": "https://example.com/a?token=secret", "api_key": "secret"},
+    )
+
+    assert event.data == {
+        "url": "https://example.com/a?token=%2A%2A%2A",
+        "api_key": "***",
+    }
 
 
 def test_list_projections_use_stable_order(cwd):

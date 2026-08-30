@@ -380,36 +380,22 @@ async def _read_response_body(
 
 async def httpx_fallback_fetch(
     input_url: str,
-    _init: dict | None,
-    _address: str,
+    init: dict | None,
+    address: str,
     max_bytes: int = DEFAULT_MAX_BYTES,
 ) -> FetchedResponse:
-    """httpx fallback for WAF/Cloudflare sites; trades away DNS pinning (low-risk pages only)."""
-    import httpx
+    """Compatibility fallback that keeps the validated connection address.
 
-    async with httpx.AsyncClient(
-        timeout=20.0, follow_redirects=False
-    ) as client:
-        response = await client.get(
-            input_url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/pdf,text/plain,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8",
-            },
-        )
-        body = response.content
-        if len(body) > max_bytes:
-            raise IntelError(
-                "RESPONSE_TOO_LARGE",
-                f"响应超过 {max_bytes} 字节",
-                downloaded_bytes=len(body),
-            )
-        return FetchedResponse(
-            status=response.status_code,
-            headers={k.lower(): v for k, v in response.headers.items()},
-            body=body,
-        )
+    The old implementation re-resolved ``input_url`` through httpx and read
+    the complete body before applying the size limit.  Reuse the pinned
+    reader so the fallback cannot reintroduce DNS rebinding or memory growth.
+    """
+    return await pinned_fetch(
+        input_url,
+        init,
+        address,
+        max_bytes=max_bytes,
+    )
 
 
 def parse_http_response(

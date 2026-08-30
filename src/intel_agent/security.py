@@ -60,7 +60,9 @@ def is_public_address(address: str) -> bool:
         ip = ipaddress.ip_address(strip_ipv6_brackets(address))
     except ValueError:
         return False
-    return not any(ip in net for net in BLOCKED_NETWORKS)
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+        ip = ip.ipv4_mapped
+    return ip.is_global and not any(ip in net for net in BLOCKED_NETWORKS)
 
 
 async def default_resolver(hostname: str) -> list[str]:
