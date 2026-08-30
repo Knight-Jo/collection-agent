@@ -3220,14 +3220,14 @@ def _merge_snapshot_manifest(
 ) -> list[dict[str, object]]:
     """Carry forward prior assets while replacing changed logical revisions."""
     merged: dict[tuple[str, str], dict[str, object]] = {}
-    if base_version > 0:
-        row = connection.execute(
-            "SELECT asset_manifest_json FROM committed_snapshots "
-            "WHERE task_id = ? AND version = ?",
-            (task_id, base_version),
-        ).fetchone()
-        if row is None:
-            raise IntelError("STORAGE_CORRUPT", "缺少前置研究快照")
+    row = connection.execute(
+        "SELECT asset_manifest_json FROM committed_snapshots "
+        "WHERE task_id = ? AND version = ?",
+        (task_id, base_version),
+    ).fetchone()
+    if row is None and base_version > 0:
+        raise IntelError("STORAGE_CORRUPT", "缺少前置研究快照")
+    if row is not None:
         previous = json.loads(row["asset_manifest_json"])
         if not isinstance(previous, list):
             raise IntelError("STORAGE_CORRUPT", "研究快照清单格式无效")
@@ -3236,6 +3236,21 @@ def _merge_snapshot_manifest(
                 raise IntelError("STORAGE_CORRUPT", "研究快照清单格式无效")
             key = (str(item.get("asset_type")), str(item.get("logical_id")))
             merged[key] = item
+    elif base_version == 0:
+        seeded = connection.execute(
+            "SELECT asset_type, asset_id FROM task_committed_assets "
+            "WHERE task_id = ? ORDER BY asset_type, asset_id",
+            (task_id,),
+        ).fetchall()
+        for item in seeded:
+            key = (item["asset_type"], item["asset_id"])
+            merged[key] = {
+                "asset_type": item["asset_type"],
+                "logical_id": item["asset_id"],
+                "revision_id": item["asset_id"],
+                "content_sha256": "",
+                "task_id": task_id,
+            }
     for item in delta:
         key = (str(item["asset_type"]), str(item["logical_id"]))
         merged[key] = item
