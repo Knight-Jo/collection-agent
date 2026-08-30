@@ -1842,6 +1842,20 @@ class StateStore:
                         now,
                     ),
                 )
+                if (
+                    new_status == "interrupted"
+                    and run["action_request_id"] is not None
+                ):
+                    connection.execute(
+                        "UPDATE action_requests SET status = 'failed', "
+                        "completed_at = ?, error = ? "
+                        "WHERE id = ? AND status = 'executing'",
+                        (
+                            now,
+                            "运行在恢复时被中断",
+                            run["action_request_id"],
+                        ),
+                    )
             conversation_id = _conversation_id_for_run(connection, run)
             event_sequence = _insert_event(
                 connection,
