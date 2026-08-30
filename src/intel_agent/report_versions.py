@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .models import ActionRequest, IntelError, ReportVersion, new_id
+from .models import (
+    ActionRequest,
+    CommittedResearchSnapshot,
+    IntelError,
+    ReportVersion,
+    new_id,
+)
 from .report import render_verified_report
 from .state_store import StateStore
 from .storage import sha256, workspace_path
@@ -40,6 +46,7 @@ class ReportPublisher:
             if snapshot.asset_manifest
             else self.store.committed_asset_ids(task_id, "fact"),
             output_path=relative_path,
+            snapshot=snapshot,
         )
         if not result.get("ok"):
             errors = result.get("errors", [])

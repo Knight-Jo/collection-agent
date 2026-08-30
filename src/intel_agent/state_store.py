@@ -95,14 +95,28 @@ def _materialized_asset_hash(
 
         return sha256(load_evidence(cwd, logical_id).model_dump_json())
     if asset_type == "review":
-        path = intel_path(cwd, f"reviews/{logical_id}.json")
+        revision_path = intel_path(
+            cwd, f"reviews/revisions/{revision.revision_id}.json"
+        )
+        path = (
+            revision_path
+            if revision_path.exists()
+            else intel_path(cwd, f"reviews/{logical_id}.json")
+        )
         if not path.exists():
             return None
         from .models import SupportReview
 
         return sha256(
             SupportReview.model_validate(
-                read_json(cwd, f"reviews/{logical_id}.json")
+                read_json(
+                    cwd,
+                    (
+                        f"reviews/revisions/{revision.revision_id}.json"
+                        if path == revision_path
+                        else f"reviews/{logical_id}.json"
+                    ),
+                )
             ).model_dump_json()
         )
     if asset_type == "material_digest":
@@ -188,6 +202,20 @@ def _materialized_asset_hash(
             else None
         )
     if asset_type == "coverage":
+        revision_path = intel_path(
+            cwd, f"coverage/revisions/{revision.revision_id}.json"
+        )
+        if revision_path.exists():
+            from .models import CoverageSnapshot
+
+            return sha256(
+                CoverageSnapshot.model_validate(
+                    read_json(
+                        cwd,
+                        f"coverage/revisions/{revision.revision_id}.json",
+                    )
+                ).model_dump_json()
+            )
         path = intel_path(cwd, f"coverage/{revision.task_id}.json")
         if not path.exists():
             return None
@@ -1680,6 +1708,12 @@ class StateStore:
                 }
                 for row in manifest_rows
             ]
+            normalized_manifest = _merge_snapshot_manifest(
+                connection,
+                run["task_id"],
+                expected_input_version,
+                normalized_manifest,
+            )
             self._validate_snapshot_manifest(
                 [
                     AssetRevisionRef.model_validate(item)
@@ -1958,7 +1992,21 @@ class StateStore:
                 (task_id, version),
             ).fetchone()
             if row is None and version == 0:
-                manifest: list[dict[str, object]] = []
+                seeded = connection.execute(
+                    "SELECT asset_type, asset_id FROM task_committed_assets "
+                    "WHERE task_id = ? ORDER BY asset_type, asset_id",
+                    (task_id,),
+                ).fetchall()
+                manifest = [
+                    {
+                        "asset_type": item["asset_type"],
+                        "logical_id": item["asset_id"],
+                        "revision_id": item["asset_id"],
+                        "content_sha256": "",
+                        "task_id": task_id,
+                    }
+                    for item in seeded
+                ]
                 fingerprint = _manifest_fingerprint(manifest)
                 snapshot_id = new_id("snapshot")
                 connection.execute(
@@ -2001,7 +2049,7 @@ class StateStore:
                 )
 
     def run_view(self, run_id: str) -> RunWorkspace:
-        """Return staged revisions for an open run only."""
+        """Return the base snapshot plus staged revisions for an open run."""
         with connect_state_db(self.cwd) as connection:
             workspace = _find_workspace(connection, run_id)
             if workspace["status"] != "open":
@@ -2011,20 +2059,29 @@ class StateStore:
                 "ORDER BY asset_type, logical_id, revision_id",
                 (run_id,),
             ).fetchall()
+            staged = [
+                {
+                    "asset_type": row["asset_type"],
+                    "logical_id": row["logical_id"],
+                    "revision_id": row["revision_id"],
+                    "content_sha256": row["content_sha256"],
+                    "task_id": row["task_id"],
+                }
+                for row in rows
+            ]
+            merged = _merge_snapshot_manifest(
+                connection,
+                workspace["task_id"],
+                workspace["base_version"],
+                staged,
+            )
         return RunWorkspace(
             run_id=workspace["run_id"],
             task_id=workspace["task_id"],
             base_version=workspace["base_version"],
             status=workspace["status"],
             staged_revisions=[
-                AssetRevisionRef(
-                    asset_type=row["asset_type"],
-                    logical_id=row["logical_id"],
-                    revision_id=row["revision_id"],
-                    content_sha256=row["content_sha256"],
-                    task_id=row["task_id"],
-                )
-                for row in rows
+                AssetRevisionRef.model_validate(item) for item in merged
             ],
         )
 
@@ -2445,6 +2502,12 @@ class StateStore:
                 }
                 for row in staged_rows
             ]
+            manifest = _merge_snapshot_manifest(
+                connection,
+                checkpoint["task_id"],
+                checkpoint["input_committed_state_version"],
+                manifest,
+            )
             self._validate_snapshot_manifest(
                 [AssetRevisionRef.model_validate(item) for item in manifest]
             )
@@ -3111,6 +3174,43 @@ def _manifest_fingerprint(manifest: list[dict[str, object]]) -> str:
         manifest, sort_keys=True, ensure_ascii=False, separators=(",", ":")
     ).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
+
+
+def _merge_snapshot_manifest(
+    connection: sqlite3.Connection,
+    task_id: str,
+    base_version: int,
+    delta: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    """Carry forward prior assets while replacing changed logical revisions."""
+    merged: dict[tuple[str, str], dict[str, object]] = {}
+    if base_version > 0:
+        row = connection.execute(
+            "SELECT asset_manifest_json FROM committed_snapshots "
+            "WHERE task_id = ? AND version = ?",
+            (task_id, base_version),
+        ).fetchone()
+        if row is None:
+            raise IntelError("STORAGE_CORRUPT", "缺少前置研究快照")
+        previous = json.loads(row["asset_manifest_json"])
+        if not isinstance(previous, list):
+            raise IntelError("STORAGE_CORRUPT", "研究快照清单格式无效")
+        for item in previous:
+            if not isinstance(item, dict):
+                raise IntelError("STORAGE_CORRUPT", "研究快照清单格式无效")
+            key = (str(item.get("asset_type")), str(item.get("logical_id")))
+            merged[key] = item
+    for item in delta:
+        key = (str(item["asset_type"]), str(item["logical_id"]))
+        merged[key] = item
+    return sorted(
+        merged.values(),
+        key=lambda item: (
+            str(item["asset_type"]),
+            str(item["logical_id"]),
+            str(item["revision_id"]),
+        ),
+    )
 
 
 def _row_to_checkpoint(row: sqlite3.Row) -> ResearchCheckpoint:

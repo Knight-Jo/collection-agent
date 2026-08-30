@@ -392,10 +392,17 @@ def eval_coverage(
     if run_id is not None:
         from .state_store import StateStore
 
+        coverage_hash = sha256(snapshot.model_dump_json())
+        write_json_atomic(
+            cwd,
+            f"coverage/revisions/{coverage_hash}.json",
+            snapshot.model_dump(),
+        )
         StateStore(cwd).stage_asset(
             run_id,
             "coverage",
             snapshot.id,
-            sha256(snapshot.model_dump_json()),
+            coverage_hash,
+            revision_id=coverage_hash,
         )
     return snapshot

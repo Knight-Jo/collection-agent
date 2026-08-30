@@ -18,20 +18,29 @@ from pathlib import Path
 
 from .audit import verified_support_evidence
 from .coverage import current_coverage_fingerprint, latest_coverage
-from .evidence import load_document
+from .evidence import list_evidence_for_fact, load_document
 from .fact import list_active_facts_for_task
 from .materials import generate_material_digest
 from .models import (
+    CommittedResearchSnapshot,
     CoverageSnapshot,
     EvidenceSupport,
+    Fact,
+    MaterialDigest,
     QuestionCoverage,
     ResearchConclusion,
     ResearchReportedConclusion,
     ResearchReportInput,
     ResearchReportSection,
+    SupportReview,
     normalized_statement,
 )
-from .storage import verify_document_integrity, write_file_atomic
+from .storage import (
+    intel_path,
+    read_json,
+    verify_document_integrity,
+    write_file_atomic,
+)
 from .task import bind_task_output, load_task
 
 
@@ -145,11 +154,113 @@ def _visible_coverage(
     return coverage.model_copy(update={"per_question": questions})
 
 
+def _snapshot_asset_ids(
+    snapshot: CommittedResearchSnapshot | None, asset_type: str
+) -> set[str] | None:
+    if snapshot is None or not snapshot.asset_manifest:
+        return None
+    return {
+        item.logical_id
+        for item in snapshot.asset_manifest
+        if item.asset_type == asset_type
+    }
+
+
+def _snapshot_reviews(
+    cwd: Path, snapshot: CommittedResearchSnapshot | None
+) -> dict[str, SupportReview]:
+    reviews: dict[str, SupportReview] = {}
+    review_ids = _snapshot_asset_ids(snapshot, "review")
+    if review_ids is None or snapshot is None:
+        return reviews
+    for item in snapshot.asset_manifest:
+        if item.asset_type != "review" or item.logical_id not in review_ids:
+            continue
+        revision_path = intel_path(
+            cwd, f"reviews/revisions/{item.revision_id}.json"
+        )
+        path = (
+            revision_path
+            if revision_path.exists()
+            else intel_path(cwd, f"reviews/{item.logical_id}.json")
+        )
+        if not path.exists():
+            continue
+        review = SupportReview.model_validate(
+            read_json(
+                cwd,
+                (
+                    f"reviews/revisions/{item.revision_id}.json"
+                    if path == revision_path
+                    else f"reviews/{item.logical_id}.json"
+                ),
+            )
+        )
+        reviews[review.evidence_id] = review
+    return reviews
+
+
+def _facts_for_snapshot(
+    cwd: Path,
+    task_id: str,
+    snapshot: CommittedResearchSnapshot | None,
+) -> list[Fact]:
+    if snapshot is None or not snapshot.asset_manifest:
+        return list_active_facts_for_task(cwd, task_id)
+    current = {
+        fact.id: fact for fact in list_active_facts_for_task(cwd, task_id)
+    }
+    facts: list[Fact] = []
+    for item in snapshot.asset_manifest:
+        if item.asset_type != "fact":
+            continue
+        path = intel_path(cwd, f"facts/revisions/{item.revision_id}.json")
+        fact = (
+            Fact.model_validate(
+                read_json(cwd, f"facts/revisions/{item.revision_id}.json")
+            )
+            if path.exists()
+            else current.get(item.logical_id)
+        )
+        if (
+            fact is not None
+            and fact.task_id == task_id
+            and fact.status == "active"
+        ):
+            facts.append(fact)
+    return facts
+
+
+def _verified_support_evidence_for_snapshot(
+    cwd: Path,
+    fact_id: str,
+    snapshot: CommittedResearchSnapshot | None,
+) -> list[EvidenceSupport]:
+    if snapshot is None or not snapshot.asset_manifest:
+        return verified_support_evidence(cwd, fact_id)
+    fact_ids = _snapshot_asset_ids(snapshot, "fact") or set()
+    evidence_ids = _snapshot_asset_ids(snapshot, "evidence") or set()
+    document_ids = _snapshot_asset_ids(snapshot, "document") or set()
+    reviews = _snapshot_reviews(cwd, snapshot)
+    if fact_id not in fact_ids:
+        return []
+    return [
+        evidence
+        for evidence in list_evidence_for_fact(cwd, fact_id)
+        if evidence.id in evidence_ids
+        and evidence.document_id in document_ids
+        and evidence.relation == "supports"
+        and reviews.get(evidence.id) is not None
+        and reviews[evidence.id].verdict == "full"
+    ]
+
+
 def build_verified_report_draft(
     cwd: Path,
     task_id: str,
     *,
     allowed_fact_ids: set[str] | None = None,
+    snapshot: CommittedResearchSnapshot | None = None,
 ) -> ResearchReportInput:
     """Build an honest report draft from facts with verified support.
 
@@ -173,10 +284,10 @@ def build_verified_report_draft(
     facts_by_question: dict[str, list[ResearchConclusion]] = {
         question.id: [] for question in task.questions
     }
-    for fact in list_active_facts_for_task(cwd, task.id):
+    for fact in _facts_for_snapshot(cwd, task.id, snapshot):
         if allowed_fact_ids is not None and fact.id not in allowed_fact_ids:
             continue
-        if verified_support_evidence(cwd, fact.id):
+        if _verified_support_evidence_for_snapshot(cwd, fact.id, snapshot):
             facts_by_question[fact.question_id].append(
                 ResearchReportedConclusion(fact_id=fact.id)
             )
@@ -199,6 +310,7 @@ def generate_research_report(
     allowed_fact_ids: set[str] | None = None,
     output_path: str | None = None,
     bind_output: bool = True,
+    snapshot: CommittedResearchSnapshot | None = None,
 ) -> dict:
     """Validate structured findings and write the primary research report.
 
@@ -234,7 +346,14 @@ def generate_research_report(
     per-conclusion validation ``errors`` (empty on success).
     """
     task = load_task(cwd, task_id)
-    coverage = latest_coverage(cwd, task.id)
+    visible_coverage_ids = None
+    if snapshot is not None and snapshot.asset_manifest:
+        visible_coverage_ids = {
+            item.logical_id
+            for item in snapshot.asset_manifest
+            if item.asset_type == "coverage"
+        }
+    coverage = latest_coverage(cwd, task.id, visible_coverage_ids)
     if coverage is None:
         return {
             "ok": False,
@@ -249,7 +368,7 @@ def generate_research_report(
 
     facts = [
         fact
-        for fact in list_active_facts_for_task(cwd, task.id)
+        for fact in _facts_for_snapshot(cwd, task.id, snapshot)
         if allowed_fact_ids is None or fact.id in allowed_fact_ids
     ]
     fact_by_id = {fact.id: fact for fact in facts}
@@ -258,9 +377,10 @@ def generate_research_report(
         for question in coverage.per_question
         for fact in question.facts
     }
-    coverage_invalid = set(fact_by_id) != set(
-        fact_coverage
-    ) or coverage.fingerprint != current_coverage_fingerprint(cwd, task.id)
+    coverage_invalid = set(fact_by_id) != set(fact_coverage) or (
+        snapshot is None
+        and coverage.fingerprint != current_coverage_fingerprint(cwd, task.id)
+    )
     if allowed_fact_ids is not None:
         fact_coverage = {
             fact_id: value
@@ -360,11 +480,13 @@ def generate_research_report(
             item
             for fact in conclusion_facts
             if fact
-            for item in verified_support_evidence(cwd, fact.id)
+            for item in _verified_support_evidence_for_snapshot(
+                cwd, fact.id, snapshot
+            )
         ]
         evidence_by_conclusion.append(evidence)
         if any(
-            not verified_support_evidence(cwd, fact.id)
+            not _verified_support_evidence_for_snapshot(cwd, fact.id, snapshot)
             for fact in conclusion_facts
             if fact
         ):
@@ -474,6 +596,27 @@ def generate_research_report(
         for evidence_group in evidence_by_conclusion
     ]
     digest = generate_material_digest(cwd, task.id)
+    if snapshot is not None:
+        digest_revision = next(
+            (
+                item
+                for item in snapshot.asset_manifest
+                if item.asset_type == "material_digest"
+            ),
+            None,
+        )
+        if digest_revision is not None:
+            path = intel_path(
+                cwd,
+                f"materials/revisions/{digest_revision.revision_id}.json",
+            )
+            if path.exists():
+                digest = MaterialDigest.model_validate(
+                    read_json(
+                        cwd,
+                        f"materials/revisions/{digest_revision.revision_id}.json",
+                    )
+                )
     question_by_id = {question.id: question for question in task.questions}
     lines = [
         f"# 公开信息调研报告：{task.topic}",
@@ -633,6 +776,7 @@ def render_verified_report(
     *,
     allowed_fact_ids: set[str],
     output_path: str,
+    snapshot: CommittedResearchSnapshot | None = None,
 ) -> dict:
     """Render a verified report file without changing the task binding.
 
@@ -641,7 +785,10 @@ def render_verified_report(
     ``allowed_fact_ids`` and ``output_path`` are required.
     """
     draft = build_verified_report_draft(
-        cwd, task_id, allowed_fact_ids=allowed_fact_ids
+        cwd,
+        task_id,
+        allowed_fact_ids=allowed_fact_ids,
+        snapshot=snapshot,
     )
     return generate_research_report(
         cwd,
@@ -650,4 +797,5 @@ def render_verified_report(
         allowed_fact_ids=allowed_fact_ids,
         output_path=output_path,
         bind_output=False,
+        snapshot=snapshot,
     )

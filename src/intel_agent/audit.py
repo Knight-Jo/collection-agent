@@ -225,11 +225,18 @@ async def audit_task_evidence(
                 if run_id is not None:
                     from .state_store import StateStore
 
+                    review_hash = sha256(review.model_dump_json())
+                    write_json_atomic(
+                        cwd,
+                        f"reviews/revisions/{review_hash}.json",
+                        review.model_dump(),
+                    )
                     StateStore(cwd).stage_asset(
                         run_id,
                         "review",
                         review.id,
-                        sha256(review.model_dump_json()),
+                        review_hash,
+                        revision_id=review_hash,
                     )
             return ("ok", reviews)
 

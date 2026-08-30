@@ -131,6 +131,19 @@ def test_committed_snapshot_is_stable_and_workspace_isolated(cwd):
         store.run_view(run.id)
 
 
+def test_baseline_snapshot_includes_seeded_legacy_assets(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    store.seed_committed_assets(
+        "task-1", [("fact", "fact-1"), ("document", "doc-1")]
+    )
+
+    snapshot = store.committed_snapshot("task-1", 0)
+    assert {
+        (item.asset_type, item.logical_id) for item in snapshot.asset_manifest
+    } == {("fact", "fact-1"), ("document", "doc-1")}
+
+
 def test_snapshot_manifest_accepts_derived_asset_revisions(cwd):
     store = StateStore(cwd)
     store.register_task("task-1")
@@ -161,6 +174,83 @@ def test_snapshot_manifest_accepts_derived_asset_revisions(cwd):
         "coverage",
         "material_digest",
         "task_revision",
+    }
+
+
+def test_committed_snapshot_manifest_accumulates_prior_revisions(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+
+    first = store.create_run("task-1", "initial", 0, {})
+    store.transition_run(first.id, "running")
+    store.finish_run(
+        first.id,
+        expected_input_version=0,
+        staged_manifest=[
+            AssetRevisionRef(
+                asset_type="fact",
+                logical_id="fact-1",
+                revision_id="fact-1",
+                content_sha256="",
+                task_id="task-1",
+            )
+        ],
+    )
+
+    second = store.create_run("task-1", "continue_research", 1, {})
+    store.transition_run(second.id, "running")
+    store.finish_run(
+        second.id,
+        expected_input_version=1,
+        staged_manifest=[
+            AssetRevisionRef(
+                asset_type="fact",
+                logical_id="fact-2",
+                revision_id="fact-2",
+                content_sha256="",
+                task_id="task-1",
+            )
+        ],
+    )
+
+    snapshot = store.committed_snapshot("task-1", 2)
+    assert {
+        (item.asset_type, item.logical_id) for item in snapshot.asset_manifest
+    } == {
+        ("fact", "fact-1"),
+        ("fact", "fact-2"),
+    }
+
+
+def test_run_view_includes_base_snapshot_and_staged_replacement(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    initial = store.create_run("task-1", "initial", 0, {})
+    store.transition_run(initial.id, "running")
+    store.finish_run(
+        initial.id,
+        expected_input_version=0,
+        staged_manifest=[
+            AssetRevisionRef(
+                asset_type="fact",
+                logical_id="fact-0",
+                revision_id="rev-1",
+                content_sha256="",
+                task_id="task-1",
+            )
+        ],
+    )
+    follow_up = store.create_run("task-1", "continue_research", 1, {})
+    store.stage_asset(follow_up.id, "fact", "fact-1", "", revision_id="rev-2")
+    store.stage_asset(follow_up.id, "fact", "fact-2", "")
+
+    view = store.run_view(follow_up.id)
+    assert {
+        (item.logical_id, item.revision_id) for item in view.staged_revisions
+    } == {
+        ("fact-0", "rev-1"),
+        ("fact-1", "rev-2"),
+        ("fact-2", "fact-2"),
     }
 
 

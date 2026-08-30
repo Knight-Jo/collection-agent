@@ -96,6 +96,46 @@ async def test_registry_runs_task_and_replays_events(cwd):
 
 
 @pytest.mark.asyncio
+async def test_registry_reloads_terminal_run_after_restart(cwd):
+    async def fake_runner(
+        run_cwd,
+        _settings,
+        spec,
+        *,
+        on_event,
+        cancellation_token,
+        recorder=None,
+    ):
+        task = create_task(run_cwd, spec.topic, spec.questions, spec.criteria)
+        from intel_agent.task import save_task
+
+        save_task(
+            run_cwd,
+            task.model_copy(
+                update={"stage": "done", "completion_status": "sufficient"}
+            ),
+        )
+        return SimpleNamespace(
+            output="persisted",
+            usage=SimpleNamespace(
+                requests=1,
+                tool_calls=0,
+                input_tokens=1,
+                output_tokens=1,
+                total_tokens=2,
+            ),
+        )
+
+    registry = RunRegistry(cwd, Settings(), runner=fake_runner)
+    created = await registry.create(make_spec())
+    await registry.wait(created.run_id)
+
+    restarted = RunRegistry(cwd, Settings())
+    assert restarted.get(created.run_id).result == "persisted"
+    assert restarted.events(created.run_id)[-1].type == "run.completed"
+
+
+@pytest.mark.asyncio
 async def test_registry_marks_model_stop_before_done_as_incomplete(cwd):
     async def fake_runner(
         run_cwd,

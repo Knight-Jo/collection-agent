@@ -17,6 +17,7 @@ from ..continuation import ResearchGate
 from ..crawl import CrawlEvent
 from ..models import IntelError, utc_now
 from ..runner import TaskRunSpec, run_agent_task
+from ..storage import intel_path, read_json_object, write_json_atomic
 from ..task import load_task
 from ..trajectory import JsonlTrajectoryRecorder
 from .schemas import RunErrorView, RunEvent, RunStatus, RunView, UsageView
@@ -29,6 +30,7 @@ TERMINAL_STATUSES = {
     "cancelled",
 }
 MAX_RETAINED_EVENTS = 5_000
+MAX_RETAINED_RUNS = 100
 
 
 @dataclass
@@ -88,6 +90,7 @@ class RunRegistry:
                 )
             state = _RunState(run_id=run_id, spec=spec)
             self._runs[state.run_id] = state
+            self._persist(state)
             state.task = asyncio.create_task(self._execute(state))
             return self._view(state)
 
@@ -132,6 +135,8 @@ class RunRegistry:
     async def _execute(self, state: _RunState) -> None:
         state.status = "running"
         state.started_at = utc_now()
+        if state.run_id in self._runs:
+            self._persist(state)
         previous_task_id = self._active_task_id()
         await self._append(state, "run.started", {"topic": state.spec.topic})
         loop = asyncio.get_running_loop()
@@ -217,6 +222,8 @@ class RunRegistry:
         finally:
             recorder.close()
             state.finished_at = utc_now()
+            self._persist(state)
+            self._prune_terminal()
             self.gate.release(state.run_id)
             async with state.condition:
                 state.condition.notify_all()
@@ -234,6 +241,8 @@ class RunRegistry:
         )
         if len(state.events) > MAX_RETAINED_EVENTS:
             del state.events[: len(state.events) - MAX_RETAINED_EVENTS]
+        if state.run_id in self._runs:
+            self._persist(state)
         async with state.condition:
             state.condition.notify_all()
 
@@ -248,8 +257,83 @@ class RunRegistry:
     def _state(self, run_id: str) -> _RunState:
         state = self._runs.get(run_id)
         if state is None:
-            raise IntelError("NOT_FOUND", f"运行不存在: {run_id}")
+            state = self._load(run_id)
+            if state is None:
+                raise IntelError("NOT_FOUND", f"运行不存在: {run_id}")
+            self._runs[run_id] = state
         return state
+
+    def _persist(self, state: _RunState) -> None:
+        write_json_atomic(
+            self.cwd,
+            f"web-runs/{state.run_id}.json",
+            {
+                "run_id": state.run_id,
+                "spec": state.spec.model_dump(mode="json"),
+                "status": state.status,
+                "task_id": state.task_id,
+                "created_at": state.created_at,
+                "started_at": state.started_at,
+                "finished_at": state.finished_at,
+                "result": state.result,
+                "error": state.error.model_dump(mode="json")
+                if state.error
+                else None,
+                "usage": state.usage.model_dump(mode="json")
+                if state.usage
+                else None,
+                "events": [
+                    event.model_dump(mode="json") for event in state.events
+                ],
+            },
+        )
+
+    def _load(self, run_id: str) -> _RunState | None:
+        path = intel_path(self.cwd, f"web-runs/{run_id}.json")
+        if not path.exists():
+            return None
+        raw = read_json_object(self.cwd, f"web-runs/{run_id}.json")
+        try:
+            state = _RunState(
+                run_id=run_id,
+                spec=TaskRunSpec.model_validate(raw["spec"]),
+                status=raw["status"],
+                task_id=raw.get("task_id"),
+                created_at=raw["created_at"],
+                started_at=raw.get("started_at"),
+                finished_at=raw.get("finished_at"),
+                result=raw.get("result"),
+                error=(
+                    RunErrorView.model_validate(raw["error"])
+                    if raw.get("error")
+                    else None
+                ),
+                usage=(
+                    UsageView.model_validate(raw["usage"])
+                    if raw.get("usage")
+                    else None
+                ),
+                events=[
+                    RunEvent.model_validate(item)
+                    for item in raw.get("events", [])
+                ],
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise IntelError(
+                "STORAGE_CORRUPT", f"运行记录格式无效: {run_id}"
+            ) from error
+        return state
+
+    def _prune_terminal(self) -> None:
+        terminal = [
+            state
+            for state in self._runs.values()
+            if state.status in TERMINAL_STATUSES
+        ]
+        for state in sorted(terminal, key=lambda item: item.finished_at or "")[
+            :-MAX_RETAINED_RUNS
+        ]:
+            self._runs.pop(state.run_id, None)
 
     @staticmethod
     def _view(state: _RunState) -> RunView:

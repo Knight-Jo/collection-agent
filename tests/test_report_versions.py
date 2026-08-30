@@ -89,6 +89,30 @@ def test_report_draft_is_reused_until_research_state_changes(cwd):
     assert event_types.count("report.published") == 1
 
 
+def test_report_publisher_passes_fixed_snapshot_to_renderer(cwd, monkeypatch):
+    task, _facts, _documents = seed_reportable_task(cwd)
+    store, publisher = _publisher(cwd, task.id)
+    captured = []
+
+    def fake_renderer(
+        _cwd, _task_id, *, allowed_fact_ids, output_path, snapshot
+    ):
+        captured.append(snapshot)
+        path = workspace_path(cwd, output_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# fixed", encoding="utf-8")
+        return {"ok": True, "path": str(path), "errors": []}
+
+    monkeypatch.setattr(
+        "intel_agent.report_versions.render_verified_report", fake_renderer
+    )
+    publisher.create_draft(task.id)
+
+    assert captured and captured[0].version == store.committed_state_version(
+        task.id
+    )
+
+
 def test_publisher_requires_confirmation_for_stale_draft(cwd):
     task, _facts, _documents = seed_reportable_task(cwd)
     store, publisher = _publisher(cwd, task.id)
