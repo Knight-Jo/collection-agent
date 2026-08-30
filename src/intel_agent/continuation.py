@@ -6,6 +6,7 @@ import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 
 from pydantic_ai import CancellationToken
 from pydantic_ai.exceptions import RunCancelled
@@ -327,7 +328,7 @@ def _asset_snapshot(
             workspace = None
         if workspace is not None and workspace.staged_revisions:
             return {
-                (item.asset_type, item.logical_id)
+                (cast(CommittedAssetType, item.asset_type), item.logical_id)
                 for item in workspace.staged_revisions
                 if item.asset_type in {"document", "fact", "evidence"}
             }
