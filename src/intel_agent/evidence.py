@@ -169,7 +169,17 @@ def save_evidence(
         fact.id, document.id, relation, line_start, line_end, quote
     )
     if intel_path(cwd, f"evidence/{id_}.json").exists():
-        return load_evidence(cwd, id_)
+        existing = load_evidence(cwd, id_)
+        if run_id is not None:
+            from .state_store import StateStore
+
+            StateStore(cwd).stage_asset(
+                run_id,
+                "evidence",
+                existing.id,
+                sha256(existing.model_dump_json()),
+            )
+        return existing
     evidence = EvidenceSupport(
         id=id_,
         task_id=fact.task_id,

@@ -1950,7 +1950,11 @@ def build_agent(
             if replacement.task_id != fact.task_id:
                 raise IntelError("INVALID_INPUT", "替换事实不属于当前任务")
         return supersede_fact(
-            ctx.deps.cwd, fact_id, replacement_fact_ids, reason
+            ctx.deps.cwd,
+            fact_id,
+            replacement_fact_ids,
+            reason,
+            run_id=ctx.deps.run_id,
         ).model_dump()
 
     @agent.tool(name="evidence_save")

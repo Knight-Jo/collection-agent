@@ -142,6 +142,12 @@ def save_fact(
             raise IntelError(
                 "INVALID_INPUT", "同一事实不能使用不同的声明类型重复保存"
             )
+        if run_id is not None:
+            from .state_store import StateStore
+
+            StateStore(cwd).stage_asset(
+                run_id, "fact", existing.id, sha256(existing.model_dump_json())
+            )
         return existing
     from .models import utc_now
 
@@ -174,7 +180,12 @@ def save_fact(
 
 
 def supersede_fact(
-    cwd: Path, fact_id: str, replacement_fact_ids: list[str], reason: str
+    cwd: Path,
+    fact_id: str,
+    replacement_fact_ids: list[str],
+    reason: str,
+    *,
+    run_id: str | None = None,
 ) -> Fact:
     fact = load_fact(cwd, fact_id)
     reason = reason.strip()
@@ -220,4 +231,10 @@ def supersede_fact(
         {"status": "active"},
         {"status": "superseded", "superseded_by": replacement_ids},
     )
+    if run_id is not None:
+        from .state_store import StateStore
+
+        StateStore(cwd).stage_asset(
+            run_id, "fact", updated.id, sha256(updated.model_dump_json())
+        )
     return load_fact(cwd, fact.id)
