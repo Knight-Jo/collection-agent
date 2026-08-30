@@ -18,6 +18,7 @@ from .models import (
     AssetRevisionRef,
     CollectionState,
     CommittedAssetType,
+    IntelError,
     ResearchBrief,
     ResearchRun,
 )
@@ -138,7 +139,7 @@ class ContinuationRunner:
                 trigger_message_id=run.trigger_message_id,
             )
             task = activate_task(self.cwd, run.task_id)
-            before = _asset_snapshot(self.cwd, task.id)
+            before = _asset_snapshot(self.cwd, task.id, run.id)
             await run_agent_task(
                 self.cwd,
                 self.settings,
@@ -157,7 +158,7 @@ class ContinuationRunner:
             )
             if token.cancelled:
                 raise asyncio.CancelledError
-            added = _asset_snapshot(self.cwd, task.id) - before
+            added = _asset_snapshot(self.cwd, task.id, run.id) - before
             self.store.finish_run(
                 run.id,
                 expected_input_version=run.input_committed_state_version,
@@ -234,7 +235,7 @@ class ContinuationRunner:
                     }
                 ),
             )
-            before = _asset_snapshot(self.cwd, action.task_id)
+            before = _asset_snapshot(self.cwd, action.task_id, run.id)
             agent = build_agent(
                 self.settings,
                 system_prompt=CONTINUATION_PROMPT,
@@ -261,7 +262,7 @@ class ContinuationRunner:
             )
             if token.cancelled:
                 raise asyncio.CancelledError
-            after = _asset_snapshot(self.cwd, action.task_id)
+            after = _asset_snapshot(self.cwd, action.task_id, run.id)
             added = after - before
             self.store.finish_run(
                 run.id,
@@ -314,8 +315,22 @@ class ContinuationRunner:
 
 
 def _asset_snapshot(
-    cwd: Path, task_id: str
+    cwd: Path, task_id: str, run_id: str | None = None
 ) -> set[tuple[CommittedAssetType, str]]:
+    if run_id is not None:
+        store = StateStore(cwd)
+        try:
+            workspace = store.run_view(run_id)
+        except IntelError as error:
+            if error.code != "WORKSPACE_CLOSED":
+                raise
+            workspace = None
+        if workspace is not None and workspace.staged_revisions:
+            return {
+                (item.asset_type, item.logical_id)
+                for item in workspace.staged_revisions
+                if item.asset_type in {"document", "fact", "evidence"}
+            }
     view = get_task_view(cwd, task_id)
     assets: set[tuple[CommittedAssetType, str]] = {
         ("document", resource.document_id)
