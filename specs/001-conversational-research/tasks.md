@@ -102,7 +102,7 @@
 - [X] T041 [P] [US2] 使用现有 `SearchProvider` 与调用方 AsyncClient 实现 Exa Adapter 于 `src/intel_agent/search/providers/exa.py`
 - [X] T042 [P] [US2] 使用现有 `SearchProvider` 与调用方 AsyncClient 实现 Brave Adapter 于 `src/intel_agent/search/providers/brave.py`
 - [X] T043 [P] [US2] 使用现有 `SearchProvider` 与调用方 AsyncClient 实现 Tavily Adapter 于 `src/intel_agent/search/providers/tavily.py`
-- [ ] T044 [US2] 让 `src/intel_agent/search/__init__.py` 的 `web_search` 统一调用现有及 AI-native Provider，复用 `src/intel_agent/search/provider.py` 的缓存、限流、规范化和去重，并通过 T034/T035
+- [X] T044 [US2] 让 `src/intel_agent/search/__init__.py` 的 `web_search` 统一调用现有及 AI-native Provider，复用 `src/intel_agent/search/provider.py` 的缓存、限流、规范化和去重，并通过 T034/T035
 - [ ] T045 [US2] 在 `src/intel_agent/extract.py` 与 `src/intel_agent/crawl.py` 用 set 和提取上限处理链接，并保留附件/动态材料的预算内深挖，使 T036 通过
 - [ ] T046 [US2] 在 `src/intel_agent/agent.py`、`src/intel_agent/audit.py` 与 `src/intel_agent/coverage.py` 仅按独立 `supports` 来源解除交叉验证，正确处理官方归属例外，使 T037 通过
 - [ ] T047 [US2] 在 `src/intel_agent/runner.py`、`src/intel_agent/agent.py` 与 `src/intel_agent/audit.py` 共享运行级请求/Token 预算和 AsyncClient 生命周期，使 T038 通过

@@ -360,41 +360,62 @@ async def web_search(
             if results and results[0].engine not in engines_used:
                 engines_used.append(results[0].engine)
 
-        engines: list[asyncio.Task[list[SearchResult]]] = []
+        engines: list[tuple[str, asyncio.Task[list[SearchResult]]]] = []
         if searxng_url:
             engines.append(
-                asyncio.create_task(
-                    searxng_search(
-                        client,
-                        searxng_url,
-                        query,
-                        max_results,
-                        {**opts, "language": language},
-                    )
+                (
+                    "searxng",
+                    asyncio.create_task(
+                        searxng_search(
+                            client,
+                            searxng_url,
+                            query,
+                            max_results,
+                            {**opts, "language": language},
+                        )
+                    ),
                 )
             )
         engines += [
-            asyncio.create_task(bing_search(client, query, max_results)),
-            asyncio.create_task(baidu_search(client, query, max_results)),
-            asyncio.create_task(baidu_news_search(client, query, max_results)),
+            (
+                "bing",
+                asyncio.create_task(bing_search(client, query, max_results)),
+            ),
+            (
+                "baidu",
+                asyncio.create_task(baidu_search(client, query, max_results)),
+            ),
+            (
+                "baidu-news",
+                asyncio.create_task(
+                    baidu_news_search(client, query, max_results)
+                ),
+            ),
         ]
         for provider in ai_native_providers or []:
             engines.append(
-                asyncio.create_task(
-                    provider.search(
-                        client,
-                        SearchRequest(
-                            query=query,
-                            max_results=max_results,
-                            language=language,
-                            time_range=opts.get("time_range"),
+                (
+                    provider.metadata.name,
+                    asyncio.create_task(
+                        provider.search(
+                            client,
+                            SearchRequest(
+                                query=query,
+                                max_results=max_results,
+                                language=language,
+                                time_range=opts.get("time_range"),
+                            ),
                         ),
-                    )
+                    ),
                 )
             )
-        done = await asyncio.gather(*engines, return_exceptions=True)
-        for result in done:
+        done = await asyncio.gather(
+            *(task for _, task in engines), return_exceptions=True
+        )
+        degraded: list[str] = []
+        for (name, _), result in zip(engines, done, strict=True):
             if isinstance(result, BaseException):
+                degraded.append(name)
                 continue
             collect(result)
 
@@ -447,15 +468,21 @@ async def web_search(
         merged.sort(key=lambda r: (kind_rank[r.kind], -r.hits))
         results = merged[:max_results]
         if results:
-            return {
+            response = {
                 "results": [r.model_dump() for r in results],
                 "engineUsed": "+".join(engines_used) or "searxng",
             }
-        return {
+            if degraded:
+                response["degraded"] = degraded
+            return response
+        response = {
             "results": [],
             "engineUsed": "+".join(engines_used) or "none",
             "error": "四路引擎均无结果，换检索词或换语言重试。",
         }
+        if degraded:
+            response["degraded"] = degraded
+        return response
     except Exception as e:
         return {
             "results": [],

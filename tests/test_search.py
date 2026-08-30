@@ -9,6 +9,7 @@ from intel_agent.search import (
     _result,
     bing_search,
     strip_tags,
+    web_search,
 )
 from intel_agent.search_queries import (
     authoritative_variants,
@@ -125,6 +126,53 @@ async def test_search_response_is_rejected_before_html_parsing():
             await bing_search(client, "test", 5)
 
     assert error.value.code == "RESPONSE_TOO_LARGE"
+
+
+@pytest.mark.asyncio
+async def test_web_search_merges_ai_native_results_and_reports_degraded(
+    monkeypatch,
+):
+    async def ok(_client, _query, _count):
+        return [
+            _result(
+                "bing",
+                "Topic result",
+                "https://example.com/topic",
+                "topic",
+                "topic",
+            )
+        ]
+
+    async def failed(_client, _query, _count):
+        raise RuntimeError("upstream unavailable")
+
+    monkeypatch.setattr("intel_agent.search.bing_search", ok)
+    monkeypatch.setattr("intel_agent.search.baidu_search", failed)
+    monkeypatch.setattr("intel_agent.search.baidu_news_search", ok)
+
+    class Provider:
+        metadata = type("Metadata", (), {"name": "exa"})
+
+        async def search(self, _client, request):
+            return [
+                _result(
+                    "exa",
+                    "Topic result",
+                    "https://www.example.com/topic#section",
+                    request.query,
+                    request.query,
+                )
+            ]
+
+    result = await web_search(
+        "topic",
+        max_results=5,
+        searxng_url=None,
+        ai_native_providers=[Provider()],
+    )
+
+    assert len(result["results"]) == 1
+    assert result["degraded"] == ["baidu"]
 
 
 def test_query_plan_includes_document_and_media_discovery():
