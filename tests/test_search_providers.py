@@ -177,6 +177,32 @@ async def test_credentialed_adapters_map_results_without_leaking_key(
     assert results[0].url.startswith("https://example.com/")
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "provider_cls", [ExaProvider, BraveProvider, TavilyProvider]
+)
+async def test_credentialed_adapter_rejects_invalid_or_oversized_schema(
+    provider_cls,
+):
+    responses = [
+        httpx.Response(200, json=[]),
+        httpx.Response(200, content=b"x" * 2_000_001),
+    ]
+    for response in responses:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(
+                lambda _request, response=response: response
+            )
+        ) as client:
+            provider = provider_cls(
+                api_key="secret-key",
+                base_url="https://provider.test",
+                min_interval=0,
+            )
+            with pytest.raises(ValueError):
+                await provider.search(client, SearchRequest(query="topic"))
+
+
 def test_credentialed_providers_require_explicit_enablement(monkeypatch):
     from intel_agent.config import AiNativeSearchConfig
 

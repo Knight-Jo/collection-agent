@@ -89,7 +89,7 @@
 
 - [X] T032 [P] [US2] 添加 initial/continuation Run 各有不可变 SearchPlanVersion、active plan endpoint 可读及旧计划前置条件过期测试到 `tests/test_state_store.py` 与 `tests/test_web_conversation.py`
 - [X] T033 [P] [US2] 添加 AI-native 配置约束、缺密钥 degraded、disabled 不调用和 credentialed admission 测试到 `tests/test_config.py` 与 `tests/test_search_providers.py`
-- [ ] T034 [P] [US2] 添加 Exa、Brave、Tavily 官方响应映射、认证头、超限响应、无效 schema 和 secret 不泄漏契约测试到 `tests/test_search_providers.py`
+- [X] T034 [P] [US2] 添加 Exa、Brave、Tavily 官方响应映射、认证头、超限响应、无效 schema 和 secret 不泄漏契约测试到 `tests/test_search_providers.py`
 - [ ] T035 [P] [US2] 添加现有国内外渠道与 AI-native Provider 并发、URL 去重、单点失败降级、总预算和“摘要不是证据”组合测试到 `tests/test_search.py`
 - [ ] T036 [P] [US2] 添加站内深挖、附件发现、有界唯一链接、来源上游去重和中外来源覆盖测试到 `tests/test_deep_crawl_workflow.py`
 - [ ] T037 [P] [US2] 添加只有 `supports` Evidence 计入独立交叉验证、官方单源例外不接受 contradiction 的测试到 `tests/test_audit.py` 与 `tests/test_coverage.py`
