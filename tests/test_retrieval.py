@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
+from intel_agent.audit import audit_task_evidence
 from intel_agent.fact import save_fact
 from intel_agent.materials import register_material
 from intel_agent.models import (
@@ -55,6 +58,19 @@ def test_retrieve_ranks_committed_evidence_before_material(cwd):
         "supports",
         "Cobalt supply reached 42 units.",
     )
+
+    async def judge(fact_obj, evidence_items):
+        return [
+            {
+                "evidence_id": item.id,
+                "verdict": "full",
+                "reason": "完整支持",
+                "unsupported_parts": [],
+            }
+            for item in evidence_items
+        ]
+
+    asyncio.run(audit_task_evidence(cwd, task.id, judge, "test", "model"))
     store = StateStore(cwd)
     retriever = TaskRetriever(cwd, store)
 
@@ -66,6 +82,29 @@ def test_retrieve_ranks_committed_evidence_before_material(cwd):
     assert passages[0].line_start == 2
     assert passages[0].source_content_hash == evidence_document.text_sha256
     assert any(item.citation_kind == "material_clue" for item in passages)
+
+
+def test_retrieve_requires_full_support_review_for_verified_evidence(cwd):
+    task = new_task(cwd, ["Find launch details", "Find launch risks"])
+    document = make_document(cwd, "Launch baseline detail")
+    register_material(
+        cwd, task.id, document.canonical_url, document_id=document.id
+    )
+    fact = save_fact(
+        cwd, task.id, task.questions[0].id, "Launch baseline detail"
+    )
+    evidence = save_evidence(
+        cwd, fact.id, document, "supports", "Launch baseline detail"
+    )
+    store = StateStore(cwd)
+    retriever = TaskRetriever(cwd, store)
+    retriever.seed_completed_task(task.id)
+
+    passages = retriever.retrieve(task.id, "launch baseline")
+
+    assert passages
+    assert all(item.evidence_id != evidence.id for item in passages)
+    assert all(item.citation_kind == "material_clue" for item in passages)
 
 
 def test_retrieve_excludes_uncommitted_and_cross_task_assets(cwd):

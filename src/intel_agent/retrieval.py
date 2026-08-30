@@ -7,8 +7,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from .audit import is_full_support
 from .evidence import load_document, load_evidence
-from .fact import load_fact
+from .fact import list_active_facts_for_task, load_fact
 from .models import IntelError
 from .search_queries import tokenize_query
 from .state_store import StateStore
@@ -130,6 +131,9 @@ class TaskRetriever:
             document_ids = self.store.committed_asset_ids(task_id, "document")
             fact_ids = self.store.committed_asset_ids(task_id, "fact")
             evidence_ids = self.store.committed_asset_ids(task_id, "evidence")
+        active_fact_ids = {
+            fact.id for fact in list_active_facts_for_task(self.cwd, task_id)
+        }
         passages: list[RetrievedPassage] = []
 
         for evidence_id in evidence_ids:
@@ -137,11 +141,14 @@ class TaskRetriever:
             if (
                 evidence.task_id != task_id
                 or evidence.fact_id not in fact_ids
+                or evidence.fact_id not in active_fact_ids
                 or evidence.document_id not in document_ids
+                or not is_full_support(self.cwd, evidence)
             ):
                 continue
             fact = load_fact(self.cwd, evidence.fact_id)
             document = load_document(self.cwd, evidence.document_id)
+            verify_document_integrity(self.cwd, document)
             haystack = "\n".join(
                 (
                     questions.get(fact.question_id, ""),

@@ -15,6 +15,7 @@ from .agent import build_agent, build_deps
 from .config import Settings
 from .models import (
     ActionRequest,
+    AssetRevisionRef,
     CollectionState,
     CommittedAssetType,
     ResearchBrief,
@@ -158,17 +159,13 @@ class ContinuationRunner:
             if token.cancelled:
                 raise asyncio.CancelledError
             added = _asset_snapshot(self.cwd, task.id) - before
-            checkpoint = self.store.start_checkpoint(
-                run.id, reason="initial research completed"
-            )
-            self.store.commit_checkpoint(checkpoint.id, added)
-            latest = load_task(self.cwd, task.id)
-            return self.store.transition_run(
+            self.store.finish_run(
                 run.id,
-                "succeeded",
-                phase="checkpointing",
-                outcome=latest.completion_status or "with_gaps",
+                expected_input_version=run.input_committed_state_version,
+                staged_manifest=_asset_revisions(task.id, added),
+                outcome="committed" if added else "no_progress",
             )
+            return self.store.get_run(run.id)
         except (RunCancelled, asyncio.CancelledError):
             current = self.store.get_run(run.id)
             if current.status == "queued":
@@ -281,22 +278,13 @@ class ContinuationRunner:
                 raise asyncio.CancelledError
             after = _asset_snapshot(self.cwd, action.task_id)
             added = after - before
-            checkpoint = self.store.start_checkpoint(
-                run.id, reason="continuation completed"
-            )
-            checkpoint = self.store.commit_checkpoint(checkpoint.id, added)
-            latest = load_task(self.cwd, action.task_id)
-            self.store.transition_run(
+            self.store.finish_run(
                 run.id,
-                "succeeded",
-                phase="checkpointing",
-                outcome=latest.completion_status or "with_gaps",
+                expected_input_version=run.input_committed_state_version,
+                staged_manifest=_asset_revisions(action.task_id, added),
+                outcome="committed" if added else "no_progress",
             )
-            return self.store.transition_action(
-                action.id,
-                "succeeded",
-                applied_checkpoint_id=checkpoint.id,
-            )
+            return self.store.get_action(action.id)
         except (RunCancelled, asyncio.CancelledError):
             current_run = self.store.get_run(run.id)
             if current_run.status == "running":
@@ -347,3 +335,20 @@ def _asset_snapshot(
                 assets.add(("evidence", evidence.id))
                 assets.add(("document", evidence.document.id))
     return assets
+
+
+def _asset_revisions(
+    task_id: str,
+    assets: set[tuple[CommittedAssetType, str]],
+) -> list[AssetRevisionRef]:
+    """Convert the JSON task delta into stable references for the run workspace."""
+    return [
+        AssetRevisionRef(
+            asset_type=asset_type,
+            logical_id=asset_id,
+            revision_id=asset_id,
+            content_sha256="",
+            task_id=task_id,
+        )
+        for asset_type, asset_id in sorted(assets)
+    ]

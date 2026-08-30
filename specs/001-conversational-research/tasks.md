@@ -44,7 +44,7 @@
 - [ ] T015 将 Document、Fact、Evidence 和 MaterialDigest 的运行中写入改为 append-only revision staging，修改 `src/intel_agent/fetch.py`、`src/intel_agent/fact.py`、`src/intel_agent/evidence.py` 与 `src/intel_agent/materials.py`
 - [ ] T016 将 SupportReview、Conflict、Coverage 和 Task 更新改为当前 Run workspace 中的新 revision，修改 `src/intel_agent/audit.py`、`src/intel_agent/conflicts.py`、`src/intel_agent/coverage.py` 与 `src/intel_agent/task.py`
 - [ ] T017 让 Agent context、TaskView、资源下载和通用任务读取只使用 committed snapshot 或当前 run view，修改 `src/intel_agent/context.py`、`src/intel_agent/web/views.py` 与 `src/intel_agent/storage.py`
-- [ ] T018 添加 Action 原子 claim、唯一 Run、checkpoint 状态守卫、expected-version CAS、原子 finish 和幂等重放测试到 `tests/test_state_store.py`
+- [X] T018 添加 Action 原子 claim、唯一 Run、checkpoint 状态守卫、expected-version CAS、原子 finish 和幂等重放测试到 `tests/test_state_store.py`
 - [ ] T019 在 `src/intel_agent/state_store.py` 实施 `claim_action`、queued Run claim 和 `finish_run` 事务，使 checkpoint、Run、Action、workspace 与 durable event 原子收敛并通过 T018
 - [ ] T020 [P] 添加工作区单实例锁、旧 active Run 中断、queued initial/action/report/retry 恢复及 executing 状态收敛测试到 `tests/test_conversation_recovery.py`
 - [ ] T021 在 `src/intel_agent/conversation.py` 和 `src/intel_agent/web/app.py` 实施工作区锁与完整启动恢复矩阵，移除无 heartbeat 的固定两分钟 lease 作为活性依据
@@ -143,7 +143,7 @@
 
 ### Tests for User Story 3
 
-- [ ] T056 [P] [US3] 添加 committed + active Fact + supports + full Review + valid Document 才标为 verified_evidence 的检索测试到 `tests/test_retrieval.py`
+- [X] T056 [P] [US3] 添加 committed + active Fact + supports + full Review + valid Document 才标为 verified_evidence 的检索测试到 `tests/test_retrieval.py`
 - [ ] T057 [P] [US3] 添加 DialogueDecision 在结构/引用/action 校验完成前不发送答案、material clue 最多 partial 的测试到 `tests/test_dialogue.py`
 - [ ] T058 [P] [US3] 添加已绑定对话中的实质性新主题返回“新建对话/任务”且不创建 Action 或资产的测试到 `tests/test_dialogue.py` 与 `tests/test_conversation.py`
 - [ ] T059 [P] [US3] 添加 expired confirm 不发送 queued、一个 Action 一个 Run、queued cancel、report cancel、retry 调度和崩溃恢复测试到 `tests/test_continuation.py` 与 `tests/test_conversation_recovery.py`
@@ -151,7 +151,7 @@
 
 ### Implementation for User Story 3
 
-- [ ] T061 [US3] 在 `src/intel_agent/retrieval.py` 只从 committed snapshot 构建 passage，并按 T056 的五项条件设置 verified_evidence
+- [X] T061 [US3] 在 `src/intel_agent/retrieval.py` 只从 committed snapshot 构建 passage，并按 T056 的五项条件设置 verified_evidence
 - [ ] T062 [US3] 在 `src/intel_agent/dialogue.py` 先完成 DialogueDecision 解析、repair、引用和 action 校验再发布可见答案，使 T057 通过
 - [ ] T063 [US3] 在 `src/intel_agent/models.py`、`src/intel_agent/dialogue.py` 与 `src/intel_agent/conversation.py` 增加确定性 new-topic 分流且不改绑现有 Conversation，使 T058 通过
 - [ ] T064 [US3] 在 `src/intel_agent/conversation.py`、`src/intel_agent/continuation.py` 与 `src/intel_agent/web/conversation.py` 依据原子 claim 结果发送事件，并接通 continuation/report/retry 的恢复和取消，使 T059 通过

@@ -1421,6 +1421,34 @@ class StateStore:
                     fingerprint,
                 ),
             )
+            connection.executemany(
+                "INSERT OR IGNORE INTO checkpoint_assets("
+                "checkpoint_id, task_id, asset_type, asset_id) "
+                "VALUES (?, ?, ?, ?)",
+                (
+                    (
+                        checkpoint_id,
+                        run["task_id"],
+                        item["asset_type"],
+                        item["logical_id"],
+                    )
+                    for item in normalized_manifest
+                ),
+            )
+            connection.executemany(
+                "INSERT OR IGNORE INTO task_committed_assets("
+                "task_id, asset_type, asset_id, committed_state_version) "
+                "VALUES (?, ?, ?, ?)",
+                (
+                    (
+                        run["task_id"],
+                        item["asset_type"],
+                        item["logical_id"],
+                        output_version,
+                    )
+                    for item in normalized_manifest
+                ),
+            )
             connection.execute(
                 "INSERT OR IGNORE INTO committed_snapshots("
                 "id, task_id, version, checkpoint_id, asset_manifest_json, fingerprint, created_at) "
@@ -1456,6 +1484,56 @@ class StateStore:
                     "applied_checkpoint_id = ? WHERE id = ? AND status = 'executing'",
                     (now, checkpoint_id, run["action_request_id"]),
                 )
+            conversation_id = _conversation_id_for_run(connection, run)
+            checkpoint_event_sequence = _insert_event(
+                connection,
+                conversation_id,
+                "checkpoint.committed",
+                {
+                    "checkpoint_id": checkpoint_id,
+                    "committed_state_version": output_version,
+                    "snapshot_fingerprint": fingerprint,
+                },
+                now,
+                research_run_id=run_id,
+            )
+            _insert_timeline_entry(
+                connection,
+                conversation_id,
+                "checkpoint",
+                {
+                    "checkpoint_id": checkpoint_id,
+                    "committed_state_version": output_version,
+                },
+                now,
+                source_event_sequence=checkpoint_event_sequence,
+            )
+            run_event_sequence = _insert_event(
+                connection,
+                conversation_id,
+                "run.succeeded",
+                {
+                    "run_id": run_id,
+                    "status": "succeeded",
+                    "outcome": outcome,
+                    "committed_state_version": output_version,
+                },
+                now,
+                research_run_id=run_id,
+                action_request_id=run["action_request_id"],
+            )
+            _insert_timeline_entry(
+                connection,
+                conversation_id,
+                "run_status",
+                {
+                    "run_id": run_id,
+                    "status": "succeeded",
+                    "outcome": outcome,
+                },
+                now,
+                source_event_sequence=run_event_sequence,
+            )
             connection.execute(
                 "INSERT INTO research_outcomes(run_id, task_id, outcome, committed_state_version, "
                 "snapshot_fingerprint, created_at) VALUES (?, ?, ?, ?, ?, ?)",

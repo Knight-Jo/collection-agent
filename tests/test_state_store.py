@@ -100,6 +100,35 @@ def test_finish_run_atomically_commits_and_replays(cwd):
     assert outcome.committed_state_version == 1
     assert store.committed_snapshot("task-1", 1).fingerprint
     assert store.get_run(run.id).status == "succeeded"
+    event_types = [
+        event.event_type for event in store.events_after("task-1", 0)
+    ]
+    assert event_types[-2:] == ["checkpoint.committed", "run.succeeded"]
+
+
+def test_finish_run_rejects_stale_input_version(cwd):
+    store = StateStore(cwd)
+    store.register_task("task-1")
+    first = store.create_run("task-1", "initial", 0, {})
+    store.transition_run(first.id, "running")
+    store.finish_run(
+        first.id,
+        expected_input_version=0,
+        staged_manifest=[
+            AssetRevisionRef(
+                asset_type="document",
+                logical_id="doc-1",
+                revision_id="rev-1",
+                content_sha256="",
+                task_id="task-1",
+            )
+        ],
+    )
+
+    stale = store.create_run("task-1", "continue_research", 0, {})
+    store.transition_run(stale.id, "running")
+    with pytest.raises(IntelError, match="过期"):
+        store.finish_run(stale.id, expected_input_version=0)
 
 
 def test_finish_run_no_progress_keeps_version(cwd):
