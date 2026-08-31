@@ -7,17 +7,22 @@ from collections.abc import Sequence
 from fastapi import Request
 from fastapi.testclient import TestClient
 
+import intel_agent.continuation as continuation_module
 from intel_agent.config import Settings
+from intel_agent.continuation import ContinuationRunner
 from intel_agent.conversation import ConversationRuntime
 from intel_agent.dialogue import DialogueAction, DialogueDecision
 from intel_agent.intake import IntakeDecision
 from intel_agent.materials import register_material
-from intel_agent.models import Message
+from intel_agent.models import Message, ResearchBrief
+from intel_agent.report import generate_research_report
 from intel_agent.retrieval import RetrievedPassage
 from intel_agent.storage import sha256, workspace_path
+from intel_agent.task import load_task, save_task
 from intel_agent.web.app import create_app
 from intel_agent.web.conversation import conversation_events
 from tests.conftest import make_document, new_task
+from tests.test_report import report_draft, seed_reportable_task
 
 
 class _Retriever:
@@ -110,6 +115,47 @@ def test_conversation_message_round_trip(cwd):
     assert len(projection.json()["messages"]) == 2
 
 
+def test_conversation_projection_blocks_report_until_verified_report_exists(
+    cwd,
+):
+    task = new_task(cwd)
+    runtime = ConversationRuntime(
+        cwd, dialogue=_Dialogue(), retriever=_Retriever()
+    )
+    client = TestClient(
+        create_app(
+            cwd=cwd,
+            settings=Settings(),
+            conversation_runtime=runtime,
+        )
+    )
+
+    projection = client.get(f"/api/tasks/{task.id}/conversation").json()
+
+    assert projection["report_ready"] is False
+
+
+def test_conversation_projection_allows_report_after_verified_report_exists(
+    cwd,
+):
+    task, facts, _documents = seed_reportable_task(cwd)
+    generate_research_report(cwd, task.id, report_draft(task, facts))
+    runtime = ConversationRuntime(
+        cwd, dialogue=_Dialogue(), retriever=_Retriever()
+    )
+    client = TestClient(
+        create_app(
+            cwd=cwd,
+            settings=Settings(),
+            conversation_runtime=runtime,
+        )
+    )
+
+    projection = client.get(f"/api/tasks/{task.id}/conversation").json()
+
+    assert projection["report_ready"] is True
+
+
 def test_task_view_hides_assets_staged_after_committed_baseline(cwd):
     task = new_task(cwd)
     runtime = ConversationRuntime(
@@ -163,6 +209,28 @@ def test_conversation_first_intake_round_trip(cwd):
     assert completed.json()["content"].startswith("可开展公开信息调研")
     assert projection.json()["conversation"]["status"] == "intake"
     assert client.get("/api/conversations").json()[0]["id"] == conversation_id
+
+
+def test_conversation_list_includes_current_research_progress(cwd):
+    task = new_task(cwd)
+    runtime = ConversationRuntime(
+        cwd, dialogue=_Dialogue(), retriever=_Retriever()
+    )
+    runtime.conversation_view(task.id)
+    run = runtime.store.create_run(task.id, "initial", 0, {})
+    runtime.store.claim_run(run.id, phase="collecting", lease_owner="worker")
+    client = TestClient(
+        create_app(
+            cwd=cwd,
+            settings=Settings(),
+            conversation_runtime=runtime,
+        )
+    )
+
+    conversation = client.get("/api/conversations").json()[0]
+
+    assert conversation["run_status"] == "running"
+    assert conversation["run_phase"] == "collecting"
 
 
 def test_conversation_can_be_archived_and_restored(cwd):
@@ -470,6 +538,39 @@ def test_conversation_events_forward_transient_answer_delta(cwd):
     assert "event: answer.delta" in payload
     assert '"delta": "部分回答"' in payload
     assert not payload.startswith("id:")
+
+
+async def test_initial_research_publishes_stage_progress(monkeypatch, cwd):
+    task = new_task(cwd)
+    runner = ContinuationRunner(cwd)
+    runtime = ConversationRuntime(
+        cwd,
+        dialogue=_Dialogue(),
+        retriever=_Retriever(),
+        initial=runner,
+    )
+    runtime.conversation_view(task.id)
+    run = runtime.store.create_run(task.id, "initial", 0, {})
+    conversation = runtime.store.get_conversation(task.id)
+
+    async def fake_agent_task(_cwd, _settings, _spec, **kwargs):
+        current = load_task(cwd, task.id)
+        save_task(cwd, current.model_copy(update={"stage": "assess"}))
+        await kwargs["on_event"](object())
+
+    monkeypatch.setattr(continuation_module, "run_agent_task", fake_agent_task)
+
+    async with runtime.transient_events(conversation.id) as events:
+        runtime._schedule_initial(
+            run,
+            ResearchBrief(topic=task.topic, key_questions=["问题"]),
+        )
+        event_type, payload = await asyncio.wait_for(events.get(), timeout=1)
+        await runtime.wait_research_run(run.id)
+
+    assert event_type == "run.progress"
+    assert payload == {"run_id": run.id, "phase": "assessing"}
+    assert runtime.store.get_run(run.id).phase == "checkpointing"
 
 
 def test_report_publish_errors_remain_structured(cwd):

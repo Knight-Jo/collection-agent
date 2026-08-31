@@ -83,6 +83,19 @@ def test_run_writes_stage_document_fact_and_evidence_revisions(cwd):
     }
 
 
+def test_running_run_phase_can_advance_without_changing_lifecycle(cwd):
+    task = new_task(cwd)
+    store = StateStore(cwd)
+    store.register_task(task.id)
+    run = store.create_run(task.id, "initial", 0, {})
+    store.claim_run(run.id, phase="planning", lease_owner="worker")
+
+    updated = store.update_run_phase(run.id, "assessing")
+
+    assert updated.status == "running"
+    assert updated.phase == "assessing"
+
+
 def test_claim_action_run_is_idempotent_and_atomic(cwd):
     store = StateStore(cwd)
     task_id = "task-claim"

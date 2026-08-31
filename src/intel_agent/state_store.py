@@ -238,6 +238,7 @@ RUN_TRANSITIONS: dict[str, set[str]] = {
     "running": {"stopping", "succeeded", "failed", "interrupted"},
     "stopping": {"stopped", "interrupted"},
 }
+RUN_PHASES = {"planning", "collecting", "assessing", "checkpointing"}
 
 
 class StateStore:
@@ -1626,6 +1627,26 @@ class StateStore:
                 {"run_id": run_id, "status": "running", "phase": phase},
                 now,
                 source_event_sequence=event_sequence,
+            )
+            row = connection.execute(
+                "SELECT * FROM research_runs WHERE id = ?", (run_id,)
+            ).fetchone()
+        return _row_to_run(_required(row, "research run"))
+
+    def update_run_phase(self, run_id: str, phase: str) -> ResearchRun:
+        """Persist coarse progress for one active research run."""
+        if phase not in RUN_PHASES:
+            raise IntelError("INVALID_INPUT", "无效的调研阶段")
+        with connect_state_db(self.cwd) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            run = _find_run(connection, run_id)
+            if run["status"] != "running":
+                raise IntelError(
+                    "RUN_NOT_RUNNING", "只有运行中的任务可以更新阶段"
+                )
+            connection.execute(
+                "UPDATE research_runs SET phase = ? WHERE id = ?",
+                (phase, run_id),
             )
             row = connection.execute(
                 "SELECT * FROM research_runs WHERE id = ?", (run_id,)

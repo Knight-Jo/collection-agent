@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -33,6 +33,76 @@ it("uses conversations as the primary workbench entry", async () => {
   expect((await screen.findAllByRole("button", { name: "新建对话" })).length).toBeGreaterThan(0);
   expect(screen.queryByLabelText("研究主题")).not.toBeInTheDocument();
   expect(screen.getByText("从一个问题开始调研")).toBeVisible();
+});
+
+it("shows active research progress in the conversation sidebar", async () => {
+  vi.mocked(api.conversations).mockResolvedValue([
+    {
+      id: "conversation-running",
+      task_id: "task-running",
+      status: "active",
+      title: "先进封装产业",
+      active_epoch_id: "epoch-running",
+      created_at: "2026-08-26T00:00:00Z",
+      updated_at: "2026-08-26T00:00:00Z",
+      run_status: "running",
+      run_phase: "collecting",
+    },
+  ]);
+
+  render(
+    <MemoryRouter>
+      <App />
+    </MemoryRouter>,
+  );
+
+  expect(await screen.findByText("正在收集材料")).toBeVisible();
+});
+
+it("updates sidebar progress after intake starts the selected research", async () => {
+  const intake = {
+    id: "conversation-selected",
+    task_id: null,
+    status: "intake" as const,
+    title: "新对话",
+    active_epoch_id: "epoch-selected",
+    created_at: "2026-08-26T00:00:00Z",
+    updated_at: "2026-08-26T00:00:00Z",
+  };
+  vi.mocked(api.conversations).mockResolvedValue([intake]);
+  vi.mocked(api.conversationById).mockResolvedValue({
+    conversation: {
+      ...intake,
+      task_id: "task-selected",
+      status: "active",
+      title: "先进封装产业",
+    },
+    epoch: { id: "epoch-selected", summary: "" },
+    messages: [],
+    processing_attempts: [],
+    actions: [],
+    runs: [
+      {
+        id: "run-selected",
+        task_id: "task-selected",
+        active_search_plan_version_id: "plan-selected",
+        status: "running",
+        phase: "assessing",
+        error: null,
+      },
+    ],
+    reports: [],
+    committed_state_version: 0,
+    report_ready: false,
+  });
+
+  render(
+    <MemoryRouter initialEntries={["/conversations/conversation-selected"]}>
+      <App />
+    </MemoryRouter>,
+  );
+
+  expect(await within(screen.getByLabelText("历史会话")).findByText("正在评估证据")).toBeVisible();
 });
 
 it("keeps the latest selected conversation when an older request finishes late", async () => {
@@ -74,6 +144,7 @@ it("keeps the latest selected conversation when an older request finishes late",
     runs: [],
     reports: [],
     committed_state_version: 0,
+    report_ready: false,
   });
   render(
     <MemoryRouter initialEntries={["/conversations/conversation-1"]}>
@@ -111,6 +182,7 @@ it("archives the selected conversation after confirmation", async () => {
     runs: [],
     reports: [],
     committed_state_version: 0,
+    report_ready: false,
   });
   vi.mocked(api.archiveConversation).mockResolvedValue({
     ...conversation,

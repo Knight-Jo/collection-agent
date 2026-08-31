@@ -222,6 +222,7 @@ export interface ConversationProjection {
   runs: ResearchRun[];
   reports: ReportVersion[];
   committed_state_version: number;
+  report_ready: boolean;
 }
 
 export interface Conversation {
@@ -232,6 +233,8 @@ export interface Conversation {
   active_epoch_id: string | null;
   created_at: string;
   updated_at: string;
+  run_status?: ResearchRun["status"] | null;
+  run_phase?: ResearchRun["phase"];
 }
 
 export interface TimelineEntry {

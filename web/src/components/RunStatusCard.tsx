@@ -1,7 +1,7 @@
 import { LoaderCircle, Search, Square } from "lucide-react";
 import type { ResearchRun } from "../types";
 
-const PHASE_LABELS = {
+export const RUN_PHASE_LABELS = {
   planning: "正在制定检索计划",
   collecting: "正在收集材料",
   assessing: "正在评估证据",
@@ -31,7 +31,7 @@ export function RunStatusCard({
         <strong>{run.status === "stopping" ? "正在停止" : "调研进行中"}</strong>
       </header>
       <p>已提交：研究状态 v{committedStateVersion}</p>
-      <p>当前运行：{PHASE_LABELS[run.phase ?? "planning"]}</p>
+      <p>当前运行：{RUN_PHASE_LABELS[run.phase ?? "planning"]}</p>
       <footer className="run-status-card__footer">
         <button type="button" className="text-button" onClick={onOpen}>
           查看运行详情

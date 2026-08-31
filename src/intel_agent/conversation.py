@@ -28,7 +28,7 @@ from .models import (
 from .report_versions import ReportPublisher
 from .retrieval import RetrievedPassage, TaskRetriever
 from .state_store import StateStore
-from .task import load_task
+from .task import load_task, report_output_is_current
 from .trajectory import TrajectoryRecorder
 
 logger = get_logger(__name__)
@@ -437,6 +437,11 @@ class ConversationRuntime:
             "committed_state_version": (
                 self.store.committed_state_version(task_id) if task_id else 0
             ),
+            "report_ready": (
+                report_output_is_current(self.cwd, task_id)
+                if task_id
+                else False
+            ),
         }
 
     def _ensure_task(self, task_id: str) -> None:
@@ -630,20 +635,38 @@ class ConversationRuntime:
         token = CancellationToken()
         self._run_tokens[run.id] = token
         initial_runner = cast(Any, self.initial.run_initial)
-        if (
-            on_event is None
-            and recorder is None
-            or not {"on_event", "recorder"}.issubset(
-                inspect.signature(initial_runner).parameters
-            )
-        ):
+        supports_events = {"on_event", "recorder"}.issubset(
+            inspect.signature(initial_runner).parameters
+        )
+        if not supports_events:
             initial_task = initial_runner(run, brief, token)
         else:
+            conversation = self.store.get_conversation(run.task_id)
+
+            async def publish_progress(event: object) -> None:
+                task = load_task(self.cwd, run.task_id)
+                phase = {
+                    "collect": "collecting",
+                    "assess": "assessing",
+                    "challenge": "assessing",
+                    "done": "checkpointing",
+                }[task.stage]
+                current = self.store.get_run(run.id)
+                if current.status == "running" and current.phase != phase:
+                    self.store.update_run_phase(run.id, phase)
+                    self.publish_transient(
+                        conversation.id,
+                        "run.progress",
+                        {"run_id": run.id, "phase": phase},
+                    )
+                if on_event is not None:
+                    await on_event(event)
+
             initial_task = initial_runner(
                 run,
                 brief,
                 token,
-                on_event=on_event,
+                on_event=publish_progress,
                 recorder=recorder,
             )
         task = asyncio.create_task(initial_task)

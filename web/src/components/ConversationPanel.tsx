@@ -1,7 +1,7 @@
 import { FileText, LoaderCircle, Search, Send } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
-import type { ConversationProjection, MessageCitation } from "../types";
+import type { ConversationProjection, MessageCitation, ResearchRun } from "../types";
 import { RunStatusCard } from "./RunStatusCard";
 
 const REFRESH_EVENTS = [
@@ -33,10 +33,12 @@ export function ConversationPanel({
   conversationId,
   taskId,
   onOpenContext = () => undefined,
+  onProjectionChange,
 }: {
   conversationId?: string;
   taskId?: string;
   onOpenContext?: (selection: ContextSelection) => void;
+  onProjectionChange?: (projection: ConversationProjection) => void;
 }) {
   const [view, setView] = useState<ConversationProjection | null>(null);
   const [input, setInput] = useState("");
@@ -68,6 +70,10 @@ export function ConversationPanel({
   }, [conversationId, taskId]);
 
   useEffect(() => {
+    if (view) onProjectionChange?.(view);
+  }, [onProjectionChange, view]);
+
+  useEffect(() => {
     void refresh();
     if (typeof EventSource === "undefined") return;
     const eventPath = conversationId
@@ -96,6 +102,26 @@ export function ConversationPanel({
     };
     events.addEventListener("answer.completed", () => void finishAnswer());
     events.addEventListener("answer.failed", () => void finishAnswer());
+    events.addEventListener("run.progress", (event) => {
+      const data = JSON.parse((event as MessageEvent).data);
+      const phases: ResearchRun["phase"][] = [
+        "planning",
+        "collecting",
+        "assessing",
+        "checkpointing",
+      ];
+      if (!phases.includes(data.phase)) return;
+      setView((current) =>
+        current
+          ? {
+              ...current,
+              runs: current.runs.map((run) =>
+                run.id === data.run_id ? { ...run, phase: data.phase } : run,
+              ),
+            }
+          : current,
+      );
+    });
     events.onerror = () => {
       setError("实时连接中断，正在重新同步完整会话。");
       setStreamingAnswer(null);
@@ -331,7 +357,7 @@ export function ConversationPanel({
           </article>
         ))}
 
-        {view.conversation.task_id && !activeRun && (
+        {view.conversation.task_id && !activeRun && view.report_ready && (
           <button
             type="button"
             className="secondary-button report-create-button"

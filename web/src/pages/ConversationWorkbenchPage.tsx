@@ -4,7 +4,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import { ContextPanel } from "../components/ContextPanel";
 import { type ContextSelection, ConversationPanel } from "../components/ConversationPanel";
-import type { Conversation } from "../types";
+import { RUN_PHASE_LABELS } from "../components/RunStatusCard";
+import type { Conversation, ConversationProjection } from "../types";
 
 export function ConversationWorkbenchPage() {
   const { conversationId } = useParams();
@@ -82,6 +83,23 @@ export function ConversationWorkbenchPage() {
     if (conversationId) navigate("/");
   }
 
+  const updateSelectedConversation = useCallback((projection: ConversationProjection) => {
+    const activeRun = [...projection.runs]
+      .reverse()
+      .find((run) => ["queued", "running", "stopping"].includes(run.status));
+    setConversations((current) =>
+      current.map((conversation) =>
+        conversation.id === projection.conversation.id
+          ? {
+              ...projection.conversation,
+              run_status: activeRun?.status ?? null,
+              run_phase: activeRun?.phase ?? null,
+            }
+          : conversation,
+      ),
+    );
+  }, []);
+
   return (
     <main className="conversation-workbench">
       <aside className="conversation-sidebar" aria-label="历史会话">
@@ -112,7 +130,16 @@ export function ConversationWorkbenchPage() {
                   onClick={() => navigate(`/conversations/${conversation.id}`)}
                 >
                   <strong>{conversation.title}</strong>
-                  <small>{conversation.status === "intake" ? "待明确调研目标" : "调研会话"}</small>
+                  <small>
+                    {conversation.run_status === "stopping"
+                      ? "正在停止调研"
+                      : conversation.run_status &&
+                          ["queued", "running"].includes(conversation.run_status)
+                        ? RUN_PHASE_LABELS[conversation.run_phase ?? "planning"]
+                        : conversation.status === "intake"
+                          ? "待明确调研目标"
+                          : "调研会话"}
+                  </small>
                 </button>
               )}
               <button
@@ -140,6 +167,7 @@ export function ConversationWorkbenchPage() {
           key={conversationId}
           conversationId={conversationId}
           onOpenContext={setContext}
+          onProjectionChange={updateSelectedConversation}
         />
       ) : (
         <section className="workbench-empty">

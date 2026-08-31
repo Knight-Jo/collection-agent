@@ -251,10 +251,14 @@ class ConversationView(BaseModel):
     runs: list[ResearchRun]
     reports: list[ReportVersion]
     committed_state_version: int = Field(ge=0)
+    report_ready: bool = False
 
 
 class ConversationListItem(Conversation):
     run_status: str | None = None
+    run_phase: (
+        Literal["planning", "collecting", "assessing", "checkpointing"] | None
+    ) = None
 
 
 class ReportVersionView(ReportVersion):

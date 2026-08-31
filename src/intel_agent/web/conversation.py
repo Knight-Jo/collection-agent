@@ -21,6 +21,7 @@ from ..models import (
 from .schemas import (
     ActionConfirm,
     ConversationCreate,
+    ConversationListItem,
     ConversationMessageView,
     ConversationView,
     MessageCreate,
@@ -45,11 +46,31 @@ async def create_conversation(
     )
 
 
-@router.get("/conversations", response_model=list[Conversation])
+@router.get("/conversations", response_model=list[ConversationListItem])
 async def list_conversations(
     request: Request, archived: bool = False
-) -> list[Conversation]:
-    return _runtime(request).store.list_conversations(archived=archived)
+) -> list[ConversationListItem]:
+    store = _runtime(request).store
+    items = []
+    for conversation in store.list_conversations(archived=archived):
+        active_run = None
+        if conversation.task_id:
+            active_run = next(
+                (
+                    run
+                    for run in reversed(store.list_runs(conversation.task_id))
+                    if run.status in {"queued", "running", "stopping"}
+                ),
+                None,
+            )
+        items.append(
+            ConversationListItem(
+                **conversation.model_dump(),
+                run_status=active_run.status if active_run else None,
+                run_phase=active_run.phase if active_run else None,
+            )
+        )
+    return items
 
 
 @router.post(

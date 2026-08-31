@@ -53,6 +53,7 @@ const projection = {
   ],
   reports: [],
   committed_state_version: 7,
+  report_ready: true,
 };
 
 class FakeEventSource {
@@ -94,6 +95,25 @@ it("shows committed state separately from live Run progress", async () => {
   expect(await screen.findByText("调研进行中")).toBeVisible();
   expect(screen.getByText("已提交：研究状态 v7")).toBeVisible();
   expect(screen.getByText("当前运行：正在收集材料")).toBeVisible();
+});
+
+it("updates the visible research phase from live progress", async () => {
+  vi.stubGlobal("EventSource", FakeEventSource);
+  vi.mocked(api.conversationById).mockResolvedValue({
+    ...projection,
+    runs: [{ ...projection.runs[0], phase: "planning" }],
+  });
+  render(<ConversationPanel conversationId="conversation-1" />);
+  await screen.findByText("当前运行：正在制定检索计划");
+
+  act(() => {
+    FakeEventSource.current?.emit("run.progress", {
+      run_id: "run-17",
+      phase: "assessing",
+    });
+  });
+
+  expect(screen.getByText("当前运行：正在评估证据")).toBeVisible();
 });
 
 it("stops the concrete running Run", async () => {
@@ -265,6 +285,19 @@ it("shows report generation progress and prevents duplicate requests", async () 
   expect(api.createReportVersion).toHaveBeenCalledTimes(1);
 
   await act(async () => finishReport?.());
+});
+
+it("does not offer report generation before research is report-ready", async () => {
+  vi.mocked(api.conversationById).mockResolvedValue({
+    ...projection,
+    runs: [],
+    report_ready: false,
+  });
+
+  render(<ConversationPanel conversationId="conversation-1" />);
+
+  expect(await screen.findByRole("heading", { name: "先进封装产业" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "生成报告草稿" })).not.toBeInTheDocument();
 });
 
 it("creates and publishes report drafts explicitly", async () => {

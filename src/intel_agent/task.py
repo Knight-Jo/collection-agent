@@ -479,6 +479,18 @@ def _verify_current_outputs(cwd: Path, task: IntelTask) -> CoverageSnapshot:
     return coverage
 
 
+def report_output_is_current(cwd: Path, task_id: str) -> bool:
+    """Return whether a report is bound to the current verified facts."""
+    task = load_task(cwd, task_id)
+    if task.outputs.report is None:
+        return False
+    try:
+        _verify_current_outputs(cwd, task)
+    except IntelError:
+        return False
+    return True
+
+
 def set_task_stage(
     cwd: Path,
     task_id: str,
