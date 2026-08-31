@@ -18,10 +18,10 @@ experiments/
 ├── CHANGELOG.md        # 每轮代码/配置变更、验证命令和真实运行结果
 ├── runs/
 │   └── NNN-<name>/
-│       ├── manifest.json   # 配置/主题/问题/标准/耗时/git/exit_code
+│       ├── manifest.json   # 配置、Run/Task/模型身份、用量、耗时、git、exit_code
 │       ├── trace.jsonl     # 完整 agent 消息轨迹（工具调用序列）
 │       ├── run.log         # CLI 输出与错误
-│       ├── state/          # data/intel 状态快照（tasks/facts/evidence/coverage/conflicts/challenges）
+│       ├── state/          # data/intel 快照（intel.db + facts/evidence/coverage 等资产）
 │       ├── output/         # 证据包 + 研判报告
 │       ├── ANALYSIS.md     # 结构化分析（scripts/analyze_run.py --write 生成）
 │       └── REPORT.md       # 实验报告：成果 + 问题分级 + 下一轮建议
@@ -37,7 +37,7 @@ python scripts/run_experiment.py --name <hypothesis> --topic "低空经济" \
 
 - **命名**: 序号自动递增，`name` 描述本轮假设（如 `fix-repetition`、`cross-verify-with-gaps`）
 - **控制变量**: 主题与 questions 尽量沿用上一轮（现用「低空经济」两问），每轮只变 1–2 个变量；变更列表要写进 REPORT
-- **`--max-turns` 必须传 200**：runner 将其映射为 pydantic-ai `request_limit=min(config.budgets.request_limit, max_turns)`，默认 40 会把预算从 200 压到 40，跑到一半 `UsageLimitExceeded`（007 首跑教训）
+- **正式对比显式传 `--max-turns 200`**：脚本默认也是 200；显式传值便于审计控制变量。runner 将其映射为 pydantic-ai `request_limit=min(config.budgets.request_limit, max_turns)`。
 - **冒烟调试**: 先 `--dry 5` 跑几轮工具调用验证 harness，再完整运行
 - **环境前置检查**（跑前确认，缺一项就修一项）:
   - `DEEPSEEK_API_KEY` 已导出、`config.yaml` 存在

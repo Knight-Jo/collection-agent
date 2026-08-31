@@ -227,7 +227,8 @@ UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest
 ## 迭代实验
 
 `experiments/` 记录了真实运行 → 轨迹分析 → 改进 → 再运行的完整迭代历史
-（详见 `experiments/README.md` 与 `experiments/ROADMAP.md`）：
+（命令说明见 [`scripts/README.md`](scripts/README.md)，实验规范见
+`experiments/README.md` 与 `experiments/ROADMAP.md`）：
 
 | 实验 | 核心改进 | 结果 |
 |------|---------|------|

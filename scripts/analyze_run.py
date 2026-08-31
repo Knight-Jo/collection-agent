@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sqlite3
 import sys
 from collections import Counter
 from pathlib import Path
@@ -48,7 +49,14 @@ def _load_trace(run_dir: Path) -> dict:
         # Legacy whole-block format written by pre-WP3 main.py.
         if isinstance(document, dict) and "events" in document:
             return document
-    events = [json.loads(line) for line in text.splitlines() if line.strip()]
+    events = []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        try:
+            events.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
     normalized = [
         event
         for event in (_normalize_event(e) for e in events)
@@ -58,6 +66,25 @@ def _load_trace(run_dir: Path) -> dict:
 
 
 def _load_task(run_dir: Path):
+    for path in (
+        run_dir / "data" / "intel" / "intel.db",
+        run_dir / "state" / "intel.db",
+    ):
+        if not path.exists():
+            continue
+        try:
+            with sqlite3.connect(
+                f"file:{path}?mode=ro", uri=True
+            ) as connection:
+                row = connection.execute(
+                    "SELECT task_json FROM task_state "
+                    "WHERE task_json IS NOT NULL "
+                    "ORDER BY updated_at DESC LIMIT 1"
+                ).fetchone()
+        except sqlite3.Error:
+            continue
+        if row is not None:
+            return json.loads(row[0])
     tasks_dir = run_dir / "state" / "tasks"
     if tasks_dir.exists():
         files = list(tasks_dir.glob("*.json"))
@@ -174,14 +201,17 @@ def analyze(run_dir: Path) -> str:
     if task:
         lines.append("## 任务最终状态")
         lines.append(
-            f"- stage: {task.get('stage')}  challenge_round: {task.get('challenge_round')}"
+            f"- stage: {task.get('stage')}  "
+            f"completion_status: {task.get('completion_status')}"
         )
         lines.append(
             f"- collection: {json.dumps(task.get('collection'), ensure_ascii=False)}"
         )
         outputs = task.get("outputs", {})
         lines.append(
-            f"- outputs: package={outputs.get('package') is not None}, assessment={outputs.get('assessment') is not None}"
+            f"- outputs: report={outputs.get('report') is not None}, "
+            f"package={outputs.get('package') is not None}, "
+            f"assessment={outputs.get('assessment') is not None}"
         )
         lines.append("")
 
@@ -283,7 +313,16 @@ def _evidence_funnel(run_dir: Path, calls: list[dict]) -> dict | None:
         ]
     except OSError:
         return None
-    searches = sum(1 for c in calls if c["tool"] == "web_search")
+    search_tools = {
+        "web_search",
+        "github_search",
+        "academic_search",
+        "news_search",
+        "academic",
+        "software",
+        "news",
+    }
+    searches = sum(1 for call in calls if call["tool"] in search_tools)
     matrix_queries = 0
     matrix_path = state_dir / "search_matrix.json"
     if matrix_path.exists():

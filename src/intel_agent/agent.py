@@ -1557,22 +1557,6 @@ def build_agent(
             run_id=ctx.deps.run_id,
         )
         result = await run(query, max(max_results, 5), time_range)
-        emit(
-            make_event(
-                "observation",
-                "tool",
-                ObservationPayload(
-                    action_id=tool_name,
-                    result={
-                        "query": query,
-                        "provider_calls": result.get("provider_calls", 0),
-                        "engines_used": result.get("engines_used", []),
-                        "degraded": result.get("degraded", []),
-                    },
-                ),
-                layer="technical",
-            )
-        )
         _seed_active_crawl(ctx.deps.cwd, ctx.deps.settings, result)
         _finalize_search_result(ctx, result)
         return result

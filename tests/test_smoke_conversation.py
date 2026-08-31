@@ -3,6 +3,8 @@ from __future__ import annotations
 import io
 import json
 
+import pytest
+
 from scripts.smoke_conversation import build_parser, run_smoke
 
 
@@ -50,7 +52,14 @@ def test_smoke_runs_question_and_reports_stable_metrics():
     requests = []
 
     def opener(request, timeout):
-        requests.append((request.full_url, request.get_method(), timeout))
+        requests.append(
+            (
+                request.full_url,
+                request.get_method(),
+                timeout,
+                request.get_header("Authorization"),
+            )
+        )
         return next(responses)
 
     metrics = run_smoke(
@@ -58,6 +67,7 @@ def test_smoke_runs_question_and_reports_stable_metrics():
         task_id="task-1",
         question="当前结论？",
         timeout=5,
+        auth_token="secret-token",
         opener=opener,
     )
 
@@ -71,6 +81,7 @@ def test_smoke_runs_question_and_reports_stable_metrics():
     assert requests[1][1] == "POST"
     assert requests[2][0].endswith("/conversation/events")
     assert requests[3][0].endswith("/api/messages/message-assistant")
+    assert all(request[3] == "Bearer secret-token" for request in requests)
 
 
 def test_smoke_creates_intake_conversation_when_no_id_is_given():
@@ -123,3 +134,25 @@ def test_smoke_creates_intake_conversation_when_no_id_is_given():
         "/api/conversations/conversation-1/messages"
     )
     assert requests[2][0].endswith("/api/conversations/conversation-1/events")
+
+
+def test_smoke_stops_immediately_when_answer_fails():
+    responses = iter(
+        [
+            _json_response({"task": {"id": "task-1"}}),
+            _json_response({"id": "message-user"}),
+            _Response(
+                b"event: answer.failed\n"
+                b'data: {"reply_to_id":"message-user"}\n\n'
+            ),
+        ]
+    )
+
+    with pytest.raises(RuntimeError, match="answer.failed"):
+        run_smoke(
+            base_url="http://127.0.0.1:6780",
+            task_id="task-1",
+            question="当前结论？",
+            timeout=5,
+            opener=lambda _request, timeout: next(responses),
+        )

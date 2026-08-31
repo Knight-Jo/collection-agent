@@ -1314,6 +1314,44 @@ async def test_web_search_seed_relevance_ignores_engine_score_and_drops_junk(
 
 
 @pytest.mark.asyncio
+async def test_vertical_search_does_not_emit_unlinked_observation(
+    monkeypatch, cwd
+):
+    create_task(
+        cwd,
+        "测试主题",
+        ["测试主题现状", "测试主题进展"],
+        DEFAULT_CRITERIA,
+    )
+
+    async def fake_news_search(*_args, **_kwargs):
+        return {
+            "results": [],
+            "provider_calls": 1,
+            "engines_used": ["fake-news"],
+            "degraded": [],
+        }
+
+    emitted = []
+    monkeypatch.setattr(agent_module, "news_search", fake_news_search)
+    monkeypatch.setattr(
+        agent_module,
+        "emit",
+        lambda event: emitted.append(event) or "event-id",
+    )
+    context = _context(cwd)
+    try:
+        result = await _tool(build_agent(Settings()), "news_search")(
+            context, "具体 新闻 查询", 5, None
+        )
+    finally:
+        await context.deps.http.aclose()
+
+    assert result["provider_calls"] == 1
+    assert all(event.event_type != "observation" for event in emitted)
+
+
+@pytest.mark.asyncio
 async def test_web_search_seed_relevance_ignores_year_only_url_match(
     monkeypatch, cwd
 ):

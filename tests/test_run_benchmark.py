@@ -77,7 +77,8 @@ def test_build_commands_sanitizes_case_and_model_for_run_directory_name():
                     "category": "policy",
                     "topic": "主题",
                     "questions": [
-                        {"question_id": "q1", "text": "问题", "weight": 1}
+                        {"question_id": "q1", "text": "问题一", "weight": 1},
+                        {"question_id": "q2", "text": "问题二", "weight": 1},
                     ],
                     "must_find_sources": [],
                     "key_facts": [],

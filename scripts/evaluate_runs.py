@@ -59,7 +59,7 @@ class BenchmarkCase(StrictModel):
     case_id: str
     category: str
     topic: str
-    questions: list[Question] = Field(min_length=1)
+    questions: list[Question] = Field(min_length=2, max_length=6)
     must_find_sources: list[MustFindSource]
     key_facts: list[KeyFact]
     known_conflicts: list[KnownConflict]

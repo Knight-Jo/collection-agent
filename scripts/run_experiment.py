@@ -3,13 +3,13 @@
 用法:
   python scripts/run_experiment.py --name baseline --topic "低空经济" \
       --questions "2026年低空经济投资与融资趋势" "亿航智能商业化进展与订单情况" \
-      [--recency 120] [--min-sources 2] [--min-quality 1] [--max-turns 40] [--dry 1]
+      [--recency 120] [--min-sources 2] [--min-quality 1] [--max-turns 200] [--dry 1]
 
 每次实验保存到 experiments/runs/<序号>-<name>/：
   manifest.json   实验配置与任务元数据
   trace.jsonl     完整 agent 消息轨迹（模型请求/工具调用/结果）
   run.log         CLI 输出
-  state/          data/intel 状态快照
+  state/          data/intel 状态快照（含 SQLite 主状态）
   output/         证据包与研判报告
   REPORT.md       实验报告（由分析阶段生成）
 """
@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -50,6 +51,38 @@ def _git_head() -> str:
         return "unknown"
 
 
+def _trace_summary(path: Path) -> dict[str, object]:
+    """Extract stable run identity and usage from an incremental trace."""
+    if not path.exists():
+        return {}
+    summary: dict[str, object] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("run_id"):
+            summary["trajectory_run_id"] = event["run_id"]
+        if event.get("task_id"):
+            summary["task_id"] = event["task_id"]
+        payload = event.get("payload", {})
+        if event.get("event_type") == "model_call" and payload.get("model"):
+            summary.setdefault("model", payload["model"])
+        if event.get("event_type") == "run_finished":
+            summary["final_stage"] = payload.get("stage")
+            summary["usage"] = {
+                key: payload.get(key)
+                for key in (
+                    "requests",
+                    "tool_calls",
+                    "input_tokens",
+                    "output_tokens",
+                    "total_tokens",
+                )
+            }
+    return summary
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -58,11 +91,20 @@ def main() -> int:
         help="实验名称（如 baseline / fix-repetition）",
     )
     parser.add_argument("--topic", required=True)
-    parser.add_argument("--questions", nargs="+", required=True)
+    parser.add_argument("--questions", nargs="*", default=[])
+    parser.add_argument("--objective", default="")
+    parser.add_argument("--time-range", default="")
+    parser.add_argument("--geography", nargs="*", default=[])
+    parser.add_argument("--language", nargs="*", default=[])
+    parser.add_argument(
+        "--report-depth",
+        choices=("brief", "standard", "deep"),
+        default="standard",
+    )
     parser.add_argument("--recency", type=int, default=120)
     parser.add_argument("--min-sources", type=int, default=2)
     parser.add_argument("--min-quality", type=int, default=1)
-    parser.add_argument("--max-turns", type=int, default=40)
+    parser.add_argument("--max-turns", type=int, default=200)
     parser.add_argument(
         "--dry",
         type=int,
@@ -84,8 +126,8 @@ def main() -> int:
     parser.add_argument("--model-id")
     parser.add_argument("--repeat", type=int, default=1)
     args = parser.parse_args()
-    if not 2 <= len(args.questions) <= 6:
-        print("错误: questions 数量必须为 2-6 个", file=sys.stderr)
+    if len(args.questions) == 1 or len(args.questions) > 6:
+        print("错误: questions 数量必须为 0 或 2-6 个", file=sys.stderr)
         return 1
     evaluation_fields = (args.benchmark_id, args.case_id, args.model_id)
     if any(evaluation_fields) and not all(evaluation_fields):
@@ -113,7 +155,14 @@ def main() -> int:
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "git_head": _git_head(),
         "topic": args.topic,
+        "objective": args.objective,
         "questions": args.questions,
+        "scope": {
+            "time_range": args.time_range,
+            "geography": args.geography,
+            "languages": args.language,
+        },
+        "report_depth": args.report_depth,
         "criteria": {
             "min_independent_sources": args.min_sources,
             "min_high_quality_sources": args.min_quality,
@@ -123,7 +172,7 @@ def main() -> int:
         "max_turns": args.max_turns,
         "dry_after_turns": args.dry or None,
         "max_tool_calls": args.max_tool_calls,
-        "deep_crawl": args.deep_crawl,
+        "deep_crawl": args.deep_crawl or args.report_depth == "deep",
         "config": args.config,
     }
     if all(evaluation_fields):
@@ -137,7 +186,7 @@ def main() -> int:
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    env = dict(__import__("os").environ)
+    env = dict(os.environ)
     python = sys.executable
     cmd = [
         python,
@@ -162,6 +211,15 @@ def main() -> int:
         "--max-turns",
         str(args.max_turns),
     ]
+    if args.objective:
+        cmd += ["--objective", args.objective]
+    if args.time_range:
+        cmd += ["--time-range", args.time_range]
+    if args.geography:
+        cmd += ["--geography", *args.geography]
+    if args.language:
+        cmd += ["--language", *args.language]
+    cmd += ["--report-depth", args.report_depth]
     if args.dry:
         cmd += ["--max-tool-calls", str(args.dry)]
     elif args.max_tool_calls is not None:
@@ -185,18 +243,20 @@ def main() -> int:
     manifest["finished_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
     manifest["elapsed_seconds"] = round(time.time() - started, 1)
     manifest["exit_code"] = proc.returncode
+    manifest.update(_trace_summary(run_dir / "trace.jsonl"))
     (run_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
     # 快照 state/（含 raw 原文供取证分析）；output/ 已由 agent 直接写入 run_dir/output/
-    if (run_dir / "data").exists():
+    data_dir = run_dir / "data"
+    intel_dir = data_dir / "intel"
+    if data_dir.exists():
         shutil.copytree(
-            run_dir / "data", run_dir / "data_snapshot", dirs_exist_ok=True
+            data_dir, run_dir / "data_snapshot", dirs_exist_ok=True
         )
-        shutil.copytree(
-            run_dir / "data" / "intel", state_dir, dirs_exist_ok=True
-        )
+    if intel_dir.exists():
+        shutil.copytree(intel_dir, state_dir, dirs_exist_ok=True)
 
     print(f"实验完成: {run_dir}")
     print(f"  耗时: {manifest['elapsed_seconds']}s  exit={proc.returncode}")

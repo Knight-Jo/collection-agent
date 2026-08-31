@@ -73,7 +73,8 @@ def _benchmark() -> Benchmark:
                     "category": "policy",
                     "topic": "测试主题",
                     "questions": [
-                        {"question_id": "q1", "text": "问题一", "weight": 1}
+                        {"question_id": "q1", "text": "问题一", "weight": 1},
+                        {"question_id": "q2", "text": "问题二", "weight": 1},
                     ],
                     "must_find_sources": [],
                     "key_facts": [],
@@ -159,6 +160,14 @@ def test_score_calculates_weighted_quality_and_gates():
     assert result["group_scores"] == {"coverage": 100, "evidence": 100}
     assert result["hard_gates_passed"] is True
     assert result["valid_run"] is True
+
+
+def test_benchmark_rejects_case_that_experiment_runner_cannot_execute():
+    data = _benchmark().model_dump(mode="json")
+    data["cases"][0]["questions"] = data["cases"][0]["questions"][:1]
+
+    with pytest.raises(ValueError, match="at least 2"):
+        Benchmark.model_validate(data)
 
 
 def test_score_rejects_missing_required_metric():
