@@ -73,7 +73,7 @@ DialogueIntent = Literal[
     "regenerate_report",
     "new_topic",
 ]
-SUPPORT_REVIEW_PROMPT_VERSION = "support-entailment-v2"
+SUPPORT_REVIEW_PROMPT_VERSION = "support-entailment-v3"
 
 
 class CrawlValidators(BaseModel):
@@ -169,6 +169,7 @@ class ResearchBrief(BaseModel):
     topic: str
     objective: str = ""
     key_questions: list[str] = Field(default_factory=list, max_length=6)
+    investigation_items: dict[str, list[str]] = Field(default_factory=dict)
     scope: ResearchScope = Field(default_factory=ResearchScope)
     entities: list[str] = Field(default_factory=list)
     constraints: list[str] = Field(default_factory=list)
@@ -177,10 +178,18 @@ class ResearchBrief(BaseModel):
     )
 
 
+class InvestigationItem(BaseModel):
+    """One atomic, independently answerable part of a report question."""
+
+    id: str
+    text: str
+
+
 class IntelQuestion(BaseModel):
     id: str
     text: str
     time_range: str = ""
+    investigation_items: list[InvestigationItem] = Field(default_factory=list)
 
 
 class TaskOutputBinding(BaseModel):
@@ -654,6 +663,7 @@ class Fact(BaseModel):
     id: str
     task_id: str
     question_id: str
+    investigation_item_id: str | None = None
     statement: str
     claim_type: ClaimType = "corroborated"
     status: Literal["active", "superseded"]
@@ -686,6 +696,7 @@ class SupportReview(BaseModel):
     fact_id: str
     evidence_id: str
     verdict: SupportVerdict
+    question_relevance: Literal["full", "partial", "irrelevant"] = "full"
     reason: str
     unsupported_parts: list[str] = Field(default_factory=list)
     judge_provider: str
@@ -707,6 +718,7 @@ class EvidenceConflict(BaseModel):
 
 class FactCoverage(BaseModel):
     fact_id: str
+    investigation_item_id: str | None = None
     statement: str
     status: QuestionStatus
     candidate_supports_count: int
@@ -736,8 +748,19 @@ class QuestionCoverage(BaseModel):
     fact_count: int
     covered_fact_count: int
     facts: list[FactCoverage]
+    investigation_items: list[InvestigationCoverage] = Field(
+        default_factory=list
+    )
     answer_status: AnswerStatus | None = None
     notes: list[str] = Field(default_factory=list)
+
+
+class InvestigationCoverage(BaseModel):
+    investigation_item_id: str
+    investigation_item: str
+    status: QuestionStatus
+    fact_count: int
+    covered_fact_count: int
 
 
 class CoverageSnapshot(BaseModel):

@@ -137,6 +137,15 @@ export function ConversationPanel({
         .find((run) => ["queued", "running", "stopping"].includes(run.status)),
     [view],
   );
+  const failedRun = useMemo(
+    () =>
+      activeRun
+        ? undefined
+        : [...(view?.runs ?? [])]
+            .reverse()
+            .find((run) => ["failed", "interrupted"].includes(run.status)),
+    [activeRun, view],
+  );
   const attemptsByMessage = useMemo(
     () =>
       new Map(
@@ -289,6 +298,33 @@ export function ConversationPanel({
             onStop={() => void mutate(() => api.stopResearchRun(activeRun.id))}
             onCancel={() => void mutate(() => api.cancelResearchRun(activeRun.id))}
           />
+        )}
+
+        {failedRun && (
+          <article className="run-status-card" role="alert">
+            <header className="run-status-card__header">
+              <Search size={18} />
+              <strong>调研未完成</strong>
+            </header>
+            <p>{failedRun.error ?? "运行意外中断，请重试。"}</p>
+            <footer className="run-status-card__footer">
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => onOpenContext({ kind: "run", id: failedRun.id })}
+              >
+                查看运行详情
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={busy}
+                onClick={() => void mutate(() => api.retryResearchRun(failedRun.id))}
+              >
+                重试调研
+              </button>
+            </footer>
+          </article>
         )}
 
         {view.actions.map((action) => (

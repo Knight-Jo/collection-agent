@@ -16,11 +16,19 @@ from .task import load_task
 from .trajectory import emit_state_updated
 
 
-def _fact_id(task_id: str, question_id: str, statement: str) -> str:
+def _fact_id(
+    task_id: str,
+    question_id: str,
+    statement: str,
+    investigation_item_id: str | None = None,
+) -> str:
     # Content-derived 64-bit ID: same fact text yields the same ID (idempotent
     # saves, dedup across sources); birthday-bound collision risk is negligible
     # at this scale (~4B records for 50% chance).
-    return f"fact-{sha256(f'{task_id}\n{question_id}\n{statement}')[:16]}"
+    identity = f"{task_id}\n{question_id}\n{statement}"
+    if investigation_item_id:
+        identity += f"\n{investigation_item_id}"
+    return f"fact-{sha256(identity)[:16]}"
 
 
 def verify_fact(
@@ -42,7 +50,13 @@ def verify_fact(
         not statement
         or not any(q.id == fact.question_id for q in task.questions)
         or fact.statement != statement
-        or fact.id != _fact_id(task.id, fact.question_id, statement)
+        or fact.id
+        != _fact_id(
+            task.id,
+            fact.question_id,
+            statement,
+            fact.investigation_item_id,
+        )
         or (
             fact.status == "active"
             and (fact.superseded_by or fact.supersession_reason)
@@ -78,6 +92,8 @@ def verify_fact(
                 replacement.id != replacement_id
                 or replacement.task_id != fact.task_id
                 or replacement.question_id != fact.question_id
+                or replacement.investigation_item_id
+                != fact.investigation_item_id
             ):
                 raise IntelError(
                     "STORAGE_CORRUPT", f"事实替换记录不匹配: {fact.id}"
@@ -127,15 +143,24 @@ def save_fact(
     statement: str,
     claim_type: ClaimType = "corroborated",
     *,
+    investigation_item_id: str | None = None,
     run_id: str | None = None,
 ) -> Fact:
     task = load_task(cwd, task_id)
     statement = normalized_statement(statement)
     if not statement:
         raise IntelError("INVALID_INPUT", "事实陈述不能为空")
-    if not any(q.id == question_id for q in task.questions):
+    question = next((q for q in task.questions if q.id == question_id), None)
+    if question is None:
         raise IntelError("INVALID_INPUT", f"问题不属于任务: {question_id}")
-    id_ = _fact_id(task.id, question_id, statement)
+    if investigation_item_id and not any(
+        item.id == investigation_item_id
+        for item in question.investigation_items
+    ):
+        raise IntelError(
+            "INVALID_INPUT", f"调研项不属于问题: {investigation_item_id}"
+        )
+    id_ = _fact_id(task.id, question_id, statement, investigation_item_id)
     if intel_path(cwd, f"facts/{id_}.json").exists():
         existing = load_fact(cwd, id_)
         if existing.claim_type != claim_type:
@@ -155,6 +180,7 @@ def save_fact(
         id=id_,
         task_id=task.id,
         question_id=question_id,
+        investigation_item_id=investigation_item_id,
         statement=statement,
         claim_type=claim_type,
         status="active",

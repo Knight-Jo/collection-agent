@@ -22,8 +22,20 @@ class ReportPublisher:
         self.cwd = cwd
         self.store = store or StateStore(cwd)
 
+    def report_ready(self, task_id: str) -> bool:
+        """Whether committed state contains the verified report inputs."""
+        return all(
+            self.store.committed_asset_ids(task_id, asset_type)
+            for asset_type in ("fact", "evidence", "review", "coverage")
+        )
+
     def create_draft(self, task_id: str) -> ReportVersion:
         """Return the current report or create a hash-bound draft."""
+        if not self.report_ready(task_id):
+            raise IntelError(
+                "REPORT_NOT_READY",
+                "已提交研究状态缺少事实、证据、审核或覆盖评估",
+            )
         state_version = self.store.committed_state_version(task_id)
         snapshot = self.store.committed_snapshot(task_id, state_version)
         for existing in reversed(self.store.list_reports(task_id)):

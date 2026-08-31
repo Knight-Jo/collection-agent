@@ -16,6 +16,7 @@ from .models import (
     EvidenceConflict,
     Fact,
     FactCoverage,
+    InvestigationCoverage,
     QuestionCoverage,
     SourceType,
     is_valid_calendar_date,
@@ -69,16 +70,30 @@ def _evaluate_fact(
         (e, review_for_evidence(cwd, e.id)) for e in candidate_supports
     ]
     supports = [
-        e for e, review in reviewed if review and review.verdict == "full"
+        e
+        for e, review in reviewed
+        if review
+        and review.verdict == "full"
+        and review.question_relevance == "full"
     ]
     pending = sum(1 for _, review in reviewed if review is None)
     partial = sum(
-        1 for _, review in reviewed if review and review.verdict == "partial"
+        1
+        for _, review in reviewed
+        if review
+        and (
+            review.verdict == "partial"
+            or review.question_relevance == "partial"
+        )
     )
     irrelevant = sum(
         1
         for _, review in reviewed
-        if review and review.verdict == "irrelevant"
+        if review
+        and (
+            review.verdict == "irrelevant"
+            or review.question_relevance == "irrelevant"
+        )
     )
     contradictory_reviews = sum(
         1
@@ -176,7 +191,7 @@ def _evaluate_fact(
     if partial > 0:
         notes.append(f"{partial} 条引文只部分支持 Fact")
     if irrelevant > 0:
-        notes.append(f"{irrelevant} 条引文与 Fact 无直接支持关系")
+        notes.append(f"{irrelevant} 条引文与调研项无关或未直接支持 Fact")
     if contradictory_reviews > 0:
         notes.append(f"{contradictory_reviews} 条候选支持实际与 Fact 矛盾")
     if not candidate_supports:
@@ -187,6 +202,7 @@ def _evaluate_fact(
         status = "partial"
     return FactCoverage(
         fact_id=fact.id,
+        investigation_item_id=fact.investigation_item_id,
         statement=fact.statement,
         status=status,
         candidate_supports_count=len(candidate_supports),
@@ -219,11 +235,12 @@ def _evaluate_question(
 ) -> QuestionCoverage:
     task = load_task(cwd, task_id)
     question = next(q for q in task.questions if q.id == question_id)
+    raw_facts = list_active_facts_for_question(cwd, task.id, question.id)
     facts = [
         _evaluate_fact(
             cwd, f, task.criteria, conflicts, now, question.time_range
         )
-        for f in list_active_facts_for_question(cwd, task.id, question.id)
+        for f in raw_facts
     ]
     covered_count = sum(1 for f in facts if f.status == "covered")
     has_support = any(f.candidate_supports_count > 0 for f in facts)
@@ -231,7 +248,53 @@ def _evaluate_question(
         fact.unresolved_conflicts > 0 or fact.unresolved_contradictions > 0
         for fact in facts
     )
-    if not facts or not has_support:
+    investigation_coverage: list[InvestigationCoverage] = []
+    if question.investigation_items:
+        coverage_by_fact_id = {item.fact_id: item for item in facts}
+        for item in question.investigation_items:
+            item_facts = [
+                coverage_by_fact_id[fact.id]
+                for fact in raw_facts
+                if fact.investigation_item_id == item.id
+            ]
+            item_covered = sum(
+                1 for fact in item_facts if fact.status == "covered"
+            )
+            item_status = (
+                "gap"
+                if not item_facts
+                else "covered"
+                if item_covered == len(item_facts)
+                else "partial"
+            )
+            investigation_coverage.append(
+                InvestigationCoverage(
+                    investigation_item_id=item.id,
+                    investigation_item=item.text,
+                    status=item_status,
+                    fact_count=len(item_facts),
+                    covered_fact_count=item_covered,
+                )
+            )
+
+    if investigation_coverage:
+        missing = [
+            item.investigation_item
+            for item in investigation_coverage
+            if item.status == "gap"
+        ]
+        if all(item.status == "gap" for item in investigation_coverage):
+            status = "gap"
+        elif all(
+            item.status == "covered" for item in investigation_coverage
+        ) and all(fact.investigation_item_id for fact in raw_facts):
+            status = "covered"
+        else:
+            status = "partial"
+        notes = [f"尚未回答调研项：{', '.join(missing)}"] if missing else []
+        if any(fact.investigation_item_id is None for fact in raw_facts):
+            notes.append("存在未归属到调研项的事实")
+    elif not facts or not has_support:
         status = "gap"
         notes = ["尚未登记事实"] if not facts else ["事实尚无支持证据"]
     elif has_conflict:
@@ -259,6 +322,7 @@ def _evaluate_question(
         fact_count=len(facts),
         covered_fact_count=covered_count,
         facts=facts,
+        investigation_items=investigation_coverage,
         answer_status=answer_status,
         notes=notes,
     )
@@ -347,6 +411,9 @@ def eval_coverage(
             else 1
             if q.fact_count == 0
             else sum(f.gap_score for f in q.facts)
+            + sum(
+                1 for item in q.investigation_items if item.status != "covered"
+            )
         )
         for q in per_question
     )

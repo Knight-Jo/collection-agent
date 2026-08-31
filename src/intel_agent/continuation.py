@@ -140,6 +140,7 @@ class ContinuationRunner:
                     "topic": brief.topic,
                     "objective": brief.objective,
                     "questions": brief.key_questions,
+                    "investigation_items": brief.investigation_items,
                     "scope": brief.scope.model_dump(mode="json"),
                 },
                 trigger_message_id=run.trigger_message_id,

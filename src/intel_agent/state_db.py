@@ -555,10 +555,10 @@ def state_db_path(cwd: Path) -> Path:
 def connect_state_db(cwd: Path) -> sqlite3.Connection:
     """Open one SQLite connection with required safety settings."""
     ensure_intel_dirs(cwd)
-    connection = sqlite3.connect(state_db_path(cwd), timeout=5)
+    connection = sqlite3.connect(state_db_path(cwd), timeout=30)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
-    connection.execute("PRAGMA busy_timeout = 5000")
+    connection.execute("PRAGMA busy_timeout = 30000")
     return connection
 
 

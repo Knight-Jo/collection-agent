@@ -28,7 +28,7 @@ from .models import (
 from .report_versions import ReportPublisher
 from .retrieval import RetrievedPassage, TaskRetriever
 from .state_store import StateStore
-from .task import load_task, report_output_is_current
+from .task import load_task
 from .trajectory import TrajectoryRecorder
 
 logger = get_logger(__name__)
@@ -63,6 +63,8 @@ class _ReportPublisher(Protocol):
     async def run(self, action: ActionRequest) -> object: ...
 
     def create_draft(self, task_id: str) -> ReportVersion: ...
+
+    def report_ready(self, task_id: str) -> bool: ...
 
     def read(self, report_id: str) -> tuple[ReportVersion, str]: ...
 
@@ -268,6 +270,13 @@ class ConversationRuntime:
                 topic=task.topic,
                 objective=task.objective,
                 key_questions=[item.text for item in task.questions],
+                investigation_items={
+                    question.text: [
+                        item.text for item in question.investigation_items
+                    ]
+                    for question in task.questions
+                    if question.investigation_items
+                },
                 scope=task.scope,
             )
             if self.initial is not None:
@@ -296,6 +305,29 @@ class ConversationRuntime:
         ):
             self._schedule_message(message_id)
         return self.store.get_message(message_id)
+
+    def retry_research_run(self, run_id: str) -> ResearchRun:
+        """Retry a failed initial research run on the same committed state."""
+        original = self.store.get_run(run_id)
+        if self.initial is None or original.action_request_id is not None:
+            raise IntelError("INVALID_STATE_TRANSITION", "该运行不能在此重试")
+        retry = self.store.retry_run(run_id)
+        task = load_task(self.cwd, retry.task_id)
+        brief = ResearchBrief(
+            topic=task.topic,
+            objective=task.objective,
+            key_questions=[question.text for question in task.questions],
+            investigation_items={
+                question.text: [
+                    item.text for item in question.investigation_items
+                ]
+                for question in task.questions
+                if question.investigation_items
+            },
+            scope=task.scope,
+        )
+        self._schedule_initial(retry, brief)
+        return retry
 
     def confirm_action(
         self, action_id: str, client_message_id: str
@@ -438,9 +470,7 @@ class ConversationRuntime:
                 self.store.committed_state_version(task_id) if task_id else 0
             ),
             "report_ready": (
-                report_output_is_current(self.cwd, task_id)
-                if task_id
-                else False
+                self.publisher.report_ready(task_id) if task_id else False
             ),
         }
 
@@ -694,6 +724,13 @@ class ConversationRuntime:
             topic=task.topic,
             objective=task.objective,
             key_questions=[item.text for item in task.questions],
+            investigation_items={
+                question.text: [
+                    item.text for item in question.investigation_items
+                ]
+                for question in task.questions
+                if question.investigation_items
+            },
             scope=task.scope,
         )
         self._schedule_initial(

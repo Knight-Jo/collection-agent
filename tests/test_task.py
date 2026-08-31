@@ -8,6 +8,7 @@ from intel_agent.task import (
     SEARCH_ATTEMPT_LIMIT,
     create_task,
     load_task,
+    parse_time_range,
     record_evidence_progress,
     record_fetch_attempt,
     record_search_attempt,
@@ -120,6 +121,32 @@ def test_create_task_persists_research_brief(cwd):
     assert stored.objective == "了解公开进展"
     assert stored.scope.geography == ["中国"]
     assert stored.report_depth == "deep"
+
+
+def test_create_task_builds_atomic_investigation_items_and_normalizes_dates(
+    cwd,
+):
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        SufficiencyCriteria(),
+        scope=ResearchScope(time_range="2023-01-01 至 2024-06-30"),
+        investigation_items={
+            "问题甲": ["指标水平", "代表厂商"],
+            "问题乙": ["政策原文", "实际影响"],
+        },
+    )
+
+    assert task.scope.time_range == "2023-2024"
+    assert [item.text for item in task.questions[0].investigation_items] == [
+        "指标水平",
+        "代表厂商",
+    ]
+    assert all(
+        question.time_range == "2023-2024" for question in task.questions
+    )
+    assert parse_time_range("截至 2024-06-30") == "2024"
 
 
 def test_search_budget_exhausts(cwd):

@@ -203,7 +203,8 @@ def build_task_prompt(spec: TaskRunSpec) -> str:
         else "使用逐页 web_fetch 收集文档。\n"
     )
     question_instruction = (
-        "调用 intel_plan 时根据主题、目标和范围生成 3–6 个可独立回答的调研问题。\n"
+        "调用 intel_plan 时根据主题、目标和范围生成 3–6 个可独立回答的调研问题；"
+        "为每个问题生成 2–4 个 investigation_items，并以问题文本为 key 传入。\n"
         if not spec.questions
         else (
             "调用 intel_plan 时必须且只能使用以下问题，不得新增、删除、合并或改写：\n"
@@ -263,6 +264,7 @@ def build_task_prompt(spec: TaskRunSpec) -> str:
         "【检索纪律】围绕每个问题制定不同查询，优先获取与声明类型匹配的一手或高质量公开来源；"
         "搜索摘要不是证据，already_archived=true 的 URL 不重复抓取。普通检索不足或发现高价值附件时再使用深度抓取。\n"
         "【事实纪律】fact_save 仅保存原子、可核验的命题，并正确选择 primary、corroborated 或 reported；"
+        "任务含 investigation_items 时必须传对应 investigation_item_id；"
         "引文必须逐字覆盖主体、动作、范围、时间和数量，partial 时缩窄事实或补充引文。冲突数字分别记录并披露口径。\n"
         "【报告要求】先运行 material_digest 生成材料集合摘要和 1–5 星阅读推荐；正式报告只使用"
         "审核通过的结构化结论，逐问题回答并披露分歧、局限和未回答内容。\n"

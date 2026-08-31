@@ -16,7 +16,8 @@ from intel_agent.intake import IntakeDecision
 from intel_agent.materials import register_material
 from intel_agent.models import Message, ResearchBrief
 from intel_agent.report import generate_research_report
-from intel_agent.retrieval import RetrievedPassage
+from intel_agent.retrieval import RetrievedPassage, TaskRetriever
+from intel_agent.state_store import StateStore
 from intel_agent.storage import sha256, workspace_path
 from intel_agent.task import load_task, save_task
 from intel_agent.web.app import create_app
@@ -135,11 +136,12 @@ def test_conversation_projection_blocks_report_until_verified_report_exists(
     assert projection["report_ready"] is False
 
 
-def test_conversation_projection_allows_report_after_verified_report_exists(
+def test_conversation_projection_allows_report_after_research_is_committed(
     cwd,
 ):
     task, facts, _documents = seed_reportable_task(cwd)
     generate_research_report(cwd, task.id, report_draft(task, facts))
+    TaskRetriever(cwd, StateStore(cwd)).seed_completed_task(task.id)
     runtime = ConversationRuntime(
         cwd, dialogue=_Dialogue(), retriever=_Retriever()
     )

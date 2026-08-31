@@ -24,6 +24,19 @@ def _publisher(cwd, task_id):
     return store, ReportPublisher(cwd, store=store)
 
 
+def test_report_draft_rejects_empty_committed_research_state(cwd):
+    task, facts, _documents = seed_reportable_task(cwd)
+    result = generate_research_report(cwd, task.id, report_draft(task, facts))
+    assert result["ok"] is True
+    publisher = ReportPublisher(cwd, store=StateStore(cwd))
+
+    assert publisher.report_ready(task.id) is False
+    with pytest.raises(IntelError) as caught:
+        publisher.create_draft(task.id)
+
+    assert caught.value.code == "REPORT_NOT_READY"
+
+
 def test_report_draft_preserves_legacy_binding_and_filters_uncommitted_fact(
     cwd,
 ):

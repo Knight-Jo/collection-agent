@@ -205,6 +205,11 @@ async def stop_research_run(request: Request, run_id: str) -> ResearchRun:
     return _runtime(request).stop_research_run(run_id)
 
 
+@router.post("/research-runs/{run_id}/retry", response_model=ResearchRun)
+async def retry_research_run(request: Request, run_id: str) -> ResearchRun:
+    return _runtime(request).retry_research_run(run_id)
+
+
 @router.get("/research-runs/{run_id}", response_model=ResearchRun)
 async def research_run_detail(request: Request, run_id: str) -> ResearchRun:
     return _runtime(request).store.get_run(run_id)

@@ -687,6 +687,7 @@ class StateStore:
             SufficiencyCriteria(),
             objective=brief.objective,
             scope=brief.scope,
+            investigation_items=brief.investigation_items,
         )
         now = utc_now()
         with connect_state_db(self.cwd) as connection:

@@ -14,6 +14,7 @@ vi.mock("../api", () => ({
     confirmAction: vi.fn().mockResolvedValue({}),
     rejectAction: vi.fn().mockResolvedValue({}),
     retryMessage: vi.fn().mockResolvedValue({}),
+    retryResearchRun: vi.fn().mockResolvedValue({}),
     createReportVersion: vi.fn().mockResolvedValue({}),
     publishReportVersion: vi.fn().mockResolvedValue({}),
   },
@@ -260,6 +261,28 @@ it("offers retry when processing a user message failed", async () => {
   await user.click(await screen.findByRole("button", { name: "重试处理" }));
 
   expect(api.retryMessage).toHaveBeenCalledWith("message-user-1");
+});
+
+it("shows a failed research run reason and offers research retry", async () => {
+  const user = userEvent.setup();
+  vi.mocked(api.conversationById).mockResolvedValue({
+    ...projection,
+    report_ready: false,
+    runs: [
+      {
+        ...projection.runs[0],
+        status: "failed",
+        phase: "checkpointing",
+        error: "database is locked",
+      },
+    ],
+  });
+  render(<ConversationPanel conversationId="conversation-1" />);
+
+  expect(await screen.findByText("database is locked")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "重试调研" }));
+
+  expect(api.retryResearchRun).toHaveBeenCalledWith("run-17");
 });
 
 it("shows report generation progress and prevents duplicate requests", async () => {

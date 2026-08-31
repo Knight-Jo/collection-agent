@@ -303,3 +303,68 @@ def test_coverage_recency_gap(cwd):
     snapshot = eval_coverage(cwd, task.id)
     assert snapshot.gap_score > 0
     assert snapshot.level != "sufficient"
+
+
+def test_question_requires_every_investigation_item(cwd):
+    task = create_task(
+        cwd,
+        "测试主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+        investigation_items={"问题甲": ["政策原文", "实际影响"]},
+    )
+    question = task.questions[0]
+    item = question.investigation_items[0]
+    document = make_document(
+        cwd, "政府发布政策原文", "https://www.gov.cn/policy"
+    )
+    fact = save_fact(
+        cwd,
+        task.id,
+        question.id,
+        "政府发布政策原文",
+        claim_type="primary",
+        investigation_item_id=item.id,
+    )
+    save_evidence(cwd, fact.id, document, "supports", fact.statement)
+    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
+
+    coverage = eval_coverage(cwd, task.id).per_question[0]
+
+    assert coverage.status == "partial"
+    assert [item.status for item in coverage.investigation_items] == [
+        "covered",
+        "gap",
+    ]
+    assert "实际影响" in " ".join(coverage.notes)
+
+
+def test_question_irrelevant_review_does_not_count_as_support(cwd):
+    task = new_task(cwd)
+    question = task.questions[0]
+    document = make_document(cwd, "材料完整支持事实", "https://www.gov.cn/x")
+    fact = save_fact(
+        cwd, task.id, question.id, "政策产生实际影响", claim_type="primary"
+    )
+    save_evidence(cwd, fact.id, document, "supports", "材料完整支持事实")
+
+    async def irrelevant_judge(_fact, evidence):
+        return [
+            {
+                "evidence_id": item.id,
+                "verdict": "full",
+                "question_relevance": "irrelevant",
+                "reason": "引文支持事实，但事实未回答问题",
+                "unsupported_parts": [],
+            }
+            for item in evidence
+        ]
+
+    asyncio.run(
+        audit_task_evidence(cwd, task.id, irrelevant_judge, "test", "fake")
+    )
+
+    fact_coverage = eval_coverage(cwd, task.id).per_question[0].facts[0]
+    assert fact_coverage.status == "partial"
+    assert fact_coverage.supports_count == 0
+    assert "与调研项无关" in " ".join(fact_coverage.notes)

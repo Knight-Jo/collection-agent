@@ -120,6 +120,34 @@ def _visible_coverage(
             for fact in facts
         )
         covered = sum(fact.status == "covered" for fact in facts)
+        investigation_items = question.investigation_items
+        if investigation_items:
+            visible_items = []
+            for item in investigation_items:
+                item_facts = [
+                    fact
+                    for fact in facts
+                    if fact.investigation_item_id == item.investigation_item_id
+                ]
+                covered_items = sum(
+                    fact.status == "covered" for fact in item_facts
+                )
+                visible_items.append(
+                    item.model_copy(
+                        update={
+                            "status": (
+                                "gap"
+                                if not item_facts
+                                else "covered"
+                                if covered_items == len(item_facts)
+                                else "partial"
+                            ),
+                            "fact_count": len(item_facts),
+                            "covered_fact_count": covered_items,
+                        }
+                    )
+                )
+            investigation_items = visible_items
         if not facts:
             status, answer_status, notes = (
                 "gap",
@@ -132,7 +160,17 @@ def _visible_coverage(
                 "conflicted",
                 ["存在未消解矛盾"],
             )
-        elif covered == len(facts):
+        elif (
+            (
+                investigation_items
+                and all(
+                    item.status == "covered" for item in investigation_items
+                )
+                and all(fact.investigation_item_id for fact in facts)
+            )
+            or not investigation_items
+            and covered == len(facts)
+        ):
             status, answer_status, notes = "covered", "answered", []
         else:
             status, answer_status, notes = (
@@ -149,6 +187,7 @@ def _visible_coverage(
                     "facts": facts,
                     "fact_count": len(facts),
                     "covered_fact_count": covered,
+                    "investigation_items": investigation_items,
                 }
             )
         )

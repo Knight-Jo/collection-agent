@@ -14,6 +14,9 @@ def test_initialize_enables_sqlite_safety_and_schema(cwd):
     with connect_state_db(cwd) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+        assert (
+            connection.execute("PRAGMA busy_timeout").fetchone()[0] == 30_000
+        )
         tables = {
             row[0]
             for row in connection.execute(

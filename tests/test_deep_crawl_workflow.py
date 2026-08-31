@@ -345,6 +345,36 @@ async def test_web_search_executes_query_matrix_slots(monkeypatch, cwd):
 
 
 @pytest.mark.asyncio
+async def test_query_matrix_round_robins_questions_before_deepening(
+    monkeypatch, cwd
+):
+    task = create_task(
+        cwd,
+        "测试主题",
+        ["问题甲：测试主题的现状如何", "问题乙：测试主题的进展如何"],
+        DEFAULT_CRITERIA,
+        deep_crawl=True,
+    )
+
+    async def fake_search(query, _max, *, client, searxng_url, opts):
+        return {"results": [], "engineUsed": "fake"}
+
+    monkeypatch.setattr(agent_module, "web_search", fake_search)
+    tool = _tool(build_agent(Settings()), "web_search")
+
+    await tool(_context(cwd), "具体 查询", 5, "general", "zh-CN", None)
+
+    state = json.loads(
+        (cwd / "data/intel/search_matrix.json").read_text(encoding="utf-8")
+    )
+    assert [entry["question_id"] for entry in state["trace"]] == [
+        task.questions[0].id,
+        task.questions[1].id,
+    ]
+    assert all(entry["slot"] == "discovery" for entry in state["trace"])
+
+
+@pytest.mark.asyncio
 async def test_query_matrix_respects_phase_budgets(monkeypatch, cwd):
     create_task(
         cwd,

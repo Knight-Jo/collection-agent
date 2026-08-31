@@ -78,6 +78,8 @@ export const api = {
     ),
   stopResearchRun: (runId: string) =>
     request<ResearchRun>(`/api/research-runs/${runId}/stop`, { method: "POST" }),
+  retryResearchRun: (runId: string) =>
+    request<ResearchRun>(`/api/research-runs/${runId}/retry`, { method: "POST" }),
   researchRun: (runId: string) => request<ResearchRun>(`/api/research-runs/${runId}`),
   searchPlanVersion: (planId: string) =>
     request<SearchPlanVersion>(`/api/search-plan-versions/${planId}`),

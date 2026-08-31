@@ -13,6 +13,7 @@ from .models import (
     IntelError,
     IntelQuestion,
     IntelTask,
+    InvestigationItem,
     ReportDepth,
     ResearchScope,
     SufficiencyCriteria,
@@ -54,6 +55,7 @@ _YEAR_RE = re.compile(r"(?<!\d)(\d{4})(?!\d)")
 _YEAR_RANGE_RE = re.compile(
     r"(?<!\d)(\d{4})年?\s*(?:至|到|[-—])\s*(\d{4})年?(?!\d)"
 )
+_ISO_DATE_RE = re.compile(r"(?<!\d)(\d{4})-\d{2}-\d{2}(?!\d)")
 
 
 def parse_time_range(text: str) -> str:
@@ -65,6 +67,9 @@ def parse_time_range(text: str) -> str:
     """
     if not text:
         return ""
+    dates = [int(match.group(1)) for match in _ISO_DATE_RE.finditer(text)]
+    if dates and all(1900 <= year <= 2100 for year in dates):
+        return f"{dates[0]}-{dates[-1]}" if len(dates) > 1 else str(dates[0])
     range_match = _YEAR_RANGE_RE.search(text)
     if range_match:
         start, end = int(range_match.group(1)), int(range_match.group(2))
@@ -86,6 +91,7 @@ def create_task(
     objective: str = "",
     scope: ResearchScope | None = None,
     report_depth: ReportDepth = "standard",
+    investigation_items: dict[str, list[str]] | None = None,
 ) -> IntelTask:
     """Create a task with stable question IDs and persist it as the active task."""
     task = build_task(
@@ -96,6 +102,7 @@ def create_task(
         objective=objective,
         scope=scope,
         report_depth=report_depth,
+        investigation_items=investigation_items,
     )
     save_task(cwd, task)
     write_json_atomic(cwd, ACTIVE_TASK_FILE, {"task_id": task.id})
@@ -110,6 +117,7 @@ def build_task(
     objective: str = "",
     scope: ResearchScope | None = None,
     report_depth: ReportDepth = "standard",
+    investigation_items: dict[str, list[str]] | None = None,
 ) -> IntelTask:
     """Build validated task metadata without performing persistence."""
     if isinstance(criteria, dict):
@@ -131,23 +139,41 @@ def build_task(
     ):
         raise IntelError("INVALID_INPUT", "充分性标准必须是有效正整数")
     now = utc_now()
-    resolved_scope = scope or ResearchScope()
+    resolved_scope = (scope or ResearchScope()).model_copy(deep=True)
+    resolved_scope.time_range = (
+        parse_time_range(resolved_scope.time_range)
+        or resolved_scope.time_range.strip()
+    )
+    item_map = investigation_items or {}
+    unknown_questions = set(item_map) - set(question_texts)
+    if unknown_questions:
+        raise IntelError("INVALID_INPUT", "调研项必须归属于关键问题")
+
+    def build_question(text: str) -> IntelQuestion:
+        items = list(
+            dict.fromkeys(
+                item.strip() for item in item_map.get(text, []) if item.strip()
+            )
+        )
+        if len(items) > 4:
+            raise IntelError(
+                "INVALID_INPUT", "每个关键问题最多包含 4 个调研项"
+            )
+        return IntelQuestion(
+            id=new_id("q"),
+            text=text,
+            time_range=resolved_scope.time_range or parse_time_range(text),
+            investigation_items=[
+                InvestigationItem(id=new_id("item"), text=item)
+                for item in items
+            ],
+        )
+
     task = IntelTask(
         id=new_id("task"),
         topic=topic,
         stage="collect",
-        questions=[
-            IntelQuestion(
-                id=new_id("q"),
-                text=text,
-                # Explicit task scope wins and is copied to every question;
-                # otherwise each question parses its own explicit year. A
-                # question without a year must not inherit another
-                # question's constraint (run 012: truthful coverage).
-                time_range=resolved_scope.time_range or parse_time_range(text),
-            )
-            for text in question_texts
-        ],
+        questions=[build_question(text) for text in question_texts],
         criteria=criteria,
         objective=objective.strip(),
         scope=resolved_scope,

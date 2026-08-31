@@ -159,7 +159,7 @@ SYSTEM_PROMPT = """\
 
 ## 工作流
 
-1. 调用 `intel_plan`：没有用户问题时自主生成 3–6 个问题；有用户问题时原样保留并补充到 2–6 个。
+1. 调用 `intel_plan`：没有用户问题时自主生成 3–6 个问题；有用户问题时原样保留并补充到 2–6 个；同时将每个问题拆成 2–4 个可独立回答的 investigation_items。
 2. 按问题制定查询和所需来源类型，调用 `web_search` 选择候选，再用 `web_fetch` 归档正文。发现高价值附件或普通检索不足时才使用深度抓取。
 3. 用 `fact_save` 保存原子发现，用 `evidence_save` 保存精确引文；发现矛盾时登记 `contradicts` 和冲突。
 4. 调用 `evidence_audit`。`partial` 时缩窄 Fact 或补充完整引文，新证据必须重新审核。
@@ -197,8 +197,10 @@ SUPPORT_JUDGE_PROMPT = """你是严格的证据蕴含审核器。Fact 和 quote 
 
 主题词相似、提到同一政策或来源权威都不等于 full。省级目标不能支持国家目标；标题或行动名称不能支持未在 quote 中出现的详细部署。
 
+还要判断 Fact 是否直接回答 target_question：full 为直接回答，partial 为只回答部分，irrelevant 为虽有事实但没有回答该调研项。
+
 只输出一个 JSON 数组，不要代码块围栏、不要任何解释。每个元素形如
-{"evidence_id": "...", "verdict": "full|partial|contradicts|irrelevant",
+{"evidence_id": "...", "verdict": "full|partial|contradicts|irrelevant", "question_relevance": "full|partial|irrelevant",
  "reason": "...", "unsupported_parts": []}；partial 必须在 unsupported_parts
 中列出未覆盖的重要组成，full 的 unsupported_parts 必须为空数组。"""
 
@@ -335,9 +337,12 @@ class JudgeAgent:
         )
         self.model_name = cfg.name
 
-    async def __call__(self, fact, evidence) -> list[dict]:
+    async def __call__(
+        self, fact, evidence, target_question: str
+    ) -> list[dict]:
         payload = {
             "fact": fact.statement,
+            "target_question": target_question,
             "evidence": [
                 {"evidence_id": e.id, "quote": e.quote} for e in evidence
             ],
@@ -589,16 +594,43 @@ async def _run_query_matrix(
                     seen_domains.add(host)
         system_queries: list[str] = []
         executed_any = False
-        for question in task.questions:
-            matrix = query_matrix(task.topic, question.text)
-            for slot in QUERY_MATRIX_SLOTS:
-                phase = QUERY_MATRIX_PHASE[slot]
-                if state["phase_used"].get(phase, 0) >= phase_caps.get(
-                    phase, 1
-                ):
-                    continue
-                for index, matrix_query in enumerate(matrix.get(slot, [])):
-                    key = f"{question.id}:{slot}:{index}"
+        target_groups = [
+            (
+                question,
+                [(item.id, item.text) for item in question.investigation_items]
+                or [(None, question.text)],
+            )
+            for question in task.questions
+        ]
+        target_rows = [
+            (question, items[item_index][0], items[item_index][1])
+            for item_index in range(
+                max(len(items) for _, items in target_groups)
+            )
+            for question, items in target_groups
+            if item_index < len(items)
+        ]
+        matrices = [
+            (question, item_id, query_matrix(task.topic, target))
+            for question, item_id, target in target_rows
+        ]
+        for slot in QUERY_MATRIX_SLOTS:
+            max_queries = max(
+                (len(matrix.get(slot, [])) for _, _, matrix in matrices),
+                default=0,
+            )
+            for index in range(max_queries):
+                for question, item_id, matrix in matrices:
+                    queries = matrix.get(slot, [])
+                    if index >= len(queries):
+                        continue
+                    matrix_query = queries[index]
+                    phase = QUERY_MATRIX_PHASE[slot]
+                    if state["phase_used"].get(phase, 0) >= phase_caps.get(
+                        phase, 1
+                    ):
+                        continue
+                    key = f"{question.id}:{item_id or '-'}:{slot}:{index}"
                     if key in state["executed"]:
                         continue
                     try:
@@ -669,6 +701,7 @@ async def _run_query_matrix(
                             "slot": slot,
                             "phase": phase,
                             "question_id": question.id,
+                            "investigation_item_id": item_id,
                             "category": "general",
                             "language": "zh-CN",
                             "time_range": None,
@@ -1218,6 +1251,7 @@ def _fact_save_with_gate(
     question_id: str,
     statement: str,
     claim_type: ClaimType,
+    investigation_item_id: str | None = None,
     run_id: str | None = None,
 ) -> dict:
     backlog = _single_source_backlog(cwd, task_id)
@@ -1248,6 +1282,7 @@ def _fact_save_with_gate(
         question_id,
         statement,
         claim_type,
+        investigation_item_id=investigation_item_id,
         run_id=run_id,
     ).model_dump()
 
@@ -1909,6 +1944,7 @@ def build_agent(
         question_id: str,
         statement: str,
         claim_type: ClaimType = "corroborated",
+        investigation_item_id: str | None = None,
     ) -> dict:
         """在取得候选来源后登记一个规范事实。不同措辞的来源通过同一 fact_id 支撑该事实。
         存在未完成交叉验证的单源事实时拒绝登记新事实（先 evidence_save 补第二来源组）。"""
@@ -1919,6 +1955,7 @@ def build_agent(
                 question_id,
                 statement,
                 claim_type,
+                investigation_item_id,
                 ctx.deps.run_id,
             )
         )
@@ -2152,13 +2189,18 @@ def build_agent(
         questions: list[str],
         criteria: SufficiencyCriteria | str,
         deep_crawl: bool = False,
+        investigation_items: dict[str, list[str]] | None = None,
     ) -> dict:
-        """创建情报任务并返回稳定的问题 ID；未完成的活动任务会直接复用。"""
+        """创建情报任务并返回稳定的问题和调研项 ID；未完成的活动任务会直接复用。"""
         return _guarded_sync(
-            lambda: _intel_plan(ctx, topic, questions, criteria)
+            lambda: _intel_plan(
+                ctx, topic, questions, criteria, investigation_items
+            )
         )
 
-    def _intel_plan(ctx, topic, questions, criteria) -> dict:
+    def _intel_plan(
+        ctx, topic, questions, criteria, investigation_items
+    ) -> dict:
         if isinstance(criteria, str):
             criteria = SufficiencyCriteria.model_validate_json(criteria)
         reused_existing_task = False
@@ -2179,6 +2221,7 @@ def build_agent(
                 objective=ctx.deps.objective,
                 scope=ctx.deps.scope,
                 report_depth=ctx.deps.report_depth,
+                investigation_items=investigation_items,
             )
         # Deployment-configured direct sources enter the crawl frontier as
         # depth-0 seeds: web_fetch rejects non-HTML/PDF content types, so

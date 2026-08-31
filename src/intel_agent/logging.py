@@ -70,7 +70,7 @@ def configure_logging(
 
     root.setLevel(level)
     formatter = logging.Formatter(
-        "%(asctime)s %(levelname)-7s %(name)s %(message)s"
+        "%(asctime)s [%(levelname)-8s] [%(name)s] %(message)s"
     )
     stderr = logging.StreamHandler()
     stderr.setLevel(level)

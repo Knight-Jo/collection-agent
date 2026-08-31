@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import cast
@@ -35,7 +36,7 @@ def review_id(fact_id: str, evidence_id: str) -> str:
 
 
 VALID_VERDICTS = {"full", "partial", "irrelevant", "contradicts"}
-Judge = Callable[[Fact, list[EvidenceSupport]], Awaitable[list[dict]]]
+Judge = Callable[..., Awaitable[list[dict]]]
 
 
 def validate_verdict(result: dict) -> dict:
@@ -44,9 +45,11 @@ def validate_verdict(result: dict) -> dict:
     # parts, partial must name them — else the verdict is unusable for coverage.
     unsupported = result.get("unsupported_parts") or []
     reason = (result.get("reason") or "").strip()
+    question_relevance = result.get("question_relevance", "full")
     if (
         not isinstance(result.get("evidence_id"), str)
         or result.get("verdict") not in VALID_VERDICTS
+        or question_relevance not in {"full", "partial", "irrelevant"}
         or not reason
         or len(reason) > 1_000
         or not isinstance(unsupported, list)
@@ -62,6 +65,7 @@ def validate_verdict(result: dict) -> dict:
     return {
         "evidence_id": result["evidence_id"],
         "verdict": result["verdict"],
+        "question_relevance": question_relevance,
         "reason": reason,
         "unsupported_parts": [p.strip() for p in unsupported],
     }
@@ -190,14 +194,32 @@ async def audit_task_evidence(
 
     semaphore = asyncio.Semaphore(concurrency)
     timed_out: list[str] = []
+    judge_accepts_target = len(inspect.signature(judge).parameters) >= 3
+
+    def target_for(fact: Fact) -> str:
+        question = next(q for q in task.questions if q.id == fact.question_id)
+        item = next(
+            (
+                item
+                for item in question.investigation_items
+                if item.id == fact.investigation_item_id
+            ),
+            None,
+        )
+        return item.text if item else question.text
 
     async def judge_one(
         fact: Fact, evidence: list[EvidenceSupport]
     ) -> tuple[str, list[SupportReview] | list[str]]:
         async with semaphore:
             try:
+                call = (
+                    judge(fact, evidence, target_for(fact))
+                    if judge_accepts_target
+                    else judge(fact, evidence)
+                )
                 verdicts = await asyncio.wait_for(
-                    judge(fact, evidence), timeout=timeout_seconds
+                    call, timeout=timeout_seconds
                 )
             except TimeoutError:
                 return ("timeout", [item.id for item in evidence])
@@ -209,6 +231,7 @@ async def audit_task_evidence(
                     fact_id=fact.id,
                     evidence_id=verdict["evidence_id"],
                     verdict=verdict["verdict"],
+                    question_relevance=verdict["question_relevance"],
                     reason=verdict["reason"],
                     unsupported_parts=verdict["unsupported_parts"],
                     judge_provider=judge_provider.strip(),
@@ -288,6 +311,7 @@ def is_full_support(cwd: Path, evidence: EvidenceSupport) -> bool:
         evidence.relation == "supports"
         and review is not None
         and review.verdict == "full"
+        and review.question_relevance == "full"
     )
 
 
