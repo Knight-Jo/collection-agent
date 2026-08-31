@@ -69,3 +69,51 @@ def test_analyze_keeps_valid_events_from_interrupted_trace(tmp_path):
     report = analyze(tmp_path)
 
     assert "工具调用轨迹（共 1 次）" in report
+
+
+def test_analyze_includes_structured_trajectory_summary(tmp_path):
+    events = [
+        {
+            "schema_version": "1.0",
+            "run_id": "run-1",
+            "task_id": "task-1",
+            "event_id": "start",
+            "sequence": 1,
+            "timestamp": "2026-01-01T00:00:00+00:00",
+            "event_type": "run_started",
+            "layer": "evaluation",
+            "origin": "system",
+            "payload": {},
+        },
+        {
+            "schema_version": "1.0",
+            "run_id": "run-1",
+            "task_id": "task-1",
+            "event_id": "finish",
+            "sequence": 2,
+            "timestamp": "2026-01-01T00:00:06+00:00",
+            "event_type": "run_finished",
+            "layer": "evaluation",
+            "origin": "system",
+            "payload": {
+                "status": "succeeded",
+                "stage": "done",
+                "requests": 2,
+                "tool_calls": 0,
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "total_tokens": 15,
+                "elapsed_ms": 6000,
+            },
+        },
+    ]
+    (tmp_path / "trace.jsonl").write_text(
+        "\n".join(json.dumps(event) for event in events), encoding="utf-8"
+    )
+
+    report = analyze(tmp_path)
+
+    assert "## 结构化轨迹摘要" in report
+    assert "- 完整性: PASS" in report
+    assert "- 终态: succeeded / stage=done" in report
+    assert "- 模型请求: 2" in report

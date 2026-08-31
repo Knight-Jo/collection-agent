@@ -37,7 +37,7 @@ uv run python scripts/run_experiment.py \
 |---|---|
 | `run_experiment.py` | 执行一次隔离的 CLI 调研，保存 manifest、轨迹、会话、状态和报告 |
 | `analyze_run.py` | 综合分析新版本 SQLite 状态或旧版本 JSON 状态 |
-| `analyze_trajectory.py` | 校验轨迹关联，或按 action 重建决策因果链 |
+| `analyze_trajectory.py` | 校验轨迹、生成 L1/L2/L3 摘要，或按 action 重建决策因果链 |
 | `analyze_conversation.py` | 查看完整模型会话，可输出终端文本或 HTML |
 | `run_benchmark.py` | 为同一 Benchmark、模型和重复次数生成或执行实验命令 |
 | `evaluate_runs.py` | 校验评测输入、计算单次得分并进行配对模型比较 |
@@ -50,11 +50,19 @@ RUN_DIR=experiments/runs/058-topic-smoke
 
 uv run python scripts/analyze_run.py "$RUN_DIR" --write
 uv run python scripts/analyze_trajectory.py "$RUN_DIR/trace.jsonl" --check
+uv run python scripts/analyze_trajectory.py "$RUN_DIR/trace.jsonl" \
+  --summary --output "$RUN_DIR/summary.json"
 uv run python scripts/analyze_conversation.py "$RUN_DIR"
 uv run python scripts/analyze_conversation.py "$RUN_DIR" --html "$RUN_DIR/conversation.html"
+
+uv run python scripts/evaluate_runs.py resources \
+  --trace "$RUN_DIR/trace.jsonl" \
+  --output "$RUN_DIR/resources.json"
 ```
 
 `analyze_run.py` 优先读取 `data/intel/intel.db`，归档目录只有 `state/intel.db` 时也可以分析，并继续兼容旧实验的 `state/tasks/*.json`。
+可观测性事件结构、三层指标和扩展方法见
+[`docs/architecture/intelligence-agent-observability.md`](../docs/architecture/intelligence-agent-observability.md)。
 
 ## Conversation API 烟测
 

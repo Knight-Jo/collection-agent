@@ -14,6 +14,7 @@ from scripts.evaluate_runs import (
     EvaluationPolicy,
     compare_scores,
     main,
+    resources_from_trace,
     score_evaluation,
 )
 
@@ -386,6 +387,58 @@ def test_repo_frozen_policy_has_no_search_metrics_and_sums_to_one():
     }
     assert "precision_at_10" not in metric_names
     assert "must_find_recall_at_50" not in metric_names
+
+
+def test_resources_are_projected_from_structured_trace(tmp_path):
+    trace = tmp_path / "trace.jsonl"
+    trace.write_text(
+        "\n".join(
+            json.dumps(event)
+            for event in (
+                {
+                    "schema_version": "1.0",
+                    "run_id": "run-1",
+                    "task_id": "task-1",
+                    "event_id": "start",
+                    "sequence": 1,
+                    "timestamp": "2026-01-01T00:00:00+00:00",
+                    "event_type": "run_started",
+                    "payload": {},
+                },
+                {
+                    "schema_version": "1.0",
+                    "run_id": "run-1",
+                    "task_id": "task-1",
+                    "event_id": "finish",
+                    "sequence": 2,
+                    "timestamp": "2026-01-01T00:00:02+00:00",
+                    "event_type": "run_finished",
+                    "payload": {
+                        "status": "succeeded",
+                        "elapsed_ms": 2000,
+                        "requests": 3,
+                        "tool_calls": 4,
+                        "input_tokens": 50,
+                        "output_tokens": 10,
+                    },
+                },
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    resources = resources_from_trace(trace)
+
+    assert resources.model_dump() == {
+        "elapsed_seconds": 2.0,
+        "input_tokens": 50,
+        "output_tokens": 10,
+        "model_requests": 3,
+        "tool_calls": 4,
+        "monetary_cost": None,
+        "gpu_seconds": None,
+        "energy_kwh": None,
+    }
 
 
 def test_cli_validates_scores_and_compares_examples(monkeypatch, tmp_path):

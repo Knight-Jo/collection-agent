@@ -19,6 +19,11 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+if __package__:
+    from .analyze_trajectory import summarize as summarize_trajectory
+else:
+    from analyze_trajectory import summarize as summarize_trajectory
+
 SCHEMA_VERSION = "1.0"
 
 
@@ -110,6 +115,24 @@ class ResourceUsage(StrictModel):
     monetary_cost: float | None = Field(default=None, ge=0)
     gpu_seconds: float | None = Field(default=None, ge=0)
     energy_kwh: float | None = Field(default=None, ge=0)
+
+
+def resources_from_trace(path: Path) -> ResourceUsage:
+    """Project reproducible resource fields from a structured trajectory."""
+    events: list[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(event, dict) and "event_type" in event:
+            events.append(event)
+    resources = summarize_trajectory(events)["resources"]
+    if resources["elapsed_seconds"] is None:
+        raise ValueError("trajectory does not contain elapsed time")
+    return ResourceUsage.model_validate(resources)
 
 
 class EvaluationInput(StrictModel):
@@ -504,8 +527,17 @@ def main() -> int:
     compare.add_argument("--output", type=Path, required=True)
     compare.add_argument("--markdown", type=Path)
 
+    resources = subparsers.add_parser("resources")
+    resources.add_argument("--trace", type=Path, required=True)
+    resources.add_argument("--output", type=Path, required=True)
+
     args = parser.parse_args()
     try:
+        if args.command == "resources":
+            projected = resources_from_trace(args.trace)
+            _write_json(args.output, projected.model_dump(mode="json"))
+            print(f"resources written: {args.output}")
+            return 0
         policy = load_policy(args.policy)
         if args.command == "validate":
             benchmark = load_benchmark(args.benchmark)

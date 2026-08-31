@@ -7,7 +7,12 @@ from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
-from pydantic_ai.messages import FunctionToolCallEvent, ToolCallPart
+from pydantic_ai.messages import (
+    FunctionToolCallEvent,
+    FunctionToolResultEvent,
+    ToolCallPart,
+    ToolReturnPart,
+)
 
 from intel_agent import runner as runner_module
 from intel_agent import trajectory
@@ -25,7 +30,7 @@ from intel_agent.task import (
     parse_time_range,
     save_task,
 )
-from intel_agent.trajectory import JsonlTrajectoryRecorder
+from intel_agent.trajectory import JsonlTrajectoryRecorder, emit, make_event
 
 
 def make_spec() -> TaskRunSpec:
@@ -79,6 +84,155 @@ def test_translate_stream_event_emits_decision_and_action(tmp_path):
     assert lines[0]["payload"]["reason_source"] == "derived"
     assert lines[1]["payload"]["action_id"] is not None
     assert lines[1]["payload"]["tool"] == "web_search"
+
+
+def test_translate_stream_event_links_bounded_observation(tmp_path):
+    recorder = JsonlTrajectoryRecorder(tmp_path / "trace.jsonl")
+    trajectory.bind_run("run-1")
+    trajectory.set_recorder(recorder)
+    actions: dict[str, runner_module.ActionTrace] = {}
+    call = FunctionToolCallEvent(
+        part=ToolCallPart(
+            tool_name="web_search",
+            tool_call_id="call-1",
+            args={
+                "query": "低空经济",
+                "question_id": "question-1",
+                "investigation_item_id": "item-1",
+            },
+        )
+    )
+    result = FunctionToolResultEvent(
+        ToolReturnPart(
+            tool_name="web_search",
+            tool_call_id="call-1",
+            content={"count": 2, "results": ["a" * 2000, "b" * 2000]},
+        )
+    )
+
+    runner_module._translate_stream_event(call, tmp_path, actions)
+    runner_module._translate_stream_event(result, tmp_path, actions)
+    recorder.close()
+
+    decision, action, observation = [
+        json.loads(line)
+        for line in (tmp_path / "trace.jsonl").read_text().splitlines()
+    ]
+    assert action["parent_event_id"] == decision["event_id"]
+    assert observation["parent_event_id"] == action["event_id"]
+    assert action["question_id"] == "question-1"
+    assert action["investigation_item_id"] == "item-1"
+    assert observation["payload"]["status"] == "succeeded"
+    assert observation["payload"]["duration_ms"] >= 0
+    assert observation["payload"]["result"]["count"] == 2
+    assert observation["payload"]["result"]["item_count"] == 2
+    assert "results" not in observation["payload"]["result"]
+    assert len(json.dumps(observation, ensure_ascii=False)) < 2000
+
+
+def test_close_pending_actions_records_interrupted_observation(tmp_path):
+    recorder = JsonlTrajectoryRecorder(tmp_path / "trace.jsonl")
+    binding = trajectory.bind_context("run-1", recorder, task_id="task-1")
+    actions: dict[str, runner_module.ActionTrace] = {}
+    call = FunctionToolCallEvent(
+        part=ToolCallPart(
+            tool_name="web_search",
+            tool_call_id="call-1",
+            args={
+                "query": "低空经济",
+                "question_id": "question-1",
+                "investigation_item_id": "item-1",
+            },
+        )
+    )
+
+    runner_module._translate_stream_event(call, tmp_path, actions)
+    runner_module._close_pending_actions(actions)
+    trajectory.restore_context(binding)
+    recorder.close()
+
+    records = [
+        json.loads(line)
+        for line in (tmp_path / "trace.jsonl").read_text().splitlines()
+    ]
+    action, observation = records[-2:]
+    assert actions == {}
+    assert observation["parent_event_id"] == action["event_id"]
+    assert observation["question_id"] == "question-1"
+    assert observation["investigation_item_id"] == "item-1"
+    assert observation["payload"]["action_id"] == "call-1"
+    assert observation["payload"]["status"] == "interrupted"
+
+
+@pytest.mark.asyncio
+async def test_run_agent_task_records_failed_terminal_and_restores_context(
+    monkeypatch, cwd, tmp_path
+):
+    outer = JsonlTrajectoryRecorder(tmp_path / "outer.jsonl")
+    failed_path = tmp_path / "failed.jsonl"
+    seed = JsonlTrajectoryRecorder(failed_path)
+    seed_binding = trajectory.bind_context("failed-run", seed)
+    emit(make_event("run_started", "system", {}, layer="evaluation"))
+    trajectory.restore_context(seed_binding)
+    seed.close()
+    failed = JsonlTrajectoryRecorder(failed_path)
+    trajectory.bind_run("outer-run")
+    trajectory.set_recorder(outer)
+
+    class FakeEvents:
+        result = None
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            raise RuntimeError("provider secret should not leak")
+
+    class FakeAgent:
+        def run_stream_events(self, _prompt, **_kwargs):
+            return FakeEvents()
+
+    monkeypatch.setattr(
+        "intel_agent.runner.build_agent", lambda _settings: FakeAgent()
+    )
+    monkeypatch.setattr(
+        "intel_agent.runner.build_deps",
+        lambda *_args, **_kwargs: SimpleNamespace(crawl_event_callback=None),
+    )
+
+    with pytest.raises(RuntimeError, match="provider secret"):
+        await run_agent_task(
+            cwd,
+            Settings(),
+            make_spec(),
+            recorder=failed,
+            run_id="failed-run",
+        )
+    emit(make_event("action", "model", {}, layer="technical"))
+    failed.close()
+    outer.close()
+
+    records = [
+        json.loads(line)
+        for line in (tmp_path / "failed.jsonl").read_text().splitlines()
+    ]
+    assert [record["event_type"] for record in records] == [
+        "run_started",
+        "run_finished",
+    ]
+    terminal = records[-1]["payload"]
+    assert terminal["status"] == "failed"
+    assert terminal["error_code"] == "RuntimeError"
+    assert "secret" not in json.dumps(terminal)
+    assert json.loads((tmp_path / "outer.jsonl").read_text())["run_id"] == (
+        "outer-run"
+    )
 
 
 def test_create_task_copies_explicit_scope_time_range_to_every_question(cwd):

@@ -17,7 +17,7 @@ from .logging import configure_logging
 from .models import ResearchScope, SufficiencyCriteria
 from .runner import TaskRunSpec, run_agent_task
 from .task import load_task
-from .trajectory import JsonlTrajectoryRecorder, configure_logfire
+from .trajectory import JsonlTrajectoryRecorder
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -108,7 +108,6 @@ async def _run_trace(args, settings, spec):
 async def _run(args: argparse.Namespace) -> int:
     settings = load_config(args.config)
     configure_logging(Path(args.cwd), settings, args.log_level)
-    configure_logfire()
     if not settings.model_api_key():
         print(
             f"错误: 缺少模型 API key，请设置环境变量 {settings.model.api_key_env}",

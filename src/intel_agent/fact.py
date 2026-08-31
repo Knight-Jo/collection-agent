@@ -195,6 +195,8 @@ def save_fact(
         fact.id,
         {},
         {"status": "active", "claim_type": claim_type, "statement": statement},
+        question_id=question_id,
+        investigation_item_id=investigation_item_id,
     )
     if run_id is not None:
         from .state_store import StateStore

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
 import re
 import time
@@ -16,6 +18,7 @@ from pydantic_ai import (
     CancellationToken,
     ModelMessage,
 )
+from pydantic_ai.exceptions import RunCancelled
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
     FunctionToolResultEvent,
@@ -58,6 +61,19 @@ logger = get_logger(__name__)
 _SENSITIVE_KEY_RE = re.compile(
     r"key|token|authorization|cookie|secret|password", re.IGNORECASE
 )
+ActionTrace = tuple[str | None, float, str | None, str | None]
+_RESULT_SCALAR_KEYS = {
+    "accepted_count",
+    "candidate_count",
+    "code",
+    "count",
+    "document_id",
+    "engineUsed",
+    "evidence_id",
+    "fact_id",
+    "ok",
+    "status",
+}
 
 
 def _redact(value) -> object:
@@ -85,16 +101,76 @@ def _redact(value) -> object:
     return value
 
 
-def _translate_stream_event(event: object, cwd: Path) -> None:
+def _as_dict(value: object) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except (json.JSONDecodeError, ValueError):
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
+def _result_summary(value: object) -> dict[str, object]:
+    redacted = _redact(value)
+    if isinstance(redacted, str):
+        try:
+            parsed = json.loads(redacted)
+        except (json.JSONDecodeError, ValueError):
+            parsed = redacted
+    else:
+        parsed = redacted
+    encoded = json.dumps(parsed, ensure_ascii=False, default=str).encode()
+    summary: dict[str, object] = {
+        "result_type": type(parsed).__name__,
+        "content_sha256": hashlib.sha256(encoded).hexdigest(),
+        "byte_count": len(encoded),
+    }
+    if isinstance(parsed, dict):
+        summary.update(
+            {
+                key: item
+                for key, item in parsed.items()
+                if key in _RESULT_SCALAR_KEYS
+                and isinstance(item, (str, int, float, bool, type(None)))
+            }
+        )
+        for key in ("results", "items", "documents", "facts", "evidence"):
+            items = parsed.get(key)
+            if isinstance(items, list):
+                summary["item_count"] = len(items)
+                break
+    elif isinstance(parsed, list):
+        summary["item_count"] = len(parsed)
+    return summary
+
+
+def _translate_stream_event(
+    event: object,
+    cwd: Path,
+    actions: dict[str, ActionTrace] | None = None,
+) -> None:
     """Translate a native Pydantic AI stream event into trajectory events.
 
     A model tool call becomes a ``decision`` (reason_source=derived, since the
     model's true reason is unknown) plus the ``action``; the tool result
     becomes the ``observation`` linked by ``action_id``.
     """
+    actions = actions if actions is not None else {}
     if isinstance(event, FunctionToolCallEvent):
         tool = event.part.tool_name
         args = _redact(event.part.args)
+        identifiers = _as_dict(event.part.args)
+        question_id = identifiers.get("question_id")
+        investigation_item_id = identifiers.get("investigation_item_id")
+        question_id = question_id if isinstance(question_id, str) else None
+        investigation_item_id = (
+            investigation_item_id
+            if isinstance(investigation_item_id, str)
+            else None
+        )
         state = snapshot_state(cwd)
         reason_codes = derive_reason_codes(tool, state)
         decision_id = emit(
@@ -110,9 +186,11 @@ def _translate_stream_event(event: object, cwd: Path) -> None:
                     state_snapshot=state,
                 ),
                 layer="business",
+                question_id=question_id,
+                investigation_item_id=investigation_item_id,
             )
         )
-        emit(
+        action_event_id = emit(
             make_event(
                 "action",
                 "model",
@@ -124,20 +202,89 @@ def _translate_stream_event(event: object, cwd: Path) -> None:
                 ),
                 layer="technical",
                 parent_event_id=decision_id,
+                question_id=question_id,
+                investigation_item_id=investigation_item_id,
             )
         )
+        actions[event.tool_call_id] = (
+            action_event_id,
+            time.monotonic(),
+            question_id,
+            investigation_item_id,
+        )
     elif isinstance(event, FunctionToolResultEvent):
+        action_event_id, started, question_id, investigation_item_id = (
+            actions.pop(
+                event.tool_call_id, (None, time.monotonic(), None, None)
+            )
+        )
+        outcome = getattr(event.part, "outcome", "failed")
+        if outcome == "success":
+            status = "succeeded"
+        elif outcome == "denied":
+            status = "denied"
+        elif outcome == "interrupted":
+            status = "interrupted"
+        else:
+            status = "failed"
+        content = event.content
+        if content is None:
+            content = getattr(event.part, "content", None)
         emit(
             make_event(
                 "observation",
                 "tool",
                 ObservationPayload(
                     action_id=event.tool_call_id,
-                    result={"tool": event.part.tool_name},
+                    status=status,
+                    duration_ms=max(
+                        0, int((time.monotonic() - started) * 1000)
+                    ),
+                    result={
+                        "tool": getattr(event.part, "tool_name", ""),
+                        **_result_summary(content),
+                    },
+                    error=(
+                        None
+                        if status == "succeeded"
+                        else "tool execution did not succeed"
+                    ),
                 ),
                 layer="technical",
+                parent_event_id=action_event_id,
+                question_id=question_id,
+                investigation_item_id=investigation_item_id,
             )
         )
+
+
+def _close_pending_actions(actions: dict[str, ActionTrace]) -> None:
+    """Close tool calls whose result never arrived before the run ended."""
+    for action_id, (
+        action_event_id,
+        started,
+        question_id,
+        investigation_item_id,
+    ) in actions.items():
+        emit(
+            make_event(
+                "observation",
+                "system",
+                ObservationPayload(
+                    action_id=action_id,
+                    status="interrupted",
+                    duration_ms=max(
+                        0, int((time.monotonic() - started) * 1000)
+                    ),
+                    error="tool result unavailable because the run ended",
+                ),
+                layer="technical",
+                parent_event_id=action_event_id,
+                question_id=question_id,
+                investigation_item_id=investigation_item_id,
+            )
+        )
+    actions.clear()
 
 
 class TaskRunSpec(BaseModel):
@@ -308,6 +455,11 @@ async def run_agent_task(
     """Run one task, forwarding native Pydantic AI events and, optionally,
     recording a structured run trajectory (run/step lifecycle, model calls) and
     the full model conversation (per-turn message history) for debugging."""
+    trace_started = time.monotonic()
+    trace_binding: trajectory.ContextBinding | None = None
+    terminal_status = "succeeded"
+    terminal_error_code: str | None = None
+    terminal_error_summary: str | None = None
     resolved_spec = spec.model_copy(
         update={
             "deep_crawl": (
@@ -361,22 +513,26 @@ async def run_agent_task(
     message_history: list[ModelMessage] | None = None
 
     if recorder is not None:
-        trajectory.bind_run(run_id or f"run-{uuid.uuid4()}")
-        trajectory.set_recorder(recorder)
-        trajectory.emit(
-            make_event(
-                "run_started",
-                "system",
-                RunStartedPayload(
-                    topic=spec.topic,
-                    objective=spec.objective,
-                    questions=spec.questions,
-                    criteria=spec.criteria.model_dump(mode="json"),
-                    report_depth=spec.report_depth,
-                ),
-                layer="evaluation",
-            )
+        trace_binding = trajectory.bind_context(
+            run_id or f"run-{uuid.uuid4()}",
+            recorder,
+            task_id=bound_task_id,
         )
+        if not recorder.has_run_started:
+            trajectory.emit(
+                make_event(
+                    "run_started",
+                    "system",
+                    RunStartedPayload(
+                        topic=spec.topic,
+                        objective=spec.objective,
+                        questions=spec.questions,
+                        criteria=spec.criteria.model_dump(mode="json"),
+                        report_depth=spec.report_depth,
+                    ),
+                    layer="evaluation",
+                )
+            )
     logger.info(
         "run started topic=%s questions=%d",
         spec.topic,
@@ -391,6 +547,7 @@ async def run_agent_task(
     call_input_before = 0
     call_output_before = 0
     call_tool_calls_before = 0
+    action_traces: dict[str, ActionTrace] = {}
 
     def close_call(finish_reason: str) -> None:
         nonlocal call_open
@@ -463,7 +620,7 @@ async def run_agent_task(
                         close_call(current_finish_reason())
                         open_call()
                     if recorder is not None:
-                        _translate_stream_event(event, cwd)
+                        _translate_stream_event(event, cwd, action_traces)
                     if on_event is not None:
                         await on_event(event)
                 result = events.result
@@ -487,11 +644,22 @@ async def run_agent_task(
                 "任务尚未完成。不要解释、总结或承诺下一步；"
                 "立即依据最新 CONTEXT_SNAPSHOT 的 next_action 调用一个工具继续。"
             )
-    except Exception:
+    except (RunCancelled, asyncio.CancelledError) as error:
+        terminal_status = "cancelled"
+        terminal_error_code = type(error).__name__
+        terminal_error_summary = "run cancelled"
+        logger.info("run cancelled")
+        raise
+    except Exception as error:
+        terminal_status = "failed"
+        terminal_error_code = type(error).__name__
+        terminal_error_summary = "run aborted; inspect run.log"
         logger.exception("run aborted")
         raise
     finally:
         close_call("aborted")
+        if recorder is not None:
+            _close_pending_actions(action_traces)
         logger.info(
             "run finished stage=%s requests=%d tool_calls=%d tokens=%d",
             final_stage or "none",
@@ -516,31 +684,42 @@ async def run_agent_task(
                     json.dumps(tool_specs, ensure_ascii=False, indent=2),
                     encoding="utf-8",
                 )
-        if recorder is not None:
-            coverage: dict = {}
-            try:
-                task = load_task(cwd)
-                snapshot = latest_coverage(cwd, task.id)
-                if snapshot is not None:
-                    coverage = {
-                        "gap_score": snapshot.gap_score,
-                        "level": snapshot.level,
-                    }
-            except IntelError:
-                pass
-            trajectory.emit(
-                make_event(
-                    "run_finished",
-                    "system",
-                    RunFinishedPayload(
-                        stage=final_stage,
-                        requests=usage.requests,
-                        tool_calls=usage.tool_calls,
-                        input_tokens=usage.input_tokens,
-                        output_tokens=usage.output_tokens,
-                        total_tokens=usage.total_tokens,
-                        final_coverage=coverage,
-                    ),
-                    layer="evaluation",
+        try:
+            if recorder is not None and not recorder.has_run_finished:
+                coverage: dict = {}
+                try:
+                    task = load_task(cwd)
+                    snapshot = latest_coverage(cwd, task.id)
+                    if snapshot is not None:
+                        coverage = {
+                            "gap_score": snapshot.gap_score,
+                            "level": snapshot.level,
+                        }
+                except IntelError:
+                    pass
+                trajectory.emit(
+                    make_event(
+                        "run_finished",
+                        "system",
+                        RunFinishedPayload(
+                            status=terminal_status,
+                            stage=final_stage,
+                            requests=usage.requests,
+                            tool_calls=usage.tool_calls,
+                            input_tokens=usage.input_tokens,
+                            output_tokens=usage.output_tokens,
+                            total_tokens=usage.total_tokens,
+                            elapsed_ms=max(
+                                0,
+                                int((time.monotonic() - trace_started) * 1000),
+                            ),
+                            error_code=terminal_error_code,
+                            error_summary=terminal_error_summary,
+                            final_coverage=coverage,
+                        ),
+                        layer="evaluation",
+                    )
                 )
-            )
+        finally:
+            if trace_binding is not None:
+                trajectory.restore_context(trace_binding)

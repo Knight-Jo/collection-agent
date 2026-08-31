@@ -14,6 +14,11 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+if __package__:
+    from .analyze_trajectory import summarize as summarize_trajectory
+else:
+    from analyze_trajectory import summarize as summarize_trajectory
+
 
 def _normalize_event(event: dict) -> dict | None:
     """Map a new-format trajectory event to the legacy tool_call shape.
@@ -37,10 +42,10 @@ def _normalize_event(event: dict) -> dict | None:
 def _load_trace(run_dir: Path) -> dict:
     path = run_dir / "trace.jsonl"
     if not path.exists():
-        return {"events": [], "messages": []}
+        return {"events": [], "messages": [], "trajectory_events": []}
     text = path.read_text(encoding="utf-8").strip()
     if not text:
-        return {"events": [], "messages": []}
+        return {"events": [], "messages": [], "trajectory_events": []}
     try:
         document = json.loads(text)
     except json.JSONDecodeError:
@@ -62,7 +67,13 @@ def _load_trace(run_dir: Path) -> dict:
         for event in (_normalize_event(e) for e in events)
         if event is not None
     ]
-    return {"events": normalized, "messages": []}
+    return {
+        "events": normalized,
+        "messages": [],
+        "trajectory_events": [
+            event for event in events if "event_type" in event
+        ],
+    }
 
 
 def _load_task(run_dir: Path):
@@ -135,6 +146,31 @@ def analyze(run_dir: Path) -> str:
             f"- 耗时: {m.get('elapsed_seconds')}s  exit={m.get('exit_code')}"
         )
         lines.append(f"- git: {m.get('git_head')}")
+        lines.append("")
+
+    trajectory_events = trace.get("trajectory_events", [])
+    if trajectory_events:
+        trajectory_summary = summarize_trajectory(trajectory_events)
+        integrity = trajectory_summary["integrity"]
+        technical = trajectory_summary["technical"]
+        result = trajectory_summary["result"]
+        business = trajectory_summary["business"]
+        lines.extend(
+            [
+                "## 结构化轨迹摘要",
+                "",
+                f"- 完整性: {'PASS' if integrity['valid'] else 'FAIL'}",
+                f"- 终态: {result['status']} / stage={result['stage']}",
+                f"- 模型请求: {technical['model_requests']}",
+                f"- 工具调用/结果: {technical['tool_calls']} / "
+                f"{technical['tool_results']}",
+                f"- 已归属动作: {business['attributed_actions']}；"
+                f"未归属: {business['unattributed_actions']}",
+                f"- coverage gap 变化: {business['coverage_gap_delta']}",
+            ]
+        )
+        for problem in integrity["problems"]:
+            lines.append(f"  - 完整性问题: {problem}")
         lines.append("")
 
     # 工具调用序列

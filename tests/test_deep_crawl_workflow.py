@@ -11,6 +11,7 @@ import pytest
 from pydantic_ai import RunContext
 
 import intel_agent.agent as agent_module
+from intel_agent import trajectory
 from intel_agent.agent import AgentDeps, build_agent
 from intel_agent.audit import audit_task_evidence
 from intel_agent.config import (
@@ -31,6 +32,7 @@ from intel_agent.models import IntelError, IntelTask
 from intel_agent.runner import TaskRunSpec, build_task_prompt, run_agent_task
 from intel_agent.storage import load_crawl, read_json_object, write_json_atomic
 from intel_agent.task import create_task, load_task, save_task, set_task_stage
+from intel_agent.trajectory import JsonlTrajectoryRecorder
 from tests.conftest import DEFAULT_CRITERIA, fake_judge, make_document
 
 
@@ -302,6 +304,10 @@ async def test_web_search_executes_query_matrix_slots(monkeypatch, cwd):
         deep_crawl=True,
     )
     calls: list[str] = []
+    trace_path = cwd / "trace.jsonl"
+    recorder = JsonlTrajectoryRecorder(trace_path)
+    trajectory.bind_run("run-1")
+    trajectory.set_recorder(recorder)
 
     async def fake_search(query, _max, *, client, searxng_url, opts):
         calls.append(query)
@@ -320,6 +326,7 @@ async def test_web_search_executes_query_matrix_slots(monkeypatch, cwd):
     await _tool(build_agent(Settings()), "web_search")(
         _context(cwd), "具体 查询", 5, "general", "zh-CN", None
     )
+    recorder.close()
 
     # First call is the model's own query; the next two are deterministic
     # matrix slots executed in the same tool call (run 014).
@@ -342,6 +349,26 @@ async def test_web_search_executes_query_matrix_slots(monkeypatch, cwd):
     assert record["results"][0]["url"].startswith("https://example.com/")
     assert record["results"][0]["rank"] == 1
     assert record["results"][0]["new_domain"] is True
+    events = [json.loads(line) for line in trace_path.read_text().splitlines()]
+    matrix_actions = [
+        event
+        for event in events
+        if event["event_type"] == "action"
+        and event["payload"].get("action_type") == "search_matrix_slot"
+    ]
+    matrix_observations = [
+        event
+        for event in events
+        if event["event_type"] == "observation"
+        and str(event["payload"].get("action_id", "")).startswith(
+            "search_matrix:"
+        )
+    ]
+    assert len(matrix_actions) == len(matrix_observations) == 2
+    assert {event["payload"]["action_id"] for event in matrix_actions} == {
+        event["payload"]["action_id"] for event in matrix_observations
+    }
+    assert all(event["question_id"] for event in matrix_actions)
 
 
 @pytest.mark.asyncio

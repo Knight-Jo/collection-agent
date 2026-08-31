@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from types import SimpleNamespace
 
 from pydantic_ai import CancellationToken
+from pydantic_ai.messages import (
+    FunctionToolCallEvent,
+    FunctionToolResultEvent,
+    ToolCallPart,
+    ToolReturnPart,
+)
 from pydantic_ai.models.test import TestModel
 
 import intel_agent.continuation as continuation_module
@@ -17,6 +24,7 @@ from intel_agent.materials import register_material
 from intel_agent.models import ResearchBrief
 from intel_agent.state_store import StateStore
 from intel_agent.task import load_task
+from intel_agent.trajectory import make_event
 from tests.conftest import make_document, new_task, save_evidence
 
 
@@ -51,6 +59,122 @@ async def test_initial_run_uses_bound_task_and_commits_assets(
     assert store.get_run(run.id).status == "succeeded"
     assert store.committed_state_version(task.id) == 1
     assert store.committed_asset_ids(task.id, "document")
+
+
+async def test_initial_run_creates_and_closes_default_trajectory(
+    monkeypatch, cwd
+):
+    task = new_task(cwd)
+    store = StateStore(cwd)
+    store.register_task(task.id)
+    run = store.create_run(task.id, "initial", 0, {})
+
+    async def fake_agent_task(_cwd, _settings, _spec, **kwargs):
+        recorder = kwargs["recorder"]
+        assert recorder is not None
+        recorder.record(
+            make_event("run_started", "system", {}, layer="evaluation")
+        )
+        recorder.record(
+            make_event(
+                "run_finished",
+                "system",
+                {"status": "succeeded"},
+                layer="evaluation",
+            )
+        )
+        return SimpleNamespace(output="done")
+
+    monkeypatch.setattr(continuation_module, "run_agent_task", fake_agent_task)
+    runner = ContinuationRunner(cwd, store=store)
+
+    await runner.run_initial(
+        run,
+        ResearchBrief(topic=task.topic, key_questions=["问题"]),
+    )
+
+    trace = cwd / "data" / "runs" / run.id / "trace.jsonl"
+    assert trace.exists()
+    assert [
+        json.loads(line)["sequence"] for line in trace.read_text().splitlines()
+    ] == [1, 2]
+
+
+async def test_continuation_run_records_native_events(monkeypatch, cwd):
+    task = new_task(cwd)
+    store = StateStore(cwd)
+    store.register_task(task.id)
+    trigger = store.add_user_message(task.id, "继续搜索", "client-trace")
+    action = store.create_action(
+        task.id, trigger.id, "continue_research", {"topic": "供应链"}
+    )
+
+    class FakeEvents:
+        def __init__(self):
+            self.result = SimpleNamespace(output="done")
+            self.events = iter(
+                [
+                    FunctionToolCallEvent(
+                        part=ToolCallPart(
+                            tool_name="web_search",
+                            tool_call_id="call-1",
+                            args={"query": "供应链"},
+                        )
+                    ),
+                    FunctionToolResultEvent(
+                        ToolReturnPart(
+                            tool_name="web_search",
+                            tool_call_id="call-1",
+                            content={"count": 1, "results": ["result"]},
+                        )
+                    ),
+                ]
+            )
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            try:
+                return next(self.events)
+            except StopIteration as error:
+                raise StopAsyncIteration from error
+
+    class FakeAgent:
+        def run_stream_events(self, _prompt, **_kwargs):
+            return FakeEvents()
+
+    monkeypatch.setattr(
+        continuation_module,
+        "build_agent",
+        lambda *_args, **_kwargs: FakeAgent(),
+    )
+    runner = ContinuationRunner(cwd, store=store)
+
+    result = await runner.run(action)
+
+    assert result.status == "succeeded"
+    run = store.list_runs(task.id)[0]
+    records = [
+        json.loads(line)
+        for line in (cwd / "data" / "runs" / run.id / "trace.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    assert [record["event_type"] for record in records] == [
+        "run_started",
+        "decision",
+        "action",
+        "observation",
+        "run_finished",
+    ]
+    assert records[-1]["payload"]["status"] == "succeeded"
 
 
 def test_build_agent_filters_continuation_tools(monkeypatch, cwd):

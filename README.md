@@ -241,6 +241,7 @@ UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest
 ## 架构说明
 
 - [记忆与上下文管理技术报告](docs/architecture/intelligence-agent-memory-management.md)：持久状态、增量摘要、检索、历史压缩、局限与面试讲述
+- [可观测性技术报告](docs/architecture/intelligence-agent-observability.md)：L1 技术轨迹、L2 业务决策、L3 结果评测、可靠性与扩展方法
 - **模型**：支持 DeepSeek 和 llama-server 等 OpenAI 兼容 API；远程密钥从环境变量读取，本机服务可免密
 - **信任模型**：网页内容是不可信数据，搜索摘要不是证据；只有归档 + 精确引文 + 语义审核通过的才算证据
 - **审计隔离**：`evidence_audit` 使用独立 Agent 与独立 prompt，杜绝主上下文污染

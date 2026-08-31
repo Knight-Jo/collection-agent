@@ -30,6 +30,7 @@ from .storage import (
     write_json_atomic,
 )
 from .task import load_task, parse_time_range, require_crawl_complete
+from .trajectory import emit_state_updated
 
 HIGH_QUALITY: set[SourceType] = {"official", "government", "news", "academic"}
 
@@ -449,6 +450,8 @@ def eval_coverage(
         level=level,
         per_question=per_question,
     )
+    before_summary = _coverage_trace_summary(previous) if previous else {}
+    after_summary = _coverage_trace_summary(snapshot)
     write_json_atomic(
         cwd,
         f"coverage/{task.id}.json",
@@ -456,6 +459,7 @@ def eval_coverage(
             task_id=task.id, snapshots=[*history.snapshots, snapshot]
         ).model_dump(),
     )
+    emit_state_updated("coverage", task.id, before_summary, after_summary)
     if run_id is not None:
         from .state_store import StateStore
 
@@ -473,3 +477,19 @@ def eval_coverage(
             revision_id=coverage_hash,
         )
     return snapshot
+
+
+def _coverage_trace_summary(snapshot: CoverageSnapshot) -> dict[str, object]:
+    """Return bounded coverage values suitable for a trajectory event."""
+    return {
+        "gap_score": snapshot.gap_score,
+        "level": snapshot.level,
+        "covered_questions": sum(
+            1
+            for question in snapshot.per_question
+            if question.status == "covered"
+        ),
+        "question_count": len(snapshot.per_question),
+        "no_progress_rounds": snapshot.no_progress_rounds,
+        "stop_reason": snapshot.stop_reason,
+    }

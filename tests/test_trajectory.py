@@ -6,6 +6,8 @@ import json
 import threading
 
 from intel_agent import trajectory
+from intel_agent.coverage import eval_coverage
+from intel_agent.fact import save_fact
 from intel_agent.models import SufficiencyCriteria
 from intel_agent.reason_rules import derive_reason_codes, reason_summary
 from intel_agent.task import create_task, record_search_attempt
@@ -89,6 +91,40 @@ def test_sequence_monotonic(tmp_path):
         emit(make_event("action", "model", {}, layer="technical"))
     recorder.close()
     assert [r["sequence"] for r in _records(out)] == [1, 2, 3, 4, 5]
+
+
+def test_sequence_continues_when_trace_is_reopened(tmp_path):
+    out = tmp_path / "trace.jsonl"
+    first = JsonlTrajectoryRecorder(out)
+    trajectory.bind_run("run-1")
+    first.record(make_event("action", "model", {}, layer="technical"))
+    first.close()
+
+    second = JsonlTrajectoryRecorder(out)
+    second.record(make_event("action", "model", {}, layer="technical"))
+    second.close()
+
+    assert [record["sequence"] for record in _records(out)] == [1, 2]
+
+
+def test_bound_context_restores_previous_run_and_recorder(tmp_path):
+    outer_path = tmp_path / "outer.jsonl"
+    inner_path = tmp_path / "inner.jsonl"
+    outer = JsonlTrajectoryRecorder(outer_path)
+    inner = JsonlTrajectoryRecorder(inner_path)
+    trajectory.bind_run("outer-run")
+    trajectory.set_recorder(outer)
+
+    tokens = trajectory.bind_context("inner-run", inner, task_id="inner-task")
+    emit(make_event("action", "model", {}, layer="technical"))
+    trajectory.restore_context(tokens)
+    emit(make_event("action", "model", {}, layer="technical"))
+    inner.close()
+    outer.close()
+
+    assert _records(inner_path)[0]["run_id"] == "inner-run"
+    assert _records(inner_path)[0]["task_id"] == "inner-task"
+    assert _records(outer_path)[0]["run_id"] == "outer-run"
 
 
 def test_recorder_record_is_thread_safe(tmp_path):
@@ -178,3 +214,58 @@ def test_state_coemit_from_record_search_attempt(cwd):
     assert payload["state_scope"] == "task"
     assert payload["state_id"] == task.id
     assert payload["after"]["search_attempts"] == before + 1
+
+
+def test_coverage_update_records_bounded_gap_delta(cwd):
+    recorder = JsonlTrajectoryRecorder(cwd / "trace.jsonl")
+    trajectory.bind_run("run-1")
+    trajectory.set_recorder(recorder)
+    task = create_task(
+        cwd, "主题", ["问题一", "问题二"], SufficiencyCriteria()
+    )
+
+    eval_coverage(cwd, task.id)
+    recorder.close()
+
+    event = next(
+        record
+        for record in _records(cwd / "trace.jsonl")
+        if record["event_type"] == "state_updated"
+        and record["payload"]["state_scope"] == "coverage"
+    )
+    assert event["payload"]["before"] == {}
+    assert event["payload"]["after"]["gap_score"] == 2
+    assert event["payload"]["after"]["covered_questions"] == 0
+    assert "per_question" not in event["payload"]["after"]
+
+
+def test_fact_update_is_attributed_to_question_and_investigation_item(cwd):
+    recorder = JsonlTrajectoryRecorder(cwd / "trace.jsonl")
+    trajectory.bind_run("run-1")
+    trajectory.set_recorder(recorder)
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题一", "问题二"],
+        SufficiencyCriteria(),
+        investigation_items={"问题一": ["调研项一"]},
+    )
+    question = task.questions[0]
+    item = question.investigation_items[0]
+
+    save_fact(
+        cwd,
+        task.id,
+        question.id,
+        "可验证事实",
+        investigation_item_id=item.id,
+    )
+    recorder.close()
+
+    event = next(
+        record
+        for record in _records(cwd / "trace.jsonl")
+        if record["payload"].get("state_scope") == "fact"
+    )
+    assert event["question_id"] == question.id
+    assert event["investigation_item_id"] == item.id

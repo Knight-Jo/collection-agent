@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -11,10 +12,11 @@ from typing import cast
 
 from pydantic_ai import CancellationToken
 from pydantic_ai.exceptions import RunCancelled
-from pydantic_ai.usage import UsageLimits
+from pydantic_ai.usage import RunUsage, UsageLimits
 
 from .agent import build_agent, build_deps
 from .config import Settings
+from .coverage import latest_coverage
 from .models import (
     ActionRequest,
     AssetRevisionRef,
@@ -24,10 +26,26 @@ from .models import (
     ResearchBrief,
     ResearchRun,
 )
-from .runner import TaskRunSpec, run_agent_task
+from .runner import (
+    ActionTrace,
+    TaskRunSpec,
+    _close_pending_actions,
+    _translate_stream_event,
+    run_agent_task,
+)
 from .state_store import StateStore
 from .task import activate_task, load_task, save_task
-from .trajectory import TrajectoryRecorder
+from .trajectory import (
+    JsonlTrajectoryRecorder,
+    ModelCallPayload,
+    RunFinishedPayload,
+    RunStartedPayload,
+    TrajectoryRecorder,
+    bind_context,
+    emit,
+    make_event,
+    restore_context,
+)
 from .web.views import get_task_view
 
 ALLOWED_CONTINUATION_TOOLS = {
@@ -53,6 +71,143 @@ CONTINUATION_PROMPT = """\
 事实、证据、审核、冲突与覆盖评估。不得创建新任务，不得生成或修改报告，不得更改
 任务主题和关键问题。完成这一轮明确范围后立即停止，并简述新增材料与仍存缺口。
 """
+
+
+async def _run_continuation_agent(
+    agent,
+    prompt: str,
+    *,
+    deps,
+    limits: UsageLimits,
+    usage: RunUsage,
+    cancellation_token: CancellationToken,
+    cwd: Path,
+    model_name: str,
+):
+    """Run one continuation while translating native stream events."""
+    if not hasattr(agent, "run_stream_events"):
+        return await agent.run(
+            prompt,
+            deps=deps,
+            usage_limits=limits,
+            cancellation_token=cancellation_token,
+        )
+
+    actions: dict[str, ActionTrace] = {}
+    requests_seen = 0
+    request_started = time.monotonic()
+    input_before = 0
+    output_before = 0
+
+    def close_model_call(finish_reason: str) -> None:
+        if requests_seen == 0:
+            return
+        emit(
+            make_event(
+                "model_call",
+                "model",
+                ModelCallPayload(
+                    request_index=requests_seen,
+                    model=model_name,
+                    input_tokens=usage.input_tokens - input_before,
+                    output_tokens=usage.output_tokens - output_before,
+                    finish_reason=finish_reason,
+                    latency_ms=max(
+                        0, int((time.monotonic() - request_started) * 1000)
+                    ),
+                ),
+                layer="technical",
+            )
+        )
+
+    finish_reason = "aborted"
+    try:
+        async with agent.run_stream_events(
+            prompt,
+            deps=deps,
+            usage_limits=limits,
+            usage=usage,
+            cancellation_token=cancellation_token,
+        ) as events:
+            async for event in events:
+                if usage.requests > requests_seen:
+                    if requests_seen:
+                        close_model_call("tool_call")
+                    requests_seen = usage.requests
+                    request_started = time.monotonic()
+                    input_before = usage.input_tokens
+                    output_before = usage.output_tokens
+                _translate_stream_event(event, cwd, actions)
+            result = events.result
+        if result is None:
+            raise RuntimeError("Continuation run completed without a result")
+        finish_reason = "stop"
+        return result
+    finally:
+        close_model_call(finish_reason)
+        _close_pending_actions(actions)
+
+
+def _ensure_research_run_trace(
+    recorder: TrajectoryRecorder,
+    run: ResearchRun,
+    *,
+    cwd: Path,
+) -> None:
+    """Add lifecycle events when execution ended before the agent started."""
+    if recorder.has_run_started and recorder.has_run_finished:
+        return
+    task = load_task(cwd, run.task_id)
+    binding = bind_context(run.id, recorder, task_id=run.task_id)
+    try:
+        if not recorder.has_run_started:
+            emit(
+                make_event(
+                    "run_started",
+                    "system",
+                    RunStartedPayload(
+                        topic=task.topic,
+                        objective=task.objective,
+                        questions=[
+                            question.text for question in task.questions
+                        ],
+                        criteria=task.criteria.model_dump(mode="json"),
+                        report_depth=task.report_depth,
+                    ),
+                    layer="evaluation",
+                )
+            )
+        if not recorder.has_run_finished:
+            status = (
+                "succeeded"
+                if run.status == "succeeded"
+                else "cancelled"
+                if run.status in {"cancelled", "stopped", "stopping"}
+                else "failed"
+            )
+            emit(
+                make_event(
+                    "run_finished",
+                    "system",
+                    RunFinishedPayload(
+                        status=status,
+                        stage=task.stage,
+                        error_code=(
+                            "ResearchRunFailed" if status == "failed" else None
+                        ),
+                        error_summary=(
+                            "run aborted; inspect run.log"
+                            if status == "failed"
+                            else "run cancelled"
+                            if status == "cancelled"
+                            else None
+                        ),
+                    ),
+                    layer="evaluation",
+                )
+            )
+    finally:
+        restore_context(binding)
 
 
 class ResearchGate:
@@ -109,16 +264,28 @@ class ContinuationRunner:
         recorder: TrajectoryRecorder | None = None,
     ) -> ResearchRun:
         """Execute the queued initial run created by intake."""
+        active_recorder = recorder or JsonlTrajectoryRecorder(
+            self.cwd / "data" / "runs" / run.id / "trace.jsonl"
+        )
         token = cancellation_token or CancellationToken()
         if token.cancelled:
             current = self.store.get_run(run.id)
-            return (
+            result = (
                 self.store.cancel_run(run.id)
                 if current.status == "queued"
                 else current
             )
-        await self.gate.acquire(run.id)
+            try:
+                _ensure_research_run_trace(
+                    active_recorder, result, cwd=self.cwd
+                )
+            finally:
+                active_recorder.close()
+            return result
+        acquired = False
         try:
+            await self.gate.acquire(run.id)
+            acquired = True
             if token.cancelled:
                 current = self.store.get_run(run.id)
                 return (
@@ -163,7 +330,7 @@ class ContinuationRunner:
                 bound_task_id=task.id,
                 run_id=run.id,
                 on_event=on_event,
-                recorder=recorder,
+                recorder=active_recorder,
             )
             if token.cancelled:
                 raise asyncio.CancelledError
@@ -191,12 +358,23 @@ class ContinuationRunner:
                 )
             return current
         finally:
-            self.gate.release(run.id)
+            try:
+                _ensure_research_run_trace(
+                    active_recorder,
+                    self.store.get_run(run.id),
+                    cwd=self.cwd,
+                )
+            finally:
+                active_recorder.close()
+                if acquired:
+                    self.gate.release(run.id)
 
     async def run(
         self,
         action: ActionRequest,
         cancellation_token: CancellationToken | None = None,
+        *,
+        recorder: TrajectoryRecorder | None = None,
     ) -> ActionRequest:
         """Execute one queued continuation and return its terminal action."""
         token = cancellation_token or CancellationToken()
@@ -204,11 +382,45 @@ class ContinuationRunner:
         await self.gate.acquire(owner)
         run: ResearchRun | None = None
         saved_collection: CollectionState | None = None
+        active_recorder: TrajectoryRecorder | None = None
+        trace_binding = None
+        trace_started = time.monotonic()
+        terminal_status = "failed"
+        terminal_error_code: str | None = None
+        terminal_error_summary: str | None = None
+        usage = RunUsage()
         try:
             claimed_action, run = self.store.claim_action_run(action.id)
             if run is None:
                 return claimed_action
+            active_recorder = recorder or JsonlTrajectoryRecorder(
+                self.cwd / "data" / "runs" / run.id / "trace.jsonl"
+            )
+            trace_binding = bind_context(
+                run.id, active_recorder, task_id=run.task_id
+            )
+            task = activate_task(self.cwd, action.task_id)
+            if not active_recorder.has_run_started:
+                emit(
+                    make_event(
+                        "run_started",
+                        "system",
+                        RunStartedPayload(
+                            topic=task.topic,
+                            objective=task.objective,
+                            questions=[
+                                question.text for question in task.questions
+                            ],
+                            criteria=task.criteria.model_dump(mode="json"),
+                            report_depth=task.report_depth,
+                        ),
+                        layer="evaluation",
+                    )
+                )
             if token.cancelled:
+                terminal_status = "cancelled"
+                terminal_error_code = "RunCancelled"
+                terminal_error_summary = "run cancelled"
                 self.store.transition_run(run.id, "cancelled")
                 return self.store.transition_action(action.id, "cancelled")
             self.store.claim_run(
@@ -228,7 +440,6 @@ class ContinuationRunner:
                 trigger_message_id=action.trigger_message_id,
                 action_request_id=action.id,
             )
-            task = activate_task(self.cwd, action.task_id)
             saved_collection = task.collection
             save_task(
                 self.cwd,
@@ -262,13 +473,17 @@ class ContinuationRunner:
                 "继续当前任务，严格限定在以下用户请求范围：\n"
                 + json.dumps(action.immutable_payload, ensure_ascii=False)
             )
-            await agent.run(
+            await _run_continuation_agent(
+                agent,
                 prompt,
                 deps=deps,
-                usage_limits=UsageLimits(
+                limits=UsageLimits(
                     request_limit=self.settings.budgets.request_limit
                 ),
+                usage=usage,
                 cancellation_token=token,
+                cwd=self.cwd,
+                model_name=self.settings.model.name,
             )
             if token.cancelled:
                 raise asyncio.CancelledError
@@ -281,8 +496,12 @@ class ContinuationRunner:
                 staged_manifest=manifest,
                 outcome="committed" if manifest else "no_progress",
             )
+            terminal_status = "succeeded"
             return self.store.get_action(action.id)
         except (RunCancelled, asyncio.CancelledError):
+            terminal_status = "cancelled"
+            terminal_error_code = "RunCancelled"
+            terminal_error_summary = "run cancelled"
             if run is None:
                 return self.store.get_action(action.id)
             current_run = self.store.get_run(run.id)
@@ -296,6 +515,9 @@ class ContinuationRunner:
                 return self.store.transition_action(action.id, "cancelled")
             return current_action
         except Exception as error:
+            terminal_status = "failed"
+            terminal_error_code = type(error).__name__
+            terminal_error_summary = "run aborted; inspect run.log"
             if run is None:
                 current_action = self.store.get_action(action.id)
                 if current_action.status == "executing":
@@ -313,16 +535,68 @@ class ContinuationRunner:
                 )
             return current_action
         finally:
-            if saved_collection is not None and run is not None:
-                latest = load_task(self.cwd, action.task_id)
-                restored = saved_collection.model_copy(
-                    update={"evidence_count": latest.collection.evidence_count}
-                )
-                save_task(
-                    self.cwd,
-                    latest.model_copy(update={"collection": restored}),
-                )
-            self.gate.release(owner)
+            try:
+                if saved_collection is not None and run is not None:
+                    latest = load_task(self.cwd, action.task_id)
+                    restored = saved_collection.model_copy(
+                        update={
+                            "evidence_count": latest.collection.evidence_count
+                        }
+                    )
+                    save_task(
+                        self.cwd,
+                        latest.model_copy(update={"collection": restored}),
+                    )
+                if (
+                    active_recorder is not None
+                    and run is not None
+                    and not active_recorder.has_run_finished
+                ):
+                    latest_task = load_task(self.cwd, run.task_id)
+                    coverage = latest_coverage(self.cwd, run.task_id)
+                    emit(
+                        make_event(
+                            "run_finished",
+                            "system",
+                            RunFinishedPayload(
+                                status=terminal_status,
+                                stage=latest_task.stage,
+                                requests=usage.requests,
+                                tool_calls=usage.tool_calls,
+                                input_tokens=usage.input_tokens,
+                                output_tokens=usage.output_tokens,
+                                total_tokens=usage.total_tokens,
+                                elapsed_ms=max(
+                                    0,
+                                    int(
+                                        (time.monotonic() - trace_started)
+                                        * 1000
+                                    ),
+                                ),
+                                error_code=terminal_error_code,
+                                error_summary=terminal_error_summary,
+                                final_coverage=(
+                                    {
+                                        "gap_score": coverage.gap_score,
+                                        "level": coverage.level,
+                                    }
+                                    if coverage is not None
+                                    else {}
+                                ),
+                            ),
+                            layer="evaluation",
+                        )
+                    )
+            finally:
+                try:
+                    if trace_binding is not None:
+                        restore_context(trace_binding)
+                finally:
+                    try:
+                        if active_recorder is not None:
+                            active_recorder.close()
+                    finally:
+                        self.gate.release(owner)
 
 
 def _asset_snapshot(

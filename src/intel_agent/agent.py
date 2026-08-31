@@ -15,6 +15,7 @@ import html
 import inspect
 import json
 import re
+import time
 from collections.abc import Callable
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field, replace
@@ -648,7 +649,7 @@ async def _run_query_matrix(
                             phase, ("SEARCH_RESULT_NOT_MATERIALIZED",)
                         )
                     )
-                    emit(
+                    decision_id = emit(
                         make_event(
                             "decision",
                             "deterministic",
@@ -667,8 +668,32 @@ async def _run_query_matrix(
                             ),
                             layer="business",
                             question_id=question.id,
+                            investigation_item_id=item_id,
                         )
                     )
+                    action_id = f"search_matrix:{key}"
+                    action_event_id = emit(
+                        make_event(
+                            "action",
+                            "deterministic",
+                            ActionPayload(
+                                action_id=action_id,
+                                tool="web_search",
+                                action_type="search_matrix_slot",
+                                args={
+                                    "query": matrix_query,
+                                    "slot": slot,
+                                    "phase": phase,
+                                },
+                            ),
+                            layer="technical",
+                            parent_event_id=decision_id,
+                            question_id=question.id,
+                            investigation_item_id=item_id,
+                        )
+                    )
+                    search_started = time.monotonic()
+                    search_status = "succeeded"
                     try:
                         matrix_result = await web_search(
                             matrix_query,
@@ -678,6 +703,7 @@ async def _run_query_matrix(
                             opts={"category": "general", "language": "zh-CN"},
                         )
                     except Exception:
+                        search_status = "failed"
                         matrix_result = {"results": [], "engineUsed": "error"}
                     for item in matrix_result.get("results", []):
                         host = (
@@ -691,6 +717,41 @@ async def _run_query_matrix(
                         item["already_archived"] = (
                             str(item.get("url", "")).rstrip("/") in archived
                         )
+                    emit(
+                        make_event(
+                            "observation",
+                            "deterministic",
+                            ObservationPayload(
+                                action_id=action_id,
+                                status=search_status,
+                                duration_ms=max(
+                                    0,
+                                    int(
+                                        (time.monotonic() - search_started)
+                                        * 1000
+                                    ),
+                                ),
+                                result={
+                                    "tool": "web_search",
+                                    "candidate_count": len(
+                                        matrix_result.get("results", [])
+                                    ),
+                                    "engine": matrix_result.get(
+                                        "engineUsed", ""
+                                    ),
+                                },
+                                error=(
+                                    None
+                                    if search_status == "succeeded"
+                                    else "search provider failed"
+                                ),
+                            ),
+                            layer="technical",
+                            parent_event_id=action_event_id,
+                            question_id=question.id,
+                            investigation_item_id=item_id,
+                        )
+                    )
                     state["executed"][key] = True
                     state["phase_used"][phase] = (
                         state["phase_used"].get(phase, 0) + 1
@@ -1055,7 +1116,7 @@ async def _gap_driven_vertical_search(
                 layer="business",
             )
         )
-        emit(
+        action_event_id = emit(
             make_event(
                 "action",
                 "deterministic",
@@ -1095,6 +1156,7 @@ async def _gap_driven_vertical_search(
                     },
                 ),
                 layer="technical",
+                parent_event_id=action_event_id,
             )
         )
         results = result.get("results", []) if result else []

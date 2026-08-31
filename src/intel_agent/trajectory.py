@@ -3,7 +3,7 @@
 A single source of truth for observability. The agent and its tools emit
 ``TrajectoryEvent`` objects through :func:`emit`; a :class:`TrajectoryRecorder`
 stamps each with the shared envelope (run/task/step/question identity, a
-monotonic ``sequence``, OTel span linkage) and persists it. Layers are
+monotonic ``sequence``) and persists it. Layers are
 projections over the same stream, never separate stores:
 
 - layer "technical": model calls, actions, observations
@@ -56,9 +56,15 @@ _step_id_var: contextvars.ContextVar[int | None] = contextvars.ContextVar(
 _question_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "traj_question_id", default=None
 )
+_investigation_item_id_var: contextvars.ContextVar[str | None] = (
+    contextvars.ContextVar("traj_investigation_item_id", default=None)
+)
 _recorder_var: contextvars.ContextVar[Any] = contextvars.ContextVar(
     "traj_recorder", default=None
 )
+type ContextBinding = tuple[
+    tuple[contextvars.ContextVar[Any], contextvars.Token[Any]], ...
+]
 
 _SENSITIVE_QUERY_KEYS = {
     "api_key",
@@ -129,6 +135,7 @@ def reset() -> None:
     _task_id_var.set(None)
     _step_id_var.set(None)
     _question_id_var.set(None)
+    _investigation_item_id_var.set(None)
     _recorder_var.set(None)
     with _state_versions_lock:
         _state_versions.clear()
@@ -140,6 +147,36 @@ def set_recorder(recorder: TrajectoryRecorder | None) -> None:
 
 def current_recorder() -> TrajectoryRecorder | None:
     return _recorder_var.get()
+
+
+def bind_context(
+    run_id: str,
+    recorder: TrajectoryRecorder,
+    *,
+    task_id: str | None = None,
+) -> ContextBinding:
+    """Bind one run and return tokens that restore the previous context."""
+    recorder.current_step_id = None
+    recorder.current_question_id = None
+    recorder.current_investigation_item_id = None
+
+    def bind(variable: contextvars.ContextVar[Any], value: Any):
+        return variable, variable.set(value)
+
+    return (
+        bind(_run_id_var, run_id),
+        bind(_task_id_var, task_id),
+        bind(_step_id_var, None),
+        bind(_question_id_var, None),
+        bind(_investigation_item_id_var, None),
+        bind(_recorder_var, recorder),
+    )
+
+
+def restore_context(binding: ContextBinding) -> None:
+    """Restore a context returned by :func:`bind_context`."""
+    for variable, token in reversed(binding):
+        variable.reset(token)
 
 
 def _utc_now() -> str:
@@ -184,6 +221,10 @@ class ActionPayload(BaseModel):
 
 class ObservationPayload(BaseModel):
     action_id: str
+    status: Literal["succeeded", "failed", "denied", "interrupted"] = (
+        "succeeded"
+    )
+    duration_ms: int | None = Field(default=None, ge=0)
     result: dict = Field(default_factory=dict)
     error: str | None = None
 
@@ -200,12 +241,16 @@ class StateUpdatedPayload(BaseModel):
 
 
 class RunFinishedPayload(BaseModel):
+    status: Literal["succeeded", "failed", "cancelled"] = "succeeded"
     stage: str = ""
     requests: int = 0
     tool_calls: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
     total_tokens: int = 0
+    elapsed_ms: int = Field(default=0, ge=0)
+    error_code: str | None = None
+    error_summary: str | None = None
     final_coverage: dict = Field(default_factory=dict)
 
 
@@ -220,6 +265,7 @@ class TrajectoryEvent(BaseModel):
     payload: dict = Field(default_factory=dict)
     parent_event_id: str | None = None
     question_id: str | None = None
+    investigation_item_id: str | None = None
     step_id: int | None = None
 
 
@@ -231,6 +277,7 @@ def make_event(
     layer: Layer = "business",
     parent_event_id: str | None = None,
     question_id: str | None = None,
+    investigation_item_id: str | None = None,
     step_id: int | None = None,
 ) -> TrajectoryEvent:
     data = (
@@ -245,6 +292,7 @@ def make_event(
         payload=_redact_payload(data),
         parent_event_id=parent_event_id,
         question_id=question_id,
+        investigation_item_id=investigation_item_id,
         step_id=step_id,
     )
 
@@ -287,47 +335,28 @@ def _diff(before: dict, after: dict) -> dict:
     }
 
 
-# --- OTel linkage (lazy; fails closed when opentelemetry is absent) ---
-
-
-def _otel_span():
-    try:
-        from opentelemetry import trace
-    except Exception:
-        return None
-    span = trace.get_current_span()
-    if span is None or not span.is_recording():
-        return None
-    return span
-
-
-def _otel_ids() -> tuple[str | None, str | None]:
-    span = _otel_span()
-    if span is None:
-        return None, None
-    ctx = span.get_span_context()
-    if not ctx.is_valid:
-        return None, None
-    return format(ctx.trace_id, "032x"), format(ctx.span_id, "016x")
-
-
-def _inject_attributes(event_id: str, step_id: int | None) -> None:
-    """Attach business identity to the existing OTel span (never nest spans)."""
-    span = _otel_span()
-    if span is None:
-        return
-    for name, value in (
-        ("business.run_id", _run_id_var.get()),
-        ("business.task_id", _task_id_var.get()),
-        ("business.step_id", step_id),
-        ("business.question_id", _question_id_var.get()),
-        ("business.event_id", event_id),
-    ):
-        if value is not None:
-            span.set_attribute(name, value)
-
-
 # --- recorders ---
+
+
+def _existing_trace_state(path: Path) -> tuple[int, set[str]]:
+    if not path.exists():
+        return 0, set()
+    sequence = 0
+    event_types: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(value, dict):
+            continue
+        candidate = value.get("sequence")
+        if isinstance(candidate, int):
+            sequence = max(sequence, candidate)
+        event_type = value.get("event_type")
+        if isinstance(event_type, str):
+            event_types.add(event_type)
+    return sequence, event_types
 
 
 class TrajectoryRecorder:
@@ -335,6 +364,10 @@ class TrajectoryRecorder:
 
     def __init__(self) -> None:
         self.current_step_id: int | None = None
+        self.current_question_id: str | None = None
+        self.current_investigation_item_id: str | None = None
+        self.has_run_started = False
+        self.has_run_finished = False
 
     def record(self, event: TrajectoryEvent) -> str:
         raise NotImplementedError
@@ -353,15 +386,23 @@ class JsonlTrajectoryRecorder(TrajectoryRecorder):
 
     def __init__(self, path: str | Path):
         super().__init__()
-        self._stream = Path(path).open("a", encoding="utf-8")  # noqa: SIM115
-        self._sequence = 0
+        trace_path = Path(path)
+        trace_path.parent.mkdir(parents=True, exist_ok=True)
+        self._sequence, event_types = _existing_trace_state(trace_path)
+        self.has_run_started = "run_started" in event_types
+        self.has_run_finished = "run_finished" in event_types
+        self._stream = trace_path.open("a", encoding="utf-8")  # noqa: SIM115
+        if trace_path.stat().st_size:
+            with trace_path.open("rb") as existing:
+                existing.seek(-1, 2)
+                if existing.read(1) != b"\n":
+                    self._stream.write("\n")
         self._lock = threading.Lock()
 
     def record(self, event: TrajectoryEvent) -> str:
         with self._lock:
             self._sequence += 1
             event_id = f"evt-{uuid.uuid4().hex}"
-            otel_trace_id, otel_span_id = _otel_ids()
             step_id = (
                 event.step_id
                 if event.step_id is not None
@@ -381,18 +422,23 @@ class JsonlTrajectoryRecorder(TrajectoryRecorder):
                 "question_id": (
                     event.question_id
                     if event.question_id is not None
-                    else _question_id_var.get()
+                    else self.current_question_id or _question_id_var.get()
+                ),
+                "investigation_item_id": (
+                    event.investigation_item_id
+                    if event.investigation_item_id is not None
+                    else self.current_investigation_item_id
+                    or _investigation_item_id_var.get()
                 ),
                 "step_id": step_id,
-                "otel_trace_id": otel_trace_id,
-                "otel_span_id": otel_span_id,
                 "payload": event.payload,
             }
-            _inject_attributes(event_id, step_id)
             self._stream.write(
                 json.dumps(envelope, ensure_ascii=False, default=str) + "\n"
             )
             self._stream.flush()
+            self.has_run_started |= event.event_type == "run_started"
+            self.has_run_finished |= event.event_type == "run_finished"
             self._on_record(envelope)
             return event_id
 
@@ -410,7 +456,13 @@ def emit(event: TrajectoryEvent) -> str | None:
 
 
 def emit_state_updated(
-    scope: str, state_id: str | None, before: dict, after: dict
+    scope: str,
+    state_id: str | None,
+    before: dict,
+    after: dict,
+    *,
+    question_id: str | None = None,
+    investigation_item_id: str | None = None,
 ) -> str | None:
     recorder = current_recorder()
     if recorder is None:
@@ -427,23 +479,12 @@ def emit_state_updated(
         hash_after=canonical_hash(after) if after else None,
     )
     return recorder.record(
-        make_event("state_updated", "system", payload, layer="business")
+        make_event(
+            "state_updated",
+            "system",
+            payload,
+            layer="business",
+            question_id=question_id,
+            investigation_item_id=investigation_item_id,
+        )
     )
-
-
-def configure_logfire() -> bool:
-    """Enable OTel span capture; local-only when no write token is present."""
-    try:
-        import logfire
-    except Exception:
-        return False
-    try:
-        logfire.configure(send_to_logfire=False)
-    except TypeError:
-        try:
-            logfire.configure()
-        except Exception:
-            return False
-    except Exception:
-        return False
-    return True
