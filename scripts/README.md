@@ -31,11 +31,26 @@ uv run python scripts/run_experiment.py \
 
 `--max-turns` 默认 200。`--dry N` 将工具调用上限设为 N，适合先验证模型、搜索和工具链；正式实验不要使用 `--dry`。
 
+## Web 运行归档
+
+Web 工作台（Conversation-first）的运行轨迹与状态保留在 `data/runs/<run-id>/trace.jsonl` 和 `data/intel/intel.db`。要复盘某次 Web 调研，先物化成实验归档：
+
+```bash
+uv run python scripts/web_run_to_experiment.py --latest --name web-review
+uv run python scripts/web_run_to_experiment.py --run-id <run-id> --name web-review
+```
+
+物化后的 `experiments/runs/<NNN>-<name>/` 与 CLI 实验同构，可直接用
+`analyze_run.py` / `analyze_trajectory.py` / `analyze_conversation.py` 分析。
+快照为 task 级（state/ 含该 task 全部已提交资产）；run 级精确增量需
+`research_checkpoints`，首版不做。
+
 ## 脚本用途
 
 | 脚本 | 用途 |
 |---|---|
 | `run_experiment.py` | 执行一次隔离的 CLI 调研，保存 manifest、轨迹、会话、状态和报告 |
+| `web_run_to_experiment.py` | 把 Web 端 ResearchRun（`data/runs/<run-id>/`）物化为 `experiments/runs/<NNN>-<name>/` 标准归档，复用 analyze_run/analyze_trajectory 分析 |
 | `analyze_run.py` | 综合分析新版本 SQLite 状态或旧版本 JSON 状态 |
 | `analyze_trajectory.py` | 校验轨迹、生成 L1/L2/L3 摘要，或按 action 重建决策因果链 |
 | `analyze_conversation.py` | 查看完整模型会话，可输出终端文本或 HTML |
