@@ -40,8 +40,9 @@ uv run python scripts/web_run_to_experiment.py --latest --name web-review
 uv run python scripts/web_run_to_experiment.py --run-id <run-id> --name web-review
 ```
 
-物化后的 `experiments/runs/<NNN>-<name>/` 与 CLI 实验同构，可直接用
-`analyze_run.py` / `analyze_trajectory.py` / `analyze_conversation.py` 分析。
+物化产物默认放到 `/tmp/intel-web-runs/<NNN>-<name>/`（可用 `--out-dir` 覆盖），
+结构与 CLI 实验同构，可直接用 `analyze_run.py` / `analyze_trajectory.py` /
+`analyze_conversation.py` 分析。
 快照为 task 级（state/ 含该 task 全部已提交资产）；run 级精确增量需
 `research_checkpoints`，首版不做。
 

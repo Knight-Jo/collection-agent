@@ -1,12 +1,13 @@
-"""物化 Web 调研运行为 experiments/runs 标准归档。
+"""物化 Web 调研运行为标准归档目录。
 
 用法:
   python scripts/web_run_to_experiment.py --run-id <uuid> --name <name>
   python scripts/web_run_to_experiment.py --latest --name <name>
+  python scripts/web_run_to_experiment.py --latest --name <name> --out-dir <dir>
 
 把 data/runs/<run-id>/ 的一次 Web 端 ResearchRun（初始或续研）连同其
-task 级资产快照归档为 experiments/runs/<NNN>-<name>/，使
-analyze_run.py / analyze_trajectory.py 与 CLI 实验共用同一套分析工具链。
+task 级资产快照归档为 <out-dir>/<NNN>-<name>/（默认 /tmp/intel-web-runs），
+使 analyze_run.py / analyze_trajectory.py 与 CLI 实验共用同一套分析工具链。
 
 快照为 task 级：state/ 含该 task 全部已提交资产（facts/evidence/
 coverage/documents/materials/reviews/crawls/search_matrix），与 CLI 实验
@@ -24,7 +25,7 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-RUNS_DIR = PROJECT_ROOT / "experiments" / "runs"
+RUNS_DIR = Path("/tmp/intel-web-runs")
 
 
 def _next_run_number(runs_dir: Path) -> int:
@@ -340,6 +341,11 @@ def main() -> int:
     parser.add_argument(
         "--cwd", default=".", help="工作目录（data/intel 相对此目录）"
     )
+    parser.add_argument(
+        "--out-dir",
+        default=str(RUNS_DIR),
+        help=f"输出根目录（默认 {RUNS_DIR}）",
+    )
     args = parser.parse_args()
     if bool(args.run_id) == bool(args.latest):
         print("错误: --run-id 与 --latest 必须且只能提供一个", file=sys.stderr)
@@ -347,7 +353,9 @@ def main() -> int:
     cwd = Path(args.cwd)
     try:
         run_id = args.run_id if args.run_id else _latest_run_id(cwd)
-        run_dir = materialize(cwd, run_id, args.name)
+        run_dir = materialize(
+            cwd, run_id, args.name, runs_dir=Path(args.out_dir)
+        )
     except (ValueError, FileNotFoundError, FileExistsError) as error:
         print(f"物化失败: {error}", file=sys.stderr)
         return 1
