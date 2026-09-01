@@ -42,6 +42,23 @@ def test_bind_intake_task_is_atomic_and_idempotent(cwd):
     assert len(store.list_conversations()) == 1
 
 
+def test_bind_intake_task_creates_run_workspace(cwd):
+    store = StateStore(cwd)
+    conversation = store.create_conversation("browser-c1")
+    message = store.add_user_message(
+        conversation.id, "调研先进封装", "browser-m1"
+    )
+
+    bound = store.bind_intake_task(conversation.id, message.id, _brief())
+    assert bound.task_id is not None
+    run = store.list_runs(bound.task_id)[0]
+
+    workspace = store.run_view(run.id)
+    assert workspace.run_id == run.id
+    assert workspace.task_id == bound.task_id
+    assert workspace.status == "open"
+
+
 def test_run_writes_stage_document_fact_and_evidence_revisions(cwd):
     task = new_task(cwd)
     store = StateStore(cwd)

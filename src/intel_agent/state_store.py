@@ -795,6 +795,12 @@ class StateStore:
                     now,
                 ),
             )
+            connection.execute(
+                "INSERT INTO run_workspaces("
+                "run_id, task_id, base_version, status"
+                ") VALUES (?, ?, 0, 'open')",
+                (run_id, task.id),
+            )
             _insert_event(
                 connection,
                 conversation_id,
