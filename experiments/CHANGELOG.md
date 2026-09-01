@@ -6,6 +6,75 @@
 
 ## [Unreleased]
 
+## [059-humanoid-recompare] - 2026-09-01
+
+### Changed
+
+- `src/intel_agent/logging.py`：修复被本地未提交改动损坏的 formatter format string（`%(asctime)s %[(levelname)]-8s ...` → `%(asctime)s [%(levelname)-8s] ...`）。原损坏串使每次日志 emit 抛 `TypeError: not enough arguments for format string`，run.log 被异常洪水淹没。
+- `config.qwen38-27b-awq.yaml`：`audit_output_tokens` 512→2048（首段 78 请求中 judge 反复 `Model token limit (512) exceeded`，thinking 推理耗尽预算）；`disable_thinking` false→true（2048 后仍出现 `Unterminated string` JSON 解析失败，思考文本污染 judge 输出；README 已建议 qwen thinking 机型关闭）。
+- `experiments/runs/059-humanoid-recompare/`：首段 CLI（78 请求）被外部超时终止后，直接以 `--cwd` 指向该目录续跑同一 intel.db 任务（`reused_existing_task` 机制），续跑段 40 请求到达 done。
+
+### Verification
+
+- `uv run python scripts/run_experiment.py --name humanoid-smoke ... --dry 5 --config config.qwen38-27b-awq.yaml`：PASS（intel_plan + 6×web_search + 2×web_fetch 全部 succeeded；`UsageLimitExceeded` 为 dry 模式预期收尾）
+- `uv run python scripts/analyze_run.py experiments/runs/059-humanoid-recompare --write`：PASS（生成 ANALYSIS.md）
+- `uv run python scripts/analyze_trajectory.py experiments/runs/059-humanoid-recompare/trace.jsonl --check`：PASS（854 事件，sequence 单调，无孤儿引用）
+
+### Experiment result
+
+- 状态：passed（以 with_gaps 诚实收尾）
+- 产物：`experiments/runs/059-humanoid-recompare/`
+- 代码版本：`bfd0ab7`（含工作区 logging.py 修复）
+- 真实运行：exit_code=0，stage=done，elapsed=9773s（两段合计），model_requests=118（78 首段 + 40 续跑），续跑段 40 req / 56 tool_calls / 1,564,454 tokens
+- 关键指标：终态 057 无 final_stage → done/with_gaps；证据 21（full 3/partial 16/contradicts 1/irrelevant 1）；事实 9（active 7，全单源）；gap_score=31 insufficient，0 covered fact；文档 9、证据利用率 77.8%
+- 假设结论：成立（可达终态）；但需两次修复（audit 预算 + thinking 关闭）才走通审核闭环，且模型与 057 不同（deepseek-chat → qwen 27B AWQ），非严格对等复跑
+
+### Known issues
+
+- 交叉验证仍未闭环：7 个 active fact 全部单来源组（srcs=1），模型未充分采纳 document_search（仅 2 次）；判定层门控缺失
+- 搜索预算 40 次在 verify 需求前耗尽；部分证据引用失败（QUOTE_NOT_FOUND ×2，行号越界 ×2）
+- 远程 vLLM 单请求延迟 10s–280s 波动；运行时间不可精确复现
+
+## [Unreleased]
+
+## [061-audit-loop-fixes] - 2026-09-01
+
+### Changed
+
+- `src/intel_agent/audit.py`：`audit_task_evidence` 批次隔离。原实现任一 judge batch 异常即整体 raise（059 实证：65 次连败零落盘）；现单 batch 失败仅记入 `failed_batches`（code/message/evidence_ids），其余批次正常落盘；全部失败才 raise，消息含失败代码；成功 summary 新增 `failed_batches` 字段。
+- `src/intel_agent/agent.py`：`evidence_audit_tool` 连续失败冷却护栏。AgentDeps 新增 `audit_failure_streak`/`audit_last_failure_at`；streak≥2 且 300s 窗口内返回 ok:true 的 skip（"本轮跳过审核，pending 保留"），成功运行复位；提示词规则 6 追加"审核连续失败时不要重试，先补证或推进覆盖评估"。
+- `src/intel_agent/agent.py`：`_document_search` 删除 `deep_crawl` 门禁（059 P0：非 deep 任务 2/2 必失败），语料源从 `load_crawl(...).entries` 改为任务 material digest（web_fetch 归档文档同样进入语料，正文缺失/校验失败容错跳过）；移除不再使用的 `load_crawl` 导入。
+- `tests/test_audit.py`：新增 `test_audit_isolates_failed_batch`（单 batch 失败不阻断其余批次）。
+- `tests/test_deep_crawl_workflow.py`：新增 `test_evidence_audit_skips_after_consecutive_failures`（2 连败后 skip、冷却后恢复并复位 streak）、`test_document_search_works_without_deep_crawl`（非 deep 任务可检索归档文档）；两个既有 document_search 测试补 register_material（digest 语料源）。
+
+### Verification
+
+- `pytest`：646 passed, 1 skipped（原 643 + 3 新增）PASS
+- `pyright`：0 errors PASS
+- `ruff format/check`：全绿 PASS
+
+### Experiment result
+
+- 状态：passed（P0 双修复假设成立）
+- 产物：`experiments/runs/061-audit-loop-fixes/`
+- 代码版本：`bfd0ab7` + 工作区本轮改动
+- 真实运行：exit_code=0，stage=done/with_gaps，elapsed=386.1s，model_requests=45，tool_calls=48，tokens=2,040,004
+- 关键指标：059→061：audit 75次/65连败→9次/8成功1瞬时失败（无连续簇）；document_search 2/2 失败→1/1 成功；已验证事实 0→1；gap 31→10；耗时 9773s→386s
+- 假设结论：成立（两条均成立，证据见 REPORT.md）
+
+### Known issues
+
+- 审核瞬时失败仍可能出现（060 中 1 次），batch 隔离保证零浪费、护栏保证不连败
+- 垂直检索整句查询、document_read 重复读取、evidence_save 重复引文等 059 P1/P2 未在本轮处理（ROADMAP 待办）
+
+### 060-audit-loop-fixes（planned 条目，061 完成，保留作计划记录）
+
+- 状态：planned（061 实际完成）
+- 唯一假设：059 暴露的两个 P0 修复后，同主题复跑不再出现连续 audit 重试螺旋，且模型可成功调用 document_search 补证。
+- 允许修改：`src/intel_agent/audit.py`、`src/intel_agent/agent.py`、`tests/test_audit.py`、`tests/test_deep_crawl_workflow.py`
+- 禁止修改：主题、questions、max_turns、min-sources、min-quality、recency、config.qwen38-27b-awq.yaml
+- 预期验收：pytest/pyright/ruff 全绿；完整运行 exit_code=0 且达 done 终态；trace 无 ≥8 连续 audit 簇；document_search 至少 1 次成功
+
 ### audit-decoupling-compare（011/012：审核解耦 + 主模型对比）
 
 - 状态：已跑 2 轮（011 qwen 主 + deepseek 审核、012 deepseek 主 + deepseek 审核，均 exit=0），详见 `runs/012-ds-main-ds-judge/REPORT.md`
