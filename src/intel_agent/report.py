@@ -482,7 +482,10 @@ def generate_research_report(
     for conclusion in draft.overall_conclusions:
         indexed.append((index, None, conclusion))
         index += 1
-    if not indexed and coverage.stop_reason != "no_progress":
+    if not indexed and coverage.stop_reason not in (
+        "no_progress",
+        "search_budget_exhausted",
+    ):
         errors.append(
             {
                 "index": -1,
@@ -595,7 +598,8 @@ def generate_research_report(
         or len(section_question_ids) != len(question_ids)
         or any(
             not section.conclusions
-            and coverage.stop_reason != "no_progress"
+            and coverage.stop_reason
+            not in ("no_progress", "search_budget_exhausted")
             and coverage_by_question[section.question_id].answer_status
             not in {"unanswered", "conflicted"}
             for section in draft.sections

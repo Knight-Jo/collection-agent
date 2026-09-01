@@ -1164,6 +1164,25 @@ def test_generate_research_report_blocks_repeated_drafts(monkeypatch, cwd):
 
     assert blocked["ok"] is False
     assert blocked["errors"][0]["code"] == "REPEATED"
+    assert "intel_status" in blocked["next_action"]
+
+
+def test_generate_research_report_rejects_markdown_draft(cwd):
+    # Run 062: the model passed Markdown report text as the draft and the
+    # silent verified-draft fallback let it loop 56 failed calls. Markdown
+    # drafts must fail loudly with format guidance.
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    tool = _tool(build_agent(Settings()), "generate_research_report")
+
+    result = tool(
+        _context(cwd),
+        task.id,
+        "# 人形机器人产业发展现状 — 调研报告\n- 任务 ID：task-x\n- 主要缺口：…",
+    )
+
+    assert result["ok"] is False
+    assert result["error"]["code"] == "INVALID_INPUT"
+    assert "JSON" in result["error"]["message"]
 
 
 def test_generate_research_report_accepts_json_encoded_draft(monkeypatch, cwd):

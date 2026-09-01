@@ -527,6 +527,17 @@ def _block_repetition(
     return None
 
 
+def _looks_like_markdown_draft(draft: str) -> bool:
+    """Heuristic: a draft that is Markdown report text, not structured JSON.
+
+    Run 062: the model passed "# 人形机器人产业发展现状 — 调研报告\n- 任务
+    ID：..." as the draft and the silent verified-draft fallback let it loop
+    56 times. Failing loudly beats an infinite silent retry.
+    """
+    head = draft.lstrip()[:200]
+    return head.startswith("#") or head.startswith("- ") or "## " in head
+
+
 def _suggest_sources(sources, questions) -> list[dict]:
     """Match question keywords against known authoritative source lists; hints may be fetched directly."""
     financial_kw = re.compile(
@@ -2364,7 +2375,10 @@ def build_agent(
         task_id: str,
         draft: str,
     ) -> dict:
-        """Generate the primary report from verified structured findings."""
+        """从已验证的结论生成正式报告。draft 必须是 ResearchReportInput 的原始 JSON 字符串（不是 Markdown 文本）：
+        {"sections": [{"question_id": "<qid>", "conclusions": [{"kind": "reported", "fact_id": "<fid>"}]}],
+         "overall_conclusions": []}。每节结论用 kind="reported" 引用已审核事实的 fact_id；kind="inference" 需 statement/confidence/fact_ids。
+        报告文本、章节标题、引文由系统按已验证事实生成，不要在 draft 里写 Markdown。"""
         # `draft` is a raw JSON string: pydantic-ai must not pre-validate it
         # (a truncated/malformed string would otherwise exhaust tool retries
         # and abort the run). Parse here with a deterministic fallback instead.
@@ -2380,6 +2394,22 @@ def build_agent(
             try:
                 parsed = ResearchReportInput.model_validate_json(cut)
             except ValidationError:
+                if _looks_like_markdown_draft(draft):
+                    # Run 062: the model passed Markdown report text instead
+                    # of the structured JSON, looping 56 times on the silent
+                    # verified-draft fallback. Fail loudly so it can correct.
+                    return {
+                        "ok": False,
+                        "error": {
+                            "code": "INVALID_INPUT",
+                            "message": (
+                                "draft 必须是 ResearchReportInput 的 JSON "
+                                '对象（{"sections": [{"question_id": ..., '
+                                '"conclusions": [...]}]}），不是 Markdown '
+                                "报告文本；格式示例见工具说明"
+                            ),
+                        },
+                    }
                 parsed = build_verified_report_draft(ctx.deps.cwd, task_id)
         draft_key = {
             "questions": sorted(
@@ -2402,6 +2432,12 @@ def build_agent(
             return {
                 "ok": False,
                 "errors": [{"code": "REPEATED", "message": block}],
+                "next_action": (
+                    "不要重复生成同一草稿。若任务覆盖已停止"
+                    "（stop_reason 非空），立即调用 "
+                    "intel_status(stage='done') 收尾；否则先补证"
+                    "或调整结论。"
+                ),
             }
 
         def generate_with_fallback():
