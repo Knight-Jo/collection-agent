@@ -254,3 +254,37 @@ async def test_audit_timeout_keeps_completed_reviews(cwd):
     fast_review = review_for_evidence(cwd, fast_evidence.id)
     assert fast_review is not None and fast_review.verdict == "full"
     assert review_for_evidence(cwd, slow_evidence.id) is None
+
+
+@pytest.mark.asyncio
+async def test_audit_isolates_failed_batch(cwd):
+    # Run 059 P0: one judge failure used to abort the whole audit call and
+    # discard verdicts from other batches. Failed batches must be reported
+    # while successful ones persist.
+    task = new_task(cwd)
+    question = task.questions[0]
+    good_doc = make_document(cwd, "关于测试主题的句子一")
+    good_fact = save_fact(cwd, task.id, question.id, "测试主题事实一")
+    good_evidence = save_evidence(
+        cwd, good_fact.id, good_doc.id, "supports", "关于测试主题的句子一"
+    )
+    bad_doc = make_document(cwd, "关于测试主题的句子二")
+    bad_fact = save_fact(cwd, task.id, question.id, "测试主题事实二")
+    bad_evidence = save_evidence(
+        cwd, bad_fact.id, bad_doc.id, "supports", "关于测试主题的句子二"
+    )
+
+    async def judge(fact_obj, evidence):
+        if fact_obj.id == bad_fact.id:
+            raise RuntimeError("judge 服务不可用")
+        return _full_verdicts(evidence)
+
+    summary = await audit_task_evidence(cwd, task.id, judge, "test", "fake")
+
+    assert summary["reviewed"] == 1
+    good_review = review_for_evidence(cwd, good_evidence.id)
+    assert good_review is not None and good_review.verdict == "full"
+    assert review_for_evidence(cwd, bad_evidence.id) is None
+    assert len(summary["failed_batches"]) == 1
+    assert summary["failed_batches"][0]["evidence_ids"] == [bad_evidence.id]
+    assert summary["failed_batches"][0]["code"] == "SEMANTIC_AUDIT_FAILED"

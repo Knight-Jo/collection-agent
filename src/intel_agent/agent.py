@@ -99,7 +99,6 @@ from .source import register_first_party_domains
 from .storage import (
     INTEL_ROOT,
     ensure_intel_dirs,
-    load_crawl,
     read_json,
     verify_document_integrity,
     workspace_path,
@@ -150,7 +149,7 @@ SYSTEM_PROMPT = """\
 3. 所有关系使用工具返回的 `task_id`、`question_id`、`fact_id`、`document_id`、`evidence_id`；不得用主题、问题文本或 URL 猜测关联。
 4. 引文必须逐字来自归档正文。不得改写引文、伪造来源或引用证据库外材料。
 5. 只在取得相关来源后登记单一、可独立核验的 Fact。按内容选择 `primary`、`corroborated` 或 `reported`；重大数字和争议性判断默认交叉验证。
-6. `supports` 只是候选关系。必须调用 `evidence_audit`；只有 verdict=`full` 的引文可以进入正式结论，不得重复审核挑选有利结果。
+6. `supports` 只是候选关系。必须调用 `evidence_audit`；只有 verdict=`full` 的引文可以进入正式结论，不得重复审核挑选有利结果。审核连续失败时不要重试，先补证或推进覆盖评估。
 7. 单源陈述在报告中必须注明 attribution；推断必须注明 rationale、confidence，并绑定已验证事实。
 8. 不确定或无法获取的信息必须明确说明；发布时间未知不能满足强制时效要求。
 9. 相互冲突的事实或数字分别记录，不得擅自合并；应补检索、消解或在报告中披露差异和口径。
@@ -250,6 +249,12 @@ class AgentDeps:
     judge_provider: str = ""
     judge_model: str = ""
     previous_call: dict | None = None
+    # Consecutive all-failed evidence_audit rounds (run 059): after two
+    # failures the tool skips judge calls within a cooldown window instead
+    # of feeding the model the same failure to retry. Reset on any
+    # successful audit run.
+    audit_failure_streak: int = 0
+    audit_last_failure_at: float = 0.0
     search_calls_with_candidates: int = 0
     pending_fetch_candidates: list[dict[str, str]] = field(
         default_factory=list
@@ -396,6 +401,12 @@ async def _guarded(action):
         return result
     except Exception as error:
         return _failure(error)
+
+
+# Cooldown after two consecutive all-failed audit rounds (run 059): judge
+# calls are skipped inside the window so a broken judge cannot become a
+# retry spiral, while a transient failure still recovers afterwards.
+_AUDIT_FAILURE_COOLDOWN_SECONDS = 300.0
 
 
 def _block_repetition(
@@ -860,8 +871,6 @@ def _read_document_lines(
 
 def _document_search(cwd: Path, task_id: str, query: str, limit: int) -> dict:
     task = load_task(cwd, task_id)
-    if not task.deep_crawl:
-        raise IntelError("INVALID_INPUT", "该任务未启用深度抓取")
     terms = [
         term.casefold()
         for term in re.findall(r"[\w\u4e00-\u9fff]+", query)
@@ -869,20 +878,33 @@ def _document_search(cwd: Path, task_id: str, query: str, limit: int) -> dict:
     ]
     if not terms or not 1 <= limit <= 20:
         raise IntelError("INVALID_INPUT", "query 或 limit 无效")
+    digest = load_material_digest(cwd, task.id)
+    if digest is None:
+        return {"query": query, "count": 0, "results": []}
     # Source groups already carrying evidence for this task: cross-
     # verification value means ranking NEW groups above them (run 015).
     cited_groups: set[str] = set()
     for evidence in list_evidence_for_task(cwd, task.id):
         cited_groups.add(load_document(cwd, evidence.document_id).source_group)
     results: list[dict] = []
-    for entry in load_crawl(cwd, task.id).entries:
-        if not entry.document_id or entry.extraction.status != "complete":
+    # Corpus is every integrity-checked document registered under the task,
+    # not just crawl frontier entries: web_fetch documents never enter the
+    # crawl queue, so a crawl-only corpus is empty for non-deep tasks and
+    # the previous deep_crawl gate failed the tool outright (run 059 P0).
+    for item in digest.materials:
+        if not item.document_id:
             continue
-        document = load_document(cwd, entry.document_id)
-        verify_document_integrity(cwd, document)
-        text = workspace_path(cwd, document.text_path).read_text(
-            encoding="utf-8"
-        )
+        document = load_document(cwd, item.document_id)
+        if document.extraction_status != "complete":
+            continue
+        try:
+            verify_document_integrity(cwd, document)
+            text = workspace_path(cwd, document.text_path).read_text(
+                encoding="utf-8"
+            )
+        except (IntelError, OSError):
+            # Missing or tampered extracted text cannot enter the corpus.
+            continue
         normalized = text.casefold()
         if not all(term in normalized for term in terms):
             continue
@@ -2113,6 +2135,23 @@ def build_agent(
 
         async def run() -> dict:
             bound_task_id = _resolve_bound_task_id(ctx.deps, task_id)
+            if (
+                ctx.deps.audit_failure_streak >= 2
+                and time.monotonic() - ctx.deps.audit_last_failure_at
+                < _AUDIT_FAILURE_COOLDOWN_SECONDS
+            ):
+                # Audit loop guard (run 059): a broken judge must not become
+                # a retry spiral. Return a success-shaped skip so the model
+                # moves on; pending evidence stays for a later attempt.
+                return {
+                    "ok": True,
+                    "reviewed": 0,
+                    "skipped": True,
+                    "reason": (
+                        "judge 连续失败，本轮跳过审核；pending 证据保留，"
+                        "请先补证或推进覆盖评估"
+                    ),
+                }
             summary = await audit_task_evidence(
                 ctx.deps.cwd,
                 bound_task_id,
@@ -2131,7 +2170,20 @@ def build_agent(
                 )
             return summary
 
-        return await _guarded(run)
+        result = await _guarded(run)
+        # Success summaries carry `reviewed` (no ok key); failures carry
+        # ok=False; the skip guard carries ok=True + skipped=True.
+        succeeded = result.get("ok", False) or "reviewed" in result
+        if succeeded:
+            if not result.get("skipped"):
+                ctx.deps.audit_failure_streak = 0
+                ctx.deps.audit_last_failure_at = 0.0
+        else:
+            code = (result.get("error") or {}).get("code")
+            if code in ("SEMANTIC_AUDIT_FAILED", "SEMANTIC_AUDIT_TIMEOUT"):
+                ctx.deps.audit_failure_streak += 1
+                ctx.deps.audit_last_failure_at = time.monotonic()
+        return result
 
     @agent.tool(name="evidence_conflict_create")
     def evidence_conflict_create_tool(

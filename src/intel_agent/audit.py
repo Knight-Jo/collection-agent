@@ -210,7 +210,7 @@ async def audit_task_evidence(
 
     async def judge_one(
         fact: Fact, evidence: list[EvidenceSupport]
-    ) -> tuple[str, list[SupportReview] | list[str]]:
+    ) -> tuple[str, object]:
         async with semaphore:
             try:
                 call = (
@@ -223,7 +223,35 @@ async def audit_task_evidence(
                 )
             except TimeoutError:
                 return ("timeout", [item.id for item in evidence])
-            validated = validate_batch(evidence, verdicts)
+            except BaseException as error:
+                # Batch isolation (run 059): one judge failure must not
+                # discard verdicts from other batches. Report the affected
+                # evidence ids so the tool can guide the model.
+                code = (
+                    error.code
+                    if isinstance(error, IntelError)
+                    else "SEMANTIC_AUDIT_FAILED"
+                )
+                message = str(error)
+                return (
+                    "failed",
+                    {
+                        "code": code,
+                        "message": message[:200],
+                        "evidence_ids": [item.id for item in evidence],
+                    },
+                )
+            try:
+                validated = validate_batch(evidence, verdicts)
+            except IntelError as error:
+                return (
+                    "failed",
+                    {
+                        "code": error.code,
+                        "message": str(error)[:200],
+                        "evidence_ids": [item.id for item in evidence],
+                    },
+                )
             reviews = [
                 SupportReview(
                     id=review_id(fact.id, verdict["evidence_id"]),
@@ -264,31 +292,47 @@ async def audit_task_evidence(
             return ("ok", reviews)
 
     results: list[SupportReview] = []
-    try:
-        judged = await asyncio.gather(
-            *(judge_one(fact, evidence) for fact, evidence in batches),
-            return_exceptions=True,
-        )
-        for outcome in judged:
-            if isinstance(outcome, BaseException):
-                if isinstance(outcome, IntelError):
-                    raise outcome
-                raise IntelError("SEMANTIC_AUDIT_FAILED", str(outcome))
-            status, payload = outcome
-            if status == "timeout":
-                timed_out.extend(cast(list[str], payload))
-            else:
-                results.extend(cast(list[SupportReview], payload))
-    except IntelError:
-        raise
-    except Exception as error:
-        raise IntelError("SEMANTIC_AUDIT_FAILED", str(error)) from error
+    failed_batches: list[dict] = []
+    judged = await asyncio.gather(
+        *(judge_one(fact, evidence) for fact, evidence in batches),
+        return_exceptions=True,
+    )
+    for outcome in judged:
+        if isinstance(outcome, BaseException):
+            # Defensive: judge_one reports its own failures as a status.
+            error = (
+                outcome
+                if isinstance(outcome, IntelError)
+                else IntelError("SEMANTIC_AUDIT_FAILED", str(outcome))
+            )
+            failed_batches.append(
+                {
+                    "code": error.code,
+                    "message": str(error)[:200],
+                    "evidence_ids": [],
+                }
+            )
+            continue
+        status, payload = outcome
+        if status == "timeout":
+            timed_out.extend(cast(list[str], payload))
+        elif status == "failed":
+            failed_batches.append(cast(dict, payload))
+        else:
+            results.extend(cast(list[SupportReview], payload))
 
     if timed_out:
         raise IntelError(
             "SEMANTIC_AUDIT_TIMEOUT",
             "语义审核超时，已完成 review 已保留；超时证据: "
             + ", ".join(timed_out[:5]),
+        )
+    if failed_batches and not results:
+        codes = ", ".join(sorted({item["code"] for item in failed_batches}))
+        raise IntelError(
+            "SEMANTIC_AUDIT_FAILED",
+            f"语义审核全部失败（{len(failed_batches)} 个批次，{codes}）；"
+            "无 review 落盘，pending 证据保留",
         )
 
     counts = {"full": 0, "partial": 0, "irrelevant": 0, "contradicts": 0}
@@ -302,6 +346,7 @@ async def audit_task_evidence(
         "judge_provider": judge_provider.strip(),
         "judge_model": judge_model.strip(),
         "prompt_version": SUPPORT_REVIEW_PROMPT_VERSION,
+        "failed_batches": failed_batches,
     }
 
 

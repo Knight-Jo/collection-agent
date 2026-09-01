@@ -841,6 +841,10 @@ def test_document_search_finds_crawled_multimedia_text(cwd):
     from intel_agent.storage import save_crawl
 
     save_crawl(cwd, crawl)
+    for document in (relevant, unrelated):
+        register_material(
+            cwd, task.id, document.final_url, document_id=document.id
+        )
     agent = build_agent(Settings())
 
     assert "document_search" in agent._function_toolset.tools
@@ -883,6 +887,10 @@ def test_document_search_ranks_novel_government_group_above_cited(cwd):
     from intel_agent.storage import save_crawl
 
     save_crawl(cwd, crawl)
+    for document in (cited_doc, novel_doc):
+        register_material(
+            cwd, task.id, document.final_url, document_id=document.id
+        )
     agent = build_agent(Settings())
 
     result = _tool(agent, "document_search")(
@@ -892,6 +900,34 @@ def test_document_search_ranks_novel_government_group_above_cited(cwd):
     ids = [item["document_id"] for item in result["results"]]
     assert ids[0] == novel_doc.id
     assert result["results"][0]["novel_group"] is True
+
+
+def test_document_search_works_without_deep_crawl(cwd):
+    # Run 059 P0: non-deep tasks never create a crawl snapshot, so the old
+    # crawl-entry corpus + deep_crawl gate made document_search fail 2/2.
+    # The corpus is now every registered task document.
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+        deep_crawl=False,
+    )
+    relevant = make_document(
+        cwd, "政策文件明确支持人形机器人产业发展", "https://www.gov.cn/policy"
+    )
+    unrelated = make_document(cwd, "天气晴朗", "https://news.cn/weather")
+    for document in (relevant, unrelated):
+        register_material(
+            cwd, task.id, document.final_url, document_id=document.id
+        )
+    agent = build_agent(Settings())
+
+    result = _tool(agent, "document_search")(
+        _context(cwd), task.id, "人形机器人 政策", 5
+    )
+
+    assert [item["document_id"] for item in result["results"]] == [relevant.id]
 
 
 def test_fact_save_gated_while_single_source_backlog_exists(cwd):
@@ -1292,6 +1328,47 @@ async def test_evidence_audit_tool_refreshes_coverage(cwd):
     assert result["reviewed"] == 1
     assert "coverage" in result
     assert "stop_reason" in result["coverage"]
+
+
+@pytest.mark.asyncio
+async def test_evidence_audit_skips_after_consecutive_failures(cwd):
+    # Run 059 P0: a broken judge used to feed the model the same failure to
+    # retry forever. After two consecutive all-failed rounds the tool must
+    # return a success-shaped skip inside the cooldown window, and a later
+    # successful audit resets the streak.
+    async def broken_judge(fact, evidence):
+        raise RuntimeError("judge 服务不可用")
+
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    fact = save_fact(cwd, task.id, task.questions[0].id, "已审核的公开事实")
+    document = make_document(cwd, "已审核的公开事实")
+    save_evidence(cwd, fact.id, document.id, "supports", fact.statement)
+    deps = AgentDeps(
+        cwd=cwd,
+        settings=_offline_settings(),
+        judge=broken_judge,
+        judge_provider="test",
+        judge_model="fake",
+    )
+    context = cast(RunContext[Any], SimpleNamespace(deps=deps))
+    tool = _tool(build_agent(Settings()), "evidence_audit")
+
+    assert (await tool(context, task.id))["ok"] is False
+    assert (await tool(context, task.id))["ok"] is False
+
+    third = await tool(context, task.id)
+    assert third["ok"] is True
+    assert third["skipped"] is True
+    assert third["reviewed"] == 0
+
+    agent_module._AUDIT_FAILURE_COOLDOWN_SECONDS = 0.05
+    await asyncio.sleep(0.1)
+    deps.judge = fake_judge
+    recovered = await tool(context, task.id)
+    assert "reviewed" in recovered
+    assert recovered["reviewed"] == 1
+    assert recovered.get("skipped") is None
+    assert deps.audit_failure_streak == 0
 
 
 def test_coverage_eval_assess_no_verified_facts_still_terminates(cwd):
