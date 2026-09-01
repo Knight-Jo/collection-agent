@@ -448,6 +448,7 @@ class ContinuationRunner:
                         "collection": task.collection.model_copy(
                             update={
                                 "search_attempts": 0,
+                                "search_attempts_by_pool": {},
                                 "search_stop_reason": None,
                                 "fetch_attempts_since_evidence": 0,
                                 "stop_reason": None,
