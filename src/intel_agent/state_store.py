@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Iterable, Sequence
+import time
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
 from .models import (
@@ -239,6 +240,36 @@ RUN_TRANSITIONS: dict[str, set[str]] = {
     "stopping": {"stopped", "interrupted"},
 }
 RUN_PHASES = {"planning", "collecting", "assessing", "checkpointing"}
+
+_LOCK_RETRY_ATTEMPTS = 3
+_LOCK_RETRY_BASE_SECONDS = 1.0
+
+
+def _retry_on_locked(operation: Callable) -> Callable:
+    """Retry a whole state mutation when SQLite reports a busy write lock.
+
+    ``BEGIN IMMEDIATE`` takes the exclusive write lock; concurrent reads
+    (SSE polling) or a slow checkpoint can exhaust the 30s ``busy_timeout``
+    and surface as ``database is locked`` (web run 057: ``finish_run``
+    failed this way and marked a completed run failed). Retrying the whole
+    idempotent mutation is safe — it re-reads run state first and re-opens
+    a fresh connection.
+    """
+
+    def wrapped(*args, **kwargs):
+        for attempt in range(_LOCK_RETRY_ATTEMPTS):
+            try:
+                return operation(*args, **kwargs)
+            except sqlite3.OperationalError as error:
+                if (
+                    "locked" not in str(error).lower()
+                    or attempt == _LOCK_RETRY_ATTEMPTS - 1
+                ):
+                    raise
+                time.sleep(_LOCK_RETRY_BASE_SECONDS * (attempt + 1))
+        raise AssertionError("unreachable")
+
+    return wrapped
 
 
 class StateStore:
@@ -1654,6 +1685,7 @@ class StateStore:
             ).fetchone()
         return _row_to_run(_required(row, "research run"))
 
+    @_retry_on_locked
     def finish_run(
         self,
         run_id: str,
@@ -2200,6 +2232,7 @@ class StateStore:
             ],
         )
 
+    @_retry_on_locked
     def transition_run(
         self,
         run_id: str,

@@ -148,6 +148,32 @@ async def _run_continuation_agent(
         _close_pending_actions(actions)
 
 
+def _gracefully_finish_or_fail(
+    store: StateStore,
+    cwd: Path,
+    run: ResearchRun,
+    error: BaseException,
+) -> ResearchRun:
+    """Terminate a run that raised during finishing.
+
+    A ``finish_run`` lock failure (``database is locked``) can strike after
+    the agent already reached ``stage=done`` and produced a report; marking
+    that run ``failed`` lies to the UI (web run 057). When the task itself
+    completed, degrade to ``succeeded`` instead.
+    """
+    try:
+        task = load_task(cwd, run.task_id)
+    except Exception:
+        task = None
+    if (
+        task is not None
+        and task.stage == "done"
+        and task.outputs.report is not None
+    ):
+        return store.transition_run(run.id, "succeeded")
+    return store.transition_run(run.id, "failed", error=str(error))
+
+
 def _ensure_research_run_trace(
     recorder: TrajectoryRecorder,
     run: ResearchRun,
@@ -353,8 +379,8 @@ class ContinuationRunner:
         except Exception as error:
             current = self.store.get_run(run.id)
             if current.status == "running":
-                return self.store.transition_run(
-                    run.id, "failed", error=str(error)
+                return _gracefully_finish_or_fail(
+                    self.store, self.cwd, run, error
                 )
             return current
         finally:
@@ -528,7 +554,7 @@ class ContinuationRunner:
                 return current_action
             current_run = self.store.get_run(run.id)
             if current_run.status == "running":
-                self.store.transition_run(run.id, "failed", error=str(error))
+                _gracefully_finish_or_fail(self.store, self.cwd, run, error)
             current_action = self.store.get_action(action.id)
             if current_action.status == "executing":
                 return self.store.transition_action(

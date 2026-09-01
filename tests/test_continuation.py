@@ -21,9 +21,9 @@ from intel_agent.continuation import (
 )
 from intel_agent.fact import save_fact
 from intel_agent.materials import register_material
-from intel_agent.models import ResearchBrief
+from intel_agent.models import ResearchBrief, TaskOutputBinding
 from intel_agent.state_store import StateStore
-from intel_agent.task import load_task
+from intel_agent.task import load_task, save_task
 from intel_agent.trajectory import make_event
 from tests.conftest import make_document, new_task, save_evidence
 
@@ -374,3 +374,114 @@ async def test_continuations_create_run_only_after_workspace_claim(
     await first_task
     await second_task
     assert len(store.list_runs(task.id)) == 2
+
+
+def _running_run(store, cwd, task):
+    store.register_task(task.id)
+    run = store.create_run(task.id, "initial", 0, {})
+    store.claim_run(
+        run.id,
+        phase="collecting",
+        lease_owner=run.id,
+        lease_expires_at="2099-01-01T00:00:00Z",
+    )
+    return store.get_run(run.id)
+
+
+def test_gracefully_finish_succeeds_when_task_done(cwd):
+    # Web run 057: finish_run hit database is locked after the agent already
+    # reached done and produced a report; the run must not be marked failed.
+    from intel_agent.continuation import _gracefully_finish_or_fail
+
+    task = new_task(cwd)
+    task = task.model_copy(
+        update={
+            "stage": "done",
+            "outputs": task.outputs.model_copy(
+                update={
+                    "report": TaskOutputBinding(
+                        coverage_id="cov-x",
+                        coverage_fingerprint="fp",
+                        path="output/report.md",
+                        content_sha256="sha",
+                        created_at="2026-01-01T00:00:00Z",
+                    )
+                }
+            ),
+        }
+    )
+    save_task(cwd, task)
+    store = StateStore(cwd)
+    run = _running_run(store, cwd, task)
+
+    result = _gracefully_finish_or_fail(
+        store, cwd, run, RuntimeError("database is locked")
+    )
+
+    assert result.status == "succeeded"
+
+
+def test_gracefully_finish_fails_when_task_incomplete(cwd):
+    from intel_agent.continuation import _gracefully_finish_or_fail
+
+    task = new_task(cwd)
+    store = StateStore(cwd)
+    run = _running_run(store, cwd, task)
+
+    result = _gracefully_finish_or_fail(
+        store, cwd, run, RuntimeError("model failed")
+    )
+
+    assert result.status == "failed"
+
+
+def test_retry_on_locked_retries_then_succeeds():
+    import sqlite3
+
+    from intel_agent.state_store import _retry_on_locked
+
+    calls = {"n": 0}
+
+    @_retry_on_locked
+    def operation():
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise sqlite3.OperationalError("database is locked")
+        return "ok"
+
+    assert operation() == "ok"
+    assert calls["n"] == 3
+
+
+def test_retry_on_locked_gives_up_after_attempts():
+    import sqlite3
+
+    import pytest
+
+    from intel_agent.state_store import _retry_on_locked
+
+    @_retry_on_locked
+    def operation():
+        raise sqlite3.OperationalError("database is locked")
+
+    with pytest.raises(sqlite3.OperationalError):
+        operation()
+
+
+def test_retry_on_locked_does_not_retry_other_errors():
+    import sqlite3
+
+    import pytest
+
+    from intel_agent.state_store import _retry_on_locked
+
+    calls = {"n": 0}
+
+    @_retry_on_locked
+    def operation():
+        calls["n"] += 1
+        raise sqlite3.OperationalError("no such table")
+
+    with pytest.raises(sqlite3.OperationalError):
+        operation()
+    assert calls["n"] == 1

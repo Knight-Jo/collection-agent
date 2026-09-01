@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 
 from .storage import ensure_intel_dirs
@@ -552,14 +553,29 @@ def state_db_path(cwd: Path) -> Path:
     return cwd / "data/intel/intel.db"
 
 
-def connect_state_db(cwd: Path) -> sqlite3.Connection:
-    """Open one SQLite connection with required safety settings."""
+@contextmanager
+def connect_state_db(cwd: Path):
+    """Open one SQLite connection with required safety settings.
+
+    The connection is committed (or rolled back) and closed when the
+    ``with`` block exits, so no caller leaks a connection or leaves an open
+    transaction that could hold the write lock (web run 057: a leaked /
+    unclosed connection contributed to ``database is locked`` in
+    ``finish_run``).
+    """
     ensure_intel_dirs(cwd)
     connection = sqlite3.connect(state_db_path(cwd), timeout=30)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     connection.execute("PRAGMA busy_timeout = 30000")
-    return connection
+    try:
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
 
 
 def initialize_state_db(cwd: Path) -> Path:
