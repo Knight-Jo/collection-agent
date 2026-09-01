@@ -20,7 +20,7 @@ context:
   context_window_tokens: 262144
   # 主 Agent 单次生成上限；报告草案 JSON 较大，1024 会被截断导致 generate_research_report 参数校验失败，故放宽。
   main_output_tokens: 8192
-  audit_output_tokens: 512
+  audit_output_tokens: 8192
   # llama-server 的 Qwen thinking 模型建议设为 true；远程接口默认保持 false。
   disable_thinking: false
   # 已连续获得候选但未抓取时，强制从搜索切换到阅读和取证。
@@ -73,7 +73,7 @@ search:
 
 budgets:
   # 检索广度优先：预算充足时穷尽检索（run 011 起放宽）
-  search_attempts: 40
+  search_attempts: 50
   fetch_attempts_since_evidence: 20
   # 主 agent 最大模型请求数（含工具轮次与独立语义审核请求）
   request_limit: 400

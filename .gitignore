@@ -6,6 +6,7 @@ __pycache__/
 /output/
 config.yaml
 config.qwen38-27b-awq.yaml
+config.qwen38-27b-awq.yaml.bak1
 .worktree/
 web/node_modules/
 web/dist/
