@@ -6,6 +6,40 @@
 
 ## [Unreleased]
 
+## [064-cross-verify-budget-pools] - 2026-09-01
+
+### Changed
+
+- `src/intel_agent/agent.py`：`_fact_save_with_gate` 的 CROSS_VERIFY_BACKLOG 消息注入 `_verification_hits`（系统直接执行本地 document_search，附 document_id + snippet）；`_coverage_eval_with_backlog` 的 backlog 首条附 `verification_hits`。`_fact_keywords` 抽取优先级改为英文词 > 数字单位（`_NUMBER_UNIT_RE`：5168台/1.91万/272%）> CJK 窗口（每 chunk 一个、拒绝含量词窗口）；`_run_query_matrix` 槽位按 phase 池计数、预算中断时保存已执行槽位。
+- `src/intel_agent/task.py` + `models.py`：`record_search_attempt(pool=)` 分池计数（`SEARCH_POOL_SHARES` 40/40/20，池上限 `max(1, int(limit*share))`）；`search_stop_reason` 仅全池耗尽时设置；`CollectionState.search_attempts_by_pool` 持久化。
+- `src/intel_agent/agent.py`：模型搜索工具默认 discovery 池；`_gap_driven_vertical_search` 用 verify 池；矩阵按 slot phase 用对应池。
+- `src/intel_agent/continuation.py`：续研重置时清 `search_attempts_by_pool`。
+- `tests/`：新增/适配 6 个测试（池独立、门控命中注入、矩阵 verify 独立执行、关键词数字单位、预算日志、垂直路由预算）。
+
+### Verification
+
+- `pytest`：655 passed, 1 skipped PASS
+- `pyright`：0 errors PASS
+- `ruff format/check`：全绿 PASS
+
+### Experiment result
+
+- 状态：passed（三组 P1 机制生效；covered=0 为单轮样本，链路已打通）
+- 产物：`experiments/runs/064-cross-verify-budget-pools/`
+- 代码版本：`7771cdc`
+- 真实运行：exit_code=0，stage=done/with_gaps，elapsed=651.1s，model_requests=38，tool_calls=52，tokens=2,080,794
+- 关键指标：063→064：模型自主搜索 34→16（discovery 池精确上限）、矩阵 verify 独立执行 8 条、门控注入被采纳（READ doc-f42174 + 3 条证据）、垂直查询 `2056台 138%`（数字单位）、gap 10→8；covered 1→0（第二来源引文 partial）
+- 假设结论：成立（三个机制均生效；结果量级需多次运行确认）
+
+### Known issues
+
+- 第二来源引文 partial 率仍高（出货量事实 thepaper 引文缺关键要素）——P2 待办（065 建议：注入时附相关行号区间）
+- covered=0 与 063 的 1 为同配置方差，需 3 次运行取分布
+
+## [Unreleased]
+
+### 064-cross-verify-and-budget-pools（planned 条目，064 完成，保留作计划记录）
+
 ## [063-efficiency-fixes] - 2026-09-01
 
 ### Changed
