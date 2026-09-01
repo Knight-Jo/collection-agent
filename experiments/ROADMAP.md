@@ -47,6 +47,8 @@
 | 057 | refactor-verify | 同主题 deepseek-chat 964.6s exit=0，manifest 无 final_stage（未达终态即中断） | 059 复跑的基线 | ⚠️ |
 | 059 | humanoid-recompare | **同 057 主题复跑达 done/with_gaps**（两段 118 req，续跑段 40 req/1.56M tokens） | 模型切 qwen 27B AWQ（deepseek 密钥失效）；**qwen thinking 作 judge 必须 disable_thinking=true + audit_output_tokens=2048**（否则 JSON 解析失败/截断）；21 条审核全成功；9 文档/21 证据（利用率 77.8%）/7 active 事实全单源；gap=31，0 covered，诚实收尾 | ✅ |
 | 061 | audit-loop-fixes | **P0 双修复验证通过**（386.1s, exit=0, done/with_gaps, 45 req/2.04M tokens） | audit batch 隔离 + 失败冷却护栏：75次/65连败 → 9次/8成功1瞬时失败，无连续簇；document_search 去 deep_crawl 门禁 + digest 语料：2/2 失败 → 1/1 成功；已验证事实 0→1；gap 31→10；耗时 -96% | ✅ |
+| 062 | efficiency-fixes（首跑） | **中途终止，暴露新 P0**（87 req/~110 min 终止） | generate_research_report Markdown 草稿循环：qwen 把 draft 写成 Markdown 文本，静默 fallback 后业务校验失败，REPEATED 无出口 → 56 次全失败 | ❌ |
+| 063 | efficiency-fixes（重跑） | **P1/P2 四组修复 + 报告循环修复全部生效**（448.1s, exit=0, done/with_gaps, 42 req/1.96M tokens） | 报告调用 56 次循环→1 次成功；垂直查询整句→关键词；已验证事实 2；gap=10；audit 5/5 成功；trace 失败保留 error 字段 | ✅ |
 
 ## 011 产物复盘（012 的事实基线）
 
@@ -171,7 +173,13 @@
 - [x] **P0** 审核 batch 隔离：单 batch judge 失败不丢弃其余批次，summary 带 `failed_batches`（**061 验证：瞬时失败 1 次零浪费，下轮立即恢复**）
 - [x] **P0** 审核失败冷却护栏：连续 2 次全失败后 300s 内返回 skip（ok:true），成功复位（**061 验证：9 次审核无连续簇；提示词规则 6 同步约束模型**）
 - [x] **P0** document_search 取消 deep_crawl 门禁 + 语料源改任务 digest（**061 验证：非 deep 任务 1/1 成功；059 的 2/2 失败根因关闭**）
-- [ ] **P1** qwen 主模型交叉验证复测：059 的 fact_save 门控（016 机制）在 qwen 上未复验，7 active 事实全单源（结论 12/16 判定层需求在 qwen 上重新暴露）
+- [x] **P0** document_read 返回 total_lines + 已读区间提示（**063 验证：修复生效；生产未触发重复读场景**）
+- [x] **P1** evidence_save 元数据行拒绝 + 同文档同引文去重（**063 验证：单元测试覆盖，生产未触发**）
+- [x] **P1** 垂直检索事实句→关键词抽取（**063 验证：gap routing 查询为关键词形式**）
+- [x] **P0** 搜索预算耗尽成为覆盖 stop_reason + 判定层收尾 + 报告空章节豁免（**063 验证：assess 放行、报告 1 次成功**）
+- [x] **P1** trace 工具失败保留 error code/message（**063 验证：错误可观测**）
+- [x] **P0** generate_research_report 工具契约：docstring 明确 JSON 格式 + Markdown 草稿显式报错 + REPEATED 出口指引（**062 首跑 56 次循环 → 063 1 次成功**）
+- [ ] **P1** qwen 交叉验证复测：063 中 CROSS_VERIFY_BACKLOG 仍拦截、document_search 未主动采纳（结论 12/16 判定层需求在 qwen 上未闭环）
 - [ ] **P2** 原子事实拆分降低 partial 率：059 中 16/21 评审 partial，多数"引文只部分支持 Fact"——事实陈述宽于单条引文（059 实证）
 - [x] **P0** judge 结构化输出兼容 thinking 模型：改纯文本 JSON 完成 + 解析（**038 验证：deepseek-v4-flash thinking 模式审核返回 full**）
 - [ ] 口径确认：零 full 事实的 with_gaps 全空报告是否满足交付标准（037 遗留，人工确认）
@@ -365,3 +373,5 @@ UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright
 40. **中断恢复是真实可用的实验路径**：059 首段被外部超时终止后，直接以 `--cwd` 指向同一运行目录续跑即可从 intel.db 恢复（`reused_existing_task`），续跑段快照重建后上下文从 79K 降至 5.5K tokens；长任务实验不必一次跑完，恢复能力本身值得每轮验收。
 41. **工具失败必须有失败治理，否则模型把失败当任务重复执行**：059 的 65 次审计连败是"工具抛错+提示词强制+无护栏"三重合谋——模型看到相同错误文本仍以相同理由重试（75 次决策全为 EVIDENCE_NOT_VERIFIED）。061 的 batch 隔离 + 连续失败冷却（skip 而非再错）把审计调用从 75/65 连败降到 9/1 瞬时失败；工具失败反馈必须附带可执行指引或改变状态，不能只回传错误文本。
 42. **工具门禁必须与提示词契约一致**：059 中 coverage 提示要求所有任务"先 document_search 本地补证"，工具却只对 deep_crawl 任务开放（2/2 必失败）——模型照做必失败，交叉验证通道被废。061 移除门禁并把语料源从 crawl entries 改为任务 digest 后 1/1 成功；工具可用性与提示词描述的偏差比工具缺失更隐蔽（模型不会报告，只会静默弃用）。
+43. **结构化参数工具必须让模型看到格式，否则模型会自由发挥**：062 中 qwen 把 generate_research_report 的 draft 写成 Markdown 报告文本（docstring 未说明格式），静默 fallback 掩盖了错误让模型循环 56 次。063 修复三件套（docstring 给 JSON 示例 + Markdown 显式报错 + 阻断消息带出口指引）后 1 次成功——内部工具的参数契约要写进模型可见的 description，失败要给出"下一步做什么"。
+44. **新增 stop_reason 必须同步所有消费点**：063 引入 search_budget_exhausted 后，report 的空章节/空结论豁免仍只认 no_progress（037），导致预算耗尽的零验证事实任务系统兜底生成报告也失败。判定层新状态的豁免矩阵（coverage stop、report 空章节、terminal switch）必须一次性对齐，否则修复 4 的出口又成死路。

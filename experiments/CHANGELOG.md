@@ -6,6 +6,47 @@
 
 ## [Unreleased]
 
+## [063-efficiency-fixes] - 2026-09-01
+
+### Changed
+
+- `src/intel_agent/agent.py`：document_read 返回 `total_lines` 并对已读区间返回 `already_read` 提示（059 P1）；evidence_save 拒绝文档元数据行（发文字号/成文日期/来源等，059 的 16/21 partial 来源）并阻断同文档同引文重复提交（BLOCKED_REPETITION）；`_fact_keywords` 从事实句抽取关键词供垂直检索（059 的 40-80 字整句查询零命中）；`generate_research_report` 工具 docstring 明确 ResearchReportInput JSON 格式（062 P0：qwen 传 Markdown 文本导致 56 次循环），Markdown 草稿返回显式 INVALID_INPUT，REPEATED 阻断消息增加 `next_action` 收尾指引（覆盖已停止时调用 intel_status(done)）。
+- `src/intel_agent/coverage.py` + `models.py`：搜索预算耗尽（`search_stop_reason`）成为覆盖快照的第三种 `stop_reason`（`search_budget_exhausted`），assess 门控放行（059 P2：模型 6 次 QUERY_BUDGET_EXHAUSTED stop 被拒后空转 20 请求）。
+- `src/intel_agent/agent.py`：`_coverage_eval_with_backlog` 将 `search_budget_exhausted` 纳入 terminal 判定（与 no_progress 同样推进 assess + 系统生成报告）。
+- `src/intel_agent/report.py`：空章节/空结论豁免从仅 `no_progress` 扩展为 `{no_progress, search_budget_exhausted}`（否则预算耗尽的零验证事实任务系统兜底生成报告也失败）。
+- `src/intel_agent/runner.py`：工具失败 observation 保留 `error_code`/`error_message`（059 可观测性缺口：65 次审计失败只能靠 grep run.log）。
+- `tests/`：新增 8 个测试（read overlap/total_lines、元数据+重复引文拒绝、关键词 gap query、预算耗尽 stop、trace 错误字段、Markdown 草稿拒绝、REPEATED 出口）。
+
+### Verification
+
+- `pytest`：653 passed, 1 skipped PASS
+- `pyright`：0 errors PASS
+- `ruff format/check`：全绿 PASS
+
+### Experiment result
+
+- 状态：passed（假设成立；062 首跑失败→修复→063 重跑通过）
+- 产物：`experiments/runs/063-efficiency-fixes/`（062 首跑产物保留于 `runs/062-efficiency-fixes/`，87 请求终止）
+- 代码版本：`bf61b14`
+- 真实运行：exit_code=0，stage=done/with_gaps，elapsed=448.1s，model_requests=42，tool_calls=42，tokens=1,957,770
+- 关键指标：061→063：请求 45→42、已验证事实 1→2、gap 10→10、audit 5/5 成功；062 首跑 generate_research_report 56 次循环→063 1 次成功
+- 假设结论：成立（四组修复 + 报告循环修复全部生效）
+
+### Known issues
+
+- qwen 交叉验证执行仍弱（CROSS_VERIFY_BACKLOG 拦截 1 次，document_search 未主动采纳）——ROADMAP 待办
+- already_read/元数据拒绝在生产未触发（模型行为未进入场景），单元测试覆盖
+
+## [Unreleased]
+
+### 062-efficiency-fixes（planned 条目，063 完成，保留作计划记录）
+- 唯一假设：document_read 已读区间提示 + evidence_save 元数据/重复引文拒绝 + 垂直检索关键词抽取 + 搜索预算耗尽即收尾（四组 059 P1/P2 修复）在同主题复跑中降低冗余调用并保持 done/with_gaps 终态。
+- 基线：061-audit-loop-fixes（386.1s, 45 req, 8 证据, 1 已验证事实, gap=10）
+- 首跑发现（2026-09-01 终止于 87 请求/~110 分钟）：**新 P0 — generate_research_report Markdown 草稿循环**。qwen 把 draft 参数写成 Markdown 报告文本（非 ResearchReportInput JSON）→ 静默 fallback 到 verified draft → 业务校验失败 → REPEATED 阻断无出口 → 56 次重复调用全失败（每次 ~3000 output tokens）。修复：docstring 明确 JSON 格式 + Markdown 草稿显式 INVALID_INPUT + REPEATED 指引 intel_status(done) + report 空章节豁免纳入 search_budget_exhausted（否则系统兜底生成也失败）。
+- 允许修改：无代码改动（纯运行验证）；`experiments/` 记录
+- 禁止修改：主题、questions、max_turns=200、min-sources=2、min-quality=1、recency=120、config.qwen38-27b-awq.yaml
+- 预期验收：exit_code=0 且 done 终态；generate_research_report ≤3 次调用；对比 061：document_read 重复读取下降（already_read 触发）；evidence_save 无重复引文；垂直查询非整句；audit 失败簇不出现
+
 ## [059-humanoid-recompare] - 2026-09-01
 
 ### Changed
@@ -34,8 +75,6 @@
 - 交叉验证仍未闭环：7 个 active fact 全部单来源组（srcs=1），模型未充分采纳 document_search（仅 2 次）；判定层门控缺失
 - 搜索预算 40 次在 verify 需求前耗尽；部分证据引用失败（QUOTE_NOT_FOUND ×2，行号越界 ×2）
 - 远程 vLLM 单请求延迟 10s–280s 波动；运行时间不可精确复现
-
-## [Unreleased]
 
 ## [061-audit-loop-fixes] - 2026-09-01
 
