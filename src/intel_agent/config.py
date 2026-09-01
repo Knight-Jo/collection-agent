@@ -105,11 +105,11 @@ class SearchConfig(BaseModel):
 
 class BudgetConfig(BaseModel):
     # search_attempts/fetch_attempts mirror the original pi prototype (hard
-    # cap vs sliding window, see task.py); request_limit guards total LLM API
-    # spend for one run, covering both agent turns and audit judge calls.
+    # cap vs sliding window, see task.py); request_limit guards main-agent
+    # turns. Judge calls are bounded separately by audit concurrency/timeout.
     search_attempts: int = 6
     fetch_attempts_since_evidence: int = 6
-    request_limit: int = 200
+    request_limit: int = 100
 
 
 class ContextConfig(BaseModel):

@@ -39,11 +39,10 @@ from .browser import BrowserRenderer
 from .config import ContextConfig, ModelConfig, Settings
 from .conflicts import load_conflicts, resolve_conflict, save_conflict
 from .context import make_history_processor
-from .coverage import eval_coverage, latest_coverage
+from .coverage import eval_coverage
 from .crawl import CrawlEventCallback, create_crawl, summarize_crawl
 from .crawl import crawl_collect as run_crawl_collect
 from .evidence import (
-    list_evidence_for_fact,
     list_evidence_for_task,
     load_document,
     save_evidence,
@@ -1163,10 +1162,9 @@ async def _coverage_eval_with_backlog(deps: AgentDeps, task_id: str) -> dict:
     # missing source types itself while collection is still open.
     if snapshot.stop_reason is None and snapshot.level != "sufficient":
         await _gap_driven_vertical_search(deps, task, snapshot, data)
-    # Verification backlog: single-source facts that must complete a second
-    # independent source before coverage can improve. The model should
-    # resolve these via document_search (local corpus first), then targeted
-    # web_search — not register new facts (run 015).
+    # Verification backlog: single-source facts that need a second independent
+    # source before coverage can improve. Prioritize these without blocking
+    # new candidate facts, otherwise one hard claim can stall breadth.
     pending: list[dict] = []
     for question in snapshot.per_question:
         for fact in question.facts:
@@ -1452,45 +1450,11 @@ async def _vertical_capability(
     )
 
 
-def _single_source_backlog(cwd: Path, task_id: str) -> list[dict]:
-    """Facts whose source groups are below the task's independence bar.
-
-    Judgment-layer gate for fact registration (run 015 follow-up): while a
-    backlog exists, the model must complete second sources for existing
-    facts (evidence_save) instead of registering new ones. Primary claims
-    backed by an official/government document keep their single-source
-    exception, mirroring coverage.py.
-    """
-    task = load_task(cwd, task_id)
-    required = task.criteria.min_independent_sources
-    backlog: list[dict] = []
-    for fact in list_active_facts_for_task(cwd, task_id):
-        groups: set[str] = set()
-        official_backed = False
-        for evidence in list_evidence_for_fact(cwd, fact.id):
-            document = load_document(cwd, evidence.document_id)
-            groups.add(document.source_group)
-            if document.source_type in ("official", "government"):
-                official_backed = True
-        if fact.claim_type == "primary" and official_backed:
-            continue
-        if len(groups) < required:
-            backlog.append(
-                {
-                    "fact_id": fact.id,
-                    "statement": fact.statement[:60],
-                    "source_groups": len(groups),
-                    "required": required,
-                }
-            )
-    return backlog
-
-
 def _verification_hits(cwd: Path, task_id: str, statement: str) -> str:
     """Deterministic local-corpus lookup for a single-source fact (run 063).
 
     The model was told to verify via document_search but never called it;
-    the gate now runs the cheap local search itself and hands the model
+    coverage guidance now runs the cheap local search and hands the model
     concrete candidates instead of a generic instruction.
     """
     keywords = _fact_keywords(statement)
@@ -1509,7 +1473,7 @@ def _verification_hits(cwd: Path, task_id: str, statement: str) -> str:
     return "本地语料命中补证候选：" + "；".join(lines)
 
 
-def _fact_save_with_gate(
+def _save_fact_candidate(
     cwd: Path,
     task_id: str,
     question_id: str,
@@ -1518,29 +1482,6 @@ def _fact_save_with_gate(
     investigation_item_id: str | None = None,
     run_id: str | None = None,
 ) -> dict:
-    backlog = _single_source_backlog(cwd, task_id)
-    if backlog:
-        # Honest escape hatches: verification can genuinely be exhausted
-        # (search budget gone, or coverage already declared no progress).
-        # Registration then resumes so the run can finish with_gaps
-        # instead of deadlocking in collect (run 020).
-        task = load_task(cwd, task_id)
-        search_exhausted = task.collection.search_stop_reason is not None
-        coverage = latest_coverage(cwd, task_id)
-        no_progress = (
-            coverage is not None and coverage.stop_reason == "no_progress"
-        )
-        if not (search_exhausted or no_progress):
-            pending = "；".join(
-                f"「{item['statement']}」({item['source_groups']}/{item['required']} 组)"
-                for item in backlog[:3]
-            )
-            hits = _verification_hits(cwd, task_id, backlog[0]["statement"])
-            raise IntelError(
-                "CROSS_VERIFY_BACKLOG",
-                "存在未完成交叉验证的单源事实，登记新事实前必须先补齐第二独立来源组"
-                f"（evidence_save → evidence_audit）：{pending}。{hits}",
-            )
     return save_fact(
         cwd,
         task_id,
@@ -1614,6 +1555,58 @@ class _ToolFilter(AbstractCapability[AgentDeps]):
         )
 
 
+def _filter_tool_names_for_stage(
+    stage: str | None, names: set[str]
+) -> set[str]:
+    if stage == "assess":
+        return names & {
+            "coverage_eval",
+            "material_digest",
+            "generate_research_report",
+            "intel_status",
+        }
+    if stage == "done":
+        return names & {"intel_status"}
+    return names - {"material_digest", "generate_research_report"}
+
+
+class _StageToolFilter(AbstractCapability[AgentDeps]):
+    """Keep report tools out of collection requests."""
+
+    @classmethod
+    def get_serialization_name(cls) -> str | None:
+        return None
+
+    async def before_model_request(
+        self,
+        ctx: RunContext[AgentDeps],
+        request_context: ModelRequestContext,
+    ) -> ModelRequestContext:
+        try:
+            stage: str | None = load_task(
+                ctx.deps.cwd, getattr(ctx.deps, "bound_task_id", None)
+            ).stage
+        except IntelError as error:
+            if error.code != "NOT_FOUND":
+                raise
+            stage = None
+        parameters = request_context.model_request_parameters
+        names = _filter_tool_names_for_stage(
+            stage, {tool.name for tool in parameters.function_tools}
+        )
+        return replace(
+            request_context,
+            model_request_parameters=replace(
+                parameters,
+                function_tools=[
+                    tool
+                    for tool in parameters.function_tools
+                    if tool.name in names
+                ],
+            ),
+        )
+
+
 def build_agent(
     settings: Settings | None = None,
     *,
@@ -1641,6 +1634,7 @@ def build_agent(
         )
     if allowed_tools is not None:
         capabilities.append(_ToolFilter(allowed_tools))
+    capabilities.append(_StageToolFilter())
     if conversation_capture is not None:
         capabilities.append(_ConversationCapture(conversation_capture))
     agent = Agent(
@@ -2225,10 +2219,9 @@ def build_agent(
         claim_type: ClaimType = "corroborated",
         investigation_item_id: str | None = None,
     ) -> dict:
-        """在取得候选来源后登记一个规范事实。不同措辞的来源通过同一 fact_id 支撑该事实。
-        存在未完成交叉验证的单源事实时拒绝登记新事实（先 evidence_save 补第二来源组）。"""
+        """登记候选原子事实；Fact 可先保存，但只有完成证据审核和来源门槛后才能进入报告。"""
         return _guarded_sync(
-            lambda: _fact_save_with_gate(
+            lambda: _save_fact_candidate(
                 ctx.deps.cwd,
                 _resolve_bound_task_id(ctx.deps, task_id),
                 question_id,
@@ -2465,6 +2458,18 @@ def build_agent(
         # (a truncated/malformed string would otherwise exhaust tool retries
         # and abort the run). Parse here with a deterministic fallback instead.
         task_id = _resolve_bound_task_id(ctx.deps, task_id)
+        if load_task(ctx.deps.cwd, task_id).stage != "assess":
+            return {
+                "ok": False,
+                "error": {
+                    "code": "REPORT_NOT_READY",
+                    "message": "报告只能在 assess 阶段生成",
+                },
+                "next_action": (
+                    "先调用 coverage_eval；达到停止条件后调用 "
+                    "intel_status(stage='assess')"
+                ),
+            }
         parsed: ResearchReportInput
         try:
             parsed = ResearchReportInput.model_validate_json(draft)

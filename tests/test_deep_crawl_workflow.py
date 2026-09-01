@@ -70,6 +70,12 @@ def _tool(agent, name: str):
     return agent._function_toolset.tools[name].function
 
 
+def _advance_to_assess(cwd, task: IntelTask) -> None:
+    for _ in range(6):
+        eval_coverage(cwd, task.id)
+    set_task_stage(cwd, task.id, "assess")
+
+
 def test_failure_includes_exception_type_when_message_is_empty():
     failure = agent_module._failure(RuntimeError())
 
@@ -1033,9 +1039,7 @@ def test_gap_query_extracts_keywords_not_full_statement():
     assert "据机构SAG数据" not in query
 
 
-def test_fact_save_gate_injects_local_hits(cwd):
-    # Run 063: the model never called document_search itself, so the gate
-    # runs the cheap local lookup and hands back concrete candidates.
+def test_fact_save_allows_candidates_while_cross_verification_is_pending(cwd):
     task = create_task(
         cwd,
         "主题",
@@ -1049,112 +1053,18 @@ def test_fact_save_gate_injects_local_hits(cwd):
     first_doc = make_document(cwd, "事实 A 报道", "https://news.cn/a")
     save_evidence(cwd, first["id"], first_doc.id, "supports", "事实 A 报道")
 
-    second_doc = make_document(
-        cwd, "独立媒体对事实 A 的详细报道", "https://caixin.com/a2"
-    )
-    register_material(
-        cwd, task.id, second_doc.final_url, document_id=second_doc.id
-    )
-
-    blocked = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 B")
-    assert blocked["error"]["code"] == "CROSS_VERIFY_BACKLOG"
-    assert second_doc.id in blocked["error"]["message"]
-
-    empty_task = create_task(
-        cwd, "空主题", ["问题丙", "问题丁"], DEFAULT_CRITERIA
-    )
-    empty = fact_tool(
-        _context(cwd), empty_task.id, empty_task.questions[0].id, "事实 C"
-    )
-    empty_doc = make_document(cwd, "事实 C 报道", "https://news.cn/c")
-    save_evidence(cwd, empty["id"], empty_doc.id, "supports", "事实 C 报道")
-    blocked2 = fact_tool(
-        _context(cwd), empty_task.id, empty_task.questions[0].id, "事实 D"
-    )
-    assert blocked2["error"]["code"] == "CROSS_VERIFY_BACKLOG"
-    assert "无命中" in blocked2["error"]["message"]
-
-
-def test_fact_save_gated_while_single_source_backlog_exists(cwd):
-    task = create_task(
-        cwd,
-        "主题",
-        ["问题甲", "问题乙"],
-        DEFAULT_CRITERIA,
-    )
-    agent = build_agent(Settings())
-    fact_tool = _tool(agent, "fact_save")
-
-    first = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 A")
-    assert "id" in first
-    first_doc = make_document(cwd, "事实 A 报道", "https://news.cn/a")
-    save_evidence(cwd, first["id"], first_doc.id, "supports", "事实 A 报道")
-
-    blocked = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 B")
-    assert blocked["error"]["code"] == "CROSS_VERIFY_BACKLOG"
-    assert "事实 A" in blocked["error"]["message"]
-
-    second_doc = make_document(cwd, "事实 A 独立报道", "https://caixin.com/a")
-    save_evidence(
-        cwd, first["id"], second_doc.id, "supports", "事实 A 独立报道"
-    )
-
-    reopened = fact_tool(
+    same_question = fact_tool(
         _context(cwd), task.id, task.questions[0].id, "事实 B"
     )
-    assert "id" in reopened
-
-
-def test_fact_save_gate_opens_after_search_budget_exhausted(cwd):
-    task = create_task(
-        cwd,
-        "主题",
-        ["问题甲", "问题乙"],
-        DEFAULT_CRITERIA,
+    other_question = fact_tool(
+        _context(cwd), task.id, task.questions[1].id, "事实 C"
     )
-    agent = build_agent(Settings())
-    fact_tool = _tool(agent, "fact_save")
 
-    first = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 A")
-    first_doc = make_document(cwd, "事实 A 报道", "https://news.cn/a")
-    save_evidence(cwd, first["id"], first_doc.id, "supports", "事实 A 报道")
-
-    blocked = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 B")
-    assert blocked["error"]["code"] == "CROSS_VERIFY_BACKLOG"
-
-    # Mark the search budget exhausted: the honest escape hatch opens.
-    loaded = load_task(cwd, task.id)
-    loaded.collection.search_stop_reason = "search_budget_exhausted"
-    from intel_agent.task import save_task
-
-    save_task(cwd, loaded)
-
-    allowed = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 B")
-    assert "id" in allowed
+    assert same_question["statement"] == "事实 B"
+    assert other_question["statement"] == "事实 C"
 
 
-def test_fact_save_gate_opens_after_coverage_no_progress(cwd):
-    task = create_task(
-        cwd,
-        "主题",
-        ["问题甲", "问题乙"],
-        DEFAULT_CRITERIA,
-    )
-    agent = build_agent(Settings())
-    fact_tool = _tool(agent, "fact_save")
-
-    first = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 A")
-    first_doc = make_document(cwd, "事实 A 报道", "https://news.cn/a")
-    save_evidence(cwd, first["id"], first_doc.id, "supports", "事实 A 报道")
-    asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
-    for _ in range(6):
-        eval_coverage(cwd, task.id)
-
-    allowed = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 B")
-    assert "id" in allowed
-
-
-def test_fact_save_gate_exempts_official_backed_primary_claim(cwd):
+def test_primary_claim_can_add_followup_candidate(cwd):
     task = create_task(
         cwd,
         "主题",
@@ -1192,6 +1102,7 @@ def test_generate_research_report_blocks_repeated_drafts(monkeypatch, cwd):
     )
 
     task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    _advance_to_assess(cwd, task)
 
     def fake_report(_cwd, _task_id, _draft):
         return {"ok": True, "path": "output/report.md"}
@@ -1224,6 +1135,7 @@ def test_generate_research_report_rejects_markdown_draft(cwd):
     # silent verified-draft fallback let it loop 56 failed calls. Markdown
     # drafts must fail loudly with format guidance.
     task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    _advance_to_assess(cwd, task)
     tool = _tool(build_agent(Settings()), "generate_research_report")
 
     result = tool(
@@ -1237,10 +1149,46 @@ def test_generate_research_report_rejects_markdown_draft(cwd):
     assert "JSON" in result["error"]["message"]
 
 
+def test_generate_research_report_rejects_collect_stage(cwd):
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    tool = _tool(build_agent(Settings()), "generate_research_report")
+
+    result = tool(_context(cwd), task.id, "{}")
+
+    assert result["ok"] is False
+    assert result["error"]["code"] == "REPORT_NOT_READY"
+    assert "coverage_eval" in result["next_action"]
+
+
+def test_stage_tool_filter_hides_report_until_assess():
+    assert hasattr(agent_module, "_filter_tool_names_for_stage")
+    filter_names = agent_module._filter_tool_names_for_stage
+    names = {
+        "web_search",
+        "coverage_eval",
+        "material_digest",
+        "generate_research_report",
+        "intel_status",
+    }
+
+    collect = filter_names("collect", names)
+    assess = filter_names("assess", names)
+
+    assert "generate_research_report" not in collect
+    assert "material_digest" not in collect
+    assert assess == {
+        "coverage_eval",
+        "material_digest",
+        "generate_research_report",
+        "intel_status",
+    }
+
+
 def test_generate_research_report_accepts_json_encoded_draft(monkeypatch, cwd):
     from intel_agent.models import ResearchReportInput, ResearchReportSection
 
     task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    _advance_to_assess(cwd, task)
     draft = ResearchReportInput(
         sections=[ResearchReportSection(question_id=task.questions[0].id)],
         overall_conclusions=[],
@@ -1264,6 +1212,7 @@ def test_generate_research_report_strips_trailing_xml_noise(monkeypatch, cwd):
     from intel_agent.models import ResearchReportInput, ResearchReportSection
 
     task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    _advance_to_assess(cwd, task)
     draft = ResearchReportInput(
         sections=[ResearchReportSection(question_id=task.questions[0].id)],
         overall_conclusions=[],
@@ -1292,6 +1241,7 @@ def test_generate_research_report_garbage_draft_uses_verified_facts(cwd):
     asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
     for _ in range(3):
         eval_coverage(cwd, task.id)
+    _advance_to_assess(cwd, task)
 
     result = _tool(build_agent(Settings()), "generate_research_report")(
         _context(cwd), task.id, '{"sections": [{"question_id": 未闭合的垃圾'
@@ -1311,6 +1261,7 @@ def test_generate_research_report_falls_back_to_verified_facts(cwd):
     asyncio.run(audit_task_evidence(cwd, task.id, fake_judge, "test", "fake"))
     for _ in range(3):
         eval_coverage(cwd, task.id)
+    _advance_to_assess(cwd, task)
 
     result = _tool(build_agent(Settings()), "generate_research_report")(
         _context(cwd), task.id, ResearchReportInput().model_dump_json()

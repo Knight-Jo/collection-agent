@@ -155,7 +155,7 @@ python scripts/smoke_conversation.py \
 | `search.searxng_url` | 本地 SearXNG 地址；`null` 则只用 Bing/Baidu 直连 |
 | `search.github` / `search.academic` / `search.news` / `search.archive` | 垂直搜索开关与调优（匿名、零密钥）：GitHub 仓库/Issue（额度受限降级 Gitee）、arXiv+Crossref(+S2 匿名补充)、国内直达新闻级联（百度→360→SearXNG，GDELT 默认关）、Wayback 死链兜底 |
 | `search.ai_native.exa` / `.brave` / `.tavily` | 显式启用的 AI-native Provider；密钥只从 `api_key_env` 指定的环境变量读取，缺密钥或单点失败会降级，不会把摘要直接当作证据 |
-| `budgets` | 搜索/抓取/模型请求预算（request_limit 默认 200） |
+| `budgets` | 搜索/抓取/模型请求预算（request_limit 默认 100） |
 | `context` | 32K/64K/128K/256K 上下文档位、输出上限和搜索转抓取门控 |
 | `fetch.enable_httpx_fallback` | 单次 `web_fetch` 的 pinned 抓取失败时回退 httpx（兼容 WAF/Cloudflare 站点）；递归 crawler 始终仅使用 pinned fetch |
 | `fetch.enable_browser_fallback` | 静态 HTML 无有效正文时是否按需执行 Chromium（默认 `false`） |

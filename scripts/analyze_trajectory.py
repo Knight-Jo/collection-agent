@@ -223,7 +223,11 @@ def summarize(events: list[dict]) -> dict:
         for event in actions
     )
     statuses = Counter(
-        str(event.get("payload", {}).get("status", "unknown"))
+        (
+            "failed"
+            if event.get("payload", {}).get("result", {}).get("ok") is False
+            else str(event.get("payload", {}).get("status", "unknown"))
+        )
         for event in observations
     )
     reason_codes = Counter(
@@ -310,8 +314,8 @@ def summarize(events: list[dict]) -> dict:
             "model_requests": resources["model_requests"],
             "input_tokens": resources["input_tokens"],
             "output_tokens": resources["output_tokens"],
-            "model_latency_p50_ms": _percentile(latencies, 0.5),
-            "model_latency_p95_ms": _percentile(latencies, 0.95),
+            "decision_cycle_latency_p50_ms": _percentile(latencies, 0.5),
+            "decision_cycle_latency_p95_ms": _percentile(latencies, 0.95),
             "tool_calls": resources["tool_calls"],
             "tool_counts": dict(tool_counts),
             "tool_results": len(observations),

@@ -1,9 +1,12 @@
 """Configuration tests for remote/local models and bounded context."""
 
+from pathlib import Path
+
 import pytest
+import yaml
 from pydantic import ValidationError
 
-from intel_agent.config import ContextConfig, Settings
+from intel_agent.config import BudgetConfig, ContextConfig, Settings
 
 
 @pytest.mark.parametrize(
@@ -40,6 +43,20 @@ def test_context_audit_bounds_have_sane_defaults():
         ContextConfig.model_validate({"audit_concurrency": 0})
     with pytest.raises(ValidationError):
         ContextConfig.model_validate({"audit_timeout_seconds": 0})
+
+
+def test_default_request_budget_bounds_tool_heavy_runs():
+    assert BudgetConfig().request_limit == 100
+
+
+def test_example_config_uses_practical_long_run_bounds():
+    config = yaml.safe_load(
+        (Path(__file__).parents[1] / "config.example.yaml").read_text()
+    )
+
+    assert config["context"]["context_window_tokens"] == 65_536
+    assert config["context"]["audit_output_tokens"] == 512
+    assert config["budgets"]["request_limit"] == 100
 
 
 def test_keyless_openai_compatible_model_is_configured():

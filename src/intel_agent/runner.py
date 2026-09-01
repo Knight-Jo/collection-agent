@@ -62,6 +62,7 @@ _SENSITIVE_KEY_RE = re.compile(
     r"key|token|authorization|cookie|secret|password", re.IGNORECASE
 )
 ActionTrace = tuple[str | None, float, str | None, str | None]
+_MAX_SAME_TARGET_FAILURES = 3
 _RESULT_SCALAR_KEYS = {
     "accepted_count",
     "candidate_count",
@@ -138,6 +139,14 @@ def _result_summary(value: object) -> dict[str, object]:
             }
         )
         error = parsed.get("error")
+        errors = parsed.get("errors")
+        if (
+            not isinstance(error, dict)
+            and isinstance(errors, list)
+            and errors
+            and isinstance(errors[0], dict)
+        ):
+            error = errors[0]
         if isinstance(error, dict):
             # Failures stay diagnosable from the trace alone (run 059: 65
             # audit failures were only recoverable via run.log greps).
@@ -155,6 +164,50 @@ def _result_summary(value: object) -> dict[str, object]:
     elif isinstance(parsed, list):
         summary["item_count"] = len(parsed)
     return summary
+
+
+def _tool_failure_target(tool: str, args: object) -> str:
+    values = _as_dict(args)
+    target_fields = {
+        key: values[key]
+        for key in (
+            "task_id",
+            "question_id",
+            "investigation_item_id",
+            "fact_id",
+            "document_id",
+            "conflict_id",
+            "url",
+            "query",
+        )
+        if key in values
+    }
+    return f"{tool}:{json.dumps(target_fields, sort_keys=True, ensure_ascii=False)}"
+
+
+def _business_failure_key(
+    event: object, targets: dict[str, str]
+) -> tuple[bool, str | None]:
+    """Return whether this is a result and its stable business-failure key."""
+    if isinstance(event, FunctionToolCallEvent):
+        targets[event.tool_call_id] = _tool_failure_target(
+            event.part.tool_name, event.part.args
+        )
+        return False, None
+    if not isinstance(event, FunctionToolResultEvent):
+        return False, None
+    target = targets.pop(
+        event.tool_call_id,
+        f"{getattr(event.part, 'tool_name', '')}:unknown",
+    )
+    content = event.content
+    if content is None:
+        content = getattr(event.part, "content", None)
+    summary = _result_summary(content)
+    if summary.get("ok") is not False:
+        return True, None
+    error_code = str(summary.get("error_code", "BUSINESS_ERROR"))
+    return True, f"{target}:{error_code}"
 
 
 def _translate_stream_event(
@@ -228,6 +281,10 @@ def _translate_stream_event(
                 event.tool_call_id, (None, time.monotonic(), None, None)
             )
         )
+        content = event.content
+        if content is None:
+            content = getattr(event.part, "content", None)
+        result_summary = _result_summary(content)
         outcome = getattr(event.part, "outcome", "failed")
         if outcome == "success":
             status = "succeeded"
@@ -237,9 +294,8 @@ def _translate_stream_event(
             status = "interrupted"
         else:
             status = "failed"
-        content = event.content
-        if content is None:
-            content = getattr(event.part, "content", None)
+        if result_summary.get("ok") is False:
+            status = "failed"
         emit(
             make_event(
                 "observation",
@@ -252,7 +308,7 @@ def _translate_stream_event(
                     ),
                     result={
                         "tool": getattr(event.part, "tool_name", ""),
-                        **_result_summary(content),
+                        **result_summary,
                     },
                     error=(
                         None
@@ -558,6 +614,9 @@ async def run_agent_task(
     call_output_before = 0
     call_tool_calls_before = 0
     action_traces: dict[str, ActionTrace] = {}
+    failure_targets: dict[str, str] = {}
+    last_failure_key: str | None = None
+    same_target_failures = 0
 
     def close_call(finish_reason: str) -> None:
         nonlocal call_open
@@ -633,6 +692,25 @@ async def run_agent_task(
                         _translate_stream_event(event, cwd, action_traces)
                     if on_event is not None:
                         await on_event(event)
+                    is_result, failure_key = _business_failure_key(
+                        event, failure_targets
+                    )
+                    if not is_result:
+                        continue
+                    if failure_key is None:
+                        last_failure_key = None
+                        same_target_failures = 0
+                        continue
+                    if failure_key == last_failure_key:
+                        same_target_failures += 1
+                    else:
+                        last_failure_key = failure_key
+                        same_target_failures = 1
+                    if same_target_failures >= _MAX_SAME_TARGET_FAILURES:
+                        raise IntelError(
+                            "TOOL_FAILURE_LOOP",
+                            "同一工具目标连续失败，已停止本轮以避免无效重试",
+                        )
                 result = events.result
             final_result = result
             if result is None:

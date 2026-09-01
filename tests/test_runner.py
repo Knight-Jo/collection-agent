@@ -135,6 +135,62 @@ def test_translate_stream_event_links_bounded_observation(tmp_path):
     assert len(json.dumps(observation, ensure_ascii=False)) < 2000
 
 
+def test_translate_stream_event_marks_business_failure(tmp_path):
+    recorder = JsonlTrajectoryRecorder(tmp_path / "trace.jsonl")
+    trajectory.bind_run("run-1")
+    trajectory.set_recorder(recorder)
+    actions: dict[str, runner_module.ActionTrace] = {}
+    call = FunctionToolCallEvent(
+        part=ToolCallPart(
+            tool_name="fact_save",
+            tool_call_id="call-1",
+            args={"task_id": "task-1", "question_id": "question-1"},
+        )
+    )
+    result = FunctionToolResultEvent(
+        ToolReturnPart(
+            tool_name="fact_save",
+            tool_call_id="call-1",
+            content={
+                "ok": False,
+                "error": {
+                    "code": "CROSS_VERIFY_BACKLOG",
+                    "message": "需要补证",
+                },
+            },
+        )
+    )
+
+    runner_module._translate_stream_event(call, tmp_path, actions)
+    runner_module._translate_stream_event(result, tmp_path, actions)
+    recorder.close()
+
+    observation = json.loads(
+        (tmp_path / "trace.jsonl").read_text().splitlines()[-1]
+    )
+    assert observation["payload"]["status"] == "failed"
+    assert observation["payload"]["result"]["error_code"] == (
+        "CROSS_VERIFY_BACKLOG"
+    )
+
+
+def test_result_summary_keeps_first_validation_error():
+    summary = _result_summary(
+        {
+            "ok": False,
+            "errors": [
+                {
+                    "code": "REPORT_INVALID",
+                    "message": "报告缺少有效引用",
+                }
+            ],
+        }
+    )
+
+    assert summary["error_code"] == "REPORT_INVALID"
+    assert summary["error_message"] == "报告缺少有效引用"
+
+
 def test_close_pending_actions_records_interrupted_observation(tmp_path):
     recorder = JsonlTrajectoryRecorder(tmp_path / "trace.jsonl")
     binding = trajectory.bind_context("run-1", recorder, task_id="task-1")
@@ -424,7 +480,7 @@ async def test_run_agent_task_streams_events(monkeypatch, cwd):
             assert "低空经济" in prompt
             assert kwargs["deps"] is deps
             assert deps.crawl_event_callback is on_event
-            assert kwargs["usage_limits"].request_limit == 200
+            assert kwargs["usage_limits"].request_limit == 100
             return FakeContext()
 
     monkeypatch.setattr(
@@ -444,6 +500,82 @@ async def test_run_agent_task_streams_events(monkeypatch, cwd):
 
     assert actual is result
     assert received == ["tool-started", "tool-completed"]
+
+
+@pytest.mark.asyncio
+async def test_run_agent_task_stops_same_target_business_failure_loop(
+    monkeypatch, cwd
+):
+    deps = SimpleNamespace(crawl_event_callback=None)
+    events: list[object] = []
+    for index in range(3):
+        call_id = f"call-{index}"
+        events.extend(
+            [
+                FunctionToolCallEvent(
+                    part=ToolCallPart(
+                        tool_name="evidence_save",
+                        tool_call_id=call_id,
+                        args={
+                            "fact_id": "fact-1",
+                            "document_id": "doc-1",
+                            "quote": f"错误引文 {index}",
+                        },
+                    )
+                ),
+                FunctionToolResultEvent(
+                    ToolReturnPart(
+                        tool_name="evidence_save",
+                        tool_call_id=call_id,
+                        content={
+                            "ok": False,
+                            "error": {
+                                "code": "QUOTE_NOT_FOUND",
+                                "message": "引文不存在",
+                            },
+                        },
+                    )
+                ),
+            ]
+        )
+
+    class FakeEvents:
+        result = SimpleNamespace(output="未完成")
+
+        def __init__(self):
+            self._events = iter(events)
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            try:
+                return next(self._events)
+            except StopIteration as error:
+                raise StopAsyncIteration from error
+
+    class FakeAgent:
+        def run_stream_events(self, _prompt, **_kwargs):
+            return FakeEvents()
+
+    monkeypatch.setattr(
+        "intel_agent.runner.build_agent", lambda _settings: FakeAgent()
+    )
+    monkeypatch.setattr(
+        "intel_agent.runner.build_deps",
+        lambda _cwd, _settings, *, deep_crawl: deps,
+    )
+
+    with pytest.raises(IntelError, match="连续失败") as captured:
+        await run_agent_task(cwd, Settings(), make_spec())
+
+    assert captured.value.code == "TOOL_FAILURE_LOOP"
 
 
 @pytest.mark.asyncio

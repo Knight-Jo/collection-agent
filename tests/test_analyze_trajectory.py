@@ -123,6 +123,8 @@ def test_summarize_projects_technical_business_and_result_metrics():
 
     assert summary["integrity"]["valid"] is True
     assert summary["technical"]["model_requests"] == 1
+    assert summary["technical"]["decision_cycle_latency_p50_ms"] == 120
+    assert "model_latency_p50_ms" not in summary["technical"]
     assert summary["technical"]["tool_success_rate"] == 1.0
     assert summary["business"]["reason_codes"] == {"LOW_COVERAGE": 1}
     assert summary["business"]["attributed_actions"] == 1
@@ -135,3 +137,47 @@ def test_summarize_projects_technical_business_and_result_metrics():
         "model_requests": 1,
         "tool_calls": 1,
     }
+
+
+def test_summarize_counts_ok_false_as_failed_tool_result():
+    events = [
+        _event(1, "run_started", {}),
+        _event(
+            2,
+            "action",
+            {"action_id": "call-1", "tool": "fact_save"},
+        ),
+        _event(
+            3,
+            "observation",
+            {
+                "action_id": "call-1",
+                "status": "succeeded",
+                "duration_ms": 10,
+                "result": {
+                    "ok": False,
+                    "error_code": "CROSS_VERIFY_BACKLOG",
+                },
+            },
+        ),
+        _event(
+            4,
+            "run_finished",
+            {
+                "status": "succeeded",
+                "stage": "done",
+                "requests": 0,
+                "tool_calls": 1,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "elapsed_ms": 10,
+                "final_coverage": {},
+            },
+        ),
+    ]
+
+    summary = summarize(events)
+
+    assert summary["technical"]["tool_statuses"] == {"failed": 1}
+    assert summary["technical"]["tool_success_rate"] == 0.0
