@@ -23,7 +23,12 @@ from intel_agent.agent import (
 )
 from intel_agent.config import BudgetConfig, Settings
 from intel_agent.models import IntelError, ResearchScope, SufficiencyCriteria
-from intel_agent.runner import TaskRunSpec, build_task_prompt, run_agent_task
+from intel_agent.runner import (
+    TaskRunSpec,
+    _result_summary,
+    build_task_prompt,
+    run_agent_task,
+)
 from intel_agent.task import (
     create_task,
     load_task,
@@ -641,3 +646,36 @@ async def test_run_agent_task_captures_final_response(
     specs = json.loads(specs_path.read_text())
     names = {spec["name"] for spec in specs}
     assert "web_search" in names
+
+
+def test_result_summary_keeps_failure_error_fields():
+    # Run 059: 65 audit failures were only recoverable from run.log greps
+    # because tool results were hashed and the error dict was dropped.
+    summary = _result_summary(
+        {
+            "ok": False,
+            "error": {
+                "code": "SEMANTIC_AUDIT_FAILED",
+                "message": "语义审核返回了无法解析的 JSON: broken",
+            },
+        }
+    )
+
+    assert summary["ok"] is False
+    assert summary["error_code"] == "SEMANTIC_AUDIT_FAILED"
+    assert "无法解析的 JSON" in str(summary["error_message"])
+
+
+def test_result_summary_keeps_scalar_keys_and_hashes_content():
+    summary = _result_summary(
+        {
+            "query": "人形机器人",
+            "count": 3,
+            "results": [{"document_id": "doc-1"}],
+        }
+    )
+
+    assert summary["count"] == 3
+    assert summary["item_count"] == 1
+    assert summary["content_sha256"]
+    assert "results" not in summary

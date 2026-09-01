@@ -930,6 +930,99 @@ def test_document_search_works_without_deep_crawl(cwd):
     assert [item["document_id"] for item in result["results"]] == [relevant.id]
 
 
+def test_document_read_reports_total_lines_and_overlap(cwd):
+    # Run 059: reads re-covered 44% of the same lines because the tool
+    # neither reported the document length nor flagged repeated ranges.
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    document = make_document(
+        cwd, "\n".join(f"第 {number} 行内容" for number in range(1, 51))
+    )
+    register_material(
+        cwd, task.id, document.final_url, document_id=document.id
+    )
+    agent = build_agent(Settings())
+    tool = _tool(agent, "document_read")
+    context = _context(cwd)
+
+    first = tool(context, document.id, 1, 20)
+    assert first["total_lines"] == 50
+    assert first["end_line"] == 20
+
+    second = tool(context, document.id, 1, 30)
+    assert "already_read" in second
+    assert "1-20" in second["already_read"]
+
+
+def test_evidence_save_rejects_metadata_and_duplicates(cwd):
+    # Run 059: 发文字号/成文日期 metadata rows were saved as evidence and
+    # drove 16/21 partial verdicts; identical quotes were re-submitted.
+    task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
+    question = task.questions[0]
+    fact = save_fact(cwd, task.id, question.id, "政策事实")
+    document = make_document(
+        cwd,
+        "发文字号： 工信部联科〔2025〕279号\n正文内容明确支持相关产业",
+        "https://www.gov.cn/policy",
+    )
+    register_material(
+        cwd, task.id, document.final_url, document_id=document.id
+    )
+    agent = build_agent(Settings())
+    tool = _tool(agent, "evidence_save")
+    context = _context(cwd)
+
+    metadata = tool(
+        context,
+        fact.id,
+        document.id,
+        "supports",
+        "发文字号： 工信部联科〔2025〕279号",
+    )
+    assert metadata["ok"] is False
+    assert metadata["error"]["code"] == "INVALID_INPUT"
+
+    ok = tool(
+        context, fact.id, document.id, "supports", "正文内容明确支持相关产业"
+    )
+    assert "quote" in ok
+
+    duplicate = tool(
+        context, fact.id, document.id, "supports", "正文内容明确支持相关产业"
+    )
+    assert duplicate["ok"] is False
+    assert duplicate["error"]["code"] == "BLOCKED_REPETITION"
+
+
+def test_gap_query_extracts_keywords_not_full_statement():
+    # Run 059: 40-80 char fact statements were passed verbatim to
+    # academic/software/news providers and returned nothing.
+    from intel_agent.agent import _gap_query
+
+    snapshot = SimpleNamespace(
+        per_question=[
+            SimpleNamespace(
+                status="partial",
+                question="2026年全球人形机器人头部企业进展",
+                facts=[
+                    SimpleNamespace(
+                        gap_score=2,
+                        statement=(
+                            "据机构SAG数据,2026年上半年全球人形机器人出货量"
+                            "约为1.91万台,同比增长272%,其中中国厂商占全球"
+                            "超97%的出货量"
+                        ),
+                    )
+                ],
+            )
+        ]
+    )
+    query = _gap_query(snapshot)
+    assert query is not None
+    assert len(query) < 60
+    assert "人形机器人" in query
+    assert "据机构SAG数据" not in query
+
+
 def test_fact_save_gated_while_single_source_backlog_exists(cwd):
     task = create_task(
         cwd,
@@ -1586,6 +1679,7 @@ def test_document_read_returns_bounded_numbered_verified_lines(cwd):
         "document_id": document.id,
         "start_line": 2,
         "end_line": 3,
+        "total_lines": 3,
         "has_more": False,
         "next_start_line": None,
         "content": (

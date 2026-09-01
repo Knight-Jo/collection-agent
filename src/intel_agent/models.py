@@ -772,7 +772,9 @@ class CoverageSnapshot(BaseModel):
     fingerprint: str
     gap_score: int
     no_progress_rounds: int
-    stop_reason: Literal["sufficient", "no_progress"] | None = None
+    stop_reason: (
+        Literal["sufficient", "no_progress", "search_budget_exhausted"] | None
+    ) = None
     level: Literal["sufficient", "mostly_sufficient", "insufficient"]
     per_question: list[QuestionCoverage]
 

@@ -437,7 +437,11 @@ def eval_coverage(
     stop_reason = (
         "sufficient"
         if level == "sufficient"
-        else ("no_progress" if no_progress_rounds >= 5 else None)
+        else (
+            "search_budget_exhausted"
+            if task.collection.search_stop_reason == "search_budget_exhausted"
+            else ("no_progress" if no_progress_rounds >= 5 else None)
+        )
     )
     snapshot = CoverageSnapshot(
         id=new_id("cov"),

@@ -260,6 +260,9 @@ class AgentDeps:
         default_factory=list
     )
     read_document_ids: set[str] = field(default_factory=set)
+    # Read line ranges per document so repeated reads can be flagged (run
+    # 059: 29 reads re-covered 44% of the same lines).
+    read_ranges: dict[str, list[tuple[int, int]]] = field(default_factory=dict)
     # Gap-driven deterministic vertical routing: each capability fires at
     # most once per run, so a stuck coverage gap cannot loop provider calls.
     vertical_triggered: set[str] = field(default_factory=set)
@@ -407,6 +410,103 @@ async def _guarded(action):
 # calls are skipped inside the window so a broken judge cannot become a
 # retry spiral, while a transient failure still recovers afterwards.
 _AUDIT_FAILURE_COOLDOWN_SECONDS = 300.0
+
+# Tokens that carry no retrieval value in a fact-derived keyword query.
+_GAP_QUERY_STOP_WORDS = {
+    "的",
+    "了",
+    "在",
+    "与",
+    "和",
+    "及",
+    "等",
+    "将",
+    "已",
+    "为",
+    "据",
+    "称",
+    "约",
+    "超",
+    "达",
+    "其",
+    "中",
+    "均",
+    "是",
+    "有",
+    "也",
+    "从",
+    "到",
+    "被",
+    "对",
+    "就",
+    "而",
+    "或",
+    "该",
+    "这",
+    "那",
+    "一个",
+    "进行",
+    "实现",
+    "随着",
+    "成为",
+    "达到",
+    "同比增长",
+    "环比增长",
+}
+
+# Document metadata lines carry no fact content; evidence quotes must be
+# sentences from the body (run 059: 发文字号/成文日期 rows were saved as
+# evidence and drove 16/21 partial verdicts).
+_METADATA_QUOTE_RE = re.compile(
+    r"^\s*(发文字号|成文日期|发文机关|文号|发布日期|发布时间|来源|"
+    r"责任编辑|编辑|记者|稿源|网址|标题|地址|联系电话)\s*[:：]"
+)
+
+
+def _fact_keywords(statement: str, limit: int = 5) -> list[str]:
+    """Ordered keyword tokens from a fact statement.
+
+    Attribution/date prefixes are stripped first (run 059: full 40-80 char
+    sentences passed verbatim to academic/software/news providers returned
+    nothing). CJK runs up to 12 chars survive whole so compound theme terms
+    like 人形机器人 stay intact; longer runs keep their head.
+    """
+    text = re.sub(r"据[^，,。]{1,15}[，,]", " ", statement)
+    text = re.sub(r"\d{4}年\d{1,2}月\d{1,2}日", " ", text)
+    text = re.sub(r"\d{4}年", " ", text)
+    tokens: list[str] = []
+    for match in re.finditer(r"[a-zA-Z]{2,}|[\u4e00-\u9fff]+", text):
+        chunk = match.group()
+        if chunk.isascii():
+            word = chunk.lower()
+            if len(word) >= 3 and word not in tokens:
+                tokens.append(word)
+            continue
+        window = chunk if len(chunk) <= 12 else chunk[:12]
+        if window not in _GAP_QUERY_STOP_WORDS and window not in tokens:
+            tokens.append(window)
+        if len(tokens) >= limit:
+            break
+    return tokens[:limit]
+
+
+def _gap_query(snapshot) -> str | None:
+    """First gapped fact statement, else the first non-covered question.
+
+    Fact statements are reduced to keyword queries: passing the full
+    sentence to academic/software/news providers returned nothing (run 059).
+    """
+    for question in snapshot.per_question:
+        if question.status == "covered":
+            continue
+        for fact in question.facts:
+            if fact.gap_score > 0 and fact.statement:
+                keywords = _fact_keywords(fact.statement)
+                if keywords:
+                    return " ".join(keywords)
+                return fact.statement[:60]
+        return question.question
+    return None
 
 
 def _block_repetition(
@@ -860,6 +960,7 @@ def _read_document_lines(
         "document_id": document.id,
         "start_line": start_line,
         "end_line": actual_end,
+        "total_lines": len(lines),
         "has_more": has_more,
         "next_start_line": actual_end + 1 if has_more else None,
         "content": _UNTRUSTED_OPEN
@@ -954,7 +1055,14 @@ async def _coverage_eval_with_backlog(deps: AgentDeps, task_id: str) -> dict:
     snapshot = eval_coverage(cwd, task_id, run_id=deps.run_id)
     data = snapshot.model_dump()
     task = load_task(cwd, task_id)
-    if snapshot.stop_reason == "no_progress" and task.stage == "collect":
+    # Both terminal reasons close collection: no improvement rounds or the
+    # search budget itself is gone (run 059: the model tried six stops with
+    # QUERY_BUDGET_EXHAUSTED that the coverage gate kept rejecting).
+    terminal = snapshot.stop_reason in (
+        "no_progress",
+        "search_budget_exhausted",
+    )
+    if terminal and task.stage == "collect":
         # WP4: terminal transitions are the system's job. Consecutive stable
         # rounds without improvement mean collection is exhausted; advance
         # to assess deterministically instead of waiting for the model to
@@ -966,11 +1074,7 @@ async def _coverage_eval_with_backlog(deps: AgentDeps, task_id: str) -> dict:
                 raise
         else:
             task = load_task(cwd, task_id)
-    if (
-        snapshot.stop_reason == "no_progress"
-        and task.stage == "assess"
-        and task.outputs.report is None
-    ):
+    if terminal and task.stage == "assess" and task.outputs.report is None:
         # Terminal switch (run 036): once collection is exhausted, the report
         # is generated deterministically from verified facts instead of
         # leaving the transition to the model (small models loop here).
@@ -984,11 +1088,7 @@ async def _coverage_eval_with_backlog(deps: AgentDeps, task_id: str) -> dict:
                 f"{task_id}', stage='done')；禁止再搜索、抓取、审核或评估覆盖。"
             )
             return data
-    if (
-        snapshot.stop_reason == "no_progress"
-        and task.stage == "assess"
-        and task.outputs.report is not None
-    ):
+    if terminal and task.stage == "assess" and task.outputs.report is not None:
         # Report already generated on an earlier eval; keep pushing the model
         # to done instead of re-injecting cross-verification work.
         data["pending_cross_verification"] = []
@@ -1224,18 +1324,6 @@ def _task_source_types(cwd: Path, task_id: str) -> set[str]:
             continue
         types.add(document.source_type)
     return types
-
-
-def _gap_query(snapshot) -> str | None:
-    """First gapped fact statement, else the first non-covered question."""
-    for question in snapshot.per_question:
-        if question.status == "covered":
-            continue
-        for fact in question.facts:
-            if fact.gap_score > 0 and fact.statement:
-                return fact.statement[:200]
-        return question.question
-    return None
 
 
 async def _vertical_capability(
@@ -1870,6 +1958,12 @@ def build_agent(
         def read() -> dict:
             document = load_document(ctx.deps.cwd, document_id)
             _ensure_bound_document(ctx.deps, document.id)
+            ranges = ctx.deps.read_ranges.setdefault(document.id, [])
+            overlap = [
+                f"{lo}-{hi}"
+                for lo, hi in ranges
+                if not (end_line < lo or start_line > hi)
+            ]
             result = _read_document_lines(
                 ctx.deps.cwd,
                 document_id,
@@ -1877,11 +1971,19 @@ def build_agent(
                 end_line,
                 ctx.deps.settings.context.tool_content_max_bytes(),
             )
+            ranges.append((start_line, result["end_line"]))
             ctx.deps.read_document_ids.add(document_id)
             result["next_action"] = (
                 "从本次 content 选择一个逐字引文，立即调用 fact_save，"
                 "再调用 evidence_save；不要重复读取相同行号。"
             )
+            if overlap:
+                result["already_read"] = (
+                    "本次区间与已读范围重叠: "
+                    + ", ".join(overlap)
+                    + f"；文档共 {result['total_lines']} 行，"
+                    "优先读取未读区间或直接补证。"
+                )
             return result
 
         return _guarded_sync(read)
@@ -2096,7 +2198,22 @@ def build_agent(
         _resolve_bound_task_id(ctx.deps, fact.task_id)
         document = load_document(ctx.deps.cwd, document_id)
         _ensure_bound_document(ctx.deps, document.id)
+        if re.match(_METADATA_QUOTE_RE, quote.strip()):
+            raise IntelError(
+                "INVALID_INPUT",
+                "引文是文档元数据行（文号/日期/来源等），不含事实内容，"
+                "请引用正文中蕴含事实的完整句子",
+            )
         existing = list_evidence_for_task(ctx.deps.cwd, fact.task_id)
+        if any(
+            e.document_id == document.id and e.quote == quote.strip()
+            for e in existing
+        ):
+            raise IntelError(
+                "BLOCKED_REPETITION",
+                "该引文已为该文档提交过，不要重复提交；"
+                "如需更完整的引文请用覆盖更多内容的 quote",
+            )
         evidence = save_evidence(
             ctx.deps.cwd,
             fact_id,

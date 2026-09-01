@@ -2,10 +2,13 @@
 
 import asyncio
 
+import pytest
+
 from intel_agent.audit import audit_task_evidence
 from intel_agent.coverage import eval_coverage, latest_coverage
 from intel_agent.fact import save_fact
-from intel_agent.task import create_task
+from intel_agent.models import IntelError
+from intel_agent.task import SEARCH_ATTEMPT_LIMIT, create_task
 from tests.conftest import (
     DEFAULT_CRITERIA,
     fake_judge,
@@ -275,6 +278,22 @@ def test_coverage_no_progress_stops_after_five_rounds(cwd):
     s6 = eval_coverage(cwd, task.id)
     assert s6.no_progress_rounds == 5
     assert s6.stop_reason == "no_progress"
+
+
+def test_coverage_search_budget_exhausted_stops(cwd):
+    # Run 059: the model tried to stop with QUERY_BUDGET_EXHAUSTED six times
+    # but the coverage gate kept rejecting it because stop_reason was None.
+    # Exhausted search budget must itself be a terminal stop reason.
+    task = new_task(cwd)
+    from intel_agent.task import record_search_attempt
+
+    for _ in range(SEARCH_ATTEMPT_LIMIT):
+        record_search_attempt(cwd, task.id)
+    with pytest.raises(IntelError):
+        record_search_attempt(cwd, task.id)
+
+    snapshot = eval_coverage(cwd, task.id)
+    assert snapshot.stop_reason == "search_budget_exhausted"
 
 
 def test_coverage_fingerprint_changes(cwd):

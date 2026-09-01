@@ -137,6 +137,16 @@ def _result_summary(value: object) -> dict[str, object]:
                 and isinstance(item, (str, int, float, bool, type(None)))
             }
         )
+        error = parsed.get("error")
+        if isinstance(error, dict):
+            # Failures stay diagnosable from the trace alone (run 059: 65
+            # audit failures were only recoverable via run.log greps).
+            code = error.get("code")
+            message = error.get("message")
+            if isinstance(code, str):
+                summary["error_code"] = code
+            if isinstance(message, str):
+                summary["error_message"] = message[:200]
         for key in ("results", "items", "documents", "facts", "evidence"):
             items = parsed.get(key)
             if isinstance(items, list):
