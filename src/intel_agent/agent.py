@@ -452,7 +452,28 @@ _GAP_QUERY_STOP_WORDS = {
     "达到",
     "同比增长",
     "环比增长",
+    # Measure words and verbs carry no retrieval value on their own
+    # (run 063: 12-char head truncation kept fragments like "在 台投入").
+    "台",
+    "架",
+    "元",
+    "亿",
+    "万",
+    "％",
+    "%",
+    "投入",
+    "交付",
+    "启动",
+    "正式",
+    "首批",
+    "累计",
+    "突破",
+    "约占",
 }
+
+# Number+measure tokens (5168台, 1.91万台) keep distinguishing power in
+# vertical search; bare numbers and years do not.
+_NUMBER_UNIT_RE = re.compile(r"\d+(?:\.\d+)?\s*(?:台|架|元|亿|万|%|％)")
 
 # Document metadata lines carry no fact content; evidence quotes must be
 # sentences from the body (run 059: 发文字号/成文日期 rows were saved as
@@ -468,23 +489,38 @@ def _fact_keywords(statement: str, limit: int = 5) -> list[str]:
 
     Attribution/date prefixes are stripped first (run 059: full 40-80 char
     sentences passed verbatim to academic/software/news providers returned
-    nothing). CJK runs up to 12 chars survive whole so compound theme terms
-    like 人形机器人 stay intact; longer runs keep their head.
+    nothing). Token priority: Latin words, then number+measure tokens, then
+    CJK windows free of stop/measure words (run 063: 12-char head truncation
+    kept fragments like "在 台投入").
     """
     text = re.sub(r"据[^，,。]{1,15}[，,]", " ", statement)
     text = re.sub(r"\d{4}年\d{1,2}月\d{1,2}日", " ", text)
     text = re.sub(r"\d{4}年", " ", text)
     tokens: list[str] = []
-    for match in re.finditer(r"[a-zA-Z]{2,}|[\u4e00-\u9fff]+", text):
+    for match in _NUMBER_UNIT_RE.finditer(text):
+        token = re.sub(r"\s+", "", match.group())
+        if token not in tokens:
+            tokens.append(token)
+    for match in re.finditer(r"[a-zA-Z]{2,}", text):
+        word = match.group().lower()
+        if len(word) >= 3 and word not in tokens:
+            tokens.append(word)
+    for match in re.finditer(r"[\u4e00-\u9fff]+", text):
         chunk = match.group()
-        if chunk.isascii():
-            word = chunk.lower()
-            if len(word) >= 3 and word not in tokens:
-                tokens.append(word)
-            continue
-        window = chunk if len(chunk) <= 12 else chunk[:12]
-        if window not in _GAP_QUERY_STOP_WORDS and window not in tokens:
-            tokens.append(window)
+        for size in (5, 4, 6, 3, 2):
+            for index in range(0, max(1, len(chunk) - size + 1), size):
+                window = chunk[index : index + size]
+                if (
+                    window in _GAP_QUERY_STOP_WORDS
+                    or window in tokens
+                    or any(c in window for c in "年月日约%台架元亿万")
+                ):
+                    continue
+                tokens.append(window)
+                break
+            else:
+                continue
+            break
         if len(tokens) >= limit:
             break
     return tokens[:limit]
@@ -716,7 +752,7 @@ async def _run_query_matrix(
                 if host:
                     seen_domains.add(host)
         system_queries: list[str] = []
-        executed_any = False
+        budget_exhausted = False
         target_groups = [
             (
                 question,
@@ -743,7 +779,11 @@ async def _run_query_matrix(
                 default=0,
             )
             for index in range(max_queries):
+                if budget_exhausted:
+                    break
                 for question, item_id, matrix in matrices:
+                    if budget_exhausted:
+                        break
                     queries = matrix.get(slot, [])
                     if index >= len(queries):
                         continue
@@ -760,11 +800,16 @@ async def _run_query_matrix(
                         record_search_attempt(
                             cwd,
                             limit=settings.budgets.search_attempts,
+                            pool=phase,
                             run_id=run_id,
                         )
                     except IntelError as error:
                         if error.code == "SEARCH_BUDGET_EXHAUSTED":
-                            return result
+                            # Stop filling slots but keep the slots already
+                            # executed in this call (run 063 P1: a bare
+                            # return dropped state and lost executed slots).
+                            budget_exhausted = True
+                            break
                         raise
                     reasons = list(
                         _MATRIX_PHASE_REASON.get(
@@ -905,7 +950,6 @@ async def _run_query_matrix(
                         }
                     )
                     system_queries.append(matrix_query)
-                    executed_any = True
                     _seed_active_crawl(cwd, settings, matrix_result)
                     seen_urls = {
                         item.get("url") for item in result.get("results", [])
@@ -917,12 +961,18 @@ async def _run_query_matrix(
                     )
                     if len(system_queries) >= _MATRIX_QUERIES_PER_CALL:
                         break
-                if len(system_queries) >= _MATRIX_QUERIES_PER_CALL:
+                if (
+                    budget_exhausted
+                    or len(system_queries) >= _MATRIX_QUERIES_PER_CALL
+                ):
                     break
-            if len(system_queries) >= _MATRIX_QUERIES_PER_CALL:
+            if (
+                budget_exhausted
+                or len(system_queries) >= _MATRIX_QUERIES_PER_CALL
+            ):
                 break
-        if executed_any:
-            write_json_atomic(cwd, _MATRIX_FILE, state)
+        # Always persist: executed slots must survive a mid-call budget stop.
+        write_json_atomic(cwd, _MATRIX_FILE, state)
         if system_queries:
             result["system_queries"] = system_queries
         return result
@@ -1141,6 +1191,13 @@ async def _coverage_eval_with_backlog(deps: AgentDeps, task_id: str) -> dict:
                         ),
                     }
                 )
+    if pending:
+        # Deterministic local lookup for the first backlog fact (run 063):
+        # the model never called document_search itself, so hand it the
+        # concrete candidate instead of another generic instruction.
+        pending[0]["verification_hits"] = _verification_hits(
+            cwd, task_id, pending[0]["statement"]
+        )
     data["pending_cross_verification"] = pending[:10]
     if pending:
         data["verification_workflow"] = (
@@ -1225,6 +1282,7 @@ async def _gap_driven_vertical_search(
             record_search_attempt(
                 deps.cwd,
                 limit=settings.budgets.search_attempts,
+                pool="verify",
                 run_id=deps.run_id,
             )
         except IntelError as error:
@@ -1428,6 +1486,29 @@ def _single_source_backlog(cwd: Path, task_id: str) -> list[dict]:
     return backlog
 
 
+def _verification_hits(cwd: Path, task_id: str, statement: str) -> str:
+    """Deterministic local-corpus lookup for a single-source fact (run 063).
+
+    The model was told to verify via document_search but never called it;
+    the gate now runs the cheap local search itself and hands the model
+    concrete candidates instead of a generic instruction.
+    """
+    keywords = _fact_keywords(statement)
+    if not keywords:
+        return "本地语料无命中；用矩阵 verify 查询或定向 web_search 补证"
+    try:
+        result = _document_search(cwd, task_id, " ".join(keywords), 3)
+    except IntelError:
+        return "本地语料无命中；用矩阵 verify 查询或定向 web_search 补证"
+    hits = result.get("results") or []
+    if not hits:
+        return "本地语料无命中；用矩阵 verify 查询或定向 web_search 补证"
+    lines = [
+        f"{item['document_id']}「{item['snippet'][:100]}」" for item in hits
+    ]
+    return "本地语料命中补证候选：" + "；".join(lines)
+
+
 def _fact_save_with_gate(
     cwd: Path,
     task_id: str,
@@ -1454,10 +1535,11 @@ def _fact_save_with_gate(
                 f"「{item['statement']}」({item['source_groups']}/{item['required']} 组)"
                 for item in backlog[:3]
             )
+            hits = _verification_hits(cwd, task_id, backlog[0]["statement"])
             raise IntelError(
                 "CROSS_VERIFY_BACKLOG",
                 "存在未完成交叉验证的单源事实，登记新事实前必须先补齐第二独立来源组"
-                f"（evidence_save → evidence_audit）：{pending}",
+                f"（evidence_save → evidence_audit）：{pending}。{hits}",
             )
     return save_fact(
         cwd,

@@ -6,6 +6,7 @@ from intel_agent.models import IntelError, ResearchScope, SufficiencyCriteria
 from intel_agent.task import (
     FETCH_ATTEMPT_LIMIT,
     SEARCH_ATTEMPT_LIMIT,
+    SEARCH_POOL_SHARES,
     create_task,
     load_task,
     parse_time_range,
@@ -151,10 +152,40 @@ def test_create_task_builds_atomic_investigation_items_and_normalizes_dates(
 
 def test_search_budget_exhausts(cwd):
     task = new_task(cwd)
-    for _ in range(SEARCH_ATTEMPT_LIMIT):
+    cap = max(1, int(SEARCH_ATTEMPT_LIMIT * SEARCH_POOL_SHARES["discovery"]))
+    for _ in range(cap):
         record_search_attempt(cwd, task.id)
     with pytest.raises(IntelError) as e:
         record_search_attempt(cwd, task.id)
+    assert e.value.code == "SEARCH_BUDGET_EXHAUSTED"
+
+
+def test_search_budget_pools_are_independent(cwd):
+    # Run 063: a single shared cap let the model's discovery searches starve
+    # matrix verify slots. Each phase pool must exhaust independently, and
+    # the terminal stop reason only fires once every pool is gone.
+    task = new_task(cwd)
+    task.collection.search_attempts_by_pool = {}
+    # discovery pool caps at max(1, int(6 * 0.4)) = 2
+    record_search_attempt(cwd, task.id, pool="discovery")
+    record_search_attempt(cwd, task.id, pool="discovery")
+    with pytest.raises(IntelError) as e:
+        record_search_attempt(cwd, task.id, pool="discovery")
+    assert e.value.code == "SEARCH_BUDGET_EXHAUSTED"
+    assert "discovery" in str(e.value)
+    # verify pool still has its own budget; stop reason not set yet
+    record_search_attempt(cwd, task.id, pool="verify")
+    assert load_task(cwd, task.id).collection.search_stop_reason is None
+    # exhaust every pool -> terminal stop reason
+    for pool in ("verify", "adversarial"):
+        cap = max(1, int(SEARCH_ATTEMPT_LIMIT * SEARCH_POOL_SHARES[pool]))
+        used = load_task(cwd, task.id).collection.search_attempts_by_pool.get(
+            pool, 0
+        )
+        for _ in range(cap - used):
+            record_search_attempt(cwd, task.id, pool=pool)
+    with pytest.raises(IntelError) as e:
+        record_search_attempt(cwd, task.id, pool="adversarial")
     assert e.value.code == "SEARCH_BUDGET_EXHAUSTED"
     assert (
         load_task(cwd, task.id).collection.search_stop_reason

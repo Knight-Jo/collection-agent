@@ -8,7 +8,7 @@ from collections.abc import Callable, Mapping
 import httpx
 import pytest
 
-from intel_agent.config import CrawlConfig
+from intel_agent.config import BudgetConfig, CrawlConfig
 from intel_agent.crawl import crawl_collect
 from intel_agent.evidence import load_document
 from intel_agent.fetch import FetchedResponse
@@ -952,6 +952,7 @@ async def test_gap_driven_vertical_routing_seeds_candidates(cwd):
     await audit_task_evidence(cwd, task.id, fake_judge, "test", "fake")
 
     settings = Settings(
+        budgets=BudgetConfig(search_attempts=40),
         search=SearchConfig(
             searxng_url=None,
             github=GitHubSearchConfig(rate_limit=0, max_results=5),
@@ -961,7 +962,7 @@ async def test_gap_driven_vertical_routing_seeds_candidates(cwd):
             news=NewsSearchConfig(
                 baidu=True, so360=True, gdelt=False, max_results=5
             ),
-        )
+        ),
     )
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(_routed_handler(routes))

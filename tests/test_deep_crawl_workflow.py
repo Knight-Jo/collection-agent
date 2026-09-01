@@ -322,9 +322,15 @@ async def test_web_search_executes_query_matrix_slots(monkeypatch, cwd):
         }
 
     monkeypatch.setattr(agent_module, "web_search", fake_search)
+    settings = Settings(budgets=BudgetConfig(search_attempts=40))
 
-    await _tool(build_agent(Settings()), "web_search")(
-        _context(cwd), "具体 查询", 5, "general", "zh-CN", None
+    await _tool(build_agent(settings), "web_search")(
+        _context(cwd, settings=settings),
+        "具体 查询",
+        5,
+        "general",
+        "zh-CN",
+        None,
     )
     recorder.close()
 
@@ -387,9 +393,17 @@ async def test_query_matrix_round_robins_questions_before_deepening(
         return {"results": [], "engineUsed": "fake"}
 
     monkeypatch.setattr(agent_module, "web_search", fake_search)
-    tool = _tool(build_agent(Settings()), "web_search")
+    settings = Settings(budgets=BudgetConfig(search_attempts=40))
+    tool = _tool(build_agent(settings), "web_search")
 
-    await tool(_context(cwd), "具体 查询", 5, "general", "zh-CN", None)
+    await tool(
+        _context(cwd, settings=settings),
+        "具体 查询",
+        5,
+        "general",
+        "zh-CN",
+        None,
+    )
 
     state = json.loads(
         (cwd / "data/intel/search_matrix.json").read_text(encoding="utf-8")
@@ -423,34 +437,29 @@ async def test_query_matrix_respects_phase_budgets(monkeypatch, cwd):
         }
 
     monkeypatch.setattr(agent_module, "web_search", fake_search)
-    settings = Settings(budgets=BudgetConfig(search_attempts=6))
+    settings = Settings(budgets=BudgetConfig(search_attempts=40))
     tool = _tool(build_agent(settings), "web_search")
+    context = _context(cwd, settings=settings)
 
-    await tool(
-        _context(cwd, settings=settings),
+    # 5 calls: 4 discovery slots (2 per question) fill first, then verify
+    # slots run on their own budget (run 063 P1: model discovery searches
+    # must not starve matrix verify).
+    for query in (
         "具体 查询",
-        5,
-        "general",
-        "zh-CN",
-        None,
-    )
-    await tool(
-        _context(cwd, settings=settings),
         "另一 查询",
-        5,
-        "general",
-        "zh-CN",
-        None,
-    )
+        "第三 查询",
+        "第四 查询",
+        "第五 查询",
+    ):
+        await tool(context, query, 5, "general", "zh-CN", None)
 
     state = json.loads(
         (cwd / "data/intel/search_matrix.json").read_text(encoding="utf-8")
     )
-    # Budget 6 → phase caps: discovery 2, verify 2, adversarial 1.
-    assert state["phase_used"]["discovery"] <= 2
-    assert state["phase_used"]["verify"] <= 2
-    assert state["phase_used"]["adversarial"] <= 1
-    assert sum(state["phase_used"].values()) >= 2
+    # Budget 40 → phase caps: discovery 16, verify 16, adversarial 8.
+    assert state["phase_used"]["discovery"] <= 16
+    assert state["phase_used"]["verify"] >= 1
+    assert state["phase_used"]["adversarial"] <= 8
 
 
 @pytest.mark.asyncio
@@ -1020,7 +1029,50 @@ def test_gap_query_extracts_keywords_not_full_statement():
     assert query is not None
     assert len(query) < 60
     assert "人形机器人" in query
+    assert "1.91万" in query or "272%" in query
     assert "据机构SAG数据" not in query
+
+
+def test_fact_save_gate_injects_local_hits(cwd):
+    # Run 063: the model never called document_search itself, so the gate
+    # runs the cheap local lookup and hands back concrete candidates.
+    task = create_task(
+        cwd,
+        "主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+    )
+    agent = build_agent(Settings())
+    fact_tool = _tool(agent, "fact_save")
+
+    first = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 A")
+    first_doc = make_document(cwd, "事实 A 报道", "https://news.cn/a")
+    save_evidence(cwd, first["id"], first_doc.id, "supports", "事实 A 报道")
+
+    second_doc = make_document(
+        cwd, "独立媒体对事实 A 的详细报道", "https://caixin.com/a2"
+    )
+    register_material(
+        cwd, task.id, second_doc.final_url, document_id=second_doc.id
+    )
+
+    blocked = fact_tool(_context(cwd), task.id, task.questions[0].id, "事实 B")
+    assert blocked["error"]["code"] == "CROSS_VERIFY_BACKLOG"
+    assert second_doc.id in blocked["error"]["message"]
+
+    empty_task = create_task(
+        cwd, "空主题", ["问题丙", "问题丁"], DEFAULT_CRITERIA
+    )
+    empty = fact_tool(
+        _context(cwd), empty_task.id, empty_task.questions[0].id, "事实 C"
+    )
+    empty_doc = make_document(cwd, "事实 C 报道", "https://news.cn/c")
+    save_evidence(cwd, empty["id"], empty_doc.id, "supports", "事实 C 报道")
+    blocked2 = fact_tool(
+        _context(cwd), empty_task.id, empty_task.questions[0].id, "事实 D"
+    )
+    assert blocked2["error"]["code"] == "CROSS_VERIFY_BACKLOG"
+    assert "无命中" in blocked2["error"]["message"]
 
 
 def test_fact_save_gated_while_single_source_backlog_exists(cwd):

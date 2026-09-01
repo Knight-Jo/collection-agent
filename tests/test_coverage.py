@@ -285,12 +285,14 @@ def test_coverage_search_budget_exhausted_stops(cwd):
     # but the coverage gate kept rejecting it because stop_reason was None.
     # Exhausted search budget must itself be a terminal stop reason.
     task = new_task(cwd)
-    from intel_agent.task import record_search_attempt
+    from intel_agent.task import SEARCH_POOL_SHARES, record_search_attempt
 
-    for _ in range(SEARCH_ATTEMPT_LIMIT):
-        record_search_attempt(cwd, task.id)
+    for pool in ("discovery", "verify", "adversarial"):
+        cap = max(1, int(SEARCH_ATTEMPT_LIMIT * SEARCH_POOL_SHARES[pool]))
+        for _ in range(cap):
+            record_search_attempt(cwd, task.id, pool=pool)
     with pytest.raises(IntelError):
-        record_search_attempt(cwd, task.id)
+        record_search_attempt(cwd, task.id, pool="adversarial")
 
     snapshot = eval_coverage(cwd, task.id)
     assert snapshot.stop_reason == "search_budget_exhausted"

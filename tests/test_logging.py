@@ -71,7 +71,10 @@ def test_budget_exhaustion_logs_warning(caplog, cwd):
     task = create_task(
         cwd, "主题", ["问题一", "问题二"], SufficiencyCriteria()
     )
-    for _ in range(6):
+    from intel_agent.task import SEARCH_POOL_SHARES
+
+    cap = max(1, int(6 * SEARCH_POOL_SHARES["discovery"]))
+    for _ in range(cap):
         record_search_attempt(cwd, task.id)
 
     with (

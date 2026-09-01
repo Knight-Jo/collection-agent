@@ -203,6 +203,9 @@ class TaskOutputBinding(BaseModel):
 
 class CollectionState(BaseModel):
     search_attempts: int = 0
+    # Per-phase search budget (run 063: the model's discovery searches
+    # consumed the shared cap before matrix verify slots could run).
+    search_attempts_by_pool: dict[str, int] = Field(default_factory=dict)
     search_stop_reason: Literal["search_budget_exhausted"] | None = None
     fetch_attempts_since_evidence: int = 0
     evidence_count: int = 0

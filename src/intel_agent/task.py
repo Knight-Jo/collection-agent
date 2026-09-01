@@ -48,6 +48,10 @@ STAGE_ORDER: list[TaskStage] = ["collect", "assess", "challenge", "done"]
 # new evidence, so the agent is never hard-stopped mid-progress.
 FETCH_ATTEMPT_LIMIT = 6
 SEARCH_ATTEMPT_LIMIT = 6
+# Per-phase search shares (run 063: the model's discovery searches ate the
+# shared cap before matrix verify slots could run; verify must keep its own
+# budget or cross-verification is structurally starved).
+SEARCH_POOL_SHARES = {"discovery": 0.4, "verify": 0.4, "adversarial": 0.2}
 
 logger = get_logger(__name__)
 
@@ -323,12 +327,20 @@ def record_search_attempt(
     task_id: str | None = None,
     limit: int = SEARCH_ATTEMPT_LIMIT,
     *,
+    pool: str = "discovery",
     run_id: str | None = None,
 ) -> dict:
     task = load_task(cwd, task_id)
     before = task.collection.model_dump()
-    if task.collection.search_attempts >= limit:
-        if not task.collection.search_stop_reason:
+    by_pool = dict(task.collection.search_attempts_by_pool or {})
+    used = by_pool.get(pool, 0)
+    pool_limit = max(1, int(limit * SEARCH_POOL_SHARES.get(pool, 1.0)))
+    if used >= pool_limit:
+        all_exhausted = all(
+            by_pool.get(name, 0) >= max(1, int(limit * share))
+            for name, share in SEARCH_POOL_SHARES.items()
+        )
+        if all_exhausted and not task.collection.search_stop_reason:
             task = task.model_copy(
                 update={
                     "collection": task.collection.model_copy(
@@ -358,15 +370,25 @@ def record_search_attempt(
                 layer="business",
             )
         )
-        logger.warning("search budget exhausted (%d searches)", limit)
+        logger.warning(
+            "search budget exhausted (%s pool: %d/%d)",
+            pool,
+            used,
+            pool_limit,
+        )
         raise IntelError(
             "SEARCH_BUDGET_EXHAUSTED",
-            f"搜索预算已用完（{limit} 次）；请使用已有候选来源，或接受并披露检索缺口。",
+            f"{pool} 阶段搜索预算已用完（{pool_limit} 次）；"
+            "请使用已有候选来源，或接受并披露检索缺口。",
         )
+    by_pool[pool] = used + 1
     task = task.model_copy(
         update={
             "collection": task.collection.model_copy(
-                update={"search_attempts": task.collection.search_attempts + 1}
+                update={
+                    "search_attempts": task.collection.search_attempts + 1,
+                    "search_attempts_by_pool": by_pool,
+                }
             ),
             "updated_at": utc_now(),
         }
