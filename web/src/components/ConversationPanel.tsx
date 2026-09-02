@@ -130,22 +130,13 @@ export function ConversationPanel({
     return () => events.close();
   }, [conversationId, refresh, taskId]);
 
-  const activeRun = useMemo(
-    () =>
-      [...(view?.runs ?? [])]
-        .reverse()
-        .find((run) => ["queued", "running", "stopping"].includes(run.status)),
-    [view],
-  );
-  const failedRun = useMemo(
-    () =>
-      activeRun
-        ? undefined
-        : [...(view?.runs ?? [])]
-            .reverse()
-            .find((run) => ["failed", "interrupted"].includes(run.status)),
-    [activeRun, view],
-  );
+  const latestRun = view?.runs.at(-1);
+  const activeRun =
+    latestRun && ["queued", "running", "stopping"].includes(latestRun.status)
+      ? latestRun
+      : undefined;
+  const failedRun =
+    latestRun && ["failed", "interrupted"].includes(latestRun.status) ? latestRun : undefined;
   const attemptsByMessage = useMemo(
     () =>
       new Map(

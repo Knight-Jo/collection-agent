@@ -285,6 +285,34 @@ it("shows a failed research run reason and offers research retry", async () => {
   expect(api.retryResearchRun).toHaveBeenCalledWith("run-17");
 });
 
+it("does not surface an older failure after a newer run succeeded", async () => {
+  vi.mocked(api.conversationById).mockResolvedValue({
+    ...projection,
+    runs: [
+      {
+        ...projection.runs[0],
+        id: "run-failed",
+        status: "failed",
+        phase: "planning",
+        error: "database disk image is malformed",
+      },
+      {
+        ...projection.runs[0],
+        id: "run-succeeded",
+        status: "succeeded",
+        phase: "checkpointing",
+        error: null,
+      },
+    ],
+  });
+
+  render(<ConversationPanel conversationId="conversation-1" />);
+
+  await screen.findByText("目前可以确认竞争格局。");
+  expect(screen.queryByText("调研未完成")).not.toBeInTheDocument();
+  expect(screen.queryByText("database disk image is malformed")).not.toBeInTheDocument();
+});
+
 it("shows report generation progress and prevents duplicate requests", async () => {
   const user = userEvent.setup();
   let finishReport: (() => void) | undefined;
