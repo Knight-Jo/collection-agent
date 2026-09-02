@@ -555,12 +555,13 @@ stateDiagram-v2
 
 ### 6.1 权威数据
 
-SQLite 数据库位于工作区 `data/intel/intel.db`，使用标准库 `sqlite3` 并启用：
+SQLite 数据库默认位于工作区 `data/intel/intel.db`；NAS/NFS 工作区必须通过
+`storage.state_db_path` 将它放到本机文件系统。系统使用标准库 `sqlite3` 并启用：
 
 ```text
 PRAGMA journal_mode = WAL
 PRAGMA foreign_keys = ON
-PRAGMA busy_timeout = 5000
+PRAGMA busy_timeout = 30000
 ```
 
 数据库是以下内容的唯一真相源：

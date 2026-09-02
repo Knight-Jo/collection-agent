@@ -139,7 +139,7 @@ python scripts/smoke_conversation.py \
 ```
 
 运行结束后产物位于：
-- `data/intel/intel.db` — 会话、消息、任务元数据、运行、checkpoint、事件和报告版本（SQLite WAL）
+- `storage.state_db_path` — 会话、消息、任务元数据、运行、checkpoint、事件和报告版本（SQLite WAL；必须位于本机文件系统）
 - `data/intel/` — 材料导读、抓取队列、事实、证据、审核和覆盖等既有研究资产（JSON，原子写入）
 - `data/raw/` — 文档原文（.raw）与提取正文（.txt）
 - `output/` — 正式调研报告；升级前生成的证据包和旧研判产物仍可只读访问
@@ -152,6 +152,7 @@ python scripts/smoke_conversation.py \
 |--------|------|
 | `model` | 主 Agent 的 OpenAI 兼容接口；`api_key_env: null` 表示本机免密服务 |
 | `audit_model` | 语义审核独立模型（默认同主模型） |
+| `storage.state_db_path` | SQLite 文件路径；支持 `~`，NAS/NFS 工作区必须配置到本机文件系统 |
 | `search.searxng_url` | 本地 SearXNG 地址；`null` 则只用 Bing/Baidu 直连 |
 | `search.github` / `search.academic` / `search.news` / `search.archive` | 垂直搜索开关与调优（匿名、零密钥）：GitHub 仓库/Issue（额度受限降级 Gitee）、arXiv+Crossref(+S2 匿名补充)、国内直达新闻级联（百度→360→SearXNG，GDELT 默认关）、Wayback 死链兜底 |
 | `search.ai_native.exa` / `.brave` / `.tavily` | 显式启用的 AI-native Provider；密钥只从 `api_key_env` 指定的环境变量读取，缺密钥或单点失败会降级，不会把摘要直接当作证据 |

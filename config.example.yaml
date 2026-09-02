@@ -15,6 +15,10 @@ model:
 #   base_url: https://api.deepseek.com/v1
 #   api_key_env: DEEPSEEK_API_KEY
 
+storage:
+  # SQLite 必须位于本机文件系统；报告、轨迹和材料仍保留在工作区。
+  state_db_path: ~/.local/tmp/collection-agent-pydantic/intel.db
+
 context:
   # 可选档位：16384 / 32768 / 65536 / 131072 / 262144，必须与模型服务实际 n_ctx 一致。
   context_window_tokens: 65536

@@ -180,6 +180,12 @@ class LoggingConfig(BaseModel):
     dir: str = "data/logs"
 
 
+class StorageConfig(BaseModel):
+    """Local database placement; large research assets stay in the workspace."""
+
+    state_db_path: str | None = None
+
+
 class SourcesConfig(BaseModel):
     """Optional deployment-specific sources returned as direct-fetch hints."""
 
@@ -200,6 +206,7 @@ class Settings(BaseModel):
     crawl: CrawlConfig = Field(default_factory=CrawlConfig)
     web: WebConfig = Field(default_factory=WebConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    storage: StorageConfig = Field(default_factory=StorageConfig)
     sources: SourcesConfig = Field(default_factory=SourcesConfig)
 
     def model_api_key(self) -> str | None:

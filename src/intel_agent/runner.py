@@ -41,6 +41,7 @@ from .models import (
     SufficiencyCriteria,
 )
 from .reason_rules import derive_reason_codes, reason_summary, snapshot_state
+from .state_db import configure_state_db_path
 from .task import load_task, parse_time_range
 from .trajectory import (
     ActionPayload,
@@ -521,6 +522,7 @@ async def run_agent_task(
     """Run one task, forwarding native Pydantic AI events and, optionally,
     recording a structured run trajectory (run/step lifecycle, model calls) and
     the full model conversation (per-turn message history) for debugging."""
+    configure_state_db_path(cwd, settings.storage.state_db_path)
     trace_started = time.monotonic()
     trace_binding: trajectory.ContextBinding | None = None
     terminal_status = "succeeded"

@@ -22,6 +22,29 @@ from intel_agent.web.schemas import RunCreate
 from tests.conftest import make_document, new_task
 
 
+def test_storage_config_places_sqlite_on_local_path(tmp_path, monkeypatch):
+    local_home = tmp_path / "home"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setenv("HOME", str(local_home))
+    settings = Settings.model_validate(
+        {
+            "storage": {
+                "state_db_path": (
+                    "~/.local/tmp/collection-agent-pydantic/intel.db"
+                )
+            }
+        }
+    )
+
+    create_app(cwd=workspace, settings=settings)
+
+    assert (
+        local_home / ".local/tmp/collection-agent-pydantic/intel.db"
+    ).is_file()
+    assert not (workspace / "data/intel/intel.db").exists()
+
+
 def test_system_and_task_endpoints(cwd, monkeypatch):
     monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
     task = new_task(cwd)

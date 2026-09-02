@@ -83,7 +83,7 @@ def test_remote_model_still_requires_its_configured_environment(monkeypatch):
 def test_settings_only_exposes_effective_options():
     settings = Settings()
 
-    assert not hasattr(settings, "storage")
+    assert settings.storage.state_db_path is None
     assert not hasattr(settings.search.github, "timeout")
     assert not hasattr(settings.search.github, "retry")
     assert not hasattr(settings.search.archive, "wayback")

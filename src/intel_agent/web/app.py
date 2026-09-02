@@ -27,6 +27,7 @@ from ..conversation import ConversationRuntime
 from ..logging import configure_logging
 from ..models import IntelError
 from ..report_versions import ReportPublisher
+from ..state_db import configure_state_db_path
 from .conversation import router as conversation_router
 from .runs import LegacyRunAdapter
 from .schemas import (
@@ -62,6 +63,7 @@ def create_app(
     app = FastAPI(title="Intel Agent Workbench", version="0.1.0")
     app.state.cwd = cwd.resolve()
     app.state.settings = settings
+    configure_state_db_path(app.state.cwd, settings.storage.state_db_path)
     auth_env = settings.web.auth_token_env
     auth_token = os.environ.get(auth_env) if auth_env else None
     trusted_hosts = {

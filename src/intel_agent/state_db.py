@@ -547,10 +547,25 @@ SCHEMA_V7 = """
 DROP TABLE IF EXISTS web_run_projections;
 """
 
+_STATE_DB_PATHS: dict[Path, Path] = {}
+
+
+def configure_state_db_path(cwd: Path, configured_path: str | None) -> None:
+    """Bind one workspace to an optional process-local SQLite path."""
+    workspace = cwd.resolve()
+    if configured_path is None:
+        _STATE_DB_PATHS.pop(workspace, None)
+        return
+    path = Path(configured_path).expanduser()
+    _STATE_DB_PATHS[workspace] = (
+        path if path.is_absolute() else workspace / path
+    ).resolve()
+
 
 def state_db_path(cwd: Path) -> Path:
     """Return the local SQLite state database path."""
-    return cwd / "data/intel/intel.db"
+    workspace = cwd.resolve()
+    return _STATE_DB_PATHS.get(workspace, workspace / "data/intel/intel.db")
 
 
 @contextmanager
@@ -564,7 +579,9 @@ def connect_state_db(cwd: Path):
     ``finish_run``).
     """
     ensure_intel_dirs(cwd)
-    connection = sqlite3.connect(state_db_path(cwd), timeout=30)
+    path = state_db_path(cwd)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(path, timeout=30)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     connection.execute("PRAGMA busy_timeout = 30000")
