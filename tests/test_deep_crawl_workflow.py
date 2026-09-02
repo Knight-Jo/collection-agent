@@ -469,6 +469,108 @@ async def test_query_matrix_respects_phase_budgets(monkeypatch, cwd):
 
 
 @pytest.mark.asyncio
+async def test_query_matrix_does_not_exhaust_discovery_before_total_budget(
+    monkeypatch, cwd
+):
+    questions = ["问题甲", "问题乙", "问题丙"]
+    create_task(
+        cwd,
+        "测试主题",
+        questions,
+        DEFAULT_CRITERIA,
+        deep_crawl=True,
+        investigation_items={
+            question: [f"{question}调研项{index}" for index in range(4)]
+            for question in questions
+        },
+    )
+
+    async def fake_search(query, _max, *, client, searxng_url, opts):
+        return {
+            "results": [
+                {
+                    "url": f"https://example.com/{abs(hash(query))}",
+                    "title": "测试主题 结果",
+                }
+            ],
+            "engineUsed": "fake",
+        }
+
+    monkeypatch.setattr(agent_module, "web_search", fake_search)
+    settings = Settings(
+        budgets=BudgetConfig(search_attempts=40),
+        context=ContextConfig(max_search_calls_before_fetch=100),
+    )
+    tool = _tool(build_agent(settings), "web_search")
+    context = _context(cwd, settings=settings)
+
+    for index in range(14):
+        result = await tool(
+            context,
+            f"测试主题 具体查询 {index}",
+            5,
+            "general",
+            "zh-CN",
+            None,
+        )
+        assert result.get("error", {}).get("code") != (
+            "SEARCH_BUDGET_EXHAUSTED"
+        )
+
+    task = load_task(cwd)
+    assert task.collection.search_attempts == 40
+    assert task.collection.search_attempts_by_pool == {
+        "discovery": 16,
+        "verify": 16,
+        "adversarial": 8,
+    }
+
+
+@pytest.mark.asyncio
+async def test_web_search_uses_matrix_budget_after_discovery_is_exhausted(
+    monkeypatch, cwd
+):
+    task = create_task(
+        cwd,
+        "测试主题",
+        ["问题甲", "问题乙"],
+        DEFAULT_CRITERIA,
+        deep_crawl=True,
+    )
+    task.collection.search_attempts = 16
+    task.collection.search_attempts_by_pool = {"discovery": 16}
+    save_task(cwd, task)
+
+    async def fake_search(query, _max, *, client, searxng_url, opts):
+        return {
+            "results": [
+                {
+                    "url": f"https://example.com/{abs(hash(query))}",
+                    "title": "测试主题 结果",
+                }
+            ],
+            "engineUsed": "fake",
+        }
+
+    monkeypatch.setattr(agent_module, "web_search", fake_search)
+    settings = Settings(budgets=BudgetConfig(search_attempts=40))
+    result = await _tool(build_agent(settings), "web_search")(
+        _context(cwd, settings=settings),
+        "测试主题 具体查询",
+        5,
+        "general",
+        "zh-CN",
+        None,
+    )
+
+    assert result.get("error", {}).get("code") != "SEARCH_BUDGET_EXHAUSTED"
+    assert load_task(cwd).collection.search_attempts_by_pool == {
+        "discovery": 16,
+        "verify": 2,
+    }
+
+
+@pytest.mark.asyncio
 async def test_web_search_news_empty_falls_back_to_general(monkeypatch, cwd):
     task = create_task(
         cwd,

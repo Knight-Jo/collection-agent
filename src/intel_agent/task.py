@@ -335,8 +335,9 @@ def record_search_attempt(
     by_pool = dict(task.collection.search_attempts_by_pool or {})
     used = by_pool.get(pool, 0)
     pool_limit = max(1, int(limit * SEARCH_POOL_SHARES.get(pool, 1.0)))
-    if used >= pool_limit:
-        all_exhausted = all(
+    total_exhausted = task.collection.search_attempts >= limit
+    if total_exhausted or used >= pool_limit:
+        all_exhausted = total_exhausted or all(
             by_pool.get(name, 0) >= max(1, int(limit * share))
             for name, share in SEARCH_POOL_SHARES.items()
         )
@@ -376,10 +377,14 @@ def record_search_attempt(
             used,
             pool_limit,
         )
+        budget_message = (
+            f"搜索总预算已用完（{limit} 次）；"
+            if total_exhausted
+            else f"{pool} 阶段搜索预算已用完（{pool_limit} 次）；"
+        )
         raise IntelError(
             "SEARCH_BUDGET_EXHAUSTED",
-            f"{pool} 阶段搜索预算已用完（{pool_limit} 次）；"
-            "请使用已有候选来源，或接受并披露检索缺口。",
+            f"{budget_message}请使用已有候选来源，或接受并披露检索缺口。",
         )
     by_pool[pool] = used + 1
     task = task.model_copy(

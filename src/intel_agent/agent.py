@@ -742,6 +742,9 @@ async def _run_query_matrix(
             phase: max(1, int(total_budget * share))
             for phase, share in QUERY_MATRIX_PHASE_BUDGET.items()
         }
+        pool_used = dict(
+            load_task(cwd, task.id).collection.search_attempts_by_pool
+        )
         archived = _archived_urls(cwd)
         seen_domains: set[str] = set()
         for entry in state["trace"]:
@@ -751,7 +754,7 @@ async def _run_query_matrix(
                 if host:
                     seen_domains.add(host)
         system_queries: list[str] = []
-        budget_exhausted = False
+        exhausted_pools: set[str] = set()
         target_groups = [
             (
                 question,
@@ -772,25 +775,27 @@ async def _run_query_matrix(
             (question, item_id, query_matrix(task.topic, target))
             for question, item_id, target in target_rows
         ]
-        for slot in QUERY_MATRIX_SLOTS:
+        slots = list(QUERY_MATRIX_SLOTS)
+        if state["trace"]:
+            slots.sort(
+                key=lambda slot: (
+                    pool_used.get(QUERY_MATRIX_PHASE[slot], 0)
+                    / phase_caps[QUERY_MATRIX_PHASE[slot]]
+                )
+            )
+        for slot in slots:
+            phase = QUERY_MATRIX_PHASE[slot]
             max_queries = max(
                 (len(matrix.get(slot, [])) for _, _, matrix in matrices),
                 default=0,
             )
             for index in range(max_queries):
-                if budget_exhausted:
-                    break
                 for question, item_id, matrix in matrices:
-                    if budget_exhausted:
-                        break
                     queries = matrix.get(slot, [])
                     if index >= len(queries):
                         continue
                     matrix_query = queries[index]
-                    phase = QUERY_MATRIX_PHASE[slot]
-                    if state["phase_used"].get(phase, 0) >= phase_caps.get(
-                        phase, 1
-                    ):
+                    if pool_used.get(phase, 0) >= phase_caps[phase]:
                         continue
                     key = f"{question.id}:{item_id or '-'}:{slot}:{index}"
                     if key in state["executed"]:
@@ -804,12 +809,10 @@ async def _run_query_matrix(
                         )
                     except IntelError as error:
                         if error.code == "SEARCH_BUDGET_EXHAUSTED":
-                            # Stop filling slots but keep the slots already
-                            # executed in this call (run 063 P1: a bare
-                            # return dropped state and lost executed slots).
-                            budget_exhausted = True
+                            exhausted_pools.add(phase)
                             break
                         raise
+                    pool_used[phase] = pool_used.get(phase, 0) + 1
                     reasons = list(
                         _MATRIX_PHASE_REASON.get(
                             phase, ("SEARCH_RESULT_NOT_MATERIALIZED",)
@@ -961,14 +964,11 @@ async def _run_query_matrix(
                     if len(system_queries) >= _MATRIX_QUERIES_PER_CALL:
                         break
                 if (
-                    budget_exhausted
+                    phase in exhausted_pools
                     or len(system_queries) >= _MATRIX_QUERIES_PER_CALL
                 ):
                     break
-            if (
-                budget_exhausted
-                or len(system_queries) >= _MATRIX_QUERIES_PER_CALL
-            ):
+            if len(system_queries) >= _MATRIX_QUERIES_PER_CALL:
                 break
         # Always persist: executed slots must survive a mid-call budget stop.
         write_json_atomic(cwd, _MATRIX_FILE, state)
@@ -1697,9 +1697,38 @@ def build_agent(
                 "candidates": ctx.deps.pending_fetch_candidates,
                 "next_action": "从 candidates 选择一个 URL 调用 web_fetch；不要再次调用 web_search 或 intel_plan。",
             }
+        try:
+            task = load_task(ctx.deps.cwd)
+        except IntelError as error:
+            if error.code != "NOT_FOUND":
+                raise
+            task = None
+        search_limit = ctx.deps.settings.budgets.search_attempts
+        discovery_limit = max(
+            1,
+            int(search_limit * QUERY_MATRIX_PHASE_BUDGET["discovery"]),
+        )
+        if (
+            task is not None
+            and task.collection.search_attempts < search_limit
+            and task.collection.search_attempts_by_pool.get("discovery", 0)
+            >= discovery_limit
+        ):
+            result = {"results": [], "engineUsed": "matrix"}
+            await _run_query_matrix(
+                ctx.deps.cwd,
+                ctx.deps.settings,
+                ctx.deps.http,
+                result,
+                task,
+                ctx.deps.run_id,
+            )
+            if result.get("system_queries"):
+                _finalize_search_result(ctx, result)
+                return result
         record_search_attempt(
             ctx.deps.cwd,
-            limit=ctx.deps.settings.budgets.search_attempts,
+            limit=search_limit,
             run_id=ctx.deps.run_id,
         )
         # The model habitually passes max_results=5; raise the floor so one
@@ -1742,12 +1771,6 @@ def build_agent(
                 **provider_kwargs,
             )
         _seed_active_crawl(ctx.deps.cwd, ctx.deps.settings, result)
-        try:
-            task = load_task(ctx.deps.cwd)
-        except IntelError as error:
-            if error.code != "NOT_FOUND":
-                raise
-            task = None
         if task is not None:
             await _run_query_matrix(
                 ctx.deps.cwd,
