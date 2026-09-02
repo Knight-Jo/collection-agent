@@ -7,6 +7,7 @@ import sqlite3
 import time
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
+from typing import Literal
 
 from .models import (
     ActionRequest,
@@ -2754,6 +2755,7 @@ class StateStore:
         report_id: str | None = None,
         expected_current_state_version: int | None = None,
         expected_snapshot_fingerprint: str | None = None,
+        publication_origin: Literal["native", "legacy_migration"] = "native",
     ) -> ReportVersion:
         """Create a draft and abandon the task's previous draft atomically."""
         now = utc_now()
@@ -2795,8 +2797,8 @@ class StateStore:
                 "INSERT INTO report_versions("
                 "id, task_id, version, status, content_path, content_sha256, "
                 "based_on_checkpoint_id, based_on_committed_state_version, "
-                "snapshot_fingerprint, created_at"
-                ") VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)",
+                "snapshot_fingerprint, publication_origin, created_at"
+                ") VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?)",
                 (
                     report_id,
                     task_id,
@@ -2806,6 +2808,7 @@ class StateStore:
                     checkpoint["id"] if checkpoint is not None else None,
                     state["current_committed_state_version"],
                     snapshot.fingerprint,
+                    publication_origin,
                     now,
                 ),
             )

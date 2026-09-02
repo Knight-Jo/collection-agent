@@ -158,6 +158,41 @@ def test_conversation_projection_allows_report_after_research_is_committed(
     assert projection["report_ready"] is True
 
 
+def test_conversation_by_id_migrates_completed_legacy_report(cwd):
+    task, facts, _documents = seed_reportable_task(cwd)
+    result = generate_research_report(cwd, task.id, report_draft(task, facts))
+    assert result["ok"] is True
+    completed = load_task(cwd, task.id).model_copy(update={"stage": "done"})
+    save_task(cwd, completed)
+
+    runtime = ConversationRuntime(
+        cwd,
+        dialogue=_Dialogue(),
+        retriever=TaskRetriever(cwd, StateStore(cwd)),
+    )
+    conversation = runtime.store.register_task(task.id)
+    client = TestClient(
+        create_app(
+            cwd=cwd,
+            settings=Settings(),
+            conversation_runtime=runtime,
+        )
+    )
+
+    projection = client.get(f"/api/conversations/{conversation.id}").json()
+
+    assert projection["report_ready"] is True
+    assert len(projection["reports"]) == 1
+    report = projection["reports"][0]
+    assert report["publication_origin"] == "legacy_migration"
+    detail = client.get(f"/api/report-versions/{report['id']}").json()
+    legacy_report = completed.outputs.report
+    assert legacy_report is not None
+    assert detail["content"] == workspace_path(
+        cwd, legacy_report.path
+    ).read_text(encoding="utf-8")
+
+
 def test_task_view_hides_assets_staged_after_committed_baseline(cwd):
     task = new_task(cwd)
     runtime = ConversationRuntime(

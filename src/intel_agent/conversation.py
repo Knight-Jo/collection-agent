@@ -437,6 +437,8 @@ class ConversationRuntime:
     ) -> dict[str, object]:
         """Return a Conversation projection before or after Task binding."""
         conversation = self.store.get_conversation_by_id(conversation_id)
+        if conversation.task_id:
+            self._ensure_task(conversation.task_id)
         epoch = self.store.active_epoch_for_conversation(conversation_id)
         messages, citations, attempts = self.store.conversation_message_view(
             conversation_id
@@ -475,15 +477,35 @@ class ConversationRuntime:
         }
 
     def _ensure_task(self, task_id: str) -> None:
-        load_task(self.cwd, task_id)
+        task = load_task(self.cwd, task_id)
         self.store.register_task(task_id)
-        if any(
-            event.event_type == "task.baseline_seeded"
-            for event in self.store.events_after(task_id, 0)
+        event_types = {
+            event.event_type for event in self.store.events_after(task_id, 0)
+        }
+        baseline_seeded = "task.baseline_seeded" in event_types
+        if not baseline_seeded:
+            self.retriever.seed_completed_task(task_id)
+            self.store.append_event(task_id, "task.baseline_seeded", {})
+        completion_seeded = "task.completed_baseline_seeded" in event_types
+        if task.stage == "done" and not completion_seeded:
+            if baseline_seeded:
+                self.retriever.seed_completed_task(task_id)
+            self.store.append_event(
+                task_id, "task.completed_baseline_seeded", {}
+            )
+        if (
+            task.stage == "done"
+            and task.outputs.report
+            and not self.store.list_reports(task_id)
         ):
-            return
-        self.retriever.seed_completed_task(task_id)
-        self.store.append_event(task_id, "task.baseline_seeded", {})
+            try:
+                self.publisher.create_draft(task_id)
+            except IntelError as error:
+                logger.warning(
+                    "legacy report migration failed task_id=%s code=%s",
+                    task_id,
+                    error.code,
+                )
 
     def _schedule_message(self, message_id: str) -> None:
         task = asyncio.create_task(self._process_message(message_id))

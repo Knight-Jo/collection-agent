@@ -12,7 +12,8 @@ from .models import (
 )
 from .report import render_verified_report
 from .state_store import StateStore
-from .storage import sha256, workspace_path
+from .storage import sha256, workspace_path, write_file_atomic
+from .task import load_task
 
 
 class ReportPublisher:
@@ -46,6 +47,22 @@ class ReportPublisher:
                 return self.read(existing.id)[0]
         report_id = new_id("report")
         relative_path = f"output/report-versions/{report_id}.md"
+        legacy = load_task(self.cwd, task_id).outputs.report
+        if legacy is not None:
+            source = workspace_path(self.cwd, legacy.path)
+            if source.is_file():
+                content = source.read_bytes()
+                if sha256(content) == legacy.content_sha256:
+                    write_file_atomic(self.cwd, relative_path, content)
+                    return self.store.create_report_draft(
+                        task_id,
+                        relative_path,
+                        legacy.content_sha256,
+                        report_id=report_id,
+                        expected_current_state_version=state_version,
+                        expected_snapshot_fingerprint=snapshot.fingerprint,
+                        publication_origin="legacy_migration",
+                    )
         result = render_verified_report(
             self.cwd,
             task_id,
