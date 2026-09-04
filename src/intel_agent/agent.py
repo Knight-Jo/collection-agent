@@ -75,6 +75,7 @@ from .report import (
     build_verified_report_draft,
     generate_research_report,
 )
+from .report_agent import ReportAgent
 from .search import web_search
 from .search.academic import academic_search
 from .search.news import news_search
@@ -167,7 +168,7 @@ SYSTEM_PROMPT = """\
    - `mostly_sufficient` / `insufficient`：只补回答报告核心问题所需的缺口；
    - `stop_reason="no_progress"`：立即停止，接受并披露缺口。
 6. 停止检索后推进到 `assess`，调用 `material_digest` 生成材料摘要、1–5 星推荐和阅读顺序。
-7. 调用 `generate_research_report`。事实和转述使用 `fact_id`，推断使用 `fact_ids`；引用和来源目录由系统生成。
+7. 调用 `generate_research_report`。报告草稿由独立的报告智能体撰写，你无需手动构造草稿；报告文本、引文和来源目录由系统生成。
 8. 报告生成成功后推进到 `done`，向用户返回报告路径和核心发现。
 
 主路径：`collect → assess → done`。
@@ -247,6 +248,7 @@ class AgentDeps:
     judge: Judge | None = None
     judge_provider: str = ""
     judge_model: str = ""
+    report_agent: ReportAgent | None = None
     previous_call: dict | None = None
     # Consecutive all-failed evidence_audit rounds (run 059): after two
     # failures the tool skips judge calls within a cooldown window instead
@@ -571,6 +573,71 @@ def _looks_like_markdown_draft(draft: str) -> bool:
     """
     head = draft.lstrip()[:200]
     return head.startswith("#") or head.startswith("- ") or "## " in head
+
+
+async def _compose_report_draft(
+    deps: AgentDeps, task_id: str
+) -> ResearchReportInput:
+    """Compose a draft via the report agent, else verified facts."""
+    if deps.report_agent is not None:
+        try:
+            return await deps.report_agent.compose_for_task(deps.cwd, task_id)
+        except IntelError as error:
+            logger.warning(
+                "report agent failed code=%s message=%s",
+                error.code,
+                str(error),
+            )
+    return build_verified_report_draft(deps.cwd, task_id)
+
+
+async def _tool_report_draft(
+    ctx: RunContext[AgentDeps], task_id: str, draft: str | None
+) -> ResearchReportInput | dict:
+    """Draft for the report tool: report agent, then model draft, then facts.
+
+    The report agent is the primary writer; the model-supplied JSON draft is
+    only a fallback for callers without a report agent. ``draft`` is a raw
+    JSON string (not pre-validated) so a truncated/malformed value does not
+    exhaust tool retries.
+    """
+    if ctx.deps.report_agent is not None:
+        try:
+            return await ctx.deps.report_agent.compose_for_task(
+                ctx.deps.cwd, task_id
+            )
+        except IntelError as error:
+            logger.warning(
+                "report agent failed code=%s message=%s",
+                error.code,
+                str(error),
+            )
+    if draft:
+        try:
+            return ResearchReportInput.model_validate_json(draft)
+        except ValidationError:
+            # qwen3_xml tool-call tags can leak into the JSON argument
+            # (trailing </draft> etc.); keep the draft if only tail noise.
+            cut = draft.rpartition("}")[0] + "}"
+            try:
+                return ResearchReportInput.model_validate_json(cut)
+            except ValidationError:
+                if _looks_like_markdown_draft(draft):
+                    # Run 062: Markdown passed as draft loops 56 times on the
+                    # silent fallback; fail loudly so the model can correct.
+                    return {
+                        "ok": False,
+                        "error": {
+                            "code": "INVALID_INPUT",
+                            "message": (
+                                "draft 必须是 ResearchReportInput 的 JSON "
+                                '对象（{"sections": [{"question_id": ..., '
+                                '"conclusions": [...]}]}），不是 Markdown '
+                                "报告文本；格式示例见工具说明"
+                            ),
+                        },
+                    }
+    return build_verified_report_draft(ctx.deps.cwd, task_id)
 
 
 def _suggest_sources(sources, questions) -> list[dict]:
@@ -1137,8 +1204,10 @@ async def _coverage_eval_with_backlog(deps: AgentDeps, task_id: str) -> dict:
     if terminal and task.stage == "assess" and task.outputs.report is None:
         # Terminal switch (run 036): once collection is exhausted, the report
         # is generated deterministically from verified facts instead of
-        # leaving the transition to the model (small models loop here).
-        draft = build_verified_report_draft(cwd, task_id)
+        # leaving the transition to the model (small models loop here). The
+        # dedicated report agent composes the draft when available; the
+        # verified-facts draft is the deterministic fallback.
+        draft = await _compose_report_draft(deps, task_id)
         result = generate_research_report(cwd, task_id, draft)
         if result.get("ok"):
             data["pending_cross_verification"] = []
@@ -2468,18 +2537,15 @@ def build_agent(
         )
 
     @agent.tool(name="generate_research_report")
-    def generate_research_report_tool(
+    async def generate_research_report_tool(
         ctx: RunContext[AgentDeps],
         task_id: str,
-        draft: str,
+        draft: str | None = None,
     ) -> dict:
-        """从已验证的结论生成正式报告。draft 必须是 ResearchReportInput 的原始 JSON 字符串（不是 Markdown 文本）：
+        """从已验证的结论生成正式报告。草稿由独立的报告智能体撰写，通常无需传 draft；
+        仅当报告智能体不可用时，draft 才是 ResearchReportInput 的原始 JSON 字符串（不是 Markdown 文本）：
         {"sections": [{"question_id": "<qid>", "conclusions": [{"kind": "reported", "fact_id": "<fid>"}]}],
-         "overall_conclusions": []}。每节结论用 kind="reported" 引用已审核事实的 fact_id；kind="inference" 需 statement/confidence/fact_ids。
-        报告文本、章节标题、引文由系统按已验证事实生成，不要在 draft 里写 Markdown。"""
-        # `draft` is a raw JSON string: pydantic-ai must not pre-validate it
-        # (a truncated/malformed string would otherwise exhaust tool retries
-        # and abort the run). Parse here with a deterministic fallback instead.
+         "overall_conclusions": []}。报告文本、章节标题、引文由系统按已验证事实生成，不要在 draft 里写 Markdown。"""
         task_id = _resolve_bound_task_id(ctx.deps, task_id)
         if load_task(ctx.deps.cwd, task_id).stage != "assess":
             return {
@@ -2493,71 +2559,46 @@ def build_agent(
                     "intel_status(stage='assess')"
                 ),
             }
-        parsed: ResearchReportInput
-        try:
-            parsed = ResearchReportInput.model_validate_json(draft)
-        except ValidationError:
-            # qwen3_xml tool-call tags can leak into the JSON argument
-            # (trailing </draft> etc.); keep the draft if only tail noise,
-            # otherwise fall back to the verified-facts draft (033).
-            cut = draft.rpartition("}")[0] + "}"
-            try:
-                parsed = ResearchReportInput.model_validate_json(cut)
-            except ValidationError:
-                if _looks_like_markdown_draft(draft):
-                    # Run 062: the model passed Markdown report text instead
-                    # of the structured JSON, looping 56 times on the silent
-                    # verified-draft fallback. Fail loudly so it can correct.
-                    return {
-                        "ok": False,
-                        "error": {
-                            "code": "INVALID_INPUT",
-                            "message": (
-                                "draft 必须是 ResearchReportInput 的 JSON "
-                                '对象（{"sections": [{"question_id": ..., '
-                                '"conclusions": [...]}]}），不是 Markdown '
-                                "报告文本；格式示例见工具说明"
-                            ),
-                        },
-                    }
-                parsed = build_verified_report_draft(ctx.deps.cwd, task_id)
-        draft_key = {
-            "questions": sorted(
-                section.question_id for section in parsed.sections
-            ),
-            "conclusions": sorted(
-                _fact_ids(conclusion)
-                for section in parsed.sections
-                for conclusion in section.conclusions
-            ),
-            "overall": sorted(
-                _fact_ids(conclusion)
-                for conclusion in parsed.overall_conclusions
-            ),
-        }
-        block = _block_repetition(
-            ctx, "generate_research_report", draft_key, 4
-        )
-        if block:
-            return {
-                "ok": False,
-                "errors": [{"code": "REPEATED", "message": block}],
-                "next_action": (
-                    "不要重复生成同一草稿。若任务覆盖已停止"
-                    "（stop_reason 非空），立即调用 "
-                    "intel_status(stage='done') 收尾；否则先补证"
-                    "或调整结论。"
+
+        async def generate() -> dict:
+            parsed = await _tool_report_draft(ctx, task_id, draft)
+            if isinstance(parsed, dict):
+                return parsed
+            draft_key = {
+                "questions": sorted(
+                    section.question_id for section in parsed.sections
+                ),
+                "conclusions": sorted(
+                    _fact_ids(conclusion)
+                    for section in parsed.sections
+                    for conclusion in section.conclusions
+                ),
+                "overall": sorted(
+                    _fact_ids(conclusion)
+                    for conclusion in parsed.overall_conclusions
                 ),
             }
-
-        def generate_with_fallback():
+            block = _block_repetition(
+                ctx, "generate_research_report", draft_key, 4
+            )
+            if block:
+                return {
+                    "ok": False,
+                    "errors": [{"code": "REPEATED", "message": block}],
+                    "next_action": (
+                        "不要重复生成同一草稿。若任务覆盖已停止"
+                        "（stop_reason 非空），立即调用 "
+                        "intel_status(stage='done') 收尾；否则先补证"
+                        "或调整结论。"
+                    ),
+                }
             result = generate_research_report(ctx.deps.cwd, task_id, parsed)
             if result.get("ok"):
                 return result
             fallback = build_verified_report_draft(ctx.deps.cwd, task_id)
             return generate_research_report(ctx.deps.cwd, task_id, fallback)
 
-        return _guarded_sync(generate_with_fallback)
+        return await _guarded(generate)
 
     @agent.tool(name="intel_plan")
     def intel_plan_tool(
@@ -2682,4 +2723,9 @@ def build_deps(
         deps.judge = judge
         deps.judge_provider = judge.provider_name
         deps.judge_model = judge.model_name
+    deps.report_agent = ReportAgent(
+        settings.model,
+        settings.model_api_key(),
+        settings.context,
+    )
     return deps

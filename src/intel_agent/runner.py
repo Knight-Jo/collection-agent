@@ -481,7 +481,7 @@ def build_task_prompt(spec: TaskRunSpec) -> str:
         "任务含 investigation_items 时必须传对应 investigation_item_id；"
         "引文必须逐字覆盖主体、动作、范围、时间和数量，partial 时缩窄事实或补充引文。冲突数字分别记录并披露口径。\n"
         "【报告要求】先运行 material_digest 生成材料集合摘要和 1–5 星阅读推荐；正式报告只使用"
-        "审核通过的结构化结论，逐问题回答并披露分歧、局限和未回答内容。\n"
+        "审核通过的结构化结论，逐问题回答并披露分歧、局限和未回答内容。报告草稿由独立报告智能体撰写。\n"
         "按主流程推进：intel_plan → 定向 web_search/web_fetch → fact_save/evidence_save → "
         "evidence_audit → coverage_eval（充分或 no_progress 停止）→ intel_status(assess) → "
         "material_digest → generate_research_report → intel_status(done)，最后返回报告路径和核心发现。"

@@ -1223,9 +1223,9 @@ def test_generate_research_report_blocks_repeated_drafts(monkeypatch, cwd):
 
     context = _context(cwd)
     for _ in range(3):
-        result = tool(context, task.id, draft.model_dump_json())
+        result = asyncio.run(tool(context, task.id, draft.model_dump_json()))
         assert result["ok"] is True
-    blocked = tool(context, task.id, draft.model_dump_json())
+    blocked = asyncio.run(tool(context, task.id, draft.model_dump_json()))
 
     assert blocked["ok"] is False
     assert blocked["errors"][0]["code"] == "REPEATED"
@@ -1240,10 +1240,12 @@ def test_generate_research_report_rejects_markdown_draft(cwd):
     _advance_to_assess(cwd, task)
     tool = _tool(build_agent(Settings()), "generate_research_report")
 
-    result = tool(
-        _context(cwd),
-        task.id,
-        "# 人形机器人产业发展现状 — 调研报告\n- 任务 ID：task-x\n- 主要缺口：…",
+    result = asyncio.run(
+        tool(
+            _context(cwd),
+            task.id,
+            "# 人形机器人产业发展现状 — 调研报告\n- 任务 ID：task-x\n- 主要缺口：…",
+        )
     )
 
     assert result["ok"] is False
@@ -1255,7 +1257,7 @@ def test_generate_research_report_rejects_collect_stage(cwd):
     task = create_task(cwd, "主题", ["问题甲", "问题乙"], DEFAULT_CRITERIA)
     tool = _tool(build_agent(Settings()), "generate_research_report")
 
-    result = tool(_context(cwd), task.id, "{}")
+    result = asyncio.run(tool(_context(cwd), task.id, "{}"))
 
     assert result["ok"] is False
     assert result["error"]["code"] == "REPORT_NOT_READY"
@@ -1304,7 +1306,7 @@ def test_generate_research_report_accepts_json_encoded_draft(monkeypatch, cwd):
     monkeypatch.setattr(agent_module, "generate_research_report", fake_report)
     tool = _tool(build_agent(Settings()), "generate_research_report")
 
-    result = tool(_context(cwd), task.id, draft.model_dump_json())
+    result = asyncio.run(tool(_context(cwd), task.id, draft.model_dump_json()))
 
     assert result["ok"] is True
     assert captured == [draft]
@@ -1329,7 +1331,7 @@ def test_generate_research_report_strips_trailing_xml_noise(monkeypatch, cwd):
     tool = _tool(build_agent(Settings()), "generate_research_report")
     noisy = draft.model_dump_json() + "</draft>\n</invoke>\n"
 
-    result = tool(_context(cwd), task.id, noisy)
+    result = asyncio.run(tool(_context(cwd), task.id, noisy))
 
     assert result["ok"] is True
     assert captured == [draft]
@@ -1345,8 +1347,12 @@ def test_generate_research_report_garbage_draft_uses_verified_facts(cwd):
         eval_coverage(cwd, task.id)
     _advance_to_assess(cwd, task)
 
-    result = _tool(build_agent(Settings()), "generate_research_report")(
-        _context(cwd), task.id, '{"sections": [{"question_id": 未闭合的垃圾'
+    result = asyncio.run(
+        _tool(build_agent(Settings()), "generate_research_report")(
+            _context(cwd),
+            task.id,
+            '{"sections": [{"question_id": 未闭合的垃圾',
+        )
     )
 
     assert result["ok"] is True
@@ -1365,8 +1371,10 @@ def test_generate_research_report_falls_back_to_verified_facts(cwd):
         eval_coverage(cwd, task.id)
     _advance_to_assess(cwd, task)
 
-    result = _tool(build_agent(Settings()), "generate_research_report")(
-        _context(cwd), task.id, ResearchReportInput().model_dump_json()
+    result = asyncio.run(
+        _tool(build_agent(Settings()), "generate_research_report")(
+            _context(cwd), task.id, ResearchReportInput().model_dump_json()
+        )
     )
 
     assert result["ok"] is True
