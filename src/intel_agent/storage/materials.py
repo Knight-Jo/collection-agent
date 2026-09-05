@@ -145,20 +145,6 @@ class MaterialStore:
                 return document.artifact_id
             conn.execute(
                 """
-                INSERT OR IGNORE INTO revisions
-                (revision_id, document_id, content_hash, resource_id,
-                 created_at) VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    document.revision_id,
-                    document.document_id,
-                    "",
-                    document.resource_id,
-                    _iso(datetime.now(UTC)),
-                ),
-            )
-            conn.execute(
-                """
                 INSERT INTO artifacts
                 (artifact_id, revision_id, document_id, resource_id,
                  extraction_profile_id, normalizer_version, manifest_hash,
@@ -279,6 +265,49 @@ class MaterialStore:
             tuple(scope.artifact_ids),
         ).fetchall()
         return [Chunk.model_validate(json.loads(r["payload"])) for r in rows]
+
+    def get_chunks(self, chunk_ids: list[str]) -> list[Chunk]:
+        if not chunk_ids:
+            return []
+        placeholders = ",".join("?" for _ in chunk_ids)
+        rows = self.db.execute(
+            f"SELECT payload FROM chunks WHERE chunk_id IN ({placeholders})",
+            tuple(chunk_ids),
+        ).fetchall()
+        return [Chunk.model_validate(json.loads(r["payload"])) for r in rows]
+
+    # --- lexical ------------------------------------------------------------
+
+    def save_chunk_terms(self, chunk_id: str, terms: list[str]) -> None:
+        with self.db.transaction() as conn:
+            for term in terms:
+                conn.execute(
+                    "INSERT OR IGNORE INTO chunk_terms (chunk_id, term)"
+                    " VALUES (?, ?)",
+                    (chunk_id, term),
+                )
+
+    def search_lexical(
+        self, query_terms: list[str], scope: MaterialScope, top_k: int
+    ) -> list[tuple[str, int]]:
+        if not scope.artifact_ids or not query_terms:
+            return []
+        term_ph = ",".join("?" for _ in query_terms)
+        art_ph = ",".join("?" for _ in scope.artifact_ids)
+        rows = self.db.execute(
+            f"""
+            SELECT ct.chunk_id, COUNT(*) AS matches
+            FROM chunk_terms ct
+            JOIN chunks c ON c.chunk_id = ct.chunk_id
+            WHERE ct.term IN ({term_ph})
+              AND c.artifact_id IN ({art_ph})
+            GROUP BY ct.chunk_id
+            ORDER BY matches DESC
+            LIMIT ?
+            """,
+            (*query_terms, *scope.artifact_ids, top_k),
+        ).fetchall()
+        return [(r["chunk_id"], r["matches"]) for r in rows]
 
     # --- scope --------------------------------------------------------------
 
@@ -458,6 +487,36 @@ class MaterialStore:
             (task_id,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+    # --- index state --------------------------------------------------------
+
+    def record_index(
+        self,
+        artifact_id: str,
+        chunk_profile_id: str,
+        *,
+        embedding_profile_id: str | None = None,
+        lexical_status: str = "pending",
+        vector_status: str = "pending",
+        chunk_count: int = 0,
+        lexical_error: str | None = None,
+        vector_error: str | None = None,
+    ) -> None:
+        with self.db.transaction() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO index_jobs
+                (artifact_id, chunk_profile_id, embedding_profile_id,
+                 lexical_status, vector_status, lexical_error, vector_error,
+                 chunk_count, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    artifact_id, chunk_profile_id, embedding_profile_id,
+                    lexical_status, vector_status, lexical_error,
+                    vector_error, chunk_count, _iso(datetime.now(UTC)),
+                ),
+            )
 
     # --- budget ledger ------------------------------------------------------
 
