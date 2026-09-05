@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-Production code lives in `src/intel_agent/`; modules are split by responsibility, such as `agent.py`, `models.py`, `storage.py`, and `main.py`. Tests live in `tests/` and generally mirror module names (`test_task.py`, `test_security.py`). Use `scripts/` for experiment utilities and `experiments/` for run manifests and reports. `experiments/` holds iterative agent runs (`runs/NNN-name/` with manifest, trace, state snapshot, and report) plus a cross-run `ROADMAP.md`; the operating spec for running and observing experiments lives in `experiments/AGENTS.md`. Runtime `data/`, `output/`, and local `config.yaml` are generated or ignored; do not commit them.
+Production code lives in `src/intel_agent/`; modules are split by responsibility: `contracts/` (stable models, errors, ports), `runtime/` (config, limits, execution), `storage/` (SQLite + resources), `search/`, `fetch/`, `extraction/`, `indexing/`, `context/`, `agent/`, `orchestration/`, plus `acquisition.py`, `application.py`, `bootstrap.py`, `cli.py`, and `api/`. Tests mirror module names under `tests/unit/`, `tests/integration/`, `tests/api/`, and `tests/e2e/`. Runtime `data/`, `output/`, and local `config.yaml` are generated or ignored; do not commit them. Committed configuration examples live in `configs/`.
 
 ## Build, Test, and Development Commands
 
@@ -18,9 +18,9 @@ UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest
 UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv build
 ```
 
-The local workbench lives in `frontend/` and uses Bun 1.3.14. Run `bun install --frozen-lockfile`, `bun run test`, `bun run typecheck`, and `bun run build` from that directory. Commit `bun.lock`, but never `node_modules/` or `dist/`. Formatting and linting use Biome: run `bun run format` (write) and `bun run check` (format + lint) before committing.
-
-Copy `config.example.yaml` to `config.yaml` before running `python -m intel_agent`. Use `uv add` or `uv remove` instead of installing project dependencies directly with `pip`.
+Copy `configs/default.yaml` to `config.yaml` (or point `INTEL_AGENT_CONFIG` at a
+config) before running `research-agent`. Use `uv add` or `uv remove` instead of
+installing project dependencies directly with `pip`.
 
 ## Coding Style & Static Checks
 

@@ -1,99 +1,113 @@
-"""arXiv export API: anonymous, no key, polite 1 request / 3 seconds."""
+"""arXiv export API provider (academic)."""
 
 from __future__ import annotations
 
+import asyncio
 import xml.etree.ElementTree as ET
+from datetime import datetime
+from time import monotonic
 
-from .. import SearchResult, _provider_result
-from ..provider import (
-    ProviderMetadata,
-    SearchRequest,
-    rate_limit,
-    validate_public_provider,
+import httpx
+
+from ...contracts.ports import (
+    FilterCapability,
+    ProviderCapabilities,
 )
+from ...contracts.research import SearchHit, SearchQuery
+from .._util import make_hit
 
-_ARXIV_API = "https://export.arxiv.org/api/query"
 _ATOM = "{http://www.w3.org/2005/Atom}"
 
 
+def _arxiv_date(query: SearchQuery) -> str | None:
+    if query.start_date and query.end_date:
+        return (
+            f"{query.start_date.isoformat()} TO {query.end_date.isoformat()}"
+        )
+    if query.start_date:
+        return f"{query.start_date.isoformat()} TO 9999-12-31"
+    if query.end_date:
+        return f"0000-01-01 TO {query.end_date.isoformat()}"
+    return None
+
+
+def _https(url: str) -> str:
+    # arXiv Atom <id> uses http://, but port 80 is not served; upgrade to
+    # https so downstream fetch actually reaches the source.
+    return url.replace("http://", "https://", 1)
+
+
 class ArxivProvider:
-    metadata = ProviderMetadata(
-        name="arxiv",
-        access_mode="OPEN_ANONYMOUS",
-        supports_anonymous=True,
-    )
+    name = "arxiv"
 
     def __init__(
         self,
-        *,
-        base_url: str = _ARXIV_API,
+        client: httpx.AsyncClient,
+        base_url: str = "https://export.arxiv.org/api/query",
+        timeout_seconds: float = 20.0,
         min_interval: float = 3.0,
-        max_results: int = 10,
     ) -> None:
+        self.client = client
         self.base_url = base_url
+        self.timeout_seconds = timeout_seconds
         self.min_interval = min_interval
-        self.max_results = max_results
-        self.last_calls = 0
+        self._last_call = 0.0
 
-    async def search(
-        self, client, request: SearchRequest
-    ) -> list[SearchResult]:
-        query = request.query
-        if request.time_range:
-            start, end = _arxiv_date_range(request.time_range)
-            if start and end:
-                query = f"{query} AND submittedDate:[{start} TO {end}]"
-        await rate_limit(self.metadata.name, self.min_interval)
-        self.last_calls = 1
-        res = await client.get(
+    def capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities(
+            source_types=["academic"],
+            dates=FilterCapability(supported=True),
+            language=FilterCapability(supported=False),
+            domains=FilterCapability(supported=False),
+            exclude_domains=FilterCapability(supported=False),
+        )
+
+    async def search(self, query: SearchQuery, limit: int) -> list[SearchHit]:
+        wait = self.min_interval - (monotonic() - self._last_call)
+        if wait > 0:
+            await asyncio.sleep(wait)
+        self._last_call = monotonic()
+        search_query = f"all:{query.text}"
+        date_range = _arxiv_date(query)
+        if date_range:
+            search_query += f" AND submittedDate:[{date_range}]"
+        response = await self.client.get(
             self.base_url,
             params={
-                "search_query": f"all:{query}",
+                "search_query": search_query,
                 "start": 0,
-                "max_results": min(request.max_results, self.max_results),
-                "sortBy": "submittedDate",
-                "sortOrder": "descending",
+                "max_results": limit,
+                "sortBy": "relevance",
             },
+            timeout=self.timeout_seconds,
         )
-        res.raise_for_status()
-        root = ET.fromstring(res.text)
-        out: list[SearchResult] = []
-        for rank, entry in enumerate(root.findall(f"{_ATOM}entry")):
-            authors = [
-                (node.findtext(f"{_ATOM}name") or "")
-                for node in entry.findall(f"{_ATOM}author")
-            ]
+        response.raise_for_status()
+        root = ET.fromstring(response.text)
+        out: list[SearchHit] = []
+        for rank, entry in enumerate(root.findall(f"{_ATOM}entry"), start=1):
             published = entry.findtext(f"{_ATOM}published")
-            result = _provider_result(
+            published_at = None
+            if published:
+                try:
+                    published_at = datetime.fromisoformat(
+                        published.replace("Z", "+00:00")
+                    )
+                except ValueError:
+                    published_at = None
+            hit = make_hit(
                 "arxiv",
-                (entry.findtext(f"{_ATOM}title") or "").strip(),
-                (entry.findtext(f"{_ATOM}id") or "").strip(),
-                (entry.findtext(f"{_ATOM}summary") or "").strip()[:400],
-                request.query,
-                "academic",
-                evidence_role="primary",
-                published_at=published[:10] if published else None,
-                author=authors[0] if authors else None,
+                query,
+                _https((entry.findtext(f"{_ATOM}id") or "").strip()),
+                title=(entry.findtext(f"{_ATOM}title") or "").strip(),
+                snippet=(entry.findtext(f"{_ATOM}summary") or "").strip()[
+                    :400
+                ],
+                published_at=published_at,
+                source_types=["academic"],
                 rank=rank,
-                extra={
-                    "authors": authors,
-                    "updated": entry.findtext(f"{_ATOM}updated"),
-                },
+                score=None,
             )
-            if result:
-                out.append(result)
+            out.append(hit)
+            if len(out) >= limit:
+                break
         return out
-
-
-def _arxiv_date_range(time_range: str) -> tuple[str | None, str | None]:
-    from datetime import UTC, datetime, timedelta
-
-    days = {"day": 1, "week": 7, "month": 30, "year": 365}.get(time_range)
-    if days is None:
-        return None, None
-    end = datetime.now(UTC).date()
-    start = end - timedelta(days=days)
-    return start.isoformat(), end.isoformat()
-
-
-validate_public_provider(ArxivProvider.metadata)

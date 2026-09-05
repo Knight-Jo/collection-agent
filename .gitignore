@@ -4,6 +4,7 @@ __pycache__/
 .uv/
 /data/
 /output/
+/samples/
 config.yaml
 config.qwen38-27b-awq.yaml
 config.qwen38-27b-awq.yaml.bak1

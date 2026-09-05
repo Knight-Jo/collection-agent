@@ -1,125 +1,91 @@
-# Public Information Research
+# Research Agent
 
-This context manages task-scoped public-information research, the evidence
-behind its conclusions, and the conversation through which a user observes or
-extends that research.
+This context manages a loopable material-collection research system: it
+searches for sources, fetches and extracts raw material, stores traceable
+materials, and lets a research agent decide whether evidence is sufficient or
+more research is needed (spec v0.1).
 
-## Research
+## Research flow
 
-**IntelTask**:
-The durable investigation boundary that defines one topic, its questions, and
-its scope. All runs, conversations, materials, evidence, and reports belong to
-exactly one IntelTask.
-_Avoid_: Job, chat, session
+**ResearchTask**:
+The durable unit of one research question, its round count, budget usage, and
+checkpoint. `run` creates one; `resume` re-enters the same task without
+resetting budget or deadline.
+_Avoid_: Run, conversation turn
 
-**IntelQuestion**:
-A stable question within an IntelTask whose answerability and evidence coverage
-can change as research continues.
-_Avoid_: Prompt, query
+**ResearchDecision**:
+The structured output the agent produces for a round: either `search` (with
+queries) or `finish` (with a draft answer and citation ids). The orchestrator
+validates it; the agent cannot raise its own budget or access storage.
+_Avoid_: Tool call, hidden action
 
-**ResearchRun**:
-One auditable execution attempt to advance an IntelTask from a frozen input
-state. A failed or interrupted run is terminal; a retry is a new ResearchRun
-linked to the prior attempt. An IntelTask may have many ResearchRuns but at
-most one active ResearchRun; active means `RUNNING`, not queued.
-_Avoid_: Task, conversation turn
+**ResearchOrchestrator**:
+The deterministic state machine (PLAN → SEARCH → ACQUIRE → INDEX →
+BUILD_CONTEXT → EVALUATE → CONTINUE/FINISH). It enforces rounds, budget, and
+deadlines; the agent only decides.
+_Avoid_: Agent loop, model-driven control flow
 
-**SearchPlanVersion**:
-An immutable version of the planned questions, priorities, and retrieval
-directions used by a ResearchRun.
-_Avoid_: Current plan, mutable plan
+**ResearchResult**:
+The final answer, resolvable citations, limitations, stop reason, and actual
+usage. `completed` only when the flow finished normally and the agent decided
+to finish.
+_Avoid_: Report draft, chat answer
 
-**ResearchCheckpoint**:
-The durable atomic boundary at which a ResearchRun makes newly governed assets
-visible to task-level readers and advances the committed state version.
-_Avoid_: Autosave, partial result
+## Materials and identity
 
-**Committed State**:
-The task state visible to evidence question answering. In-progress candidates
-are excluded until a ResearchCheckpoint commits them. Its
-`committed_state_version` changes only when committed research assets or their
-governance changes.
-_Avoid_: Live working state
+**Resource**:
+An immutable byte blob, content-addressed by SHA-256. The same bytes may be
+shared across origins, but each keeps its own resource record. Original and
+derived files live on the filesystem; SQLite holds metadata.
+_Avoid_: Document, search result
 
-## Interaction
+**DocumentIdentity** / **Revision**:
+A source's stable identity (`source_key`) and one version of its raw content
+(revision). Same source + same hash reuses the same revision.
+_Avoid_: URL, mutable record
 
-**Conversation**:
-An interaction history through which a user asks about or requests actions on
-an IntelTask. Archiving hides it from active history without deleting the task
-or research assets; restore reopens it. It does not own research assets.
-_Avoid_: Research Agent, knowledge base
+**Artifact**:
+An immutable versioned extraction output, keyed by revision + extraction
+profile + normalizer version + output manifest hash. Re-extraction with a new
+backend produces a new artifact without rewriting cited ones.
+_Avoid_: Editable document, mutable parse result
 
-**ConversationEpoch**:
-One visible context segment of a Conversation. Starting a new epoch archives
-the previous visible context without deleting its audit history.
-_Avoid_: New task, deleted chat
+**EvidenceBlock**:
+The authoritative body expression: ordered text blocks with a media-aware
+`Locator` (page, slide, sheet, time range, region) and an origin method
+(native text, OCR, subtitle, ASR). Text is derived from blocks, never edited
+independently.
+_Avoid_: Plain string body
 
-**Message**:
-An immutable user or assistant utterance within a ConversationEpoch.
-_Avoid_: Command, event
+**Chunk**:
+A structure-first slice of an artifact for retrieval, carrying exact per-block
+spans and locators. Re-chunking never silently replaces old references.
+_Avoid_: Overlapping fragment, mutable slice
 
-**DialogueIntent**:
-The structured interpretation of what one user Message requests, independent
-of whether that request is explicit enough to trigger an action.
-_Avoid_: Keyword match, tool call
-
-**ActionRequest**:
-An immutable business request produced from a Message and advanced through a
-proposal or execution lifecycle. Its result may be a new run, a plan change at
-a checkpoint, or a report version. One Message may produce multiple independent
-ActionRequests.
-_Avoid_: Direct tool call, hidden action
-
-**MessageCitation**:
-A durable, server-validated relationship from one assistant Message to an
-IntelDocument and, when applicable, an Evidence passage.
+**Citation**:
+A resolvable pointer from an answer back to a chunk, artifact, revision,
+resource, and source location. Citation ids are stable within a context
+package; model-emitted ids must exist in the mapping.
 _Avoid_: Model-written source number, arbitrary URL
 
-**SourceLocator**:
-A media-aware location within archived content, such as text lines, a PDF page,
-an image region, or an audio or video time range.
-_Avoid_: Line number for every media type
+## Retrieval and context
 
-**TaskSnapshot**:
-A rebuildable read-only projection of current task progress, gaps, assets, and
-active work. It is never an authoritative source of state.
-_Avoid_: Task record, durable truth
+**MaterialScope**:
+A fixed set of artifacts for one context build, constrained by task first and
+resolved once. All retrieval (direct / lexical / vector / hybrid) must recall
+within this scope.
+_Avoid_: Whole-library search
 
-## Research Assets
+**ContextPackage**:
+The token-bounded evidence text, selected chunks, citations, and coverage
+summary passed to the agent for one decision. Its `max_tokens` is only the
+evidence budget, already excluding system/task/history and reserved output.
+_Avoid_: Raw concatenation, unbounded prompt
 
-**IntelDocument**:
-An archived public source whose original and extracted content are integrity
-checked and owned by one IntelTask.
-_Avoid_: Evidence, search result
+## Execution
 
-**Fact**:
-A canonical immutable atomic claim associated with one IntelQuestion. A Fact
-may be accepted, disputed, rejected, or superseded without erasing its history;
-corrected wording creates a new Fact.
-_Avoid_: Document summary, report paragraph
-
-**Evidence**:
-An immutable exact passage and SourceLocator from an IntelDocument linked to a
-Fact with a stated supporting or contradicting relation.
-_Avoid_: Material, source score
-
-**DomainStateTransition**:
-An immutable record of one Fact or Evidence governance status change at a
-committed state version.
-_Avoid_: Mutable status log, model trace
-
-**SupportReview**:
-An immutable semantic judgment about whether one Evidence passage supports its
-linked Fact.
-_Avoid_: User preference, reading recommendation
-
-**ReportVersion**:
-An immutable task report bound to the runs, facts, and evidence available when
-it was generated. Drafts may be abandoned; a task has at most one published
-ReportVersion, and publishing a stale draft requires explicit confirmation.
-_Avoid_: Mutable report, chat answer
-
-**Reading Priority**:
-A 1–5 recommendation describing how useful a material is to read for the task.
-It does not express source credibility, factual truth, or evidence quality.
-_Avoid_: Confidence score, trust rating
+**DomainError**:
+The stable failure contract across services, carrying `code`, `stage`,
+`message`, and retry semantics. Batch boundaries convert single-item errors
+into reports and keep successful items.
+_Avoid_: Wrapped exception with only a message

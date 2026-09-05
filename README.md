@@ -1,248 +1,107 @@
 # collection-agent-pydantic
 
-基于 **pydantic-ai** 的公开信息调研智能体。用户只需给出主题，Agent 会自主制定问题、检索公开来源、提取和核验信息，并生成一份结构化公开信息调研报告。事实 → 引文 → 文档 → 哈希的证据链作为底层质量保障和审计能力保留。
+A modular, loopable research agent (v0.1). Given a question, it searches for
+material, fetches and extracts raw sources, stores traceable materials, and
+lets a research agent decide whether the evidence is sufficient or another
+round of research is needed.
 
-## 特性
+The system is a Python modular monolith with a Search → Fetch → Extract →
+Normalize → Store → Index → Context pipeline, wrapped by a deterministic
+orchestrator. SQLite is the authority for business records, files hold
+immutable resources, Qdrant is the rebuildable vector index, and the agent
+only produces research decisions.
 
-- **报告优先**：主产物为带编号引用、材料导读、局限和来源目录的 `research-report.md`
-- **主题驱动**：只输入主题即可运行，也可附加调研目标、问题、时间、地区、语言和报告深度
-- **材料导读**：每份材料提供唯一的 1–5 星阅读推荐和一句话评价，并按任务生成内容摘要与优先阅读清单；不重复增加可信度标签
-- **完整工具链**：除检索、事实、证据、审核和覆盖工具外，提供 `crawl_collect` 运行持久化抓取队列、`document_search` 检索归档语料、`document_read` 分页读取已校验正文
-- **可信证据链**：所有关系用稳定 ID（fact/evidence/doc 为 SHA-256 派生 ID），引文逐字定位行号，文档原文与正文双重 SHA-256 完整性校验
-- **语义审计**：独立的隔离 LLM 法官逐条判定引文是否完整蕴含事实（full/partial/irrelevant/contradicts），只有 `full` 才计入覆盖；审核结果不可重复抽样
-- **安全边界**：DNS-pinned 抓取（SSRF 防护、私有地址拦截、重定向逐跳校验）、网页内容标记为不可信数据、注入检测
-- **声明级核验**：一手披露和带归属转述可由一个审核通过的来源支持；重大或争议性声明继续要求独立来源交叉验证
-- **预算与门控**：搜索 6 次 / 抓取 6 次（自上次新证据起）预算持久化；报告绑定覆盖快照、报告及引用文档哈希，过期或被修改的产物不能完成任务
-- **按需深度抓取**：默认使用定向抓取；显式启用或选择 `deep` 报告时，搜索结果播种持久化队列，并逐跳执行 SSRF、DNS pinning、robots、速率、并发和字节限制
-- **动态网页采集**：静态正文不足时可按需启动隔离 Chromium，执行 JavaScript 后继续复用正文提取、链接发现、原文/渲染 DOM 双哈希和证据审核
-- **多文档类型**：从页面链接及 `img/audio/video/source/object/embed` 自动发现 HTML、PDF、Office、文本/CSV、图片、音视频；原件始终按 SHA-256 归档，处理器缺失时正文标记为不可用且不能进入证据链
-- **来源扩展**：抓取结果返回 `outbound_links` 可继续展开（不消耗搜索预算）；部署方可配置直连来源提示
-- **任务内多轮对话**：在网页中基于当前任务已提交的材料问答并定位引用；只有明确要求继续搜索或确认搜索建议时，才启动同一任务的新一轮调研
+## Architecture
 
-## 快速开始
+```
+ResearchAgent ──▶ ResearchOrchestrator ──▶ SearchService ──▶ AcquisitionPipeline
+                        │                        │                  │
+                        ▼                        ▼                  ▼
+                 ContextManager ──▶ IndexingService ◀── Fetch/Extract/Normalize
+                        │
+                        ▼
+                 MaterialStore (SQLite) + ResourceStore (files)
+```
+
+| Module | Responsibility |
+| --- | --- |
+| `contracts/` | Cross-module models, errors, and ports |
+| `runtime/` | Config, limits, budget/attempt ledgers, executor |
+| `storage/` | SQLite material store, content-addressed resources |
+| `search/` | Multi-provider search, conservative dedup, RRF fusion |
+| `fetch/` | SSRF-safe HTTP transport and streaming acquisition |
+| `extraction/` | Backend registry and media routers (HTML/PDF/OCR/Office/audio/video/ASR) |
+| `indexing/` | Chunking, lexical tokens, embeddings, vector index, tokenizer |
+| `context/` | Scoped retrieval, token budget, citations |
+| `agent/`, `orchestration/` | Decision adapter and durable state machine |
+| `acquisition.py`, `application.py`, `bootstrap.py` | Pipeline, task lifecycle, assembly |
+| `cli.py`, `api/` | CLI and FastAPI entry points |
+
+## Quick start
 
 ```bash
-# 环境
 mamba activate collection-agent-pydantic
-export DEEPSEEK_API_KEY=<your-key>
+export UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX
+uv sync --extra dev --extra media
 
-# 复制配置并按需修改（SearXNG 地址、模型、预算、已知来源）
-cp config.example.yaml config.yaml
+# Configure a config file (see configs/default.yaml)
+cp configs/default.yaml config.yaml
+# edit model.base_url, model.api_key_env, search.providers, storage paths
 
-# 开发依赖；需要 Office/图片/音视频提取时同时安装 media extra
-UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv sync --extra dev --extra media
+# Check configured capabilities (offline-safe)
+research-agent --config config.yaml preflight
 
-# 可选：支持 JavaScript 动态网页，并安装匹配版本的 Chromium
-UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv sync --extra dev --extra browser
-UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run playwright install chromium
+# Run a research task
+research-agent --config config.yaml run --question "动力电池回收进展"
 
-# 只提供主题即可运行
-python -m intel_agent --topic "量子计算产业发展情况" --config config.yaml
-
-# 可选：补充目标、范围、核心问题和报告深度
-python -m intel_agent --topic "量子计算产业发展情况" \
-  --objective "了解产业现状、政策和主要参与者" \
-  --questions "近期政策如何变化" "主要商业化进展有哪些" \
-  --time-range "2024-2026" --geography "中国" \
-  --language zh-CN --language en --report-depth deep \
-  --config config.yaml
+# Resume / status / import / reindex
+research-agent --config config.yaml resume --task-id TASK_ID
+research-agent --config config.yaml status --task-id TASK_ID
+research-agent --config config.yaml import --task-id TASK_ID --path samples/report.pdf
+research-agent --config config.yaml reindex --artifact-id ARTIFACT_ID
 ```
 
-`--deep-crawl` 显式启用递归采集；普通任务默认关闭。`--report-depth deep`
-也会启用递归采集。媒体处理还需要系统可执行文件：Tesseract（并安装
-`chi_sim`/`eng` 语言数据）、FFmpeg 和 LibreOffice。音视频转写使用 media extra
-中的 `faster-whisper`；缺少任一可选处理器不会丢弃已下载原件。
-
-CLI 的 `--max-turns` 限制单次运行的模型请求数，`--max-tool-calls` 限制工具调用数。
-核心问题均得到回答时任务以 `completion_status=sufficient` 完成；仍有明确缺口时以
-`completion_status=with_gaps` 完成并在报告中披露，不要求先完成红队挑战。
-
-使用本机 llama-server 时无需设置 API key，将 `config.yaml` 的模型块改为：
-
-```yaml
-model:
-  name: Qwen3.5-9B/DeepSeek-V4-Pro-Qwen3.5-9B-MTP-Q4_K_M.gguf
-  base_url: http://127.0.0.1:9876/v1
-  api_key_env: null
-context:
-  context_window_tokens: 32768
-  main_output_tokens: 1024
-  audit_output_tokens: 512
-  disable_thinking: true
-```
-
-`name` 应与 `GET /v1/models` 返回的模型 ID 一致。`api_key_env: null`
-仅适用于无需认证的本机 OpenAI 兼容服务；远程模型仍应配置密钥环境变量。
-
-`context.context_window_tokens` 支持 `16384`、`32768`、`65536`、`131072`、
-`262144` 四档，必须与模型服务实际窗口一致。系统据此自动限制消息历史和
-单次工具正文；事实、证据和原始材料仍保存在本地，不依赖对话历史记忆。
-Qwen thinking 模型使用 llama-server 时可设置 `disable_thinking: true`，
-避免工具调用和语义审核被长推理占满输出预算。
-
-长任务会从本地任务、文档、事实、证据、审核和覆盖状态重建阶段快照；
-模型提前返回“稍后继续”时，runner 会在同一累计请求预算内自动续跑。
-因此进程重启后也可复用未完成任务，不需要把完整网页长期塞进模型上下文。
-
-等价的最小 API 请求为：
-
-```json
-POST /api/runs
-{"topic": "量子计算产业发展情况"}
-```
-
-该兼容接口内部会创建持久化 Conversation 和 ResearchRun；查询、取消、恢复及
-事件均复用 SQLite StateStore。新集成优先使用会话接口和
-`/api/research-runs`，`/api/runs` 仅用于无界面或旧客户端。
-
-### Web 工作台
-
-工作台以持久会话为入口，提供需求确认、实时调研进度、材料问答、引用定位和版本化报告。前端依赖与脚本统一使用 Bun 1.3.14：
+The FastAPI server shares the same engine:
 
 ```bash
-cd frontend
-bun install --frozen-lockfile
-bun run build
-cd ..
-intel-agent-web --config config.yaml
+uv run uvicorn intel_agent.api.app:create_app --factory --host 127.0.0.1 --port 8000 --workers 1
 ```
 
-默认监听 `0.0.0.0:6780`，本机访问地址为 `http://127.0.0.1:6780`。监听地址和端口通过 `config.yaml` 的 `web.host`、`web.port` 配置；`--host` 与 `--port` 可用于临时覆盖。开发时分别运行后端和 `cd frontend && bun run dev`；Vite 会将 `/api` 转发到本地后端。局域网或外网使用前应配置 `web.auth_token_env` 与 `web.trusted_hosts`，未认证默认仅适合受控开发网络。
+Exit codes: `0` completed, `1` failed/config error, `2` partial, `130`
+cancelled. Results are written to `output/<task_id>/result.json` and
+`result.md`; SQLite (`data/research.sqlite`) is the authoritative task state.
 
-打开首页后点击“新建对话”即可使用：
+## Configuration
 
-1. “你能做什么？”等能力咨询停留在 INTAKE，不创建空任务；第一条明确调研请求经 Intake Agent 固化为 ResearchBrief 后，原子创建 Task、初始 Run 并绑定当前会话。
-2. 普通问题只检索当前任务已经提交的材料和证据，不会自动联网；引用、运行、检索计划和报告都在统一右侧详情面板打开。
-3. 输入“继续搜索……”“补充调研……”等明确指令，会在同一任务下创建续研运行；若 Agent 只是建议补搜，需点击确认。排队运行可取消，已开始运行可停止，未 checkpoint 的结果不会进入问答。
-4. 调研结束后由用户显式生成报告草稿并发布；历史版本不会被覆盖。消息处理失败时可在原消息上重试，不会复制用户消息。
+The typed settings live in `runtime/config.py`; committed examples are in
+`configs/default.yaml` (full) and `configs/low-resource.yaml` (text-only).
+All §14 resource limits live in one place. Secrets are injected via
+environment variables, never committed. Relative paths resolve against the
+config file directory so the CLI and API never produce two data sets.
 
-对话输入框按 `Enter` 发送，按 `Shift+Enter` 换行。点击报告版本的“查看”后，右侧面板会在校验文件路径与 SHA-256 后直接渲染完整 Markdown 正文。
+Key service endpoints live in the config too:
 
-首版面向本地单机单用户，不提供账户、角色、登录认证或跨任务知识库。服务重启时会恢复未完成消息；浏览器 SSE 断线后以持久事件和完整消息恢复，不依赖 token 增量回放。
+- `model.*` — the LLM: vLLM/DeepSeek (OpenAI-compatible `api_style: openai`)
+  or Ollama; `disable_thinking` turns off the reasoning preamble on vLLM
+  reasoning models (e.g. qwen3.8-27b).
+- `embedding.*` — the embedding service (e.g. vLLM
+  `qwen3-embedding-0.6b`, `dimension: 1024`); set to `null` to fall back to
+  lexical-only retrieval.
+- `storage.qdrant_url` — the vector database; `null` disables the vector path.
+- `extraction.whisper_*` — audio/video transcription via faster-whisper
+  (`whisper_model`/`whisper_device`/`whisper_language`); `video_frame_ocr`
+  gates on-screen-text OCR of video frames (off by default), `always_asr`
+  forces audio transcription even when a subtitle track exists.
 
-服务运行后，可直接创建 INTAKE 会话执行真实接口冒烟检查：
+## Verification
 
 ```bash
-python scripts/smoke_conversation.py \
-  --question "你能做什么？"
-
-# 也可复用已有会话或兼容旧任务入口
-python scripts/smoke_conversation.py \
-  --conversation-id <conversation-id> \
-  --question "当前材料能够确认哪些结论？"
-
-python scripts/smoke_conversation.py \
-  --task-id <task-id> \
-  --question "当前证据还有哪些缺口？" \
-  --continuation "继续搜索这些缺口" \
-  --confirm-proposal
-```
-
-运行结束后产物位于：
-- `storage.state_db_path` — 会话、消息、任务元数据、运行、checkpoint、事件和报告版本（SQLite WAL；必须位于本机文件系统）
-- `data/intel/` — 材料导读、抓取队列、事实、证据、审核和覆盖等既有研究资产（JSON，原子写入）
-- `data/raw/` — 文档原文（.raw）与提取正文（.txt）
-- `output/` — 正式调研报告；升级前生成的证据包和旧研判产物仍可只读访问
-
-主报告路径为 `output/{topic}-research-report.md`。材料推荐按当前任务存储：5 星表示直接支撑审核通过的核心发现，4 星表示已用于候选证据，3 星表示与主题相关，2 星表示阅读关联有限，1 星表示正文不可用或采集失败。
-
-## 配置（config.yaml）
-
-| 配置项 | 说明 |
-|--------|------|
-| `model` | 主 Agent 的 OpenAI 兼容接口；`api_key_env: null` 表示本机免密服务 |
-| `audit_model` | 语义审核独立模型（默认同主模型） |
-| `storage.state_db_path` | SQLite 文件路径；支持 `~`，NAS/NFS 工作区必须配置到本机文件系统 |
-| `search.searxng_url` | 本地 SearXNG 地址；`null` 则只用 Bing/Baidu 直连 |
-| `search.github` / `search.academic` / `search.news` / `search.archive` | 垂直搜索开关与调优（匿名、零密钥）：GitHub 仓库/Issue（额度受限降级 Gitee）、arXiv+Crossref(+S2 匿名补充)、国内直达新闻级联（百度→360→SearXNG，GDELT 默认关）、Wayback 死链兜底 |
-| `search.ai_native.exa` / `.brave` / `.tavily` | 显式启用的 AI-native Provider；密钥只从 `api_key_env` 指定的环境变量读取，缺密钥或单点失败会降级，不会把摘要直接当作证据 |
-| `budgets` | 搜索/抓取/模型请求预算（request_limit 默认 100） |
-| `context` | 32K/64K/128K/256K 上下文档位、输出上限和搜索转抓取门控 |
-| `fetch.enable_httpx_fallback` | 单次 `web_fetch` 的 pinned 抓取失败时回退 httpx（兼容 WAF/Cloudflare 站点）；递归 crawler 始终仅使用 pinned fetch |
-| `fetch.enable_browser_fallback` | 静态 HTML 无有效正文时是否按需执行 Chromium（默认 `false`） |
-| `fetch.browser_network_mode` | `validated` 表示应用层公网 URL 校验；生产隔离部署声明为 `isolated` |
-| `fetch.browser_timeout_seconds` / `fetch.browser_max_requests` / `fetch.browser_max_bytes` | 单页渲染时间、请求数和下载字节限制 |
-| `fetch.browser_concurrency` | 同一渲染器的页面并发数（默认 1） |
-| `crawl.enabled_by_default` | 新任务省略开关时是否默认深度抓取（默认 `false`） |
-| `crawl.max_depth` / `crawl.max_urls` | 递归深度与任务 URL 上限（默认 2 / 200） |
-| `crawl.max_total_bytes` | 整个任务的下载硬上限（默认 1 GiB，失败响应也计数） |
-| `crawl.max_html_bytes` / `crawl.max_attachment_bytes` | 单响应 HTML / 附件硬上限（默认 5 MiB / 50 MiB） |
-| `crawl.concurrency` / `crawl.per_host_concurrency` | 全局 / 单主机并发（默认 4 / 1） |
-| `crawl.per_host_delay_seconds` | 同主机请求起始间隔（默认 1 秒） |
-| `crawl.cache_ttl_hours` / `crawl.retries` | 跨任务缓存时长 / 429、5xx、超时重试次数（默认 24 / 2） |
-| `crawl.obey_robots` | 是否逐跳遵守 robots.txt（默认 `true`） |
-| `crawl.ocr_languages` / `crawl.whisper_model` | Tesseract 语言与 faster-whisper 模型（默认 `chi_sim+eng` / `small`） |
-| `web.host` / `web.port` | Web 工作台监听地址与端口（默认 `0.0.0.0:6780`） |
-| `web.auth_token_env` / `web.trusted_hosts` | 可选 bearer token 环境变量名与 Host 白名单；生产/外网部署必须配置 |
-| `sources` | 可选的部署级直连来源提示；默认留空，由 Agent 针对主题检索 |
-
-## 项目结构
-
-```
-src/intel_agent/
-├── agent.py        # pydantic-ai Agent：19 个调研工具与系统提示词
-├── models.py       # 全部 Pydantic 数据模型（Task/Fact/Evidence/Review/Coverage...）
-├── storage.py      # 原子 JSON I/O + SHA-256 完整性校验
-├── security.py     # URL 校验、私有地址拦截、DNS 解析
-├── source.py       # 域名分类（government/news/social/...）
-├── search/         # 通用与垂直搜索 Provider、结果聚合和缓存
-├── search_queries.py # 查询词分析、去重与变体生成
-├── fetch.py        # DNS-pinned 抓取、HTTP 解析、注入检测与文档归档
-├── browser.py      # 动态页面判定、浏览器请求策略与可选 Playwright 渲染
-├── crawl.py        # 持久化优先队列、robots、限速、缓存和资源归档
-├── extract.py      # PDF/Office/图片/音视频安全提取与处理器边界
-├── document_extract.py # HTML/PDF/Word 文本、日期与外链提取
-├── fact.py         # 事实 CRUD + supersede（无环替换链）
-├── evidence.py     # 证据 CRUD + 引文行号定位
-├── audit.py        # 语义支撑审计（独立 LLM 法官）
-├── conflicts.py    # 证据冲突登记/消解
-├── coverage.py     # 覆盖评估 + 停止条件（sufficient/no_progress）
-├── materials.py    # 任务级材料星级、内容摘要和阅读导引
-├── report.py       # 带验证引用的正式公开信息调研报告
-├── state.py        # SQLite WAL：会话、动作、运行、checkpoint 与报告版本
-├── retrieval.py    # 当前任务已提交材料的有界词法检索
-├── dialogue.py     # 不直接调用搜索工具的证据问答 Agent
-├── conversation.py # 消息处理、动作派发、恢复和报告发布
-├── continuation.py # 同一任务受限续研与 checkpoint 提交
-├── challenge.py    # 读取旧版本留下的红队复审记录
-├── task.py         # 任务生命周期、预算、阶段门控
-├── main.py         # CLI 入口
-├── runner.py       # CLI 与 Web 共用的 Agent 运行器
-└── web/            # FastAPI API、运行状态、Conversation API 与 SSE
-tests/              # pytest 测试套件
-frontend/           # React/Vite 本地工作台
-scripts/            # 实验运行器与分析器
-experiments/        # 迭代实验结果、轨迹与报告
-```
-
-## 测试
-
-```bash
-UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv sync --extra dev
 UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest
+UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff format --check src tests
+UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run ruff check src tests
+UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pyright
+UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv build
 ```
 
-动态采集的生产网络隔离、运行状态和反爬边界参见
-[`docs/development/js-dynamic-page-deployment.md`](docs/development/js-dynamic-page-deployment.md)。
-
-## 迭代实验
-
-`experiments/` 记录了真实运行 → 轨迹分析 → 改进 → 再运行的完整迭代历史
-（命令说明见 [`scripts/README.md`](scripts/README.md)，实验规范见
-`experiments/README.md` 与 `experiments/ROADMAP.md`）：
-
-| 实验 | 核心改进 | 结果 |
-|------|---------|------|
-| 001 | 基线 | 请求预算不足，未达 done |
-| 002 | 预算 + 提示词纪律 | 到达 done；检索仍同质 |
-| 003 | 搜索多样性（已归档标记） | gap 下降；出现死循环 |
-| 004 | 来源扩展 + PDF/Word | 首个 covered fact + addressed 挑战点 |
-| 005 | 金融数据源 + IR 回退 | 财务数据破冰；发现并修复 ID 抄错死锁 |
-
-## 架构说明
-
-- [记忆与上下文管理技术报告](docs/architecture/intelligence-agent-memory-management.md)：持久状态、增量摘要、检索、历史压缩、局限与面试讲述
-- [可观测性技术报告](docs/architecture/intelligence-agent-observability.md)：L1 技术轨迹、L2 业务决策、L3 结果评测、可靠性与扩展方法
-- **模型**：支持 DeepSeek 和 llama-server 等 OpenAI 兼容 API；远程密钥从环境变量读取，本机服务可免密
-- **信任模型**：网页内容是不可信数据，搜索摘要不是证据；只有归档 + 精确引文 + 语义审核通过的才算证据
-- **审计隔离**：`evidence_audit` 使用独立 Agent 与独立 prompt，杜绝主上下文污染
+The refactor spec and implementation plan are `specs/2026-09-05-search-agent-design.md`
+and `docs/development/search-agent-refactor-plan.md`.

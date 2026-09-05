@@ -1,0 +1,139 @@
+# Research Agent 完整配置（默认：本地 vLLM qwen3.8-27b + 本地 embedding + 本地 Qdrant）
+#
+# 复制为 config.yaml 使用：
+#   cp configs/default.yaml config.yaml
+# 或显式指定：
+#   research-agent --config configs/default.yaml preflight
+#   INTEL_AGENT_CONFIG=config.yaml research-agent preflight
+#
+# 相对路径以本文件所在目录为基准解析。
+
+# ── LLM：默认本地 vLLM qwen3.8-27b ────────────────────────────────────────────
+model:
+  model_id: qwen3.8-27B-AWQ-4bit            # vLLM 的 --served-model-name（部署时填）
+  base_url: http://10.108.25.128:8001/v1   # vLLM OpenAI 兼容端点（部署时填端口）
+  api_key_env: null                # vLLM 无鉴权用 null；有 token 填环境变量名
+  api_style: openai                # openai（DeepSeek/vLLM）或 ollama
+  disable_thinking: true           # vLLM 推理模型（qwen3.8-27b）关闭 thinking，
+                                   # 保证输出为纯 JSON
+
+# DeepSeek 备选（取消下面注释、并把上面 model 块注释掉即可）：
+# model:
+#   model_id: deepseek-chat
+#   base_url: https://api.deepseek.com/v1
+#   api_key_env: DEEPSEEK_API_KEY
+#   api_style: openai
+#   disable_thinking: false
+
+# ── Embedding（本地 vLLM qwen3-embedding-0.6b）───────────────────────────────
+# 设为 null 则退化为纯词法检索（lexical/direct），不建向量索引。
+embedding:
+  model_id: qwen3-embedding-0.6b   # vLLM 的 --served-model-name
+  base_url: http://127.0.0.1:8001/v1
+  api_key_env: null
+  dimension: 1024                  # qwen3-embedding-0.6b 输出维度（实测 1024）
+
+# ── 搜索 Provider ────────────────────────────────────────────────────────────
+search:
+  provider_timeout_seconds: 20     # 单 Provider 超时
+  round_deadline_seconds: 45       # 整轮搜索截止
+  provider_attempts: 2             # 单 Provider 最大尝试次数（含首次）
+  per_provider_limit: 10           # 单 Provider 返回上限
+  total_limit: 20                  # 合并去重后返回上限
+  queries_per_round: 3             # 单轮查询数上限
+  tracking_params:                 # URL 去重时删除的跟踪参数
+    - utm_source
+    - utm_medium
+    - utm_campaign
+    - gclid
+    - fbclid
+  providers:
+    searxng:
+      enabled: true                # 需本机 SearXNG（http://127.0.0.1:8888）
+      base_url: http://127.0.0.1:8888
+    arxiv:
+      enabled: true                # 学术论文（arXiv，公网）
+    openalex:
+      enabled: true                # 学术元数据（OpenAlex，公网）
+    rss:
+      enabled: false
+      extra:
+        feeds: []                  # 订阅源列表（channel=rss）
+
+# ── 抓取 ─────────────────────────────────────────────────────────────────────
+fetch:
+  http_timeout_seconds: 30         # HTTP 单次超时
+  browser_timeout_seconds: 60      # 浏览器渲染超时
+  item_deadline_seconds: 120       # 单项抓取总时间（含重试/回退）
+  attempts: 2                      # HTTP 最大尝试次数（含首次）
+  global_concurrency: 8            # 全局下载并发
+  per_host_concurrency: 2          # 每主机并发
+  per_host_rate: 2.0               # 每主机每秒请求数
+  per_host_burst: 2                # 初始突发上限
+  browser_concurrency: 2           # 浏览器并发
+  normal_max_bytes: 52428800       # 普通资源大小上限（50 MiB）
+  media_max_bytes: 1073741824      # 显式媒体下载大小上限（1 GiB）
+  proxy_url: http://127.0.0.1:7890   # 受控出站代理（mihomo）；直连被 arXiv 限流时必需
+
+# ── 解析（多模态后端）────────────────────────────────────────────────────────
+extraction:
+  cpu_concurrency: 2               # CPU 重解析并发
+  gpu_concurrency: 1               # GPU 工作并发
+  max_backend_attempts: 2          # 同一解析单位最大后端尝试（首选+备用）
+  page_ocr_deadline_seconds: 120   # 单页 OCR 截止
+  audio_segment_deadline_seconds: 180  # 单音频段处理截止
+  resource_deadline_seconds: 1800  # 单资源解析总截止（30 分钟）
+  tmp_disk_bytes: 5368709120       # 临时磁盘上限（5 GiB）
+  office_unpack_bytes: 524288000   # Office 解压后大小上限（500 MiB）
+  max_pixels: 25000000             # 单图/页渲染像素上限（25M）
+  max_pdf_pages: 500               # PDF 页数上限
+  max_media_seconds: 3600          # 音视频时长上限（60 分钟）
+  asr_segment_seconds: 30          # ASR 分段目标长度（秒）
+  video_frame_interval_seconds: 5  # 视频抽帧间隔（秒）
+  video_max_frames: 720            # 单视频帧数上限
+  ocr_languages: chi_sim+eng       # Tesseract 语言
+  # faster-whisper 音视频转写（spec §8.6/§8.7）
+  whisper_model: small             # small / base / tiny / 本地路径
+  whisper_device: cuda             # cuda / cpu
+  whisper_compute_type: float16    # cuda 用 float16，cpu 用 int8
+  whisper_language: null           # null = 自动检测；可指定 zh / en
+  whisper_device_index: 0          # 多 GPU 时选哪张卡
+  always_asr: false                # 视频有字幕时是否仍强制 ASR
+  video_frame_ocr: false           # 视频抽帧 OCR（默认关，需要时改 true）
+
+# ── 切块与索引 ───────────────────────────────────────────────────────────────
+indexing:
+  chunk:
+    target_tokens: 600             # 切块目标 token 数
+    hard_limit_tokens: 900         # 切块硬上限
+    overlap_tokens: 80             # 重叠上限（仅影响检索）
+  batch_attempts: 3                # 索引批次最大尝试次数（含首次）
+  hybrid_top_k: 30                 # 各路及融合后 top_k
+  embedding_batch_size: 32         # embedding 批次大小
+  rrf_constant: 60                 # RRF 融合常数：score = Σ 1/(60 + rank)
+
+# ── 上下文构建 ───────────────────────────────────────────────────────────────
+context:
+  default_budget_tokens: 8000      # 证据包默认 token 预算
+
+# ── 研究循环与预算 ───────────────────────────────────────────────────────────
+research:
+  max_rounds: 3                    # 最大轮数
+  no_progress_rounds: 2            # 连续无新增轮数上限
+  deadline_seconds: 3600           # 单任务总截止（60 分钟）
+  max_llm_calls: 10                # LLM 调用上限（含修复调用）
+  llm_token_budget: 100000         # 单任务 LLM 输入输出累计预算
+  new_resources_per_round: 20      # 单轮新采集资源上限
+  new_resources_per_task: 60       # 单任务新采集资源上限
+
+# ── 存储 ─────────────────────────────────────────────────────────────────────
+storage:
+  qdrant_url: http://127.0.0.1:6333   # 本地 Qdrant；null 则禁用向量
+  data_dir: ../data                # SQLite / resources / tmp / logs
+  output_dir: ../output            # 结果导出（result.json / result.md）
+  # sqlite_path: ../data/research.sqlite
+  # resources_dir: ../data/resources
+  # tmp_dir: ../data/tmp
+  # logs_dir: ../data/logs
+  import_roots:                   # 本地文件导入允许的目录（安全边界）
+    - ../samples
