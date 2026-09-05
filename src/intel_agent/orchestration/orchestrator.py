@@ -9,8 +9,10 @@ from ..contracts.research import (
     Checkpoint,
     ContextPackage,
     ContextRequest,
+    ResearchDecision,
     ResearchResult,
     ResearchTask,
+    SearchQuery,
     SearchRequest,
 )
 from ..runtime.config import ResearchConfig
@@ -31,6 +33,8 @@ class ResearchOrchestrator:
         profile_id: str,
         lock_dir: Path,
         context_max_tokens: int = 8000,
+        search_per_provider_limit: int = 10,
+        search_total_limit: int = 20,
     ) -> None:
         self.store = store
         self.search_service = search_service
@@ -42,6 +46,8 @@ class ResearchOrchestrator:
         self.profile_id = profile_id
         self.lock_dir = lock_dir
         self.context_max_tokens = context_max_tokens
+        self.search_per_provider_limit = search_per_provider_limit
+        self.search_total_limit = search_total_limit
 
     async def run(self, question: str) -> ResearchResult:
         task = self.store.create_task(
@@ -67,13 +73,30 @@ class ResearchOrchestrator:
             round_no = task.round
             for _ in range(self.config.max_rounds):
                 decision = await self.agent.decide(task, context)
+                if decision.action == "finish" and not context.citations:
+                    # A finish with no evidence is invalid: derive a search.
+                    decision = ResearchDecision(
+                        action="search",
+                        queries=[SearchQuery(text=task.question)],
+                        source_types=["web"],
+                        evidence_gaps=["no evidence collected"],
+                        reason="must search before finishing",
+                    )
                 if decision.action == "finish":
+                    citations = self._resolve_citations(
+                        decision.citation_ids, context
+                    )
+                    if not citations and context.citations:
+                        # The model finished without citing; include every
+                        # available citation rather than dropping the evidence.
+                        citations = list(context.citations)
                     result = ResearchResult(
                         task_id=task.task_id,
                         status="completed",
                         answer=decision.draft_answer or "",
+                        citations=citations,
                         stop_reason="evidence_sufficient",
-                        usage=task.budget_used,
+                        usage=self.store.get_task(task.task_id).budget_used,
                     )
                     self._save_checkpoint(task, round_no, accepted, result)
                     return result
@@ -81,8 +104,8 @@ class ResearchOrchestrator:
                     batch = await self.search_service.search(
                         SearchRequest(
                             query=query,
-                            per_provider_limit=10,
-                            total_limit=10,
+                            per_provider_limit=self.search_per_provider_limit,
+                            total_limit=self.search_total_limit,
                         )
                     )
                     for hit in batch.hits:
@@ -110,20 +133,26 @@ class ResearchOrchestrator:
                 answer="",
                 stop_reason="max_rounds",
                 limitations=["max rounds reached"],
-                usage=task.budget_used,
+                usage=self.store.get_task(task.task_id).budget_used,
             )
             self._save_checkpoint(task, round_no, accepted, result)
             return result
         finally:
             lock.release()
 
+    @staticmethod
+    def _resolve_citations(ids: list[str], context: ContextPackage):
+        by_id = {c.citation_id: c for c in context.citations}
+        return [by_id[cid] for cid in ids if cid in by_id]
+
     def _save_checkpoint(self, task, round_no, accepted, result) -> None:
+        usage = self.store.get_task(task.task_id).budget_used
         checkpoint = Checkpoint(
             task_id=task.task_id,
             round=round_no,
             accepted_artifact_ids=accepted,
-            budget_used=task.budget_used,
+            budget_used=usage,
             stop_reason=result.stop_reason if result else None,
             updated_at=datetime.now(UTC),
         )
-        self.store.save_checkpoint(task.task_id, checkpoint, task.budget_used)
+        self.store.save_checkpoint(task.task_id, checkpoint, usage)

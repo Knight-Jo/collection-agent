@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import xml.etree.ElementTree as ET
 from datetime import datetime
+from time import monotonic
 
 import httpx
 
@@ -29,6 +31,12 @@ def _arxiv_date(query: SearchQuery) -> str | None:
     return None
 
 
+def _https(url: str) -> str:
+    # arXiv Atom <id> uses http://, but port 80 is not served; upgrade to
+    # https so downstream fetch actually reaches the source.
+    return url.replace("http://", "https://", 1)
+
+
 class ArxivProvider:
     name = "arxiv"
 
@@ -37,10 +45,13 @@ class ArxivProvider:
         client: httpx.AsyncClient,
         base_url: str = "https://export.arxiv.org/api/query",
         timeout_seconds: float = 20.0,
+        min_interval: float = 3.0,
     ) -> None:
         self.client = client
         self.base_url = base_url
         self.timeout_seconds = timeout_seconds
+        self.min_interval = min_interval
+        self._last_call = 0.0
 
     def capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities(
@@ -52,6 +63,10 @@ class ArxivProvider:
         )
 
     async def search(self, query: SearchQuery, limit: int) -> list[SearchHit]:
+        wait = self.min_interval - (monotonic() - self._last_call)
+        if wait > 0:
+            await asyncio.sleep(wait)
+        self._last_call = monotonic()
         search_query = f"all:{query.text}"
         date_range = _arxiv_date(query)
         if date_range:
@@ -82,7 +97,7 @@ class ArxivProvider:
             hit = make_hit(
                 "arxiv",
                 query,
-                (entry.findtext(f"{_ATOM}id") or "").strip(),
+                _https((entry.findtext(f"{_ATOM}id") or "").strip()),
                 title=(entry.findtext(f"{_ATOM}title") or "").strip(),
                 snippet=(entry.findtext(f"{_ATOM}summary") or "").strip()[
                     :400

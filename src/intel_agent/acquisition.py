@@ -107,8 +107,11 @@ class AcquisitionPipeline:
                 resource = source
             else:
                 try:
+                    timeout = getattr(
+                        self.fetch_service, "default_timeout", 30.0
+                    )
                     fetch_result = await self.fetch_service.fetch(
-                        FetchRequest(url=source.url)
+                        FetchRequest(url=source.url, timeout_seconds=timeout)
                     )
                     resource = fetch_result.resource
                 except DomainError as error:

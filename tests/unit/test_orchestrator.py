@@ -60,8 +60,22 @@ class FakeIndexing:
 
 class FakeContext:
     async def build(self, request):
+        from intel_agent.contracts.documents import Citation
+
         return ContextPackage(
-            task_id=request.task_id, query=request.query, scope_id="s"
+            task_id=request.task_id,
+            query=request.query,
+            scope_id="s",
+            citations=[
+                Citation(
+                    citation_id="C1",
+                    chunk_id="chk1",
+                    artifact_id="art1",
+                    document_id="doc1",
+                    revision_id="rev1",
+                    resource_id="res1",
+                )
+            ],
         )
 
 

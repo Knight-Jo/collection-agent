@@ -8,7 +8,11 @@ from contextlib import asynccontextmanager
 import httpx
 
 from .acquisition import AcquisitionPipeline
-from .agent.researcher import OpenAILLMClient, ResearchAgent
+from .agent.researcher import (
+    OllamaLLMClient,
+    OpenAILLMClient,
+    ResearchAgent,
+)
 from .application import ResearchApplication
 from .context.manager import ContextManager
 from .context.retrieval import (
@@ -72,6 +76,12 @@ def build_search_providers(settings: ResearchSettings, client):
     return providers
 
 
+def _build_llm_client(settings, client, counter):
+    if settings.model.api_style == "ollama":
+        return OllamaLLMClient(client, settings.model.model_id, counter)
+    return OpenAILLMClient(client, settings.model.model_id, counter)
+
+
 @asynccontextmanager
 async def bootstrap(
     settings: ResearchSettings,
@@ -115,7 +125,7 @@ async def bootstrap(
     llm_client = httpx.AsyncClient(
         base_url=settings.model.base_url,
         trust_env=False,
-        timeout=60.0,
+        timeout=120.0,
     )
     if settings.model.api_key_env:
         import os
@@ -139,7 +149,7 @@ async def bootstrap(
     )
 
     agent = ResearchAgent(
-        OpenAILLMClient(llm_client, settings.model.model_id, counter), store
+        _build_llm_client(settings, llm_client, counter), store
     )
     pipeline = AcquisitionPipeline(
         fetch_service,
@@ -160,6 +170,8 @@ async def bootstrap(
         extraction.profile_for("text/html") or "html",
         settings.tmp_root(),
         context_max_tokens=settings.context.default_budget_tokens,
+        search_per_provider_limit=settings.search.per_provider_limit,
+        search_total_limit=settings.search.total_limit,
     )
 
     application = ResearchApplication(store, orchestrator, settings)

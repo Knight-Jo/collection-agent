@@ -103,6 +103,15 @@ class PinnedTransport(httpx.AsyncBaseTransport):
     async def handle_async_request(
         self, request: httpx.Request
     ) -> httpx.Response:
+        extensions = dict(request.extensions, follow_redirects=False)
+        timeout = extensions.get("timeout")
+        if isinstance(timeout, httpx.Timeout):
+            extensions["timeout"] = {
+                "connect": timeout.connect,
+                "read": timeout.read,
+                "write": timeout.write,
+                "pool": timeout.pool,
+            }
         req = httpcore.Request(
             method=request.method,
             url=httpcore.URL(
@@ -113,7 +122,7 @@ class PinnedTransport(httpx.AsyncBaseTransport):
             ),
             headers=request.headers.raw,
             content=request.stream,
-            extensions=dict(request.extensions, follow_redirects=False),
+            extensions=extensions,
         )
         resp = await self._pool.handle_async_request(req)
         return httpx.Response(

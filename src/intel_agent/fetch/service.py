@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from time import monotonic
 from urllib.parse import urljoin
@@ -30,7 +31,25 @@ class FetchService:
         self.resource_store = resource_store
         self.config = config
 
+    @property
+    def default_timeout(self) -> float:
+        return self.config.http_timeout_seconds
+
     async def fetch(self, request: FetchRequest) -> FetchResult:
+        attempts = self.config.attempts
+        last_error: DomainError | None = None
+        for attempt in range(1, attempts + 1):
+            try:
+                return await self._fetch_once(request)
+            except DomainError as error:
+                if not error.retryable or attempt >= attempts:
+                    raise
+                last_error = error
+                await asyncio.sleep(min(2.0 * attempt, 8.0))
+        assert last_error is not None
+        raise last_error
+
+    async def _fetch_once(self, request: FetchRequest) -> FetchResult:
         start = monotonic()
         if request.mode == "browser":
             raise DomainError(

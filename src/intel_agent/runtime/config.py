@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
@@ -114,6 +114,7 @@ class ModelConfig(BaseModel):
     base_url: str = "https://api.deepseek.com/v1"
     api_key_env: str | None = "DEEPSEEK_API_KEY"
     tokenizer: str | None = None
+    api_style: Literal["openai", "ollama"] = "openai"
 
 
 class StorageConfig(BaseModel):
