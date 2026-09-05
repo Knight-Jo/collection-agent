@@ -1,0 +1,121 @@
+{
+  "fixtures": [
+    {
+      "fixture_id": "pdf-attention",
+      "file": "attention.pdf",
+      "source_url": "https://arxiv.org/pdf/1706.03762",
+      "sha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+      "media_type": "application/pdf",
+      "language": "en",
+      "kind": "positive",
+      "origin": "downloaded",
+      "expected_evidence": [
+        {"text": "Attention Is All You Need", "locator": {"page": 1}},
+        {"text": "Transformer", "locator": {"page": 1}},
+        {"text": "self-attention", "locator": {"page": 2}}
+      ]
+    },
+    {
+      "fixture_id": "ocr-en",
+      "file": "ocr-en.jpg",
+      "source_url": "https://upload.wikimedia.org/wikipedia/commons/b/bd/Test_OCR_document_2.jpg",
+      "sha256": "a8ad506452e22ed3e9dc59f9f0e1bd6add549ea27a981874aef79e0efb4be138",
+      "media_type": "image/jpeg",
+      "language": "en",
+      "kind": "positive",
+      "origin": "downloaded",
+      "expected_evidence": [
+        {"text": "ADVENTURES", "locator": {}},
+        {"text": "CHARLES", "locator": {}},
+        {"text": "Virginia", "locator": {}}
+      ]
+    },
+    {
+      "fixture_id": "ocr-zh",
+      "file": "ocr-zh.jpg",
+      "source_url": "https://upload.wikimedia.org/wikipedia/commons/7/75/Test_OCR_document.jpg",
+      "sha256": "3b06e74ec9cdddc647357cbda13ab264fa28ed1ce9a41ec16d116786f7b97f0b",
+      "media_type": "image/jpeg",
+      "language": "en",
+      "kind": "positive",
+      "origin": "downloaded",
+      "expected_evidence": [
+        {"text": "Lorem", "locator": {}},
+        {"text": "Alice", "locator": {}},
+        {"text": "conversations", "locator": {}}
+      ]
+    },
+    {
+      "fixture_id": "docx-sample",
+      "file": "sample.docx",
+      "source_url": null,
+      "sha256": "3b363e449f7255ae2ec00644ed8233cd38736b89221fcd6a015763c30c0ec2cb",
+      "media_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "language": "en",
+      "kind": "positive",
+      "origin": "authored",
+      "expected_evidence": [
+        {"text": "Battery recycling recovers lithium", "locator": {}},
+        {"text": "Hydrometallurgy", "locator": {}},
+        {"text": "Recovery Rate", "locator": {}}
+      ]
+    },
+    {
+      "fixture_id": "xlsx-formula",
+      "file": "sample.xlsx",
+      "source_url": null,
+      "sha256": "e2c510ba9a9b30ec4e1cff9b2479fe4106d982d1e98b2ccd9c9f1faaf6043296",
+      "media_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "language": "en",
+      "kind": "positive",
+      "origin": "authored",
+      "expected_evidence": [
+        {"text": "3", "locator": {"cell_range": "A2"}},
+        {"text": "=A2*2", "locator": {"cell_range": "B2"}},
+        {"text": "Unit Price", "locator": {}}
+      ]
+    },
+    {
+      "fixture_id": "pptx-sample",
+      "file": "sample.pptx",
+      "source_url": null,
+      "sha256": "93da89063c8ff4e4403cdd3b94f455b29554894abe057e4ce5f65304f55488eb",
+      "media_type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "language": "en",
+      "kind": "positive",
+      "origin": "authored",
+      "expected_evidence": [
+        {"text": "Battery Recycling Progress", "locator": {}},
+        {"text": "Phase one covers three cities", "locator": {}}
+      ]
+    },
+    {
+      "fixture_id": "video-subtitle",
+      "file": "video-subtitle.mp4",
+      "source_url": null,
+      "sha256": "be73c58426372b727faf53cd916e3dce950e65f78eec846e9c3c112393b79a1b",
+      "media_type": "video/mp4",
+      "language": "en",
+      "kind": "positive",
+      "origin": "authored",
+      "expected_evidence": [
+        {"text": "Battery recycling recovers lithium and cobalt", "locator": {"start_ms": 0}},
+        {"text": "Hydrometallurgy is widely used", "locator": {"start_ms": 2000}}
+      ]
+    },
+    {
+      "fixture_id": "video-nosub",
+      "file": "video-nosub.mp4",
+      "source_url": null,
+      "sha256": "bad58c04871182aac730fca7ed4e695b6bcbc0740027f900edc80ea2857ecfa6",
+      "media_type": "video/mp4",
+      "language": "en",
+      "kind": "positive",
+      "origin": "authored",
+      "expected_evidence": [
+        {"text": "Frame", "locator": {"frame_ms": 0}},
+        {"text": "OCR", "locator": {"frame_ms": 0}}
+      ]
+    }
+  ]
+}

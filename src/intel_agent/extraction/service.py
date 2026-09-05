@@ -106,6 +106,12 @@ class ExtractionService:
             ExtractionProfile(
                 name="xlsx", media_type=XLSX, preferred="office"
             ),
+            ExtractionProfile(
+                name="audio", media_type="audio/*", preferred="ffmpeg"
+            ),
+            ExtractionProfile(
+                name="video", media_type="video/*", preferred="ffmpeg"
+            ),
         ]
 
     async def extract(
@@ -370,6 +376,8 @@ class ExtractionService:
         )
         attempts.append(attempt)
         warnings = [f"office failed: {error}"] if error else []
+        if output is not None:
+            warnings += output.warnings
         blocks = output.blocks if output else []
         coverage = output.coverage if output else []
         return self._result(

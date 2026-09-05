@@ -150,27 +150,30 @@ class OfficeBackend(BaseBackend):
         for sheet_name in cached.sheetnames:
             cached_sheet = cached[sheet_name]
             formula_sheet = formulas[sheet_name]
-            for row in cached_sheet.iter_rows():
+            for row in formula_sheet.iter_rows():
                 for cell in row:
-                    value = cell.value
-                    if value is None:
-                        continue
-                    formula_cell = formula_sheet[cell.coordinate]
                     formula = (
-                        formula_cell.value
-                        if isinstance(formula_cell.value, str)
-                        and formula_cell.value.startswith("=")
+                        cell.value
+                        if isinstance(cell.value, str)
+                        and cell.value.startswith("=")
                         else None
                     )
-                    cached_value = value
+                    cached_value = cached_sheet[cell.coordinate].value
+                    if formula is None and cached_value is None:
+                        continue
                     if formula is not None and cached_value is None:
                         warnings.append("uncalculated_formula")
+                    display = (
+                        str(formula)
+                        if cached_value is None
+                        else str(cached_value)
+                    )
                     blocks.append(
                         make_block(
                             self.backend_id,
                             self.version,
                             ordinal,
-                            str(value),
+                            display,
                             "cell",
                             locator=Locator(
                                 sheet=sheet_name,
@@ -178,7 +181,7 @@ class OfficeBackend(BaseBackend):
                             ),
                             metadata={
                                 "formula": formula,
-                                "cached_value": value,
+                                "cached_value": cached_value,
                                 "sheet": sheet_name,
                             },
                         )

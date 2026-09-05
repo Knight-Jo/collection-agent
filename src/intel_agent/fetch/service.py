@@ -26,16 +26,26 @@ class FetchService:
         client: httpx.AsyncClient,
         resource_store: ResourceStore,
         config: FetchConfig,
+        browser_fetcher=None,
     ) -> None:
         self.client = client
         self.resource_store = resource_store
         self.config = config
+        self.browser_fetcher = browser_fetcher
 
     @property
     def default_timeout(self) -> float:
         return self.config.http_timeout_seconds
 
     async def fetch(self, request: FetchRequest) -> FetchResult:
+        if request.mode == "browser":
+            if self.browser_fetcher is None:
+                raise DomainError(
+                    "BACKEND_UNAVAILABLE",
+                    "browser fetcher not configured",
+                    stage="fetch",
+                )
+            return await self.browser_fetcher.fetch(request)
         attempts = self.config.attempts
         last_error: DomainError | None = None
         for attempt in range(1, attempts + 1):
@@ -51,12 +61,6 @@ class FetchService:
 
     async def _fetch_once(self, request: FetchRequest) -> FetchResult:
         start = monotonic()
-        if request.mode == "browser":
-            raise DomainError(
-                "BACKEND_UNAVAILABLE",
-                "browser fetcher not configured",
-                stage="fetch",
-            )
         url = request.url
         await validate_public_url(url)
         warnings: list[str] = []
@@ -116,7 +120,7 @@ class FetchService:
                 "GET",
                 url,
                 headers=request.headers,
-                extensions={"timeout": httpx.Timeout(request.timeout_seconds)},
+                timeout=request.timeout_seconds,
             )
             return await self.client.send(
                 req, stream=True, follow_redirects=False

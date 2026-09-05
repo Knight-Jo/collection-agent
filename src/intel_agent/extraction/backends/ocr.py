@@ -98,55 +98,57 @@ class TesseractBackend(BaseBackend):
 
     def _parse_tsv(self, text: str, width: int, height: int, request):
         rows = list(csv.DictReader(io.StringIO(text), delimiter="\t"))
-        line_conf: dict[tuple, list[float]] = {}
+        # Group level-5 (word) rows into lines; tesseract 4.x leaves line
+        # (level 4) text empty and keeps the text at word level.
+        lines: dict[tuple, dict] = {}
         for row in rows:
-            if row.get("level") == "5" and row.get("conf", "-1") not in (
-                "-1",
-                "",
-                None,
-            ):
-                try:
-                    line_conf[
-                        (
-                            row["page_num"],
-                            row["block_num"],
-                            row["par_num"],
-                            row["line_num"],
-                        )
-                    ].append(float(row["conf"]))
-                except (KeyError, ValueError):
-                    continue
-        blocks = []
-        ordinal = 1
-        confidences: list[float] = []
-        for row in rows:
-            if row.get("level") != "4":
+            if row.get("level") != "5":
                 continue
-            line_text = (row.get("text") or "").strip()
-            if not line_text:
+            word_text = (row.get("text") or "").strip()
+            if not word_text:
                 continue
             try:
+                key = (
+                    row["page_num"],
+                    row["block_num"],
+                    row["par_num"],
+                    row["line_num"],
+                )
                 left = int(row["left"])
                 top = int(row["top"])
                 w = int(row["width"])
                 h = int(row["height"])
+                conf = float(row["conf"])
             except (KeyError, ValueError):
                 continue
-            key = (
-                row["page_num"],
-                row["block_num"],
-                row["par_num"],
-                row["line_num"],
+            line = lines.setdefault(
+                key, {"words": [], "bbox": None, "confs": []}
             )
-            confs = line_conf.get(key, [])
-            confidence = sum(confs) / len(confs) if confs else None
-            if confidence is not None:
-                confidences.append(confidence)
+            line["words"].append(word_text)
+            line["confs"].append(conf)
+            if line["bbox"] is None:
+                line["bbox"] = [left, top, left + w, top + h]
+            else:
+                x0, y0, x1, y1 = line["bbox"]
+                line["bbox"] = [
+                    min(x0, left),
+                    min(y0, top),
+                    max(x1, left + w),
+                    max(y1, top + h),
+                ]
+        blocks = []
+        confidences: list[float] = []
+        for ordinal, (_, line) in enumerate(sorted(lines.items()), start=1):
+            x0, y0, x1, y1 = line["bbox"]
+            confs = line["confs"]
+            # tesseract conf is a 0–100 percentage; EvidenceBlock uses 0–1.
+            confidence = sum(confs) / len(confs) / 100.0
+            confidences.append(confidence)
             bbox = (
-                max(0.0, min(1.0, left / width)),
-                max(0.0, min(1.0, top / height)),
-                max(0.0, min(1.0, (left + w) / width)),
-                max(0.0, min(1.0, (top + h) / height)),
+                max(0.0, min(1.0, x0 / width)),
+                max(0.0, min(1.0, y0 / height)),
+                max(0.0, min(1.0, x1 / width)),
+                max(0.0, min(1.0, y1 / height)),
             )
             locator = (
                 request.locator.model_copy() if request.locator else Locator()
@@ -157,14 +159,13 @@ class TesseractBackend(BaseBackend):
                     self.backend_id,
                     self.version,
                     ordinal,
-                    line_text,
+                    " ".join(line["words"]),
                     "paragraph",
                     locator=locator,
                     origin_method="ocr",
                     confidence=confidence,
                 )
             )
-            ordinal += 1
         mean_conf = (
             sum(confidences) / len(confidences) if confidences else None
         )

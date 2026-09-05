@@ -1,4 +1,4 @@
-"""Audio extraction: probe, segment, transcribe (spec §8.6)."""
+"""Audio extraction: probe metadata (spec §8.6; ASR deferred)."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ def offset_locator(locator: Locator, offset_ms: int) -> Locator:
 
 
 class AudioExtractor:
-    """Transcribes audio via injected media and ASR backends."""
+    """Probes audio tracks; transcription is a deferred ASR capability."""
 
     def __init__(self, registry, resource_store, executor, config) -> None:
         self.registry = registry
@@ -25,22 +25,64 @@ class AudioExtractor:
         self.config = config
 
     async def extract(self, resource, profile):
-        # Deferred: probe the track, segment into ~30s windows, and run the
-        # ASR backend per segment with original-timeline offsets.
-        from ..contracts.documents import CoverageUnit, ExtractResult
+        from datetime import UTC, datetime
 
+        from ..contracts.documents import (
+            BackendAttempt,
+            CoverageUnit,
+            ExtractResult,
+        )
+        from .models import BackendRequest
+
+        if not self.registry.available("ffmpeg"):
+            return ExtractResult(
+                resource_id=resource.resource_id,
+                blocks=[],
+                coverage=[],
+                status="empty",
+                warnings=["audio ASR requires a configured ASR backend"],
+                extraction_profile_id=profile.id(),
+            )
+        backend = self.registry.get("ffmpeg")
+        request = BackendRequest(
+            resource_id=resource.resource_id,
+            capability="media_probe",
+            profile_id=profile.id(),
+            remaining_seconds=self.config.resource_deadline_seconds,
+        )
+        started = datetime.now(UTC)
+        try:
+            output = await self.executor.run_backend(backend, request)
+            attempt = BackendAttempt(
+                backend_id="ffmpeg",
+                backend_version=backend.version,
+                capability="media_probe",
+                started_at=started,
+                ended_at=datetime.now(UTC),
+                status="success",
+            )
+        except Exception as error:  # noqa: BLE001
+            return ExtractResult(
+                resource_id=resource.resource_id,
+                blocks=[],
+                coverage=[],
+                status="empty",
+                warnings=[f"audio probe failed: {error}"],
+                extraction_profile_id=profile.id(),
+            )
         return ExtractResult(
             resource_id=resource.resource_id,
             blocks=[],
-            coverage=[
+            coverage=output.coverage
+            or [
                 CoverageUnit(
-                    unit_type="document",
+                    unit_type="time_range",
                     locator=Locator(),
-                    status="skipped",
-                    reason="audio ASR backend not configured",
+                    status="success",
                 )
             ],
             status="empty",
-            warnings=["audio ASR requires a configured ASR backend"],
+            attempts=[attempt],
+            warnings=["audio transcription (ASR) not configured"],
             extraction_profile_id=profile.id(),
         )

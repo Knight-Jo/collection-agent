@@ -140,7 +140,18 @@ def build_client(
     *,
     resolver: AddressResolver | None = None,
     timeout: float = 30.0,
+    proxy: str | None = None,
 ) -> httpx.AsyncClient:
+    if proxy is not None:
+        # Controlled egress proxy: FetchService still validates every target
+        # URL is public via validate_public_url; the proxy is trusted egress
+        # infrastructure that performs the actual connection.
+        return httpx.AsyncClient(
+            proxy=proxy,
+            trust_env=False,
+            follow_redirects=False,
+            timeout=timeout,
+        )
     transport = PinnedTransport(PublicNetworkBackend(resolver))
     return httpx.AsyncClient(
         transport=transport,

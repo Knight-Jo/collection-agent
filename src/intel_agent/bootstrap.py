@@ -23,6 +23,7 @@ from .extraction.backends.html import (
     BeautifulSoupBackend,
     TrafilaturaBackend,
 )
+from .extraction.backends.media import FFmpegBackend
 from .extraction.backends.ocr import TesseractBackend
 from .extraction.backends.office import OfficeBackend
 from .extraction.backends.pdf import (
@@ -31,6 +32,7 @@ from .extraction.backends.pdf import (
 )
 from .extraction.registry import BackendRegistry
 from .extraction.service import ExtractionService
+from .fetch.browser import BrowserFetcher
 from .fetch.service import FetchService
 from .fetch.transport import build_client as build_fetch_client
 from .indexing.service import IndexingService
@@ -109,6 +111,7 @@ async def bootstrap(
         ),
     )
     registry.register("office", OfficeBackend(resource_store))
+    registry.register("ffmpeg", FFmpegBackend(resource_store, executor))
 
     extraction = ExtractionService(
         registry, resource_store, executor, settings.extraction
@@ -117,7 +120,8 @@ async def bootstrap(
         extraction.register_profile(profile)
 
     fetch_client = build_fetch_client(
-        timeout=settings.fetch.http_timeout_seconds
+        timeout=settings.fetch.http_timeout_seconds,
+        proxy=settings.fetch.proxy_url,
     )
     search_client = httpx.AsyncClient(
         trust_env=False, timeout=settings.search.provider_timeout_seconds
@@ -134,7 +138,12 @@ async def bootstrap(
         if key:
             llm_client.headers["Authorization"] = f"Bearer {key}"
 
-    fetch_service = FetchService(fetch_client, resource_store, settings.fetch)
+    fetch_service = FetchService(
+        fetch_client,
+        resource_store,
+        settings.fetch,
+        BrowserFetcher(resource_store),
+    )
     search_service = SearchService(
         build_search_providers(settings, search_client), settings.search
     )

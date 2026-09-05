@@ -61,6 +61,7 @@ class FetchConfig(BaseModel):
     browser_concurrency: int = Field(default=2, ge=1)
     normal_max_bytes: int = Field(default=50 * 1024 * 1024, gt=0)
     media_max_bytes: int = Field(default=1024 * 1024 * 1024, gt=0)
+    proxy_url: str | None = None
 
 
 class ExtractionConfig(BaseModel):
