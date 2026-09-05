@@ -131,9 +131,11 @@ class FetchService:
             raise DomainError(
                 "TIMEOUT", f"fetch timed out: {url}", stage="fetch"
             ) from error
-        except httpx.NetworkError as error:
+        except httpx.TransportError as error:
             raise DomainError(
-                "NETWORK_ERROR", f"network error: {url}", stage="fetch"
+                "NETWORK_ERROR",
+                f"network error: {type(error).__name__} for {url}",
+                stage="fetch",
             ) from error
 
 

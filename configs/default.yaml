@@ -10,8 +10,8 @@
 
 # ── LLM：默认本地 vLLM qwen3.8-27b ────────────────────────────────────────────
 model:
-  model_id: qwen3.8-27b            # vLLM 的 --served-model-name（部署时填）
-  base_url: http://127.0.0.1:8000/v1   # vLLM OpenAI 兼容端点（部署时填端口）
+  model_id: qwen3.8-27B-AWQ-4bit            # vLLM 的 --served-model-name（部署时填）
+  base_url: http://10.108.25.128:8001/v1   # vLLM OpenAI 兼容端点（部署时填端口）
   api_key_env: null                # vLLM 无鉴权用 null；有 token 填环境变量名
   api_style: openai                # openai（DeepSeek/vLLM）或 ollama
   disable_thinking: true           # vLLM 推理模型（qwen3.8-27b）关闭 thinking，
@@ -73,7 +73,7 @@ fetch:
   browser_concurrency: 2           # 浏览器并发
   normal_max_bytes: 52428800       # 普通资源大小上限（50 MiB）
   media_max_bytes: 1073741824      # 显式媒体下载大小上限（1 GiB）
-  proxy_url: null                  # 受控出站代理，如 http://127.0.0.1:7890
+  proxy_url: http://127.0.0.1:7890   # 受控出站代理（mihomo）；直连被 arXiv 限流时必需
 
 # ── 解析（多模态后端）────────────────────────────────────────────────────────
 extraction:
