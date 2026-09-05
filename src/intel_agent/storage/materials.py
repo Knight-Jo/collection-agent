@@ -488,6 +488,74 @@ class MaterialStore:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    def create_work_item(
+        self,
+        task_id: str,
+        source_url: str,
+        profile_id: str,
+        index_after_store: bool,
+        resource_id: str | None = None,
+    ) -> str:
+        work_item_id = new_id("wi")
+        with self.db.transaction() as conn:
+            conn.execute(
+                """
+                INSERT INTO work_items
+                (work_item_id, task_id, stage, status, resource_id,
+                 payload, created_at, updated_at)
+                VALUES (?, ?, 'pending', 'pending', ?, ?, ?, ?)
+                """,
+                (
+                    work_item_id, task_id, resource_id,
+                    json.dumps({
+                        "source_url": source_url,
+                        "profile_id": profile_id,
+                        "index_after_store": index_after_store,
+                    }),
+                    _iso(datetime.now(UTC)), _iso(datetime.now(UTC)),
+                ),
+            )
+        return work_item_id
+
+    def update_work_item(
+        self,
+        work_item_id: str,
+        stage: str,
+        status: str,
+        *,
+        resource_id: str | None = None,
+        artifact_id: str | None = None,
+    ) -> None:
+        sets = ["stage = ?", "status = ?", "updated_at = ?"]
+        params: list[Any] = [stage, status, _iso(datetime.now(UTC))]
+        if resource_id is not None:
+            sets.append("resource_id = ?")
+            params.append(resource_id)
+        if artifact_id is not None:
+            sets.append("artifact_id = ?")
+            params.append(artifact_id)
+        params.append(work_item_id)
+        with self.db.transaction() as conn:
+            conn.execute(
+                f"UPDATE work_items SET {', '.join(sets)}"
+                " WHERE work_item_id = ?",
+                tuple(params),
+            )
+
+    def get_work_item(self, work_item_id: str) -> dict:
+        row = self.db.execute(
+            "SELECT * FROM work_items WHERE work_item_id = ?",
+            (work_item_id,),
+        ).fetchone()
+        if row is None:
+            raise DomainError(
+                "NOT_FOUND", f"work item not found: {work_item_id}",
+                stage="storage",
+            )
+        item = dict(row)
+        item["payload"] = json.loads(item.get("payload") or "{}")
+        return item
+
     # --- index state --------------------------------------------------------
 
     def record_index(

@@ -136,7 +136,7 @@ class ContextPackage(BaseModel):
     selected_chunks: list[Chunk] = Field(default_factory=list)
     citations: list[Citation] = Field(default_factory=list)
     formatted_text: str = ""
-    token_count: int = Field(ge=0)
+    token_count: int = Field(default=0, ge=0)
     warnings: list[str] = Field(default_factory=list)
     coverage_summary: JsonValue = Field(default_factory=dict)
 
