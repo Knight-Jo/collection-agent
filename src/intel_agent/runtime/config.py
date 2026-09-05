@@ -116,6 +116,22 @@ class ModelConfig(BaseModel):
     api_key_env: str | None = "DEEPSEEK_API_KEY"
     tokenizer: str | None = None
     api_style: Literal["openai", "ollama"] = "openai"
+    # Disable reasoning/thinking preamble on reasoning models served by vLLM
+    # (e.g. qwen3.8-27b), so the response is pure JSON.
+    disable_thinking: bool = False
+
+
+class EmbeddingConfig(BaseModel):
+    model_id: str
+    base_url: str
+    api_key_env: str | None = None
+    dimension: int | None = Field(default=None, gt=0)
+
+    def profile_id(self) -> str:
+        """Stable embedding profile identity: model + dimension."""
+        return _profile_id(
+            {"model_id": self.model_id, "dimension": self.dimension}
+        )
 
 
 class StorageConfig(BaseModel):
@@ -136,6 +152,7 @@ class ResearchSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     model: ModelConfig = Field(default_factory=ModelConfig)
+    embedding: EmbeddingConfig | None = None
     search: SearchConfig = Field(default_factory=SearchConfig)
     fetch: FetchConfig = Field(default_factory=FetchConfig)
     extraction: ExtractionConfig = Field(default_factory=ExtractionConfig)

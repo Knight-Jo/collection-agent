@@ -18,6 +18,7 @@ from .context.manager import ContextManager
 from .context.retrieval import (
     HybridRetriever,
     LexicalRetriever,
+    VectorRetriever,
 )
 from .extraction.backends.html import (
     BeautifulSoupBackend,
@@ -35,6 +36,8 @@ from .extraction.service import ExtractionService
 from .fetch.browser import BrowserFetcher
 from .fetch.service import FetchService
 from .fetch.transport import build_client as build_fetch_client
+from .indexing.embedding import HttpEmbeddingClient
+from .indexing.qdrant import QdrantVectorIndex
 from .indexing.service import IndexingService
 from .indexing.tokenize import TiktokenCounter
 from .normalization import Normalizer
@@ -81,7 +84,36 @@ def build_search_providers(settings: ResearchSettings, client):
 def _build_llm_client(settings, client, counter):
     if settings.model.api_style == "ollama":
         return OllamaLLMClient(client, settings.model.model_id, counter)
-    return OpenAILLMClient(client, settings.model.model_id, counter)
+    return OpenAILLMClient(
+        client,
+        settings.model.model_id,
+        counter,
+        disable_thinking=settings.model.disable_thinking,
+    )
+
+
+def _build_embedding(settings):
+    if settings.embedding is None:
+        return None, None, None
+    client = httpx.AsyncClient(
+        base_url=settings.embedding.base_url,
+        trust_env=False,
+        timeout=60.0,
+    )
+    if settings.embedding.api_key_env:
+        import os
+
+        key = os.environ.get(settings.embedding.api_key_env)
+        if key:
+            client.headers["Authorization"] = f"Bearer {key}"
+    profile_id = settings.embedding.profile_id()
+    embedding = HttpEmbeddingClient(
+        client,
+        settings.embedding.model_id,
+        profile_id=profile_id,
+        dimension=settings.embedding.dimension,
+    )
+    return embedding, client, profile_id
 
 
 @asynccontextmanager
@@ -149,12 +181,37 @@ async def bootstrap(
     )
 
     counter = TiktokenCounter()
-    indexing = IndexingService(store, settings.indexing, counter)
+    embedding_client, embedding_http, embedding_profile_id = _build_embedding(
+        settings
+    )
+    vector_index = (
+        QdrantVectorIndex(settings.storage.qdrant_url)
+        if settings.storage.qdrant_url is not None
+        else None
+    )
+    vector_retriever = None
+    if (
+        embedding_client is not None
+        and vector_index is not None
+        and embedding_profile_id is not None
+    ):
+        vector_retriever = VectorRetriever(
+            store, embedding_client, vector_index
+        )
+    indexing = IndexingService(
+        store,
+        settings.indexing,
+        counter,
+        embedding_client=embedding_client,
+        vector_index=vector_index,
+        embedding_profile_id=embedding_profile_id,
+    )
     context_manager = ContextManager(
         store,
         counter,
         settings.context,
-        hybrid=HybridRetriever(LexicalRetriever(store), None),
+        hybrid=HybridRetriever(LexicalRetriever(store), vector_retriever),
+        vector_profile_id=embedding_profile_id,
     )
 
     agent = ResearchAgent(
@@ -191,4 +248,8 @@ async def bootstrap(
         await search_client.aclose()
         await llm_client.aclose()
         await fetch_client.aclose()
+        if embedding_http is not None:
+            await embedding_http.aclose()
+        if vector_index is not None:
+            await vector_index.close()
         await executor.close()

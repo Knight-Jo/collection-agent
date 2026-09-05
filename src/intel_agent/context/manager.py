@@ -20,12 +20,14 @@ class ContextManager:
         config: ContextConfig,
         direct: DirectRetriever | None = None,
         hybrid: HybridRetriever | None = None,
+        vector_profile_id: str | None = None,
     ) -> None:
         self.store = store
         self.counter = counter
         self.config = config
         self.direct = direct or DirectRetriever(store)
         self.hybrid = hybrid
+        self.vector_profile_id = vector_profile_id
 
     def _source_by_artifact(self, artifact_ids: list[str]) -> dict[str, str]:
         mapping: dict[str, str] = {}
@@ -58,7 +60,10 @@ class ContextManager:
             chunks = all_chunks
         elif self.hybrid is not None:
             hits, warnings = await self.hybrid.retrieve(
-                request.query, scope, top_k=30
+                request.query,
+                scope,
+                top_k=30,
+                vector_profile_id=self.vector_profile_id,
             )
             chunks = [hit.chunk for hit in hits]
         else:

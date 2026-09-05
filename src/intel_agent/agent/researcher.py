@@ -97,10 +97,13 @@ class OpenAILLMClient:
         client: httpx.AsyncClient,
         model_id: str,
         counter,
+        *,
+        disable_thinking: bool = False,
     ) -> None:
         self.client = client
         self.model_id = model_id
         self.counter = counter
+        self.disable_thinking = disable_thinking
 
     def _user_prompt(self, task: ResearchTask, context: ContextPackage) -> str:
         return (
@@ -121,7 +124,7 @@ class OpenAILLMClient:
         input_tokens = self.counter.count(SYSTEM_PROMPT) + self.counter.count(
             user
         )
-        payload = {
+        payload: dict = {
             "model": self.model_id,
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -130,6 +133,12 @@ class OpenAILLMClient:
             "response_format": {"type": "json_object"},
             "max_tokens": remaining_output_tokens,
         }
+        if self.disable_thinking:
+            # vLLM reasoning models (qwen3.8-27b): turn off the thinking
+            # preamble so `content` is the pure JSON decision.
+            payload["extra_body"] = {
+                "chat_template_kwargs": {"enable_thinking": False}
+            }
         response = await self.client.post("/chat/completions", json=payload)
         response.raise_for_status()
         data = response.json()
