@@ -24,7 +24,9 @@ class QdrantVectorIndex:
     def __init__(self, url: str) -> None:
         from qdrant_client import AsyncQdrantClient
 
-        self._client = AsyncQdrantClient(url=url)
+        # trust_env=False: a local Qdrant must not route through the ambient
+        # SOCKS proxy (which would require socksio).
+        self._client = AsyncQdrantClient(url=url, trust_env=False)
         self._dimensions: dict[str, int] = {}
 
     @staticmethod
