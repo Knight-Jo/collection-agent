@@ -112,6 +112,7 @@ class ResearchOrchestrator:
             )
             accepted: list[str] = []
             round_no = task.round
+            last_summary = ""
             await self._emit(
                 sink,
                 {
@@ -165,6 +166,7 @@ class ResearchOrchestrator:
                         "phase": "collecting",
                     },
                 )
+                round_materials = 0
                 for direction in directions:
                     batch = await self.search_service.search(
                         SearchRequest(
@@ -185,11 +187,18 @@ class ResearchOrchestrator:
                         },
                     )
                     for hit in batch.hits:
+                        if (
+                            len(accepted) >= self.config.new_resources_per_task
+                            or round_materials
+                            >= self.config.new_resources_per_round
+                        ):
+                            break
                         report = await self.acquisition_pipeline.acquire(
                             task.task_id, hit, self.profile_id
                         )
                         if report.artifact_id:
                             accepted.append(report.artifact_id)
+                            round_materials += 1
                             await self._emit(
                                 sink,
                                 {
@@ -336,13 +345,17 @@ class ResearchOrchestrator:
                     self._save_checkpoint(task, round_no, accepted, result)
                     return result
                 directions = decision.directions
+                last_summary = (
+                    f"覆盖评估: {coverage.summary}\n"
+                    f"证据核验: {evidence.summary}"
+                )
                 self._save_checkpoint(task, round_no, accepted, None)
             result = ResearchResult(
                 task_id=task.task_id,
                 status="partial",
-                answer="",
+                answer=last_summary,
                 stop_reason="max_rounds",
-                limitations=["max rounds reached"],
+                limitations=["max rounds reached", "no conclusive finish"],
                 usage=self.store.get_task(task.task_id).budget_used,
             )
             await self._emit(
