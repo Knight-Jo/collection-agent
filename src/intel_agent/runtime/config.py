@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 import os
 from pathlib import Path
 from typing import Any
@@ -41,8 +39,13 @@ class SearchConfig(BaseModel):
     per_provider_limit: int = Field(default=10, ge=1)
     total_limit: int = Field(default=20, ge=1)
     queries_per_round: int = Field(default=3, ge=1)
-    tracking_params: tuple[str, ...] = ("utm_source", "utm_medium",
-                                        "utm_campaign", "gclid", "fbclid")
+    tracking_params: tuple[str, ...] = (
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "gclid",
+        "fbclid",
+    )
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)
 
 
@@ -139,7 +142,9 @@ class ResearchSettings(BaseModel):
     research: ResearchConfig = Field(default_factory=ResearchConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
     # Optional capability profiles keyed by stable name -> typed payload.
-    extraction_profiles: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    extraction_profiles: dict[str, dict[str, Any]] = Field(
+        default_factory=dict
+    )
     embedding_profiles: dict[str, dict[str, Any]] = Field(default_factory=dict)
     # Absolute path of the file this settings object was loaded from.
     source_path: Path | None = None

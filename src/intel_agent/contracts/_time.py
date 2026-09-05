@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from typing import Any, TypeAlias, TypeAliasType
+from typing import Any
 
 from pydantic import AwareDatetime as _AwareDatetime
 
-AwareDatetime: TypeAlias = _AwareDatetime
+type AwareDatetime = _AwareDatetime
 
-JsonValue = TypeAliasType(
-    "JsonValue",
-    str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"],
+type JsonValue = (
+    str | int | float | bool | None | list[JsonValue] | dict[str, JsonValue]
 )
 
 

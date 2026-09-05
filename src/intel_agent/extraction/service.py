@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from ..contracts.documents import (
     BackendAttempt,
@@ -14,13 +14,15 @@ from ..contracts.documents import (
 )
 from ..contracts.errors import DomainError
 from ..contracts.resources import Resource
+from ..runtime._profile import profile_id as _hash
 from ..runtime.config import ExtractionConfig
 from ..runtime.execution import Executor
-from ..runtime._profile import profile_id as _hash
-from .models import BackendRequest, BackendOutput
+from .models import BackendOutput, BackendRequest
 from .registry import BackendRegistry
 
-DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+DOCX = (
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+)
 PPTX = (
     "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 )
@@ -66,25 +68,44 @@ class ExtractionService:
         self._profiles[pid] = profile
         return pid
 
+    def profile_for(self, media_type: str) -> str | None:
+        for pid, profile in self._profiles.items():
+            if profile.media_type == media_type:
+                return pid
+        prefix = media_type.split("/")[0] + "/*"
+        for pid, profile in self._profiles.items():
+            if profile.media_type == prefix:
+                return pid
+        return None
+
     def default_profiles(self) -> list[ExtractionProfile]:
         return [
             ExtractionProfile(
-                name="html", media_type="text/html",
-                preferred="trafilatura", fallback="beautifulsoup",
+                name="html",
+                media_type="text/html",
+                preferred="trafilatura",
+                fallback="beautifulsoup",
             ),
             ExtractionProfile(
-                name="pdf", media_type="application/pdf",
-                preferred="pymupdf", fallback="pdfplumber",
+                name="pdf",
+                media_type="application/pdf",
+                preferred="pymupdf",
+                fallback="pdfplumber",
             ),
             ExtractionProfile(
-                name="image", media_type="image/*", preferred="tesseract",
+                name="image",
+                media_type="image/*",
+                preferred="tesseract",
             ),
-            ExtractionProfile(name="docx", media_type=DOCX,
-                              preferred="office"),
-            ExtractionProfile(name="pptx", media_type=PPTX,
-                              preferred="office"),
-            ExtractionProfile(name="xlsx", media_type=XLSX,
-                              preferred="office"),
+            ExtractionProfile(
+                name="docx", media_type=DOCX, preferred="office"
+            ),
+            ExtractionProfile(
+                name="pptx", media_type=PPTX, preferred="office"
+            ),
+            ExtractionProfile(
+                name="xlsx", media_type=XLSX, preferred="office"
+            ),
         ]
 
     async def extract(
@@ -93,7 +114,8 @@ class ExtractionService:
         profile = self._profiles.get(profile_id)
         if profile is None:
             raise DomainError(
-                "INVALID_REQUEST", f"unknown profile: {profile_id}",
+                "INVALID_REQUEST",
+                f"unknown profile: {profile_id}",
                 stage="extraction",
             )
         media_type = resource.media_type
@@ -110,20 +132,28 @@ class ExtractionService:
         if media_type.startswith("video/"):
             return await self._extract_video(resource, profile)
         raise DomainError(
-            "UNSUPPORTED_MEDIA", f"unsupported media type: {media_type}",
+            "UNSUPPORTED_MEDIA",
+            f"unsupported media type: {media_type}",
             stage="extraction",
         )
 
     async def _run(
-        self, backend_id: str, resource_id: str, capability, profile,
+        self,
+        backend_id: str,
+        resource_id: str,
+        capability,
+        profile,
         locator: Locator | None = None,
     ) -> tuple[BackendOutput | None, BackendAttempt, str | None]:
         backend = self.registry.get(backend_id)
         if backend.availability() != "available":
             attempt = BackendAttempt(
-                backend_id=backend_id, backend_version=backend.version,
-                capability=capability, started_at=datetime.now(UTC),
-                ended_at=datetime.now(UTC), status="failed",
+                backend_id=backend_id,
+                backend_version=backend.version,
+                capability=capability,
+                started_at=datetime.now(UTC),
+                ended_at=datetime.now(UTC),
+                status="failed",
                 error="backend unavailable",
             )
             return None, attempt, None
@@ -138,24 +168,33 @@ class ExtractionService:
         try:
             output = await self.executor.run_backend(backend, request)
             attempt = BackendAttempt(
-                backend_id=backend_id, backend_version=backend.version,
-                capability=capability, started_at=started,
-                ended_at=datetime.now(UTC), status="success",
+                backend_id=backend_id,
+                backend_version=backend.version,
+                capability=capability,
+                started_at=started,
+                ended_at=datetime.now(UTC),
+                status="success",
             )
             return output, attempt, None
         except DomainError as error:
             attempt = BackendAttempt(
-                backend_id=backend_id, backend_version=backend.version,
-                capability=capability, started_at=started,
-                ended_at=datetime.now(UTC), status="failed",
+                backend_id=backend_id,
+                backend_version=backend.version,
+                capability=capability,
+                started_at=started,
+                ended_at=datetime.now(UTC),
+                status="failed",
                 error=error.code,
             )
             return None, attempt, error.code
         except Exception as error:  # noqa: BLE001
             attempt = BackendAttempt(
-                backend_id=backend_id, backend_version=backend.version,
-                capability=capability, started_at=started,
-                ended_at=datetime.now(UTC), status="failed",
+                backend_id=backend_id,
+                backend_version=backend.version,
+                capability=capability,
+                started_at=started,
+                ended_at=datetime.now(UTC),
+                status="failed",
                 error=str(error),
             )
             return None, attempt, str(error)
@@ -173,7 +212,9 @@ class ExtractionService:
                 warnings.append(f"preferred backend failed: {error}")
             if profile.fallback:
                 output2, attempt2, error2 = await self._run(
-                    profile.fallback, resource.resource_id, "html_structure",
+                    profile.fallback,
+                    resource.resource_id,
+                    "html_structure",
                     profile,
                 )
                 attempts.append(attempt2)
@@ -184,9 +225,7 @@ class ExtractionService:
                     )
         blocks = output.blocks if output else []
         coverage = output.coverage if output else []
-        title = next(
-            (b.text for b in blocks if b.block_type == "title"), None
-        )
+        title = next((b.text for b in blocks if b.block_type == "title"), None)
         return self._result(
             resource, profile, blocks, coverage, attempts, warnings, title
         )
@@ -198,37 +237,48 @@ class ExtractionService:
             profile.preferred, resource.resource_id, "pdf_text", profile
         )
         attempts.append(attempt)
-        if output is None:
-            if profile.fallback:
-                output2, attempt2, error2 = await self._run(
-                    profile.fallback, resource.resource_id, "pdf_text",
-                    profile,
-                )
-                attempts.append(attempt2)
-                if output2 is not None:
-                    output = output2
-                    warnings.append(f"fell back to {profile.fallback}")
+        if output is None and profile.fallback:
+            output2, attempt2, error2 = await self._run(
+                profile.fallback,
+                resource.resource_id,
+                "pdf_text",
+                profile,
+            )
+            attempts.append(attempt2)
+            if output2 is not None:
+                output = output2
+                warnings.append(f"fell back to {profile.fallback}")
         if output is None:
             raise DomainError(
-                "EXTRACTION_FAILED", "no PDF backend produced output",
+                "EXTRACTION_FAILED",
+                "no PDF backend produced output",
                 stage="extraction",
             )
         # Per-page OCR fallback for empty pages, when OCR is available.
         if self.registry.available("tesseract"):
-            output = await self._ocr_empty_pages(resource, profile, output,
-                                                 attempts, warnings)
+            output = await self._ocr_empty_pages(
+                resource, profile, output, attempts, warnings
+            )
         return self._result(
-            resource, profile, output.blocks, output.coverage, attempts,
-            warnings, None,
+            resource,
+            profile,
+            output.blocks,
+            output.coverage,
+            attempts,
+            warnings,
+            None,
         )
 
-    async def _ocr_empty_pages(self, resource, profile, output, attempts,
-                               warnings):
+    async def _ocr_empty_pages(
+        self, resource, profile, output, attempts, warnings
+    ):
         import pymupdf
 
         empty_pages = [
-            c.locator.page for c in output.coverage
-            if c.unit_type == "page" and c.status == "empty"
+            c.locator.page
+            for c in output.coverage
+            if c.unit_type == "page"
+            and c.status == "empty"
             and c.locator.page is not None
         ]
         if not empty_pages:
@@ -260,15 +310,20 @@ class ExtractionService:
                         transform={"page": page_num},
                     )
                     output2, attempt2, _ = await self._run(
-                        "tesseract", img_resource.resource_id, "ocr", profile,
+                        "tesseract",
+                        img_resource.resource_id,
+                        "ocr",
+                        profile,
                         locator=Locator(page=page_num),
                     )
                     attempts.append(attempt2)
                     if output2 is not None:
                         ocr_blocks.extend(output2.blocks)
                         for i, cov in enumerate(output.coverage):
-                            if cov.unit_type == "page" and \
-                               cov.locator.page == page_num:
+                            if (
+                                cov.unit_type == "page"
+                                and cov.locator.page == page_num
+                            ):
                                 output.coverage[i] = CoverageUnit(
                                     unit_type="page",
                                     locator=Locator(page=page_num),
@@ -305,7 +360,8 @@ class ExtractionService:
 
     async def _extract_office(self, resource, profile) -> ExtractResult:
         capability = {
-            DOCX: "docx_structure", PPTX: "pptx_structure",
+            DOCX: "docx_structure",
+            PPTX: "pptx_structure",
             XLSX: "xlsx_structure",
         }[resource.media_type]
         attempts = []
@@ -339,13 +395,17 @@ class ExtractionService:
         return await self._video_extractor.extract(resource, profile)
 
     @staticmethod
-    def _result(resource, profile, blocks, coverage, attempts, warnings,
-                title) -> ExtractResult:
+    def _result(
+        resource, profile, blocks, coverage, attempts, warnings, title
+    ) -> ExtractResult:
         status = (
-            "empty" if not blocks else
-            "partial" if any(
+            "empty"
+            if not blocks
+            else "partial"
+            if any(
                 c.status in ("failed", "empty", "skipped") for c in coverage
-            ) else "success"
+            )
+            else "success"
         )
         return ExtractResult(
             resource_id=resource.resource_id,

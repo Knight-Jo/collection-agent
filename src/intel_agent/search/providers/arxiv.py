@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
-from datetime import UTC, datetime
+from datetime import datetime
 
 import httpx
 
@@ -19,7 +19,9 @@ _ATOM = "{http://www.w3.org/2005/Atom}"
 
 def _arxiv_date(query: SearchQuery) -> str | None:
     if query.start_date and query.end_date:
-        return f"{query.start_date.isoformat()} TO {query.end_date.isoformat()}"
+        return (
+            f"{query.start_date.isoformat()} TO {query.end_date.isoformat()}"
+        )
     if query.start_date:
         return f"{query.start_date.isoformat()} TO 9999-12-31"
     if query.end_date:
@@ -82,7 +84,9 @@ class ArxivProvider:
                 query,
                 (entry.findtext(f"{_ATOM}id") or "").strip(),
                 title=(entry.findtext(f"{_ATOM}title") or "").strip(),
-                snippet=(entry.findtext(f"{_ATOM}summary") or "").strip()[:400],
+                snippet=(entry.findtext(f"{_ATOM}summary") or "").strip()[
+                    :400
+                ],
                 published_at=published_at,
                 source_types=["academic"],
                 rank=rank,

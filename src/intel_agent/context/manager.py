@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from ..contracts.documents import Chunk, Citation
-from ..contracts.research import ContextPackage, ContextRequest, MaterialScope
+from ..contracts.documents import Chunk
+from ..contracts.research import ContextPackage, ContextRequest
 from ..runtime.config import ContextConfig
 from ..storage.materials import MaterialStore
 from .formatter import build_citations, format_context
@@ -44,8 +44,10 @@ class ContextManager:
         scope = self.store.resolve_scope(request.task_id, request.filters)
         if request.max_tokens <= 0:
             return ContextPackage(
-                task_id=request.task_id, query=request.query,
-                scope_id=scope.scope_id, warnings=["zero token budget"],
+                task_id=request.task_id,
+                query=request.query,
+                scope_id=scope.scope_id,
+                warnings=["zero token budget"],
             )
         all_chunks = self.store.read_chunks(scope)
         source_by_artifact = self._source_by_artifact(scope.artifact_ids)

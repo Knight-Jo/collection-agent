@@ -26,9 +26,12 @@ def _parse_pubdate(value: str | None) -> datetime | None:
     except ValueError:
         pass
     try:
-        return datetime(*email.utils.parsedate_tz(value)[:6], tzinfo=UTC)
+        parsed = email.utils.parsedate_tz(value)
+        if parsed is not None:
+            return datetime(*parsed[:6], tzinfo=UTC)
     except (TypeError, ValueError):
-        return None
+        pass
+    return None
 
 
 class RssProvider:

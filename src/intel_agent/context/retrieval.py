@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..contracts.documents import RetrievalHit
+from ..contracts.documents import Chunk, RetrievalHit
 from ..contracts.research import MaterialScope
 from ..indexing.lexical import lexical_tokens
 from ..storage.materials import MaterialStore
@@ -87,8 +87,9 @@ class VectorRetriever:
 
 
 class HybridRetriever:
-    def __init__(self, lexical: LexicalRetriever,
-                 vector: VectorRetriever | None) -> None:
+    def __init__(
+        self, lexical: LexicalRetriever, vector: VectorRetriever | None
+    ) -> None:
         self.lexical = lexical
         self.vector = vector
 
@@ -122,19 +123,19 @@ def _rrf_fuse(
     if not right:
         return _dedup(left)[:top_k]
     scores: dict[str, float] = {}
-    by_chunk: dict[str, RetrievalHit] = {}
+    by_chunk: dict[str, Chunk] = {}
     for hits in (left, right):
         for hit in hits:
             scores[hit.chunk.chunk_id] = scores.get(
                 hit.chunk.chunk_id, 0.0
             ) + 1.0 / (RRF_CONSTANT + hit.rank)
-            by_chunk[hit.chunk.chunk_id] = hit
-    ranked = sorted(
-        scores.items(), key=lambda kv: (-kv[1], kv[0])
-    )[:top_k]
+            by_chunk[hit.chunk.chunk_id] = hit.chunk
+    ranked = sorted(scores.items(), key=lambda kv: (-kv[1], kv[0]))[:top_k]
     return [
         RetrievalHit(
-            chunk=by_chunk[chunk_id], rank=i + 1, score=score,
+            chunk=by_chunk[chunk_id],
+            rank=i + 1,
+            score=score,
             retrieval_method="hybrid",
         )
         for i, (chunk_id, score) in enumerate(ranked)

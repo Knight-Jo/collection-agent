@@ -5,24 +5,20 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 
-import pytest
-
 from intel_agent.contracts.documents import (
-    BlockSpan,
-    Chunk,
     DocumentIdentity,
     EvidenceBlock,
     ExtractResult,
     Locator,
     NormalizationInput,
 )
-from intel_agent.contracts.research import ContextFilter, MaterialScope
+from intel_agent.contracts.research import ContextFilter
 from intel_agent.contracts.resources import Resource, ResourceOrigin
 from intel_agent.indexing.lexical import lexical_tokens
 from intel_agent.indexing.service import IndexingService
+from intel_agent.indexing.tokenize import TiktokenCounter
 from intel_agent.normalization import Normalizer
 from intel_agent.runtime.config import IndexingConfig
-from intel_agent.indexing.tokenize import TiktokenCounter
 
 
 def test_chinese_query_shares_index_terms_without_spaces():
@@ -43,9 +39,13 @@ def _document(doc_id, revision_id, resource_id, text):
         resource_id=resource_id,
         blocks=[
             EvidenceBlock(
-                block_id="x", text=text, block_type="paragraph",
-                locator=Locator(page=1), origin_method="native_text",
-                backend_id="b", backend_version="1",
+                block_id="x",
+                text=text,
+                block_type="paragraph",
+                locator=Locator(page=1),
+                origin_method="native_text",
+                backend_id="b",
+                backend_version="1",
             )
         ],
         coverage=[],
@@ -53,7 +53,8 @@ def _document(doc_id, revision_id, resource_id, text):
         extraction_profile_id="ep",
     )
     inp = NormalizationInput(
-        result=result, resource_id=resource_id,
+        result=result,
+        resource_id=resource_id,
         identity=DocumentIdentity(document_id=doc_id, source_key=doc_id),
         revision_id=revision_id,
     )

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from ...contracts.documents import EvidenceBlock, Locator, OriginMethod
-from ..models import Capability
 
 
 def make_block(

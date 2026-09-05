@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import signal
 from dataclasses import dataclass
@@ -27,7 +28,9 @@ class Executor:
     extra). The two must not be treated as equivalent until tested.
     """
 
-    def __init__(self, cpu_concurrency: int = 2, gpu_concurrency: int = 1) -> None:
+    def __init__(
+        self, cpu_concurrency: int = 2, gpu_concurrency: int = 1
+    ) -> None:
         self._cpu = asyncio.Semaphore(cpu_concurrency)
         self._gpu = asyncio.Semaphore(gpu_concurrency)
         self._active: set[asyncio.subprocess.Process] = set()
@@ -56,7 +59,7 @@ class Executor:
                 stdout, stderr = await asyncio.wait_for(
                     proc.communicate(), timeout=timeout_seconds
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 await self._terminate(proc)
                 raise DomainError(
                     "TIMEOUT",
@@ -68,17 +71,12 @@ class Executor:
             self._active.discard(proc)
 
     async def _terminate(self, proc: asyncio.subprocess.Process) -> None:
-        try:
+        with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
             os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-        except (ProcessLookupError, PermissionError, OSError):
-            try:
-                proc.kill()
-            except ProcessLookupError:
-                pass
-        try:
+        with contextlib.suppress(ProcessLookupError):
+            proc.kill()
+        with contextlib.suppress(Exception):
             await proc.wait()
-        except Exception:
-            pass
 
     async def run_backend(self, backend, request, *, gpu: bool = False):
         sem = self._gpu if gpu else self._cpu

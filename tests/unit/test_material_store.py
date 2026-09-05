@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 
 import pytest
 
@@ -45,7 +44,7 @@ def test_resource_round_trip(resource_store, import_root):
     path = import_root / "doc.txt"
     path.write_text("hello world", encoding="utf-8")
     resource = asyncio.run(resource_store.import_file(path))
-    assert resource.byte_length == len("hello world".encode())
+    assert resource.byte_length == len(b"hello world")
     with resource_store.open(resource.resource_id) as fh:
         assert fh.read().decode("utf-8") == "hello world"
 

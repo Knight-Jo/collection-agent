@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from importlib import resources
 from pathlib import Path
-from typing import Iterator
 
 MIGRATIONS = ("001_initial.sql",)
 
@@ -50,14 +50,15 @@ class SqliteStore:
             key = f"migration:{name}"
             if key in applied:
                 continue
-            script = resources.files("intel_agent.storage.migrations").joinpath(
-                name
-            )
+            script = resources.files(
+                "intel_agent.storage.migrations"
+            ).joinpath(name)
             with resources.as_file(script) as path:
                 sql = path.read_text(encoding="utf-8")
             conn.executescript(sql)
             conn.execute(
-                "INSERT INTO schema_meta(key, value) VALUES (?, ?)", (key, name)
+                "INSERT INTO schema_meta(key, value) VALUES (?, ?)",
+                (key, name),
             )
             conn.commit()
 

@@ -64,8 +64,6 @@ async def test_unsafe_url_from_transport(material_store, resource_store):
     client = build_client(resolver=resolver)
     service = FetchService(client, resource_store, FetchConfig())
     with pytest.raises(DomainError) as raised:
-        await service.fetch(
-            FetchRequest(url="https://source.example/report")
-        )
+        await service.fetch(FetchRequest(url="https://source.example/report"))
     assert raised.value.code == "UNSAFE_URL"
     await client.aclose()

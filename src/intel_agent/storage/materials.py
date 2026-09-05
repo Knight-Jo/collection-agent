@@ -21,7 +21,7 @@ from ..contracts.research import (
     ResearchTask,
 )
 from ..contracts.resources import Resource, ResourceOrigin
-from ._ids import artifact_id, document_id, new_id, revision_id
+from ._ids import document_id, new_id, revision_id
 from .sqlite import SqliteStore
 
 
@@ -78,7 +78,8 @@ class MaterialStore:
         ).fetchone()
         if row is None:
             raise DomainError(
-                "NOT_FOUND", f"resource not found: {resource_id}",
+                "NOT_FOUND",
+                f"resource not found: {resource_id}",
                 stage="storage",
             )
         return Resource(
@@ -122,16 +123,19 @@ class MaterialStore:
                 (revision_id, document_id, content_hash, resource_id,
                  created_at) VALUES (?, ?, ?, ?, ?)
                 """,
-                (rev, document_id, resource.content_hash, resource_id,
-                 _iso(datetime.now(UTC))),
+                (
+                    rev,
+                    document_id,
+                    resource.content_hash,
+                    resource_id,
+                    _iso(datetime.now(UTC)),
+                ),
             )
         return rev
 
     # --- documents ----------------------------------------------------------
 
-    def save_document(
-        self, task_id: str, document: NormalizedDocument
-    ) -> str:
+    def save_document(self, task_id: str, document: NormalizedDocument) -> str:
         payload = json.dumps(
             document.model_dump(mode="json"), ensure_ascii=False
         )
@@ -197,8 +201,9 @@ class MaterialStore:
                         document.artifact_id,
                         block.block_id,
                         ordinal,
-                        json.dumps(block.model_dump(mode="json"),
-                                   ensure_ascii=False),
+                        json.dumps(
+                            block.model_dump(mode="json"), ensure_ascii=False
+                        ),
                     ),
                 )
             self._associate(conn, task_id, document.artifact_id)
@@ -222,7 +227,8 @@ class MaterialStore:
         ).fetchone()
         if row is None:
             raise DomainError(
-                "NOT_FOUND", f"artifact not found: {artifact_id}",
+                "NOT_FOUND",
+                f"artifact not found: {artifact_id}",
                 stage="storage",
             )
         return NormalizedDocument.model_validate(json.loads(row["payload"]))
@@ -247,8 +253,9 @@ class MaterialStore:
                         chunk.chunk_profile_id,
                         chunk.ordinal,
                         chunk.text,
-                        json.dumps(chunk.model_dump(mode="json"),
-                                   ensure_ascii=False),
+                        json.dumps(
+                            chunk.model_dump(mode="json"), ensure_ascii=False
+                        ),
                     ),
                 )
 
@@ -455,8 +462,9 @@ class MaterialStore:
                 "UPDATE tasks SET checkpoint = ?, budget_used = ?,"
                 " round = ?, updated_at = ? WHERE task_id = ?",
                 (
-                    json.dumps(checkpoint.model_dump(mode="json"),
-                               ensure_ascii=False),
+                    json.dumps(
+                        checkpoint.model_dump(mode="json"), ensure_ascii=False
+                    ),
                     json.dumps(usage.model_dump()),
                     checkpoint.round,
                     _iso(datetime.now(UTC)),
@@ -477,8 +485,11 @@ class MaterialStore:
             conn.execute(
                 "UPDATE tasks SET budget_used = ?, updated_at = ?"
                 " WHERE task_id = ?",
-                (json.dumps(usage.model_dump()), _iso(datetime.now(UTC)),
-                 task_id),
+                (
+                    json.dumps(usage.model_dump()),
+                    _iso(datetime.now(UTC)),
+                    task_id,
+                ),
             )
 
     def list_work_items(self, task_id: str) -> list[dict]:
@@ -506,13 +517,18 @@ class MaterialStore:
                 VALUES (?, ?, 'pending', 'pending', ?, ?, ?, ?)
                 """,
                 (
-                    work_item_id, task_id, resource_id,
-                    json.dumps({
-                        "source_url": source_url,
-                        "profile_id": profile_id,
-                        "index_after_store": index_after_store,
-                    }),
-                    _iso(datetime.now(UTC)), _iso(datetime.now(UTC)),
+                    work_item_id,
+                    task_id,
+                    resource_id,
+                    json.dumps(
+                        {
+                            "source_url": source_url,
+                            "profile_id": profile_id,
+                            "index_after_store": index_after_store,
+                        }
+                    ),
+                    _iso(datetime.now(UTC)),
+                    _iso(datetime.now(UTC)),
                 ),
             )
         return work_item_id
@@ -549,7 +565,8 @@ class MaterialStore:
         ).fetchone()
         if row is None:
             raise DomainError(
-                "NOT_FOUND", f"work item not found: {work_item_id}",
+                "NOT_FOUND",
+                f"work item not found: {work_item_id}",
                 stage="storage",
             )
         item = dict(row)
@@ -580,9 +597,15 @@ class MaterialStore:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    artifact_id, chunk_profile_id, embedding_profile_id,
-                    lexical_status, vector_status, lexical_error,
-                    vector_error, chunk_count, _iso(datetime.now(UTC)),
+                    artifact_id,
+                    chunk_profile_id,
+                    embedding_profile_id,
+                    lexical_status,
+                    vector_status,
+                    lexical_error,
+                    vector_error,
+                    chunk_count,
+                    _iso(datetime.now(UTC)),
                 ),
             )
 
@@ -610,8 +633,13 @@ class MaterialStore:
                 "INSERT INTO budget_reservations"
                 " (reservation_id, task_id, kind, amount, status, created_at)"
                 " VALUES (?, ?, ?, ?, 'reserved', ?)",
-                (reservation_id, task_id, kind, amount,
-                 _iso(datetime.now(UTC))),
+                (
+                    reservation_id,
+                    task_id,
+                    kind,
+                    amount,
+                    _iso(datetime.now(UTC)),
+                ),
             )
         return reservation_id
 
@@ -654,8 +682,13 @@ class MaterialStore:
                 "INSERT INTO attempts"
                 " (work_item_id, stage, unit_key, attempt, status,"
                 " started_at) VALUES (?, ?, ?, ?, 'started', ?)",
-                (work_item_id, stage, unit_key, attempt,
-                 _iso(datetime.now(UTC))),
+                (
+                    work_item_id,
+                    stage,
+                    unit_key,
+                    attempt,
+                    _iso(datetime.now(UTC)),
+                ),
             )
         return attempt
 
@@ -673,6 +706,13 @@ class MaterialStore:
                 "UPDATE attempts SET status = ?, error = ?, ended_at = ?"
                 " WHERE work_item_id = ? AND stage = ? AND unit_key = ?"
                 " AND attempt = ?",
-                (status, error, _iso(datetime.now(UTC)), work_item_id, stage,
-                 unit_key, attempt),
+                (
+                    status,
+                    error,
+                    _iso(datetime.now(UTC)),
+                    work_item_id,
+                    stage,
+                    unit_key,
+                    attempt,
+                ),
             )

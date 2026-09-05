@@ -6,11 +6,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ..contracts.research import (
-    BudgetUsage,
     Checkpoint,
     ContextPackage,
     ContextRequest,
-    ResearchDecision,
     ResearchResult,
     ResearchTask,
     SearchRequest,
@@ -49,19 +47,21 @@ class ResearchOrchestrator:
         task = self.store.create_task(
             question, deadline_seconds=self.config.deadline_seconds
         )
-        return await self._run_task(task)
+        return await self.run_task(task)
 
     async def resume(self, task_id: str) -> ResearchResult:
         task = self.store.get_task(task_id)
-        return await self._run_task(task)
+        return await self.run_task(task)
 
-    async def _run_task(self, task: ResearchTask) -> ResearchResult:
+    async def run_task(self, task: ResearchTask) -> ResearchResult:
         lock = TaskLock(self.lock_dir, task.task_id)
         lock.acquire()
         try:
             self.store.get_task(task.task_id)
             context = ContextPackage(
-                task_id=task.task_id, query=task.question, scope_id="",
+                task_id=task.task_id,
+                query=task.question,
+                scope_id="",
             )
             accepted: list[str] = []
             round_no = task.round
@@ -105,8 +105,10 @@ class ResearchOrchestrator:
                 )
                 self._save_checkpoint(task, round_no, accepted, None)
             result = ResearchResult(
-                task_id=task.task_id, status="partial",
-                answer="", stop_reason="max_rounds",
+                task_id=task.task_id,
+                status="partial",
+                answer="",
+                stop_reason="max_rounds",
                 limitations=["max rounds reached"],
                 usage=task.budget_used,
             )
@@ -124,6 +126,4 @@ class ResearchOrchestrator:
             stop_reason=result.stop_reason if result else None,
             updated_at=datetime.now(UTC),
         )
-        self.store.save_checkpoint(
-            task.task_id, checkpoint, task.budget_used
-        )
+        self.store.save_checkpoint(task.task_id, checkpoint, task.budget_used)

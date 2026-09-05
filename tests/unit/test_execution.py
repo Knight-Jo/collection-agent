@@ -19,7 +19,9 @@ async def executor():
 
 async def test_timeout_terminates_owned_process(executor, tmp_path):
     marker = tmp_path / "late.txt"
-    script = "import time,pathlib; time.sleep(2); pathlib.Path('late.txt').touch()"
+    script = (
+        "import time,pathlib; time.sleep(2); pathlib.Path('late.txt').touch()"
+    )
     with pytest.raises(DomainError) as raised:
         await executor.run_process(
             [sys.executable, "-c", script],

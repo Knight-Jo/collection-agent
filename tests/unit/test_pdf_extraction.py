@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import io
 from datetime import UTC, datetime
 
 import pytest
@@ -71,8 +70,9 @@ async def _extract(pdf_service, data, backend_id):
 
 @pytest.mark.parametrize("backend_id", ["pymupdf", "pdfplumber"])
 async def test_pdf_backends_extract_per_page(pdf_service, backend_id):
-    data = _make_pdf(["Page one content", "Page two content",
-                      "Page three content"])
+    data = _make_pdf(
+        ["Page one content", "Page two content", "Page three content"]
+    )
     result = await _extract(pdf_service, data, backend_id)
     assert result.status == "success"
     pages = {block.locator.page for block in result.blocks}

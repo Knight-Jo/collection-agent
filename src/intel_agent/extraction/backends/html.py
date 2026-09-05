@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ...contracts.documents import CoverageUnit, Locator
-from ..models import Availability, BackendRequest, BackendOutput
+from ..models import Availability, BackendOutput, BackendRequest
 from ._base import BaseBackend
 from ._util import make_block
 
@@ -25,8 +25,9 @@ class TrafilaturaBackend(BaseBackend):
         import trafilatura
 
         html = self.read_bytes(request.resource_id)
+        html_text = html.decode("utf-8", errors="replace")
         text = trafilatura.extract(
-            html,
+            html_text,
             output_format="txt",
             include_comments=False,
             include_tables=True,
@@ -34,7 +35,7 @@ class TrafilaturaBackend(BaseBackend):
         )
         title = None
         try:
-            metadata = trafilatura.extract_metadata(html)
+            metadata = trafilatura.extract_metadata(html_text)
             title = metadata.title if metadata else None
         except Exception:  # noqa: BLE001
             title = None
@@ -43,8 +44,12 @@ class TrafilaturaBackend(BaseBackend):
         if title:
             blocks.append(
                 make_block(
-                    self.backend_id, self.version, ordinal, title.strip(),
-                    "title", locator=Locator(section_path=["title"]),
+                    self.backend_id,
+                    self.version,
+                    ordinal,
+                    title.strip(),
+                    "title",
+                    locator=Locator(section_path=["title"]),
                 )
             )
             ordinal += 1
@@ -55,7 +60,10 @@ class TrafilaturaBackend(BaseBackend):
             if line.startswith("- "):
                 blocks.append(
                     make_block(
-                        self.backend_id, self.version, ordinal, line[2:],
+                        self.backend_id,
+                        self.version,
+                        ordinal,
+                        line[2:],
                         "list_item",
                         locator=Locator(section_path=["body"]),
                     )
@@ -63,7 +71,10 @@ class TrafilaturaBackend(BaseBackend):
             else:
                 blocks.append(
                     make_block(
-                        self.backend_id, self.version, ordinal, line,
+                        self.backend_id,
+                        self.version,
+                        ordinal,
+                        line,
                         "paragraph",
                         locator=Locator(section_path=["body"]),
                     )
@@ -114,7 +125,11 @@ class BeautifulSoupBackend(BaseBackend):
         if title:
             blocks.append(
                 make_block(
-                    self.backend_id, self.version, ordinal, title, "title",
+                    self.backend_id,
+                    self.version,
+                    ordinal,
+                    title,
+                    "title",
                     locator=Locator(section_path=["title"]),
                 )
             )
@@ -124,7 +139,10 @@ class BeautifulSoupBackend(BaseBackend):
             if text:
                 blocks.append(
                     make_block(
-                        self.backend_id, self.version, ordinal, text,
+                        self.backend_id,
+                        self.version,
+                        ordinal,
+                        text,
                         "heading",
                         locator=Locator(dom_path=_path(heading)),
                     )
@@ -135,7 +153,10 @@ class BeautifulSoupBackend(BaseBackend):
             if text:
                 blocks.append(
                     make_block(
-                        self.backend_id, self.version, ordinal, text,
+                        self.backend_id,
+                        self.version,
+                        ordinal,
+                        text,
                         "paragraph",
                         locator=Locator(dom_path=_path(para)),
                     )
@@ -146,7 +167,10 @@ class BeautifulSoupBackend(BaseBackend):
             if text:
                 blocks.append(
                     make_block(
-                        self.backend_id, self.version, ordinal, text,
+                        self.backend_id,
+                        self.version,
+                        ordinal,
+                        text,
                         "list_item",
                         locator=Locator(dom_path=_path(item)),
                     )
@@ -155,16 +179,20 @@ class BeautifulSoupBackend(BaseBackend):
         for table in soup.find_all("table"):
             rows = []
             for tr in table.find_all("tr"):
-                cells = [c.get_text(" ", strip=True) for c in tr.find_all(
-                    ["th", "td"]
-                )]
+                cells = [
+                    c.get_text(" ", strip=True)
+                    for c in tr.find_all(["th", "td"])
+                ]
                 if cells:
                     rows.append(" | ".join(cells))
             if rows:
                 blocks.append(
                     make_block(
-                        self.backend_id, self.version, ordinal,
-                        "\n".join(rows), "table",
+                        self.backend_id,
+                        self.version,
+                        ordinal,
+                        "\n".join(rows),
+                        "table",
                         locator=Locator(dom_path=_path(table)),
                     )
                 )

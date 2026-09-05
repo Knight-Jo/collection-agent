@@ -12,7 +12,7 @@ from typing import BinaryIO
 
 from ..contracts.errors import DomainError
 from ..contracts.resources import Resource, ResourceOrigin
-from ._ids import new_id, sha256
+from ._ids import new_id
 
 CHUNK_SIZE = 64 * 1024
 
@@ -41,8 +41,10 @@ class ResourceStore:
 
     def _validate_import_path(self, path: Path) -> Path:
         resolved = path.resolve()
-        if not any(resolved == root or root in resolved.parents
-                   for root in self.allowed_import_roots):
+        if not any(
+            resolved == root or root in resolved.parents
+            for root in self.allowed_import_roots
+        ):
             raise DomainError(
                 "INVALID_REQUEST",
                 f"import path outside allowed roots: {path}",

@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import unicodedata
-from datetime import datetime
 from typing import Any
 
 from .contracts.documents import (
@@ -58,15 +57,15 @@ def artifact_manifest(document: NormalizedDocument) -> dict[str, Any]:
             }
             for block in document.blocks
         ],
-        "coverage": [
-            c.model_dump(mode="json") for c in document.coverage
-        ],
+        "coverage": [c.model_dump(mode="json") for c in document.coverage],
     }
 
 
 def manifest_hash(document: NormalizedDocument) -> str:
     payload = json.dumps(
-        artifact_manifest(document), sort_keys=True, ensure_ascii=False,
+        artifact_manifest(document),
+        sort_keys=True,
+        ensure_ascii=False,
         separators=(",", ":"),
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -95,8 +94,10 @@ class Normalizer:
                 )
             )
         status = (
-            "empty" if not blocks else
-            "partial" if input_.result.status in ("partial", "empty")
+            "empty"
+            if not blocks
+            else "partial"
+            if input_.result.status in ("partial", "empty")
             and input_.result.coverage
             else input_.result.status
         )

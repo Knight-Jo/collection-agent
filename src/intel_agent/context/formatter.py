@@ -28,9 +28,7 @@ def build_citations(
     return citations
 
 
-def format_context(
-    chunks: list[Chunk], citations: list[Citation]
-) -> str:
+def format_context(chunks: list[Chunk], citations: list[Citation]) -> str:
     parts: list[str] = []
     for chunk, citation in zip(chunks, citations, strict=True):
         header = f"[{citation.citation_id}]"

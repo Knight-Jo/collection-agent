@@ -54,7 +54,9 @@ class OpenAlexProvider:
         if self.api_key:
             params["api_key"] = self.api_key
         response = await self.client.get(
-            self.base_url, params=params, headers=headers,
+            self.base_url,
+            params=params,
+            headers=headers,
             timeout=self.timeout_seconds,
         )
         response.raise_for_status()

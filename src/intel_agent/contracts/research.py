@@ -14,7 +14,12 @@ SourceType = Literal["web", "academic", "news", "custom"]
 ProviderStatus = Literal["success", "failed", "timeout", "disabled"]
 BatchStatus = Literal["success", "partial", "failed"]
 TaskStatus = Literal[
-    "queued", "running", "completed", "partial", "failed", "cancelled",
+    "queued",
+    "running",
+    "completed",
+    "partial",
+    "failed",
+    "cancelled",
     "interrupted",
 ]
 ResultStatus = Literal["completed", "partial", "failed", "cancelled"]

@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
-from pathlib import Path
-
 import pytest
 
 from intel_agent.contracts.research import (
     ContextPackage,
     ResearchDecision,
-    ResearchTask,
     SearchBatch,
     SearchQuery,
 )
@@ -42,11 +38,15 @@ class FakeSearch:
 
 
 class FakeAcquisition:
-    async def acquire(self, task_id, source, profile_id,
-                      index_after_store=False):
+    async def acquire(
+        self, task_id, source, profile_id, index_after_store=False
+    ):
         return AcquisitionReport(
-            task_id=task_id, work_item_id="wi", artifact_id="art-1",
-            stage="done", status="success",
+            task_id=task_id,
+            work_item_id="wi",
+            artifact_id="art-1",
+            stage="done",
+            status="success",
         )
 
 
@@ -69,15 +69,21 @@ class FakeContext:
 def research_harness(material_store, tmp_path):
     decisions = [
         ResearchDecision(
-            action="search", queries=[SearchQuery(text="first query")],
-            source_types=["web"], reason="start",
+            action="search",
+            queries=[SearchQuery(text="first query")],
+            source_types=["web"],
+            reason="start",
         ),
         ResearchDecision(
-            action="search", queries=[SearchQuery(text="gap query")],
-            source_types=["web"], reason="gap",
+            action="search",
+            queries=[SearchQuery(text="gap query")],
+            source_types=["web"],
+            reason="gap",
         ),
         ResearchDecision(
-            action="finish", queries=[], draft_answer="an answer",
+            action="finish",
+            queries=[],
+            draft_answer="an answer",
             reason="enough",
         ),
     ]
@@ -85,8 +91,14 @@ def research_harness(material_store, tmp_path):
     search = FakeSearch()
     indexing = FakeIndexing()
     orchestrator = ResearchOrchestrator(
-        material_store, search, FakeAcquisition(), indexing,
-        FakeContext(), agent, ResearchConfig(), "profile-1",
+        material_store,
+        search,
+        FakeAcquisition(),
+        indexing,
+        FakeContext(),
+        agent,
+        ResearchConfig(),
+        "profile-1",
         tmp_path / "locks",
     )
 

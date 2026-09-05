@@ -37,7 +37,7 @@ browser = [
 ]
 
 [project.scripts]
-intel-agent-web = "intel_agent.web.app:main"
+research-agent = "intel_agent.cli:main"
 
 [[tool.uv.index]]
 url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
@@ -53,6 +53,7 @@ packages = ["src/intel_agent"]
 [tool.hatch.build.targets.sdist]
 only-include = [
     "src/intel_agent",
+    "configs",
     "README.md",
     "config.example.yaml",
     "pyproject.toml",
@@ -64,6 +65,11 @@ package = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "integration: tests that combine real services with local substitutes",
+    "real_backend: tests that exercise real external backends",
+    "windows: tests that require a Windows host",
+]
 
 [tool.pyright]
 include = ["src", "scripts", "tests"]
@@ -78,6 +84,3 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "UP", "B", "SIM"]
 ignore = ["E501"]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/test_documents_extract.py" = ["W291"]

@@ -7,8 +7,14 @@ import sys
 from typing import Any, TextIO
 
 # Header names whose values must never appear in ordinary logs.
-_SECRET_HEADERS = {"authorization", "proxy-authorization", "cookie",
-                   "set-cookie", "x-api-key", "api-key"}
+_SECRET_HEADERS = {
+    "authorization",
+    "proxy-authorization",
+    "cookie",
+    "set-cookie",
+    "x-api-key",
+    "api-key",
+}
 
 
 def redact_secrets(value: Any, secrets: list[str] | None = None) -> Any:
@@ -23,7 +29,8 @@ def redact_secrets(value: Any, secrets: list[str] | None = None) -> Any:
         return [redact_secrets(v, secrets) for v in value]
     if isinstance(value, dict):
         return {
-            k: "<redacted>" if k.lower() in _SECRET_HEADERS
+            k: "<redacted>"
+            if k.lower() in _SECRET_HEADERS
             else redact_secrets(v, secrets)
             for k, v in value.items()
         }
@@ -44,8 +51,10 @@ class StructuredLogger:
         record = {
             k: redact_secrets(v, self._secrets) for k, v in fields.items()
         }
-        print(json.dumps(record, ensure_ascii=False, default=str),
-              file=self._sink)
+        print(
+            json.dumps(record, ensure_ascii=False, default=str),
+            file=self._sink,
+        )
 
 
 DEFAULT_LOGGER = StructuredLogger()

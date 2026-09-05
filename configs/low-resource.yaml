@@ -1,0 +1,26 @@
+# Low-resource configuration: text path only, no heavy backends enabled.
+model:
+  model_id: deepseek-chat
+  base_url: https://api.deepseek.com/v1
+  api_key_env: DEEPSEEK_API_KEY
+
+search:
+  providers:
+    searxng:
+      enabled: false
+    arxiv:
+      enabled: false
+    openalex:
+      enabled: false
+    rss:
+      enabled: false
+      extra:
+        feeds: []
+
+extraction:
+  cpu_concurrency: 1
+  gpu_concurrency: 1
+
+storage:
+  data_dir: ../data
+  output_dir: ../output

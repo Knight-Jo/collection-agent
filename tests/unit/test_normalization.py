@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
-import pytest
-
 from intel_agent.contracts.documents import (
     CoverageUnit,
     DocumentIdentity,
@@ -21,17 +17,22 @@ from intel_agent.normalization import Normalizer
 def _input(blocks=None, warnings=None):
     blocks = blocks or [
         EvidenceBlock(
-            block_id="raw-1", text="第一段内容", block_type="paragraph",
-            locator=Locator(page=1), origin_method="native_text",
-            backend_id="pymupdf", backend_version="1.28",
+            block_id="raw-1",
+            text="第一段内容",
+            block_type="paragraph",
+            locator=Locator(page=1),
+            origin_method="native_text",
+            backend_id="pymupdf",
+            backend_version="1.28",
         )
     ]
     result = ExtractResult(
         resource_id="r1",
         blocks=blocks,
         coverage=[
-            CoverageUnit(unit_type="document", locator=Locator(),
-                         status="success")
+            CoverageUnit(
+                unit_type="document", locator=Locator(), status="success"
+            )
         ],
         status="success",
         warnings=warnings or [],
@@ -58,9 +59,13 @@ def test_different_backend_version_changes_artifact():
     b_input = _input(
         blocks=[
             EvidenceBlock(
-                block_id="raw-1", text="第一段内容", block_type="paragraph",
-                locator=Locator(page=1), origin_method="native_text",
-                backend_id="pymupdf", backend_version="1.29",
+                block_id="raw-1",
+                text="第一段内容",
+                block_type="paragraph",
+                locator=Locator(page=1),
+                origin_method="native_text",
+                backend_id="pymupdf",
+                backend_version="1.29",
             )
         ]
     )
@@ -71,9 +76,13 @@ def test_normalization_is_nfc_and_stable_blocks():
     normalizer = Normalizer(version="1")
     blocks = [
         EvidenceBlock(
-            block_id="x", text="e\u0301tude", block_type="paragraph",
-            locator=Locator(page=1), origin_method="native_text",
-            backend_id="b", backend_version="1",
+            block_id="x",
+            text="e\u0301tude",
+            block_type="paragraph",
+            locator=Locator(page=1),
+            origin_method="native_text",
+            backend_id="b",
+            backend_version="1",
         )
     ]
     doc = normalizer.normalize(_input(blocks=blocks))
@@ -92,15 +101,20 @@ def test_chunk_spans_are_valid_and_within_block():
     normalizer = Normalizer(version="1")
     blocks = [
         EvidenceBlock(
-            block_id="x", text="第一段" * 30, block_type="paragraph",
-            locator=Locator(page=i), origin_method="native_text",
-            backend_id="b", backend_version="1",
+            block_id="x",
+            text="第一段" * 30,
+            block_type="paragraph",
+            locator=Locator(page=i),
+            origin_method="native_text",
+            backend_id="b",
+            backend_version="1",
         )
         for i in range(1, 4)
     ]
     doc = normalizer.normalize(_input(blocks=blocks))
     chunks = chunk_document(
-        doc, {"target_tokens": 40, "hard_limit_tokens": 120},
+        doc,
+        {"target_tokens": 40, "hard_limit_tokens": 120},
         _CharCounter(),
     )
     assert chunks
@@ -110,4 +124,6 @@ def test_chunk_spans_are_valid_and_within_block():
         seen.add(chunk.chunk_id)
         for span in chunk.block_spans:
             assert 0 <= span.char_start < span.char_end
-            assert span.char_end <= len(blocks[int(span.block_id[1:]) - 1].text)
+            assert span.char_end <= len(
+                blocks[int(span.block_id[1:]) - 1].text
+            )

@@ -13,7 +13,7 @@ from PIL import Image
 from ...contracts.documents import CoverageUnit, Locator
 from ...contracts.errors import DomainError
 from ...runtime.execution import Executor
-from ..models import Availability, BackendRequest, BackendOutput
+from ..models import Availability, BackendOutput, BackendRequest
 from ._base import BaseBackend
 from ._util import make_block
 
@@ -24,7 +24,12 @@ class TesseractBackend(BaseBackend):
     capabilities = ("ocr",)
     media_types = ("image/png", "image/jpeg")
 
-    def __init__(self, resource_store, executor: Executor, languages: str = "chi_sim+eng") -> None:
+    def __init__(
+        self,
+        resource_store,
+        executor: Executor,
+        languages: str = "chi_sim+eng",
+    ) -> None:
         super().__init__(resource_store)
         self.executor = executor
         self.languages = languages
@@ -43,8 +48,10 @@ class TesseractBackend(BaseBackend):
             return BackendOutput(
                 coverage=[
                     CoverageUnit(
-                        unit_type="document", locator=Locator(),
-                        status="failed", reason=f"image decode: {error}",
+                        unit_type="document",
+                        locator=Locator(),
+                        status="failed",
+                        reason=f"image decode: {error}",
                     )
                 ],
                 warnings=[f"image decode failed: {error}"],
@@ -54,8 +61,12 @@ class TesseractBackend(BaseBackend):
             input_path.write_bytes(data)
             result = await self.executor.run_process(
                 [
-                    "tesseract", str(input_path), "stdout",
-                    "-l", self.languages, "tsv",
+                    "tesseract",
+                    str(input_path),
+                    "stdout",
+                    "-l",
+                    self.languages,
+                    "tsv",
                 ],
                 timeout_seconds=request.remaining_seconds,
             )
@@ -68,7 +79,9 @@ class TesseractBackend(BaseBackend):
             )
         blocks, confidence = self._parse_tsv(
             result.stdout.decode("utf-8", errors="replace"),
-            width, height, request,
+            width,
+            height,
+            request,
         )
         status = "success" if blocks else "empty"
         return BackendOutput(
@@ -88,12 +101,18 @@ class TesseractBackend(BaseBackend):
         line_conf: dict[tuple, list[float]] = {}
         for row in rows:
             if row.get("level") == "5" and row.get("conf", "-1") not in (
-                "-1", "", None,
+                "-1",
+                "",
+                None,
             ):
                 try:
                     line_conf[
-                        (row["page_num"], row["block_num"], row["par_num"],
-                         row["line_num"])
+                        (
+                            row["page_num"],
+                            row["block_num"],
+                            row["par_num"],
+                            row["line_num"],
+                        )
                     ].append(float(row["conf"]))
                 except (KeyError, ValueError):
                     continue
@@ -113,8 +132,12 @@ class TesseractBackend(BaseBackend):
                 h = int(row["height"])
             except (KeyError, ValueError):
                 continue
-            key = (row["page_num"], row["block_num"], row["par_num"],
-                   row["line_num"])
+            key = (
+                row["page_num"],
+                row["block_num"],
+                row["par_num"],
+                row["line_num"],
+            )
             confs = line_conf.get(key, [])
             confidence = sum(confs) / len(confs) if confs else None
             if confidence is not None:
@@ -125,12 +148,19 @@ class TesseractBackend(BaseBackend):
                 max(0.0, min(1.0, (left + w) / width)),
                 max(0.0, min(1.0, (top + h) / height)),
             )
-            locator = request.locator.model_copy() if request.locator else Locator()
+            locator = (
+                request.locator.model_copy() if request.locator else Locator()
+            )
             locator.bbox = bbox
             blocks.append(
                 make_block(
-                    self.backend_id, self.version, ordinal, line_text,
-                    "paragraph", locator=locator, origin_method="ocr",
+                    self.backend_id,
+                    self.version,
+                    ordinal,
+                    line_text,
+                    "paragraph",
+                    locator=locator,
+                    origin_method="ocr",
                     confidence=confidence,
                 )
             )

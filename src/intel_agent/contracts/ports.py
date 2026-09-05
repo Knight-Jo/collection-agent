@@ -43,7 +43,9 @@ class SearchProvider(Protocol):
 
     def capabilities(self) -> ProviderCapabilities: ...
 
-    async def search(self, query: SearchQuery, limit: int) -> list[SearchHit]: ...
+    async def search(
+        self, query: SearchQuery, limit: int
+    ) -> list[SearchHit]: ...
 
 
 class DecisionResponse(BaseModel):
@@ -88,9 +90,7 @@ class VectorIndex(Protocol):
         top_k: int,
     ) -> list[VectorMatch]: ...
 
-    async def delete(
-        self, point_ids: list[str], profile_id: str
-    ) -> None: ...
+    async def delete(self, point_ids: list[str], profile_id: str) -> None: ...
 
 
 class Extractor(Protocol):

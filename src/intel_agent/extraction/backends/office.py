@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import io
-import zipfile
 
 from ...contracts.documents import CoverageUnit, Locator
-from ..models import Availability, BackendRequest, BackendOutput
+from ..models import Availability, BackendOutput, BackendRequest
 from ._base import BaseBackend
 from ._util import make_block
 
@@ -44,7 +43,6 @@ class OfficeBackend(BaseBackend):
 
     async def _docx(self, data: bytes) -> BackendOutput:
         import docx
-        from docx.document import Document as _Doc
         from docx.table import Table
         from docx.text.paragraph import Paragraph
 
@@ -52,17 +50,23 @@ class OfficeBackend(BaseBackend):
         blocks = []
         ordinal = 1
         for child in document.element.body.iterchildren():
-            if child.tag.endswith("}p"):
+            tag = getattr(child, "tag", None) or ""
+            if tag.endswith("}p"):
                 para = Paragraph(child, document)
                 text = para.text.strip()
                 if text:
                     style = para.style.name if para.style else ""
-                    block_type = "heading" if style.startswith(
-                        "Heading"
-                    ) else "paragraph"
+                    block_type = (
+                        "heading"
+                        if style and style.startswith("Heading")
+                        else "paragraph"
+                    )
                     blocks.append(
                         make_block(
-                            self.backend_id, self.version, ordinal, text,
+                            self.backend_id,
+                            self.version,
+                            ordinal,
+                            text,
                             block_type,
                             locator=Locator(
                                 section_path=[style] if style else []
@@ -70,7 +74,7 @@ class OfficeBackend(BaseBackend):
                         )
                     )
                     ordinal += 1
-            elif child.tag.endswith("}tbl"):
+            elif tag.endswith("}tbl"):
                 table = Table(child, document)
                 rows = [
                     " | ".join(c.text.strip() for c in row.cells)
@@ -78,8 +82,11 @@ class OfficeBackend(BaseBackend):
                 ]
                 blocks.append(
                     make_block(
-                        self.backend_id, self.version, ordinal,
-                        "\n".join(rows), "table",
+                        self.backend_id,
+                        self.version,
+                        ordinal,
+                        "\n".join(rows),
+                        "table",
                     )
                 )
                 ordinal += 1
@@ -87,7 +94,8 @@ class OfficeBackend(BaseBackend):
             blocks=blocks,
             coverage=[
                 CoverageUnit(
-                    unit_type="document", locator=Locator(),
+                    unit_type="document",
+                    locator=Locator(),
                     status="success" if blocks else "empty",
                 )
             ],
@@ -101,13 +109,16 @@ class OfficeBackend(BaseBackend):
         ordinal = 1
         for slide_num, slide in enumerate(presentation.slides, start=1):
             for shape in slide.shapes:
-                if not shape.has_text_frame:
+                if not getattr(shape, "has_text_frame", False):
                     continue
-                text = shape.text_frame.text.strip()
+                text = shape.text_frame.text.strip()  # type: ignore[attr-defined]
                 if text:
                     blocks.append(
                         make_block(
-                            self.backend_id, self.version, ordinal, text,
+                            self.backend_id,
+                            self.version,
+                            ordinal,
+                            text,
                             "paragraph",
                             locator=Locator(slide=slide_num),
                         )
@@ -117,7 +128,8 @@ class OfficeBackend(BaseBackend):
             blocks=blocks,
             coverage=[
                 CoverageUnit(
-                    unit_type="document", locator=Locator(),
+                    unit_type="document",
+                    locator=Locator(),
                     status="success" if blocks else "empty",
                 )
             ],
@@ -155,8 +167,11 @@ class OfficeBackend(BaseBackend):
                         warnings.append("uncalculated_formula")
                     blocks.append(
                         make_block(
-                            self.backend_id, self.version, ordinal,
-                            str(value), "cell",
+                            self.backend_id,
+                            self.version,
+                            ordinal,
+                            str(value),
+                            "cell",
                             locator=Locator(
                                 sheet=sheet_name,
                                 cell_range=cell.coordinate,
@@ -173,7 +188,8 @@ class OfficeBackend(BaseBackend):
             blocks=blocks,
             coverage=[
                 CoverageUnit(
-                    unit_type="document", locator=Locator(),
+                    unit_type="document",
+                    locator=Locator(),
                     status="success" if blocks else "empty",
                 )
             ],

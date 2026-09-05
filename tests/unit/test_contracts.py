@@ -40,7 +40,10 @@ def test_invalid_locations_and_decisions_are_rejected():
 def test_finish_decision_requires_answer_and_no_queries():
     with pytest.raises(ValidationError):
         ResearchDecision(
-            action="finish", queries=[], source_types=[], evidence_gaps=[],
+            action="finish",
+            queries=[],
+            source_types=[],
+            evidence_gaps=[],
             reason="done",
         )
     with pytest.raises(ValidationError):
@@ -62,7 +65,9 @@ def test_naive_datetimes_are_rejected():
 
 
 def test_valid_locator_and_bbox():
-    locator = Locator(page=1, start_ms=500, end_ms=1500, bbox=(0.0, 0.0, 0.5, 0.5))
+    locator = Locator(
+        page=1, start_ms=500, end_ms=1500, bbox=(0.0, 0.0, 0.5, 0.5)
+    )
     assert locator.page == 1
     assert locator.start_ms == 500
 

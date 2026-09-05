@@ -14,9 +14,7 @@ if TYPE_CHECKING:  # pragma: no cover - resolved via model_rebuild
 
 OriginMethod = Literal["native_text", "ocr", "subtitle", "asr"]
 BlockType = str
-CoverageUnitType = Literal[
-    "page", "slide", "sheet", "time_range", "document"
-]
+CoverageUnitType = Literal["page", "slide", "sheet", "time_range", "document"]
 CoverageStatus = Literal["success", "empty", "partial", "failed", "skipped"]
 ExtractStatus = Literal["success", "partial", "empty"]
 DocumentStatus = Literal["success", "partial", "empty"]
@@ -44,9 +42,12 @@ class Locator(BaseModel):
 
     @model_validator(mode="after")
     def _validate_ranges(self) -> Locator:
-        if self.start_ms is not None and self.end_ms is not None:
-            if self.start_ms >= self.end_ms:
-                raise ValueError("start_ms must be < end_ms")
+        if (
+            self.start_ms is not None
+            and self.end_ms is not None
+            and self.start_ms >= self.end_ms
+        ):
+            raise ValueError("start_ms must be < end_ms")
         if self.bbox is not None:
             x0, y0, x1, y1 = self.bbox
             if not (0.0 <= x0 <= x1 <= 1.0 and 0.0 <= y0 <= y1 <= 1.0):
@@ -163,9 +164,9 @@ class RetrievalHit(BaseModel):
     chunk: Chunk
     rank: int = Field(ge=1)
     score: float | None = None
-    retrieval_method: Literal[
-        "direct", "lexical", "vector", "hybrid"
-    ] = "direct"
+    retrieval_method: Literal["direct", "lexical", "vector", "hybrid"] = (
+        "direct"
+    )
 
 
 class Citation(BaseModel):

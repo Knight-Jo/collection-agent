@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import pytest
 
-from intel_agent.contracts.ports import FilterCapability, ProviderCapabilities
+from intel_agent.contracts.ports import ProviderCapabilities
 from intel_agent.contracts.research import (
     SearchHit,
     SearchOccurrence,
@@ -33,7 +33,9 @@ def test_conservative_keys_do_not_merge_distinct_sources(left, right):
 
 
 def test_dedup_key_normalizes_host_case_and_default_port():
-    assert dedup_key("https://Example.ORG/a") == dedup_key("https://example.org/a")
+    assert dedup_key("https://Example.ORG/a") == dedup_key(
+        "https://example.org/a"
+    )
     assert dedup_key("https://example.org:443/a") == dedup_key(
         "https://example.org/a"
     )
@@ -85,8 +87,12 @@ def test_merge_keeps_occurrences_and_no_score_mixing():
     async def run():
         service = SearchService(
             [
-                FakeProvider("a", lambda q, l: [_hit("https://x/p", "a", 1)]),
-                FakeProvider("b", lambda q, l: [_hit("https://x/p", "b", 3)]),
+                FakeProvider(
+                    "a", lambda q, limit: [_hit("https://x/p", "a", 1)]
+                ),
+                FakeProvider(
+                    "b", lambda q, limit: [_hit("https://x/p", "b", 3)]
+                ),
             ],
             SearchConfig(),
         )
@@ -106,16 +112,19 @@ def test_merge_keeps_occurrences_and_no_score_mixing():
 
 def test_one_timeout_one_success_is_partial():
     async def run():
-        async def slow(q, l):
+        async def slow(q, limit):
             await asyncio.sleep(10)
 
         service = SearchService(
             [
                 FakeProvider("a", slow),
-                FakeProvider("b", lambda q, l: [_hit("https://x/p", "b", 1)]),
+                FakeProvider(
+                    "b", lambda q, limit: [_hit("https://x/p", "b", 1)]
+                ),
             ],
-            SearchConfig(provider_timeout_seconds=0.05,
-                         round_deadline_seconds=1.0),
+            SearchConfig(
+                provider_timeout_seconds=0.05, round_deadline_seconds=1.0
+            ),
         )
         batch = await service.search(
             SearchRequest(
@@ -133,7 +142,7 @@ def test_one_timeout_one_success_is_partial():
 
 def test_all_failed_is_failed():
     async def run():
-        def boom(q, l):
+        def boom(q, limit):
             raise RuntimeError("boom")
 
         service = SearchService([FakeProvider("a", boom)], SearchConfig())
@@ -156,7 +165,7 @@ def test_date_postfilter_excludes_unknown_dates():
             [
                 FakeProvider(
                     "a",
-                    lambda q, l: [
+                    lambda q, limit: [
                         _hit("https://x/known", "a", published_at=published),
                         _hit("https://x/unknown", "a"),
                     ],

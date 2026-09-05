@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
 from time import monotonic
-from typing import Awaitable, Callable
 
 from ..contracts.errors import DomainError
-from ..contracts.ports import ProviderCapabilities, SearchProvider
+from ..contracts.ports import SearchProvider
 from ..contracts.research import (
+    BatchStatus,
     ProviderReport,
+    ProviderStatus,
     SearchBatch,
     SearchHit,
     SearchQuery,
@@ -61,13 +61,17 @@ class SearchService:
             cfg = self.config.providers.get(name)
             if cfg is not None and not cfg.enabled:
                 return ProviderReport(
-                    provider=name, status="disabled", elapsed_ms=0,
+                    provider=name,
+                    status="disabled",
+                    elapsed_ms=0,
                     returned_count=0,
                 )
             start = monotonic()
             try:
                 hits = await self._call_with_retry(
-                    provider, request.query, request.per_provider_limit,
+                    provider,
+                    request.query,
+                    request.per_provider_limit,
                     deadline,
                 )
                 hits = [h for h in hits if self._post_filter(request.query, h)]
@@ -145,18 +149,23 @@ class SearchService:
             try:
                 return await asyncio.wait_for(
                     provider.search(query, limit),
-                    timeout=min(self.config.provider_timeout_seconds,
-                                remaining),
+                    timeout=min(
+                        self.config.provider_timeout_seconds, remaining
+                    ),
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 if attempt >= attempts:
-                    raise DomainError("TIMEOUT", "provider timed out") from None
+                    raise DomainError(
+                        "TIMEOUT", "provider timed out"
+                    ) from None
             except DomainError as error:
                 if not error.retryable or attempt >= attempts:
                     raise
         raise DomainError("TIMEOUT", "provider timed out")
 
-    def _merge(self, merged: dict[str, SearchHit], hits: list[SearchHit]) -> None:
+    def _merge(
+        self, merged: dict[str, SearchHit], hits: list[SearchHit]
+    ) -> None:
         for hit in hits:
             existing = merged.get(hit.dedup_key)
             if existing is None:
@@ -179,9 +188,7 @@ class SearchService:
             _host_matches(host, d) for d in query.domains
         ):
             return False
-        if any(_host_matches(host, d) for d in query.exclude_domains):
-            return False
-        return True
+        return not any(_host_matches(host, d) for d in query.exclude_domains)
 
 
 def _host_of(url: str) -> str:
@@ -196,16 +203,14 @@ def _host_matches(host: str, domain: str) -> bool:
 
 
 def _ranks(hit: SearchHit) -> list[int]:
-    return [
-        occ.provider_rank or 1 for occ in hit.occurrences
-    ]
+    return [occ.provider_rank or 1 for occ in hit.occurrences]
 
 
-def _status_for(error: DomainError) -> str:
+def _status_for(error: DomainError) -> ProviderStatus:
     return "timeout" if error.code == "TIMEOUT" else "failed"
 
 
-def _batch_status(reports: list[ProviderReport]) -> str:
+def _batch_status(reports: list[ProviderReport]) -> BatchStatus:
     statuses = {r.status for r in reports}
     if not reports:
         return "failed"

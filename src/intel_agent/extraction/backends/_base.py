@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 
-from ..models import Backend, BackendRequest, BackendOutput
+from ..models import Backend, BackendOutput, BackendRequest
 
 
 class BaseBackend(Backend):

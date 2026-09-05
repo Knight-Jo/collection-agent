@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
-
 from .contracts.documents import NormalizationInput
 from .contracts.errors import DomainError
 from .contracts.research import SearchHit
@@ -14,7 +12,7 @@ from .normalization import Normalizer
 from .storage.materials import MaterialStore
 
 STAGES = ("fetch", "extract", "normalize", "store", "index")
-Source: TypeAlias = SearchHit | Resource
+type Source = SearchHit | Resource
 
 
 class AcquisitionPipeline:
@@ -45,17 +43,22 @@ class AcquisitionPipeline:
         if isinstance(source, Resource):
             resource = source
             work_item_id = self.store.create_work_item(
-                task_id, "", profile_id, index_after_store,
+                task_id,
+                "",
+                profile_id,
+                index_after_store,
                 resource_id=resource.resource_id,
             )
-            self.store.update_work_item(work_item_id, "fetch", "done",
-                                        resource_id=resource.resource_id)
+            self.store.update_work_item(
+                work_item_id, "fetch", "done", resource_id=resource.resource_id
+            )
         else:
             work_item_id = self.store.create_work_item(
                 task_id, source.url, profile_id, index_after_store
             )
-        return await self._run(task_id, work_item_id, source, profile_id,
-                               index_after_store)
+        return await self._run(
+            task_id, work_item_id, source, profile_id, index_after_store
+        )
 
     async def resume_item(self, work_item_id: str) -> AcquisitionReport:
         item = self.store.get_work_item(work_item_id)
@@ -65,17 +68,22 @@ class AcquisitionPipeline:
             source = self.store.get_resource(item["resource_id"])
         else:
             source = SearchHit(
-                hit_id="", url=payload["source_url"],
+                hit_id="",
+                url=payload["source_url"],
                 dedup_key=payload["source_url"],
                 source_types=["web"],
             )
         return await self._run(
-            item["task_id"], work_item_id, source,
-            payload["profile_id"], payload["index_after_store"],
+            item["task_id"],
+            work_item_id,
+            source,
+            payload["profile_id"],
+            payload["index_after_store"],
         )
 
-    async def _run(self, task_id, work_item_id, source, profile_id,
-                   index_after_store) -> AcquisitionReport:
+    async def _run(
+        self, task_id, work_item_id, source, profile_id, index_after_store
+    ) -> AcquisitionReport:
         item = self.store.get_work_item(work_item_id)
         resource_id = item.get("resource_id")
         artifact_id = item.get("artifact_id")
@@ -86,8 +94,11 @@ class AcquisitionPipeline:
                 await self.indexing_service.index(artifact_id)
                 self.store.update_work_item(work_item_id, "index", "done")
             return AcquisitionReport(
-                task_id=task_id, work_item_id=work_item_id,
-                artifact_id=artifact_id, stage="done", status="success",
+                task_id=task_id,
+                work_item_id=work_item_id,
+                artifact_id=artifact_id,
+                stage="done",
+                status="success",
             )
 
         # FETCH
@@ -105,8 +116,11 @@ class AcquisitionPipeline:
                         work_item_id, "fetch", "failed"
                     )
                     return AcquisitionReport(
-                        task_id=task_id, work_item_id=work_item_id,
-                        stage="fetch", status="failed", error=error.code,
+                        task_id=task_id,
+                        work_item_id=work_item_id,
+                        stage="fetch",
+                        status="failed",
+                        error=error.code,
                     )
             resource_id = resource.resource_id
             self.store.update_work_item(
@@ -117,14 +131,21 @@ class AcquisitionPipeline:
 
         # EXTRACT
         try:
+            pid = (
+                self.extraction_service.profile_for(resource.media_type)
+                or profile_id
+            )
             extract_result = await self.extraction_service.extract(
-                resource, profile_id
+                resource, pid
             )
         except DomainError as error:
             self.store.update_work_item(work_item_id, "extract", "failed")
             return AcquisitionReport(
-                task_id=task_id, work_item_id=work_item_id, stage="extract",
-                status="failed", error=error.code,
+                task_id=task_id,
+                work_item_id=work_item_id,
+                stage="extract",
+                status="failed",
+                error=error.code,
             )
         self.store.update_work_item(work_item_id, "extract", "done")
 
@@ -154,16 +175,22 @@ class AcquisitionPipeline:
             self.store.update_work_item(work_item_id, "index", "done")
 
         return AcquisitionReport(
-            task_id=task_id, work_item_id=work_item_id,
-            artifact_id=artifact_id, stage="done", status="success",
+            task_id=task_id,
+            work_item_id=work_item_id,
+            artifact_id=artifact_id,
+            stage="done",
+            status="success",
         )
 
     @staticmethod
     def _source_key(source: Source, resource: Resource) -> str:
         if isinstance(source, SearchHit):
             return source.url
-        return resource.origin.final_url or resource.origin.local_display_name \
+        return (
+            resource.origin.final_url
+            or resource.origin.local_display_name
             or resource.content_hash
+        )
 
     @staticmethod
     def _provenance(source: Source):

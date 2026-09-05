@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime
 
 import httpx
 
@@ -28,7 +28,9 @@ class SearXNGProvider:
     name = "searxng"
 
     def __init__(
-        self, client: httpx.AsyncClient, base_url: str,
+        self,
+        client: httpx.AsyncClient,
+        base_url: str,
         timeout_seconds: float = 20.0,
     ) -> None:
         self.client = client
@@ -53,8 +55,8 @@ class SearXNGProvider:
         if query.language:
             params["language"] = query.language
         if query.domains:
-            params["q"] = query.text + " " + " ".join(
-                f"site:{d}" for d in query.domains
+            params["q"] = (
+                query.text + " " + " ".join(f"site:{d}" for d in query.domains)
             )
         response = await self.client.get(
             f"{self.base_url}/search",

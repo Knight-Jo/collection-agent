@@ -1,0 +1,23 @@
+model:
+  model_id: deepseek-chat
+  base_url: https://api.deepseek.com/v1
+  api_key_env: DEEPSEEK_API_KEY
+  tokenizer: cl100k_base
+
+search:
+  providers:
+    searxng:
+      enabled: false
+      base_url: http://127.0.0.1:8888
+    arxiv:
+      enabled: true
+    openalex:
+      enabled: true
+    rss:
+      enabled: false
+      extra:
+        feeds: []
+
+storage:
+  data_dir: ../data
+  output_dir: ../output

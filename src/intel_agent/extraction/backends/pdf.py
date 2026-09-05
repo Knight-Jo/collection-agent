@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 
 from ...contracts.documents import CoverageUnit, Locator
-from ..models import Availability, BackendRequest, BackendOutput
+from ..models import Availability, BackendOutput, BackendRequest
 from ._base import BaseBackend
 from ._util import make_block
 
@@ -42,8 +42,10 @@ class PyMuPDFBackend(BaseBackend):
             return BackendOutput(
                 coverage=[
                     CoverageUnit(
-                        unit_type="document", locator=Locator(),
-                        status="failed", reason=str(error),
+                        unit_type="document",
+                        locator=Locator(),
+                        status="failed",
+                        reason=str(error),
                     )
                 ],
                 warnings=[f"pdf open failed: {error}"],
@@ -68,14 +70,22 @@ class PyMuPDFBackend(BaseBackend):
                     )
                     continue
                 for block in text_blocks:
-                    x0, y0, x1, y1, text = block[0], block[1], block[2], \
-                        block[3], block[4]
+                    x0, y0, x1, y1, text = (
+                        block[0],
+                        block[1],
+                        block[2],
+                        block[3],
+                        block[4],
+                    )
                     text = text.strip()
                     if not text:
                         continue
                     blocks.append(
                         make_block(
-                            self.backend_id, self.version, ordinal, text,
+                            self.backend_id,
+                            self.version,
+                            ordinal,
+                            text,
                             "paragraph",
                             locator=Locator(
                                 page=page_num,
@@ -88,13 +98,13 @@ class PyMuPDFBackend(BaseBackend):
                     ordinal += 1
                 coverage.append(
                     CoverageUnit(
-                        unit_type="page", locator=Locator(page=page_num),
+                        unit_type="page",
+                        locator=Locator(page=page_num),
                         status="success",
                     )
                 )
         finally:
             doc.close()
-        status = "success" if blocks else "empty"
         return BackendOutput(
             blocks=blocks,
             coverage=coverage,
@@ -126,12 +136,16 @@ class PdfplumberBackend(BaseBackend):
             with pdfplumber.open(io.BytesIO(data)) as pdf:
                 for page_num, page in enumerate(pdf.pages, start=1):
                     text = page.extract_text() or ""
-                    lines = [ln.strip() for ln in text.split("\n") if
-                             ln.strip()]
+                    lines = [
+                        ln.strip() for ln in text.split("\n") if ln.strip()
+                    ]
                     for line in lines:
                         blocks.append(
                             make_block(
-                                self.backend_id, self.version, ordinal, line,
+                                self.backend_id,
+                                self.version,
+                                ordinal,
+                                line,
                                 "paragraph",
                                 locator=Locator(page=page_num),
                             )
@@ -139,14 +153,16 @@ class PdfplumberBackend(BaseBackend):
                         ordinal += 1
                     for table in page.extract_tables() or []:
                         rows = [
-                            " | ".join(c or "" for c in row)
-                            for row in table
+                            " | ".join(c or "" for c in row) for row in table
                         ]
                         if rows:
                             blocks.append(
                                 make_block(
-                                    self.backend_id, self.version, ordinal,
-                                    "\n".join(rows), "table",
+                                    self.backend_id,
+                                    self.version,
+                                    ordinal,
+                                    "\n".join(rows),
+                                    "table",
                                     locator=Locator(page=page_num),
                                 )
                             )
@@ -162,13 +178,14 @@ class PdfplumberBackend(BaseBackend):
             return BackendOutput(
                 coverage=[
                     CoverageUnit(
-                        unit_type="document", locator=Locator(),
-                        status="failed", reason=str(error),
+                        unit_type="document",
+                        locator=Locator(),
+                        status="failed",
+                        reason=str(error),
                     )
                 ],
                 warnings=[f"pdf open failed: {error}"],
             )
-        status = "success" if blocks else "empty"
         return BackendOutput(
             blocks=blocks,
             coverage=coverage,

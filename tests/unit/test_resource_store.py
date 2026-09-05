@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 
 import pytest
 
 from intel_agent.contracts.errors import DomainError
 from intel_agent.contracts.resources import ResourceOrigin
-from datetime import UTC, datetime
 
 
 async def _chunks(payload: bytes, step: int = 3):
@@ -20,11 +20,13 @@ def test_write_stream_shares_blob_for_identical_bytes(resource_store):
     async def run():
         origin = ResourceOrigin(acquired_at=datetime.now(UTC))
         a = await resource_store.write_stream(
-            _chunks(b"same bytes"), origin=origin,
+            _chunks(b"same bytes"),
+            origin=origin,
             media_type="text/plain",
         )
         b = await resource_store.write_stream(
-            _chunks(b"same bytes"), origin=origin,
+            _chunks(b"same bytes"),
+            origin=origin,
             media_type="text/plain",
         )
         assert a.content_hash == b.content_hash
@@ -40,8 +42,10 @@ def test_write_stream_enforces_max_bytes(resource_store):
         origin = ResourceOrigin(acquired_at=datetime.now(UTC))
         with pytest.raises(DomainError) as raised:
             await resource_store.write_stream(
-                _chunks(b"x" * 100), origin=origin,
-                media_type="text/plain", max_bytes=10,
+                _chunks(b"x" * 100),
+                origin=origin,
+                media_type="text/plain",
+                max_bytes=10,
             )
         return raised.value
 

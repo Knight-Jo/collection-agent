@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import ssl
-from typing import AsyncIterable, AsyncIterator
+from collections.abc import AsyncIterable, AsyncIterator
+from typing import Any, cast
 
 import httpcore
 import httpx
@@ -57,7 +57,7 @@ class PublicNetworkBackend(httpcore.AnyIOBackend):
                 f"connection target is non-public: {host}",
                 stage="fetch",
             )
-        return await super().connect_tcp(
+        return await cast(Any, super()).connect_tcp(
             addresses[0], port, timeout, local_address, socket_options
         )
 
@@ -97,7 +97,7 @@ class PinnedTransport(httpx.AsyncBaseTransport):
             http1=True,
             http2=False,
             retries=retries,
-            network_backend=backend or PublicNetworkBackend(),
+            network_backend=backend or PublicNetworkBackend(),  # type: ignore[arg-type]
         )
 
     async def handle_async_request(
@@ -119,7 +119,7 @@ class PinnedTransport(httpx.AsyncBaseTransport):
         return httpx.Response(
             status_code=resp.status,
             headers=resp.headers,
-            stream=_AsyncStream(resp.stream),
+            stream=_AsyncStream(cast(AsyncIterable[bytes], resp.stream)),
             extensions=resp.extensions,
         )
 

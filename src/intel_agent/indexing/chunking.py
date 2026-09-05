@@ -52,8 +52,12 @@ def chunk_document(
                 block.text, counter, hard
             ):
                 chunks.append(
-                    _build(document, pid, ordinal, [(block, piece_start,
-                                                     piece_end)])
+                    _build(
+                        document,
+                        pid,
+                        ordinal,
+                        [(block, piece_start, piece_end)],
+                    )
                 )
                 ordinal += 1
             continue
@@ -83,8 +87,7 @@ def _build(document, pid, ordinal, spans) -> Chunk:
         revision_id=document.revision_id,
         text=text,
         block_spans=[
-            BlockSpan(block_id=block.block_id, char_start=start,
-                      char_end=end)
+            BlockSpan(block_id=block.block_id, char_start=start, char_end=end)
             for block, start, end in spans
         ],
         locators=locators,
@@ -95,9 +98,7 @@ def _build(document, pid, ordinal, spans) -> Chunk:
 
 def _split_spans(text: str, counter, hard: int) -> list[tuple[int, int]]:
     """Split an oversized block into token-bounded char spans."""
-    sentences = [
-        s for s in _SENTENCE_SPLIT.split(text) if s
-    ] or [text]
+    sentences = [s for s in _SENTENCE_SPLIT.split(text) if s] or [text]
     spans: list[tuple[int, int]] = []
     offset = 0
     current_start = 0

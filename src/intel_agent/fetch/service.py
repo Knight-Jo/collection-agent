@@ -42,7 +42,6 @@ class FetchService:
         await validate_public_url(url)
         warnings: list[str] = []
         final_url = url
-        status_code: int | None = None
         for _ in range(MAX_REDIRECTS):
             response = await self._get(url, request)
             if response.status_code in (301, 302, 303, 307, 308):
@@ -50,21 +49,18 @@ class FetchService:
                 await response.aclose()
                 if not location:
                     raise DomainError(
-                        "HTTP_ERROR", "redirect without location",
+                        "HTTP_ERROR",
+                        "redirect without location",
                         stage="fetch",
                     )
                 url = urljoin(url, location)
                 await validate_public_url(url)
                 continue
-            status_code = response.status_code
+            status_code: int = response.status_code
             final_url = str(response.url)
             if status_code >= 400:
                 await response.aclose()
-                code = (
-                    "BLOCKED"
-                    if status_code in (401, 403)
-                    else "HTTP_ERROR"
-                )
+                code = "BLOCKED" if status_code in (401, 403) else "HTTP_ERROR"
                 raise DomainError(
                     code,
                     f"HTTP {status_code} for {final_url}",
@@ -97,11 +93,14 @@ class FetchService:
 
     async def _get(self, url: str, request: FetchRequest):
         try:
+            req = self.client.build_request(
+                "GET",
+                url,
+                headers=request.headers,
+                extensions={"timeout": httpx.Timeout(request.timeout_seconds)},
+            )
             return await self.client.send(
-                self.client.build_request("GET", url, headers=request.headers),
-                stream=True,
-                follow_redirects=False,
-                timeout=request.timeout_seconds,
+                req, stream=True, follow_redirects=False
             )
         except DomainError:
             raise
@@ -121,7 +120,8 @@ async def _bounded_bytes(response, max_bytes: int):
         total += len(chunk)
         if total > max_bytes:
             raise DomainError(
-                "TOO_LARGE", f"response exceeds {max_bytes} bytes",
+                "TOO_LARGE",
+                f"response exceeds {max_bytes} bytes",
                 stage="fetch",
             )
         yield chunk
@@ -143,7 +143,4 @@ def _effective_limit(request, config, media_type) -> int:
 
 def _safe_headers(headers) -> dict[str, str]:
     excluded = {"authorization", "cookie", "set-cookie", "proxy-authorization"}
-    return {
-        k: v for k, v in headers.items()
-        if k.lower() not in excluded
-    }
+    return {k: v for k, v in headers.items() if k.lower() not in excluded}

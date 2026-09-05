@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 
 import pytest
@@ -25,12 +24,8 @@ FIXTURES = Path(__file__).parent.parent / "fixtures" / "html"
 @pytest.fixture
 def html_service(resource_store):
     registry = BackendRegistry()
-    registry.register(
-        "trafilatura", TrafilaturaBackend(resource_store)
-    )
-    registry.register(
-        "beautifulsoup", BeautifulSoupBackend(resource_store)
-    )
+    registry.register("trafilatura", TrafilaturaBackend(resource_store))
+    registry.register("beautifulsoup", BeautifulSoupBackend(resource_store))
     service = ExtractionService(
         registry, resource_store, Executor(), ExtractionConfig()
     )
@@ -73,7 +68,8 @@ async def test_both_html_backends_keep_order(html_service, backend_id):
         html_service, "article-zh.html", backend_id
     )
     paragraphs = [
-        block.text for block in result.blocks
+        block.text
+        for block in result.blocks
         if block.block_type == "paragraph"
     ]
     assert paragraphs == [
@@ -86,11 +82,14 @@ async def test_both_html_backends_keep_order(html_service, backend_id):
 async def test_backend_fallback_selects_one_complete_artifact(html_service):
     # A profile with trafilatura preferred and bs4 fallback yields one
     # complete artifact, not a concatenation.
-    resource = await _import_fixture(html_service.resource_store,
-                                     "article-zh.html")
+    resource = await _import_fixture(
+        html_service.resource_store, "article-zh.html"
+    )
     profile = ExtractionProfile(
-        name="html", media_type="text/html",
-        preferred="trafilatura", fallback="beautifulsoup",
+        name="html",
+        media_type="text/html",
+        preferred="trafilatura",
+        fallback="beautifulsoup",
     )
     pid = html_service.register_profile(profile)
     result = await html_service.extract(resource, pid)

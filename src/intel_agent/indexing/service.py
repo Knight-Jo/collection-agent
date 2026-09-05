@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from ..contracts.documents import Chunk
 from ..contracts.errors import DomainError
 from ..runtime.config import IndexingConfig
 from ..storage.materials import MaterialStore
@@ -45,8 +44,11 @@ class IndexingService:
             terms = list(dict.fromkeys(lexical_tokens(chunk.text)))
             self.store.save_chunk_terms(chunk.chunk_id, terms)
         self.store.record_index(
-            artifact_id, pid, lexical_status="ready",
-            vector_status="pending", chunk_count=len(chunks),
+            artifact_id,
+            pid,
+            lexical_status="ready",
+            vector_status="pending",
+            chunk_count=len(chunks),
         )
         report = IndexReport(
             artifact_id=artifact_id,
@@ -56,20 +58,23 @@ class IndexingService:
             vector=VectorIndexState(status="pending"),
         )
         if self.embedding_client is not None and self.vector_index is not None:
-            report = await self._index_vectors(artifact_id, pid, chunks,
-                                               report)
+            report = await self._index_vectors(
+                self.embedding_client,
+                self.vector_index,
+                artifact_id,
+                pid,
+                chunks,
+                report,
+            )
         return report
 
     async def _index_vectors(
-        self, artifact_id, pid, chunks, report
+        self, embedding_client, vector_index, artifact_id, pid, chunks, report
     ) -> IndexReport:
         try:
-            batch = await self.embedding_client.embed(
-                [c.text for c in chunks], pid
-            )
-            from .qdrant import vector_point_id
-
+            batch = await embedding_client.embed([c.text for c in chunks], pid)
             from ..indexing.models import VectorPoint
+            from .qdrant import vector_point_id
 
             points = [
                 VectorPoint(
@@ -86,11 +91,13 @@ class IndexingService:
                 )
                 for c, vector in zip(chunks, batch.vectors, strict=True)
             ]
-            await self.vector_index.upsert(points, pid)
+            await vector_index.upsert(points, pid)
             self.store.record_index(
-                artifact_id, pid,
+                artifact_id,
+                pid,
                 embedding_profile_id=pid,
-                lexical_status="ready", vector_status="ready",
+                lexical_status="ready",
+                vector_status="ready",
                 chunk_count=len(chunks),
             )
             report.vector.status = "ready"
