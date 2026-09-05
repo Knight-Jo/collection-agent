@@ -100,14 +100,14 @@ POST /api/runs
 工作台以持久会话为入口，提供需求确认、实时调研进度、材料问答、引用定位和版本化报告。前端依赖与脚本统一使用 Bun 1.3.14：
 
 ```bash
-cd web
+cd frontend
 bun install --frozen-lockfile
 bun run build
 cd ..
 intel-agent-web --config config.yaml
 ```
 
-默认监听 `0.0.0.0:6780`，本机访问地址为 `http://127.0.0.1:6780`。监听地址和端口通过 `config.yaml` 的 `web.host`、`web.port` 配置；`--host` 与 `--port` 可用于临时覆盖。开发时分别运行后端和 `cd web && bun run dev`；Vite 会将 `/api` 转发到本地后端。局域网或外网使用前应配置 `web.auth_token_env` 与 `web.trusted_hosts`，未认证默认仅适合受控开发网络。
+默认监听 `0.0.0.0:6780`，本机访问地址为 `http://127.0.0.1:6780`。监听地址和端口通过 `config.yaml` 的 `web.host`、`web.port` 配置；`--host` 与 `--port` 可用于临时覆盖。开发时分别运行后端和 `cd frontend && bun run dev`；Vite 会将 `/api` 转发到本地后端。局域网或外网使用前应配置 `web.auth_token_env` 与 `web.trusted_hosts`，未认证默认仅适合受控开发网络。
 
 打开首页后点击“新建对话”即可使用：
 
@@ -210,7 +210,7 @@ src/intel_agent/
 ├── runner.py       # CLI 与 Web 共用的 Agent 运行器
 └── web/            # FastAPI API、运行状态、Conversation API 与 SSE
 tests/              # pytest 测试套件
-web/                # React/Vite 本地工作台
+frontend/           # React/Vite 本地工作台
 scripts/            # 实验运行器与分析器
 experiments/        # 迭代实验结果、轨迹与报告
 ```

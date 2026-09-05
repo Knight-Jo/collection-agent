@@ -18,7 +18,7 @@ UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest
 UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv build
 ```
 
-The local workbench lives in `web/` and uses Bun 1.3.14. Run `bun install --frozen-lockfile`, `bun run test`, `bun run typecheck`, and `bun run build` from that directory. Commit `bun.lock`, but never `node_modules/` or `dist/`. Formatting and linting use Biome: run `bun run format` (write) and `bun run check` (format + lint) before committing.
+The local workbench lives in `frontend/` and uses Bun 1.3.14. Run `bun install --frozen-lockfile`, `bun run test`, `bun run typecheck`, and `bun run build` from that directory. Commit `bun.lock`, but never `node_modules/` or `dist/`. Formatting and linting use Biome: run `bun run format` (write) and `bun run check` (format + lint) before committing.
 
 Copy `config.example.yaml` to `config.yaml` before running `python -m intel_agent`. Use `uv add` or `uv remove` instead of installing project dependencies directly with `pip`.
 

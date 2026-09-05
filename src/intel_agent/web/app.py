@@ -341,7 +341,7 @@ def create_app(
         )
 
     frontend = (
-        static_dir or Path(__file__).resolve().parents[3] / "web" / "dist"
+        static_dir or Path(__file__).resolve().parents[3] / "frontend" / "dist"
     )
     if frontend.exists():
         assets = frontend / "assets"
