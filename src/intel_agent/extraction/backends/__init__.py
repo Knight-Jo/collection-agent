@@ -1,5 +1,6 @@
 """Extraction backends."""
 
+from .asr import WhisperBackend
 from .html import BeautifulSoupBackend, TrafilaturaBackend
 from .media import FFmpegBackend
 from .ocr import TesseractBackend
@@ -14,4 +15,5 @@ __all__ = [
     "PyMuPDFBackend",
     "TesseractBackend",
     "TrafilaturaBackend",
+    "WhisperBackend",
 ]

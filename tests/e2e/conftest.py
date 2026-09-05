@@ -9,6 +9,7 @@ import pytest
 
 from intel_agent.context.manager import ContextManager
 from intel_agent.context.retrieval import HybridRetriever, LexicalRetriever
+from intel_agent.extraction.backends.asr import WhisperBackend
 from intel_agent.extraction.backends.html import (
     BeautifulSoupBackend,
     TrafilaturaBackend,
@@ -63,6 +64,16 @@ def harness(tmp_path: Path):
     registry.register("tesseract", TesseractBackend(resource_store, executor))
     registry.register("office", OfficeBackend(resource_store))
     registry.register("ffmpeg", FFmpegBackend(resource_store, executor))
+    registry.register(
+        "whisper",
+        WhisperBackend(
+            resource_store,
+            executor,
+            model="small",
+            device="cuda",
+            compute_type="float16",
+        ),
+    )
 
     extraction = ExtractionService(
         registry, resource_store, executor, ExtractionConfig()

@@ -92,6 +92,14 @@ extraction:
   video_frame_interval_seconds: 5  # 视频抽帧间隔（秒）
   video_max_frames: 720            # 单视频帧数上限
   ocr_languages: chi_sim+eng       # Tesseract 语言
+  # faster-whisper 音视频转写（spec §8.6/§8.7）
+  whisper_model: small             # small / base / tiny / 本地路径
+  whisper_device: cuda             # cuda / cpu
+  whisper_compute_type: float16    # cuda 用 float16，cpu 用 int8
+  whisper_language: null           # null = 自动检测；可指定 zh / en
+  whisper_device_index: 0          # 多 GPU 时选哪张卡
+  always_asr: false                # 视频有字幕时是否仍强制 ASR
+  video_frame_ocr: false           # 视频抽帧 OCR（默认关，需要时改 true）
 
 # ── 切块与索引 ───────────────────────────────────────────────────────────────
 indexing:

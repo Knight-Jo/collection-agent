@@ -116,6 +116,51 @@
         {"text": "Frame", "locator": {"frame_ms": 0}},
         {"text": "OCR", "locator": {"frame_ms": 0}}
       ]
+    },
+    {
+      "fixture_id": "audio-mp3",
+      "file": "samples_test_mp3.mp3",
+      "source_url": null,
+      "sha256": "573fe327d284d4e7cb25486e50b5403d0063674f94fa6b72e7f54c14e22e243c",
+      "media_type": "audio/mpeg",
+      "language": "zh",
+      "kind": "positive",
+      "origin": "user_provided",
+      "expected_evidence": [
+        {"text": "特朗普", "locator": {}},
+        {"text": "北京", "locator": {}},
+        {"text": "中美", "locator": {}}
+      ]
+    },
+    {
+      "fixture_id": "audio-m4a",
+      "file": "videoplayback.m4a",
+      "source_url": null,
+      "sha256": "9b4a8dc28a9756041ad8df9e3b2b08f2b690088da161698df6d98d86f3a6ccd9",
+      "media_type": "audio/mp4",
+      "language": "zh",
+      "kind": "positive",
+      "origin": "user_provided",
+      "expected_evidence": [
+        {"text": "特朗普", "locator": {}},
+        {"text": "北京", "locator": {}},
+        {"text": "中美", "locator": {}}
+      ]
+    },
+    {
+      "fixture_id": "video-mp4",
+      "file": "videoplayback.mp4",
+      "source_url": null,
+      "sha256": "e85e47d5f6bdf60956d208999af0e1a60a8fbf718e46f61564305c8e73c352d3",
+      "media_type": "video/mp4",
+      "language": "zh",
+      "kind": "positive",
+      "origin": "user_provided",
+      "expected_evidence": [
+        {"text": "特朗普", "locator": {}},
+        {"text": "北京", "locator": {}},
+        {"text": "中美", "locator": {}}
+      ]
     }
   ]
 }

@@ -20,6 +20,7 @@ from .context.retrieval import (
     LexicalRetriever,
     VectorRetriever,
 )
+from .extraction.backends.asr import WhisperBackend
 from .extraction.backends.html import (
     BeautifulSoupBackend,
     TrafilaturaBackend,
@@ -144,6 +145,18 @@ async def bootstrap(
     )
     registry.register("office", OfficeBackend(resource_store))
     registry.register("ffmpeg", FFmpegBackend(resource_store, executor))
+    registry.register(
+        "whisper",
+        WhisperBackend(
+            resource_store,
+            executor,
+            model=settings.extraction.whisper_model,
+            device=settings.extraction.whisper_device,
+            compute_type=settings.extraction.whisper_compute_type,
+            language=settings.extraction.whisper_language,
+            device_index=settings.extraction.whisper_device_index,
+        ),
+    )
 
     extraction = ExtractionService(
         registry, resource_store, executor, settings.extraction

@@ -56,6 +56,7 @@ class VideoExtractor:
             )
         duration_ms = probe_out.metrics.get("duration_ms", 0)
         has_subtitle = probe_out.metrics.get("has_subtitle", False)
+        has_audio = probe_out.metrics.get("has_audio", False)
         coverage.extend(probe_out.coverage)
 
         # Subtitle path: preferred when a subtitle track exists.
@@ -70,9 +71,28 @@ class VideoExtractor:
             else:
                 warnings.append("subtitle extraction failed")
 
-        # Frame OCR path: sample frames and OCR each, whether or not there
-        # are subtitles, to capture on-screen text.
-        if self.registry.available("tesseract") and duration_ms:
+        # ASR path: transcribe the audio track when there are no subtitles,
+        # or when always_asr forces it.
+        if (not has_subtitle or self.config.always_asr) and has_audio:
+            if self.registry.available("whisper"):
+                asr_out, asr_attempt, error = await self._run(
+                    "whisper", resource.resource_id, "audio_asr", profile
+                )
+                attempts.append(asr_attempt)
+                if asr_out is not None:
+                    blocks.extend(asr_out.blocks)
+                    coverage.extend(asr_out.coverage)
+                else:
+                    warnings.append(f"video ASR failed: {error}")
+            else:
+                warnings.append("video ASR not configured")
+
+        # Frame OCR path (opt-in): sample frames and OCR on-screen text.
+        if (
+            self.config.video_frame_ocr
+            and self.registry.available("tesseract")
+            and duration_ms
+        ):
             interval_ms = self.config.video_frame_interval_seconds * 1000
             times = sample_times(
                 duration_ms, interval_ms, self.config.video_max_frames
@@ -144,7 +164,9 @@ class VideoExtractor:
         )
         started = datetime.now(UTC)
         try:
-            output = await self.executor.run_backend(backend, request)
+            output = await self.executor.run_backend(
+                backend, request, gpu=(capability == "audio_asr")
+            )
             return (
                 output,
                 BackendAttempt(

@@ -80,6 +80,17 @@ class ExtractionConfig(BaseModel):
     video_frame_interval_seconds: int = Field(default=5, gt=0)
     video_max_frames: int = Field(default=720, gt=0)
     ocr_languages: str = "chi_sim+eng"
+    # faster-whisper transcription (spec §8.6/§8.7).
+    whisper_model: str = "small"
+    whisper_device: str = "cuda"
+    whisper_compute_type: str = "float16"
+    whisper_language: str | None = None
+    whisper_device_index: int = Field(default=0, ge=0)
+    # Video: always transcribe audio even when a subtitle track exists.
+    always_asr: bool = False
+    # Video: sample frames and OCR on-screen text (off by default; enable to
+    # re-enable the frame-OCR path).
+    video_frame_ocr: bool = False
 
 
 class ChunkConfig(BaseModel):
