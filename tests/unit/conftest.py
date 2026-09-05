@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,7 @@ from intel_agent.storage.resources import ResourceStore
 
 
 @pytest.fixture
-def material_store(tmp_path: Path) -> MaterialStore:
+def material_store(tmp_path: Path) -> Iterator[MaterialStore]:
     store = MaterialStore(tmp_path / "research.sqlite")
     yield store
     store.close()

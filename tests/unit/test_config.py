@@ -36,8 +36,10 @@ def test_settings_reject_unknown_fields():
 
 
 def test_limits_are_positive():
+    from intel_agent.runtime.config import SearchConfig
+
     with pytest.raises(ValidationError):
-        ResearchSettings(search={"total_limit": 0})
+        ResearchSettings(search=SearchConfig(total_limit=0))
 
 
 def test_load_settings_resolves_relative_paths(tmp_path):

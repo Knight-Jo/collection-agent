@@ -26,7 +26,7 @@ def test_invalid_locations_and_decisions_are_rejected():
         {"bbox": (0.8, 0.0, 0.2, 1.0)},
     ):
         with pytest.raises(ValidationError):
-            Locator(**fields)
+            Locator.model_validate(fields)
     with pytest.raises(ValidationError):
         ResearchDecision(
             action="search",
@@ -86,17 +86,19 @@ def test_provenance_resolves_to_search_occurrence():
         original_url="https://example.org/a",
         channel="web",
     )
-    payload = NormalizationInput(
-        result={
+    payload = NormalizationInput.model_validate(
+        {
+            "result": {
+                "resource_id": "r1",
+                "blocks": [],
+                "coverage": [],
+                "status": "empty",
+                "extraction_profile_id": "e1",
+            },
             "resource_id": "r1",
-            "blocks": [],
-            "coverage": [],
-            "status": "empty",
-            "extraction_profile_id": "e1",
-        },
-        resource_id="r1",
-        identity={"document_id": "d1", "source_key": "k"},
-        revision_id="rev1",
-        provenance=[occ],
+            "identity": {"document_id": "d1", "source_key": "k"},
+            "revision_id": "rev1",
+            "provenance": [occ],
+        }
     )
     assert isinstance(payload.provenance[0], SearchOccurrence)

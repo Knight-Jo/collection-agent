@@ -31,7 +31,6 @@ def html_service(resource_store):
     )
     for profile in service.default_profiles():
         service.register_profile(profile)
-    service._import_fixture = _import_fixture
     return service
 
 

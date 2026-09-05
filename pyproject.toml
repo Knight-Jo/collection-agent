@@ -50,12 +50,14 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/intel_agent"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"configs" = "configs"
+
 [tool.hatch.build.targets.sdist]
 only-include = [
     "src/intel_agent",
     "configs",
     "README.md",
-    "config.example.yaml",
     "pyproject.toml",
 ]
 
