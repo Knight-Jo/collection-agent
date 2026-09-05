@@ -38,6 +38,7 @@ browser = [
 
 [project.scripts]
 research-agent = "intel_agent.cli:main"
+research-dev = "intel_agent.dev:main"
 
 [[tool.uv.index]]
 url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
