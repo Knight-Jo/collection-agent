@@ -1,4 +1,4 @@
-"""Video extraction: subtitles, frame OCR (spec §8.7; ASR deferred)."""
+"""Video extraction: subtitles, ASR, and gated frame OCR (spec §8.7)."""
 
 from __future__ import annotations
 

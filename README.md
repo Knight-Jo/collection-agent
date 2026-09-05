@@ -30,8 +30,8 @@ ResearchAgent ──▶ ResearchOrchestrator ──▶ SearchService ──▶ A
 | `storage/` | SQLite material store, content-addressed resources |
 | `search/` | Multi-provider search, conservative dedup, RRF fusion |
 | `fetch/` | SSRF-safe HTTP transport and streaming acquisition |
-| `extraction/` | Backend registry and media routers (HTML/PDF/OCR/Office/audio/video) |
-| `indexing/` | Chunking, lexical tokens, vector index, tokenizer |
+| `extraction/` | Backend registry and media routers (HTML/PDF/OCR/Office/audio/video/ASR) |
+| `indexing/` | Chunking, lexical tokens, embeddings, vector index, tokenizer |
 | `context/` | Scoped retrieval, token budget, citations |
 | `agent/`, `orchestration/` | Decision adapter and durable state machine |
 | `acquisition.py`, `application.py`, `bootstrap.py` | Pipeline, task lifecycle, assembly |
@@ -78,6 +78,20 @@ The typed settings live in `runtime/config.py`; committed examples are in
 All §14 resource limits live in one place. Secrets are injected via
 environment variables, never committed. Relative paths resolve against the
 config file directory so the CLI and API never produce two data sets.
+
+Key service endpoints live in the config too:
+
+- `model.*` — the LLM: vLLM/DeepSeek (OpenAI-compatible `api_style: openai`)
+  or Ollama; `disable_thinking` turns off the reasoning preamble on vLLM
+  reasoning models (e.g. qwen3.8-27b).
+- `embedding.*` — the embedding service (e.g. vLLM
+  `qwen3-embedding-0.6b`, `dimension: 1024`); set to `null` to fall back to
+  lexical-only retrieval.
+- `storage.qdrant_url` — the vector database; `null` disables the vector path.
+- `extraction.whisper_*` — audio/video transcription via faster-whisper
+  (`whisper_model`/`whisper_device`/`whisper_language`); `video_frame_ocr`
+  gates on-screen-text OCR of video frames (off by default), `always_asr`
+  forces audio transcription even when a subtitle track exists.
 
 ## Verification
 

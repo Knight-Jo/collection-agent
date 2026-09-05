@@ -12,21 +12,27 @@ Normalize → Store → Index → Context → Agent → Orchestrator）端到端
 并通过 CLI 与 FastAPI 两个入口共用同一引擎。旧引擎与旧测试已删除（能力参考
 保留在 git `84e6437`）。
 
-本轮已补齐真实后端并通过真实数据端到端验收；详细见
+真实后端与真实数据端到端验收已覆盖：LLM（vllm qwen3.8-27b）、搜索/抓取
+（arXiv/OpenAlex，经受控代理）、多模态解析（双 HTML/双 PDF/OCR/Office）、
+索引（词法 + 真实 embedding + Qdrant）、音频/视频转写（faster-whisper CUDA）、
+浏览器渲染、CLI/FastAPI、真实两轮研究。详细见
 `experiments/e2e-acceptance-2026-09-05.md`。
 
 当前验证基线（本环境实测）：
 
-- `pytest tests/ -m "not integration"`：**75 passed**（1 deselected）
-- `pytest -m integration`（真实 LLM + 学术搜索两轮）：**1 passed**（136s，
-  11 条真实引用，`completed/evidence_sufficient`）
+- `pytest tests/ -m "not integration"`：**77 passed / 3 skipped**（skip 为
+  已移除的合成视频夹具）
+- `pytest -m integration`（真实 LLM + 学术搜索两轮）：**1 passed**，11 条真实
+  引用，`completed/evidence_sufficient`
+- 音频/视频转写：mp3/m4a/mp4 各 ~183s，3 个文件合计约 22s（RTX 3090 +
+  whisper `small` `float16`，~20–25× 实时）
 - `ruff check` / `ruff format --check`：通过
 - `pyright`（basic，含 src/tests）：0 errors
 - `uv build`：wheel/sdist 成功
 
-**剩余未完成项属于「真实 ASR」「向量」与「浏览器出口隔离」范畴**，按 spec
-§15/§16 的规定，在未取得真实执行结果前只能标记为「集成未验证」，不能据此
-宣称整个 spec 已完成。
+**剩余未完成项收敛为「浏览器出口隔离」「字幕/帧 OCR 真实样本」与「少数回归
+测试」**。按 spec §15/§16，未取得真实执行结果的能力仍标「集成未验证」，不能
+据此宣称整个 spec 已完成。
 
 ## 2. 未完成任务清单
 
@@ -43,55 +49,46 @@ Normalize → Store → Index → Context → Agent → Orchestrator）端到端
 - **外部前置**：Docker Desktop + Squid 7 容器 + 隔离网络；完整模式门槛不能仅
   靠代码自报通过。
 
-### T10/T11 — 音频/视频 ASR（字幕与帧 OCR 已实现，ASR 未做）
+### 字幕提取 / 帧 OCR 真实样本（代码已实现，缺真实样本覆盖）
 
-- **已实现**：`extraction/backends/media.py`（FFmpeg/FFprobe 探测、字幕抽取、
-  抽帧）、`extraction/video.py`（字幕路径 + 无字幕帧 OCR 路径）、`audio.py`
-  探测。视频字幕与帧 OCR 真实样本已验证。
-- **仍缺**：`WhisperBackend`（faster-whisper 分段转写）、VAD/静音判定、分段
-  失败重试。
-- **阻塞验收**：A13（真实 ASR）、A16 音视频子进程回收。
+- `extraction/video.py` 字幕路径与帧 OCR 路径均已实现（帧 OCR 由
+  `video_frame_ocr` 开关默认关闭）。
+- 当前 `samples/` 中的真实 `videoplayback.mp4` 无字幕轨，故字幕提取与帧 OCR
+  两条路径暂无真实样本覆盖；需要一份带字幕轨的视频 + 开启 `video_frame_ocr`
+  后才能真实验证。
 
-### T14 — 真实 Qdrant、embedding 与可恢复索引（适配器已写，未接线）
+### 回归测试缺口
 
-- **现状**：`indexing/qdrant.py` 的 `QdrantVectorIndex` 与 `vector_point_id`
-  已实现并通过纯函数测试；但 `bootstrap.py` 未创建 embedding client 与 vector
-  index，向量路径不可用（当前 hybrid 退化为 lexical）。
-- **缺**：`HttpEmbeddingClient`、bootstrap 接线、`VectorRetriever`、可恢复
-  索引状态双向崩溃注入实测。
-- **阻塞验收**：A18、A19、A21 向量部分、A26（向量降级显式报告）。
-- **外部前置**：可用的 embedding 端点 + Qdrant 服务器（本机 docker 无权限，
-  需另行提供）。
+- A01（新增 Provider 只改 Adapter/注册/配置，无回归测试）。
+- A03（域名/语言等能力不支持时的 UNSUPPORTED_FILTER，无测试）。
 
 ## 3. 未验证（集成未验证）项
 
 | 能力 | 状态 |
 | --- | --- |
-| 真实 ASR（音频转写） | 未接 Whisper；faster-whisper `small` 已装但未接线 |
-| 向量检索 | Qdrant 适配器已写、未接线、未验证 |
 | 浏览器出口隔离 | 渲染已实现，私网出口阻断未验证 |
+| 字幕提取 / 帧 OCR | 代码在，缺真实样本（真实 mp4 无字幕轨） |
 | 中文 OCR | 仅英文真实 OCR 样本；中文扫描样本待补 |
 | 真实字幕视频/真实 Office 源文件 | 用库生成样本替代，manifest 标 `origin=authored` |
 
 ## 4. 验收矩阵
 
 - 已由真实后端/离线测试覆盖：A02、A04、A05、A08（双 HTML）、A09–A12（真实
-  PDF/OCR/Office）、A14/A15（字幕 + 帧 OCR）、A17、A20（词法 scope）、A21
-  （中文词法）、A22（token 预算）、A23（chunk 稳定，离线）、A24（决策校验，
-  离线）、A25（恢复）、A27（真实两轮）。
+  PDF/OCR/Office）、A13（真实 ASR）、A14（无字幕视频→ASR）、A17、A20（词法
+  scope）、A21（中文词法）、A22（token 预算）、A23（chunk 稳定，离线）、A24
+  （决策校验，离线）、A25（恢复）、A26/A18/A19/A21 向量（真实 Qdrant +
+  embedding roundtrip）、A27（真实两轮）。
 - 未覆盖/未验证：A01（新增 Provider 回归测试）、A03（域名/语言能力）、A06
-  （浏览器出口）、A13/A16（ASR）、A18/A19/A21 向量、A26（向量降级）。
+  （浏览器出口）、A15/A16（字幕/帧 OCR 真实样本 + 子进程回收）。
 
 ## 5. 如何继续
 
-1. **T14（接线成本最低）**：`bootstrap.py` 注入 embedding client 与
-   `QdrantVectorIndex`，启用 `VectorRetriever`/hybrid，做双向崩溃恢复测试。
-2. **T10/T11 ASR**：新建 `extraction/backends/asr.py`（Whisper），在
-   `audio.py`/`video.py` 按 segment 编排，复用 `Executor` + `AttemptLedger`。
-3. **T06 出口**：`deploy/research-browser/` + 受控代理，A06 用受控网络替身
+1. **T06 出口**：`deploy/research-browser/` + 受控代理，A06 用受控网络替身
    证明主页面/iframe/XHR/WebSocket/下载均不触达私网。
-4. **补齐夹具**：中文 OCR 样本、真实字幕视频、真实 Office 源文件；更新
-   `tests/fixtures/manifest.json`。
+2. **补齐真实样本**：带字幕轨的视频（测字幕路径）、开启 `video_frame_ocr`
+   的视频（测帧 OCR）、中文 OCR 扫描样本；更新 `tests/fixtures/manifest.json`。
+3. **补回归测试**：A01（新增 Provider 只改 Adapter/注册/配置）、A03（能力
+   不支持 → UNSUPPORTED_FILTER）。
 
 验证命令（沿用根 `AGENTS.md`，注意 `PATH` 需含 conda bin 以找到 tesseract）：
 

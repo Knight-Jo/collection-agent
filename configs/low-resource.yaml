@@ -1,8 +1,15 @@
-# Low-resource configuration: text path only, no heavy backends enabled.
+# 低资源配置：仅文本链路，CPU 转写，无向量/浏览器。
+# 用于无 GPU、无 Qdrant/embedding 的机器；与 default.yaml 的差异已在注释标出。
+
 model:
-  model_id: deepseek-chat
+  model_id: deepseek-chat             # 或本地 vLLM 的 served-model-name
   base_url: https://api.deepseek.com/v1
   api_key_env: DEEPSEEK_API_KEY
+  api_style: openai
+  disable_thinking: false
+
+# 无 embedding 服务 → 纯词法检索（lexical/direct），不建向量索引
+embedding: null
 
 search:
   providers:
@@ -17,10 +24,21 @@ search:
       extra:
         feeds: []
 
+fetch:
+  proxy_url: null                     # 无受控代理时直连
+  browser_concurrency: 1
+
 extraction:
   cpu_concurrency: 1
   gpu_concurrency: 1
+  # 低资源：whisper 用 CPU int8，模型用更快的 tiny/base
+  whisper_model: base
+  whisper_device: cpu
+  whisper_compute_type: int8
+  whisper_language: null
+  video_frame_ocr: false              # 帧 OCR 关闭（与 default 一致）
 
 storage:
+  qdrant_url: null                    # 无 Qdrant → 禁用向量
   data_dir: ../data
   output_dir: ../output
