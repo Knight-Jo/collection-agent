@@ -13,37 +13,25 @@ import type {
   SearchSource,
   SystemStatus,
 } from "@/api/types";
-import { uid } from "@/lib/utils";
+import { httpGet, httpPatch, httpPost } from "@/api/http";
 import {
-  appendMessage,
   addSearchSource as dbAddSearchSource,
-  createConversation as dbCreateConversation,
   createFactCheck as dbCreateFactCheck,
   createMediaJob as dbCreateMediaJob,
   createMonitor as dbCreateMonitor,
-  generateBrief as dbGenerateBrief,
-  getConversation as dbGetConversation,
   getFactCheck as dbGetFactCheck,
   getMediaJob as dbGetMediaJob,
   getMonitor as dbGetMonitor,
   listAiSearchTools as dbListAiSearchTools,
-  listConversations as dbListConversations,
   listFactChecks as dbListFactChecks,
-  listLibrary as dbListLibrary,
   listMediaJobs as dbListMediaJobs,
   listMonitors as dbListMonitors,
-  listSearchSources as dbListSearchSources,
   runMonitorNow as dbRunMonitorNow,
-  startResearchConversation as dbStartResearchConversation,
-  systemStatus as dbSystemStatus,
   toggleAiSearchTool as dbToggleAiSearchTool,
   toggleMonitor as dbToggleMonitor,
-  toggleSearchSource as dbToggleSearchSource,
   updateAiSearchToolApiKey as dbUpdateAiSearchToolApiKey,
-  updateSearchSource as dbUpdateSearchSource,
-  updateConversation,
 } from "@/mocks/db";
-import { simulateFactCheck, simulateMediaAnalysis, simulateReply } from "@/mocks/sse";
+import { simulateFactCheck, simulateMediaAnalysis } from "@/mocks/sse";
 
 const LATENCY = 180;
 
@@ -53,35 +41,51 @@ async function wait<T>(value: T): Promise<T> {
 }
 
 export const api = {
-  conversations: (archived = false): Promise<Conversation[]> => wait(dbListConversations(archived)),
+  // --- research loop (real backend) ---
+  conversations: (archived = false): Promise<Conversation[]> =>
+    httpGet<Conversation[]>(`/conversations?archived=${archived}`),
 
-  createConversation: (): Promise<Conversation> => wait(dbCreateConversation()),
+  createConversation: (): Promise<Conversation> =>
+    httpPost<Conversation>("/conversations"),
 
   archiveConversation: (id: string): Promise<Conversation | undefined> =>
-    wait(updateConversation(id, { status: "archived" })),
+    httpPost<Conversation>(`/conversations/${id}/archive`),
 
   restoreConversation: (id: string): Promise<Conversation | undefined> =>
-    wait(updateConversation(id, { status: "active" })),
+    httpPost<Conversation>(`/conversations/${id}/restore`),
 
-  conversation: (id: string): Promise<ConversationProjection | undefined> =>
-    wait(dbGetConversation(id)),
+  conversation: (
+    id: string,
+  ): Promise<ConversationProjection | undefined> =>
+    httpGet<ConversationProjection>(`/conversations/${id}`),
 
-  sendMessage: (id: string, content: string): Promise<Message> => {
-    const message: Message = {
-      id: uid(),
-      role: "user",
-      content,
-      status: "completed",
-      citations: [],
-    };
-    appendMessage(id, message);
-    void simulateReply(id, content);
-    return wait(message);
-  },
+  sendMessage: (id: string, content: string): Promise<Message> =>
+    httpPost<Message>(`/conversations/${id}/messages`, { content }),
 
+  generateBrief: (prompt: string): Promise<ResearchBrief> =>
+    httpPost<ResearchBrief>("/briefs/generate", { prompt }),
+
+  startResearch: (
+    topic: string,
+    brief: ResearchBrief,
+  ): Promise<Conversation> =>
+    httpPost<Conversation>("/research/start", { topic, brief }),
+
+  system: (): Promise<SystemStatus> => httpGet<SystemStatus>("/system"),
+
+  library: (): Promise<Library> => httpGet<Library>("/library"),
+
+  searchSources: (): Promise<SearchSource[]> =>
+    httpGet<SearchSource[]>("/search-sources"),
+
+  aiSearchTools: (): Promise<AiSearchTool[]> =>
+    httpGet<AiSearchTool[]>("/ai-search-tools"),
+
+  // --- monitors (mock) ---
   monitors: (): Promise<Monitor[]> => wait(dbListMonitors()),
 
-  monitor: (id: string): Promise<MonitorDetail | undefined> => wait(dbGetMonitor(id)),
+  monitor: (id: string): Promise<MonitorDetail | undefined> =>
+    wait(dbGetMonitor(id)),
 
   createMonitor: (input: {
     name: string;
@@ -92,13 +96,17 @@ export const api = {
     websites: string[];
   }): Promise<Monitor> => wait(dbCreateMonitor(input)),
 
-  toggleMonitor: (id: string): Promise<Monitor | undefined> => wait(dbToggleMonitor(id)),
+  toggleMonitor: (id: string): Promise<Monitor | undefined> =>
+    wait(dbToggleMonitor(id)),
 
-  runMonitorNow: (id: string): Promise<MonitorRun> => wait(dbRunMonitorNow(id)),
+  runMonitorNow: (id: string): Promise<MonitorRun> =>
+    wait(dbRunMonitorNow(id)),
 
+  // --- fact checks (mock) ---
   factChecks: (): Promise<FactCheck[]> => wait(dbListFactChecks()),
 
-  factCheck: (id: string): Promise<FactCheck | undefined> => wait(dbGetFactCheck(id)),
+  factCheck: (id: string): Promise<FactCheck | undefined> =>
+    wait(dbGetFactCheck(id)),
 
   createFactCheck: (claim: string): Promise<FactCheck> => {
     const factCheck = dbCreateFactCheck(claim);
@@ -106,39 +114,34 @@ export const api = {
     return wait(factCheck);
   },
 
-  generateBrief: (prompt: string): Promise<ResearchBrief> => wait(dbGenerateBrief(prompt)),
-
-  startResearch: (topic: string, brief: ResearchBrief): Promise<Conversation> =>
-    wait(dbStartResearchConversation(topic, brief)),
-
-  system: (): Promise<SystemStatus> => wait(dbSystemStatus()),
-
-  library: (): Promise<Library> => wait(dbListLibrary()),
-
-  searchSources: (): Promise<SearchSource[]> => wait(dbListSearchSources()),
-
+  // --- search source / ai tool config (mock) ---
   toggleSearchSource: (id: string): Promise<SearchSource | undefined> =>
-    wait(dbToggleSearchSource(id)),
+    wait(undefined),
 
   updateSearchSource: (
     id: string,
     patch: Partial<Pick<SearchSource, "cookies" | "enabled">>,
-  ): Promise<SearchSource | undefined> => wait(dbUpdateSearchSource(id, patch)),
+  ): Promise<SearchSource | undefined> => wait(undefined),
 
-  addSearchSource: (input: { name: string; url: string }): Promise<SearchSource> =>
-    wait(dbAddSearchSource(input)),
-
-  aiSearchTools: (): Promise<AiSearchTool[]> => wait(dbListAiSearchTools()),
+  addSearchSource: (input: {
+    name: string;
+    url: string;
+  }): Promise<SearchSource> => wait(dbAddSearchSource(input)),
 
   toggleAiSearchTool: (id: string): Promise<AiSearchTool | undefined> =>
     wait(dbToggleAiSearchTool(id)),
 
-  updateAiSearchToolApiKey: (id: string, apiKey: string): Promise<AiSearchTool | undefined> =>
+  updateAiSearchToolApiKey: (
+    id: string,
+    apiKey: string,
+  ): Promise<AiSearchTool | undefined> =>
     wait(dbUpdateAiSearchToolApiKey(id, apiKey)),
 
+  // --- media jobs (mock) ---
   mediaJobs: (): Promise<MediaJob[]> => wait(dbListMediaJobs()),
 
-  mediaJob: (id: string): Promise<MediaJob | undefined> => wait(dbGetMediaJob(id)),
+  mediaJob: (id: string): Promise<MediaJob | undefined> =>
+    wait(dbGetMediaJob(id)),
 
   createMediaJob: (input: {
     filename: string;

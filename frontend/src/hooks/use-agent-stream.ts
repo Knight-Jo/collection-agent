@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { subscribe } from "@/mocks/sse";
+import { subscribeAgent as subscribe } from "@/api/stream";
 import { conversationKeys } from "./use-conversations";
 
 const MUTATING_EVENTS = new Set(["run.status", "run.phase", "timeline", "material", "refetch"]);

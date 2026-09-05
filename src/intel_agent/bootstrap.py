@@ -20,6 +20,7 @@ from .context.retrieval import (
     LexicalRetriever,
     VectorRetriever,
 )
+from .conversation import ConversationService
 from .extraction.backends.asr import WhisperBackend
 from .extraction.backends.html import (
     BeautifulSoupBackend,
@@ -44,6 +45,7 @@ from .indexing.tokenize import TiktokenCounter
 from .normalization import Normalizer
 from .orchestration.orchestrator import ResearchOrchestrator
 from .runtime.config import ResearchSettings
+from .runtime.events import EventBus
 from .runtime.execution import Executor
 from .search.providers import (
     ArxivProvider,
@@ -227,9 +229,8 @@ async def bootstrap(
         vector_profile_id=embedding_profile_id,
     )
 
-    agent = ResearchAgent(
-        _build_llm_client(settings, llm_client, counter), store
-    )
+    llm = _build_llm_client(settings, llm_client, counter)
+    agent = ResearchAgent(llm, store)
     pipeline = AcquisitionPipeline(
         fetch_service,
         extraction,
@@ -253,7 +254,13 @@ async def bootstrap(
         search_total_limit=settings.search.total_limit,
     )
 
-    application = ResearchApplication(store, orchestrator, settings)
+    event_bus = EventBus()
+    conversation_service = ConversationService(
+        store, orchestrator, event_bus, llm, registry, settings
+    )
+    application = ResearchApplication(
+        store, orchestrator, settings, conversation_service, event_bus
+    )
     try:
         yield application
     finally:

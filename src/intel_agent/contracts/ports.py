@@ -61,6 +61,7 @@ class LLMClient(Protocol):
         task: ResearchTask,
         context: ContextPackage,
         remaining_output_tokens: int,
+        repair_hint: str | None = None,
     ) -> DecisionResponse: ...
 
 

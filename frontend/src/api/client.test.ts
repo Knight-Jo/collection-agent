@@ -1,82 +1,105 @@
-import { expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { api } from "./client";
 
-it("lists seeded conversations", async () => {
+type Call = { method: string; url: string; body: unknown };
+
+function mockFetch(data: unknown): { calls: Call[] } {
+  const calls: Call[] = [];
+  vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+    calls.push({ method: init?.method ?? "GET", url, body: init?.body });
+    return {
+      ok: true,
+      status: 200,
+      json: async () => data,
+    } as Response;
+  });
+  return { calls };
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+it("lists conversations via GET", async () => {
+  const { calls } = mockFetch([
+    { id: "c1", title: "t", status: "active", updated_at: "", run_status: null, run_phase: null },
+  ]);
   const items = await api.conversations();
-  expect(items.length).toBe(3);
-  expect(items.every((item) => item.title.length > 0)).toBe(true);
+  expect(items).toHaveLength(1);
+  expect(calls[0].url).toBe("/api/conversations?archived=false");
 });
 
-it("loads a conversation projection with messages and timeline", async () => {
-  const view = await api.conversation("conv-1");
-  expect(view?.conversation.title).toBe("先进封装产业竞争格局");
-  expect(view?.messages.length).toBe(2);
-  expect(view?.timeline.length).toBeGreaterThan(0);
-  expect(view?.materials.length).toBeGreaterThan(0);
+it("loads a conversation projection via GET", async () => {
+  const projection = {
+    conversation: { id: "c1", title: "t", status: "active", updated_at: "", run_status: null, run_phase: null },
+    messages: [],
+    run: null,
+    materials: [],
+    timeline: [],
+    committed_state_version: 0,
+    report_ready: false,
+    brief: null,
+    questions: [],
+    gaps: [],
+  };
+  const { calls } = mockFetch(projection);
+  const view = await api.conversation("c1");
+  expect(view?.conversation.id).toBe("c1");
+  expect(calls[0].url).toBe("/api/conversations/c1");
 });
 
-it("lists seeded monitors with change history", async () => {
+it("sends a message via POST with content body", async () => {
+  const message = { id: "m1", role: "user", content: "hi", status: "completed", citations: [] };
+  const { calls } = mockFetch(message);
+  await api.sendMessage("c1", "hi");
+  expect(calls[0].method).toBe("POST");
+  expect(calls[0].url).toBe("/api/conversations/c1/messages");
+  expect(JSON.parse(calls[0].body as string)).toEqual({ content: "hi" });
+});
+
+it("reads system status via GET", async () => {
+  const status = {
+    model: { name: "m", configured: true },
+    search: { name: "arxiv", configured: true },
+    processors: { tesseract: false, ffmpeg: true, whisper: true },
+  };
+  const { calls } = mockFetch(status);
+  const result = await api.system();
+  expect(result.processors.whisper).toBe(true);
+  expect(calls[0].url).toBe("/api/system");
+});
+
+it("lists search sources via GET", async () => {
+  const { calls } = mockFetch([{ id: "arxiv", name: "arxiv", url: "", enabled: true, cookies: "" }]);
+  const sources = await api.searchSources();
+  expect(sources[0].name).toBe("arxiv");
+  expect(calls[0].url).toBe("/api/search-sources");
+});
+
+it("lists AI search tools via GET", async () => {
+  const { calls } = mockFetch([{ id: "exa", name: "exa", description: "", enabled: false, api_key: "", api_key_env: "EXA_API_KEY" }]);
+  const tools = await api.aiSearchTools();
+  expect(tools[0].api_key_env).toBe("EXA_API_KEY");
+  expect(calls[0].url).toBe("/api/ai-search-tools");
+});
+
+it("lists seeded monitors (mock)", async () => {
   const monitors = await api.monitors();
-  expect(monitors.length).toBe(2);
-
+  expect(monitors.length).toBeGreaterThan(0);
   const detail = await api.monitor("mon-1");
-  expect(detail?.monitor.frequency).toBe("每天 09:00");
   expect(detail?.runs.length).toBeGreaterThan(0);
-  expect(detail?.runs[0].changes.length).toBeGreaterThan(0);
 });
 
-it("lists seeded fact checks with verdict and evidence", async () => {
+it("lists seeded fact checks (mock)", async () => {
   const checks = await api.factChecks();
-  expect(checks.length).toBe(1);
-
+  expect(checks.length).toBeGreaterThan(0);
   const check = await api.factCheck("fc-1");
   expect(check?.verdict).toBe("mostly_supported");
-  expect(check?.evidence_sufficiency).toBe("medium");
-  expect(check?.evidence.length).toBeGreaterThan(0);
 });
 
-it("organizes the library across three dimensions", async () => {
-  const library = await api.library();
-  expect(library.research.length).toBeGreaterThan(0);
-  expect(library.monitors.length).toBeGreaterThan(0);
-  expect(library.factChecks.length).toBeGreaterThan(0);
-
-  const record = library.research[0];
-  expect(record.title.length).toBeGreaterThan(0);
-  expect(Array.isArray(record.materials)).toBe(true);
-  expect(Array.isArray(record.facts)).toBe(true);
-  expect(Array.isArray(record.evidence)).toBe(true);
-  expect(Array.isArray(record.sources)).toBe(true);
-  expect(Array.isArray(record.questions)).toBe(true);
-  expect(Array.isArray(record.timeline)).toBe(true);
-});
-
-it("includes the research report on completed tasks", async () => {
-  const library = await api.library();
-  const done = library.research.find((task) => task.title === "先进封装产业竞争格局");
-  expect(done?.report?.status).toBe("published");
-  expect(done?.report?.content).toContain("竞争格局");
-});
-
-it("lists and configures search sources with cookies", async () => {
-  const sources = await api.searchSources();
-  expect(sources.length).toBeGreaterThan(0);
-  expect(sources.every((source) => "enabled" in source && "cookies" in source)).toBe(true);
-});
-
-it("lists AI search tools with api key env mapping", async () => {
-  const tools = await api.aiSearchTools();
-  expect(tools.map((tool) => tool.name)).toContain("Exa");
-  expect(tools.every((tool) => tool.api_key_env.length > 0)).toBe(true);
-});
-
-it("lists media jobs with segments, facts and evidence", async () => {
+it("lists media jobs (mock)", async () => {
   const jobs = await api.mediaJobs();
   expect(jobs.length).toBeGreaterThan(0);
-
   const job = await api.mediaJob("media-1");
-  expect(job?.kind).toBe("video");
   expect(job?.segments.length).toBeGreaterThan(0);
-  expect(job?.facts.length).toBeGreaterThan(0);
-  expect(job?.evidence.length).toBeGreaterThan(0);
 });

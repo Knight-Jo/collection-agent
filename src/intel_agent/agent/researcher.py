@@ -34,6 +34,31 @@ SYSTEM_PROMPT = (
     "invent a citation id."
 )
 
+BRIEF_PROMPT = (
+    "You are a research planner. Output exactly one JSON object with this "
+    "shape:\n"
+    '{"goal": "...", "scope": "...", "questions": ["..."], '
+    '"key_entities": ["..."], "suggested_sources": ["..."]}'
+)
+
+
+def _parse_brief(content: str) -> dict:
+    text = _strip_fences(content)
+    data = json.loads(text)
+    if not isinstance(data, dict):
+        raise DomainError(
+            "INVALID_DECISION", "brief must be an object", stage="agent"
+        )
+    return {
+        "goal": str(data.get("goal") or ""),
+        "scope": str(data.get("scope") or ""),
+        "questions": [str(q) for q in (data.get("questions") or [])],
+        "key_entities": [str(e) for e in (data.get("key_entities") or [])],
+        "suggested_sources": [
+            str(s) for s in (data.get("suggested_sources") or [])
+        ],
+    }
+
 
 def _strip_fences(content: str) -> str:
     content = content.strip()
@@ -119,8 +144,11 @@ class OpenAILLMClient:
         task: ResearchTask,
         context: ContextPackage,
         remaining_output_tokens: int,
+        repair_hint: str | None = None,
     ) -> DecisionResponse:
         user = self._user_prompt(task, context)
+        if repair_hint:
+            user += f"\n\n{repair_hint}"
         input_tokens = self.counter.count(SYSTEM_PROMPT) + self.counter.count(
             user
         )
@@ -151,6 +179,25 @@ class OpenAILLMClient:
             output_tokens=self.counter.count(content),
         )
 
+    async def generate_brief(self, prompt: str) -> dict:
+        payload: dict = {
+            "model": self.model_id,
+            "messages": [
+                {"role": "system", "content": BRIEF_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            "response_format": {"type": "json_object"},
+            "max_tokens": 1024,
+        }
+        if self.disable_thinking:
+            payload["extra_body"] = {
+                "chat_template_kwargs": {"enable_thinking": False}
+            }
+        response = await self.client.post("/chat/completions", json=payload)
+        response.raise_for_status()
+        content = response.json()["choices"][0]["message"]["content"]
+        return _parse_brief(content)
+
 
 class OllamaLLMClient:
     """Local Ollama client using the native /api/chat endpoint.
@@ -174,6 +221,7 @@ class OllamaLLMClient:
         task: ResearchTask,
         context: ContextPackage,
         remaining_output_tokens: int,
+        repair_hint: str | None = None,
     ) -> DecisionResponse:
         user = (
             f"Question: {task.question}\n\nEvidence:\n"
@@ -181,6 +229,8 @@ class OllamaLLMClient:
             f"Available citation ids: "
             f"{[c.citation_id for c in context.citations]}"
         )
+        if repair_hint:
+            user += f"\n\n{repair_hint}"
         payload = {
             "model": self.model_id,
             "messages": [
@@ -206,6 +256,23 @@ class OllamaLLMClient:
             input_tokens=data.get("prompt_eval_count", 0),
             output_tokens=data.get("eval_count", 0),
         )
+
+    async def generate_brief(self, prompt: str) -> dict:
+        payload = {
+            "model": self.model_id,
+            "messages": [
+                {"role": "system", "content": BRIEF_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            "stream": False,
+            "think": False,
+            "format": "json",
+            "options": {"temperature": 0, "num_predict": 1024},
+        }
+        response = await self.client.post("/api/chat", json=payload)
+        response.raise_for_status()
+        content = response.json()["message"]["content"]
+        return _parse_brief(content)
 
 
 class ResearchAgent:
@@ -237,3 +304,32 @@ class ResearchAgent:
                 ),
             )
         return decision
+
+    async def decide_with_repair(
+        self,
+        task: ResearchTask,
+        context: ContextPackage,
+        remaining_output_tokens: int = 4096,
+    ) -> ResearchDecision:
+        """One format-repair retry on an invalid decision (spec §12.2)."""
+        try:
+            return await self.decide(task, context, remaining_output_tokens)
+        except DomainError as error:
+            hint = f"Your previous output was invalid: {error.message}. "
+            hint += "Output valid JSON matching the required schema."
+            response = await self.llm_client.generate_decision(
+                task, context, remaining_output_tokens, repair_hint=hint
+            )
+            decision = response.decision
+            if decision.action == "finish" and decision.citation_ids:
+                validate_citation_ids(decision.citation_ids, context)
+            if self.store is not None:
+                self.store.record_budget_change(
+                    task.task_id,
+                    BudgetUsage(
+                        llm_calls=1,
+                        input_tokens=response.input_tokens,
+                        output_tokens=response.output_tokens,
+                    ),
+                )
+            return decision

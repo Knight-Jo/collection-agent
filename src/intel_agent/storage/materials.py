@@ -716,3 +716,220 @@ class MaterialStore:
                     attempt,
                 ),
             )
+
+    # --- conversations ------------------------------------------------------
+
+    def create_conversation(self, title: str = "新对话") -> dict:
+        conversation_id = new_id("conv")
+        now = _iso(datetime.now(UTC))
+        with self.db.transaction() as conn:
+            conn.execute(
+                "INSERT INTO conversations"
+                " (conversation_id, title, status, created_at, updated_at)"
+                " VALUES (?, ?, 'intake', ?, ?)",
+                (conversation_id, title, now, now),
+            )
+        return self.get_conversation(conversation_id)
+
+    def list_conversations(self, archived: bool = False) -> list[dict]:
+        statuses = ("archived",) if archived else ("intake", "active")
+        placeholders = ",".join("?" for _ in statuses)
+        rows = self.db.execute(
+            f"SELECT * FROM conversations WHERE status IN ({placeholders})"
+            " ORDER BY updated_at DESC",
+            statuses,
+        ).fetchall()
+        return [self._conversation_view(r) for r in rows]
+
+    def get_conversation(self, conversation_id: str) -> dict:
+        row = self.db.execute(
+            "SELECT * FROM conversations WHERE conversation_id = ?",
+            (conversation_id,),
+        ).fetchone()
+        if row is None:
+            raise DomainError(
+                "NOT_FOUND",
+                f"conversation not found: {conversation_id}",
+                stage="storage",
+            )
+        return self._conversation_view(row)
+
+    def set_conversation_status(
+        self, conversation_id: str, status: str
+    ) -> dict:
+        with self.db.transaction() as conn:
+            conn.execute(
+                "UPDATE conversations SET status = ?, updated_at = ?"
+                " WHERE conversation_id = ?",
+                (status, _iso(datetime.now(UTC)), conversation_id),
+            )
+        return self.get_conversation(conversation_id)
+
+    def set_conversation_title(self, conversation_id: str, title: str) -> None:
+        with self.db.transaction() as conn:
+            conn.execute(
+                "UPDATE conversations SET title = ?, status = 'active',"
+                " updated_at = ? WHERE conversation_id = ?",
+                (title, _iso(datetime.now(UTC)), conversation_id),
+            )
+
+    def save_brief(self, conversation_id: str, brief: dict) -> None:
+        with self.db.transaction() as conn:
+            conn.execute(
+                "UPDATE conversations SET brief = ?, updated_at = ?"
+                " WHERE conversation_id = ?",
+                (
+                    json.dumps(brief, ensure_ascii=False),
+                    _iso(datetime.now(UTC)),
+                    conversation_id,
+                ),
+            )
+
+    def add_message(
+        self,
+        conversation_id: str,
+        role: str,
+        content: str,
+        *,
+        task_id: str | None = None,
+        citations: list | None = None,
+        status: str = "completed",
+    ) -> dict:
+        message_id = new_id("msg")
+        now = _iso(datetime.now(UTC))
+        with self.db.transaction() as conn:
+            row = conn.execute(
+                "SELECT COALESCE(MAX(sequence), 0) AS seq FROM messages"
+                " WHERE conversation_id = ?",
+                (conversation_id,),
+            ).fetchone()
+            sequence = row["seq"] + 1
+            conn.execute(
+                "INSERT INTO messages (message_id, conversation_id, role,"
+                " content, status, task_id, citations, sequence, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    message_id,
+                    conversation_id,
+                    role,
+                    content,
+                    status,
+                    task_id,
+                    json.dumps(citations, ensure_ascii=False)
+                    if citations is not None
+                    else None,
+                    sequence,
+                    now,
+                ),
+            )
+        return {
+            "id": message_id,
+            "role": role,
+            "content": content,
+            "status": status,
+            "citations": citations or [],
+        }
+
+    def list_messages(self, conversation_id: str) -> list[dict]:
+        rows = self.db.execute(
+            "SELECT * FROM messages WHERE conversation_id = ?"
+            " ORDER BY sequence",
+            (conversation_id,),
+        ).fetchall()
+        return [
+            {
+                "id": r["message_id"],
+                "role": r["role"],
+                "content": r["content"],
+                "status": r["status"],
+                "citations": json.loads(r["citations"])
+                if r["citations"]
+                else [],
+            }
+            for r in rows
+        ]
+
+    def add_timeline(
+        self,
+        conversation_id: str,
+        kind: str,
+        label: str,
+        *,
+        detail: str | None = None,
+        task_id: str | None = None,
+        at: str | None = None,
+    ) -> dict:
+        timeline_id = new_id("tl")
+        at = at or _iso(datetime.now(UTC))
+        with self.db.transaction() as conn:
+            row = conn.execute(
+                "SELECT COALESCE(MAX(sequence), 0) AS seq FROM timeline"
+                " WHERE conversation_id = ?",
+                (conversation_id,),
+            ).fetchone()
+            sequence = row["seq"] + 1
+            conn.execute(
+                "INSERT INTO timeline (timeline_id, conversation_id, task_id,"
+                " kind, label, detail, at, sequence) VALUES (?, ?, ?, ?, ?,"
+                " ?, ?, ?)",
+                (
+                    timeline_id,
+                    conversation_id,
+                    task_id,
+                    kind,
+                    label,
+                    detail,
+                    at,
+                    sequence,
+                ),
+            )
+        return {
+            "id": timeline_id,
+            "kind": kind,
+            "label": label,
+            "detail": detail,
+            "at": at,
+        }
+
+    def list_timeline(self, conversation_id: str) -> list[dict]:
+        rows = self.db.execute(
+            "SELECT * FROM timeline WHERE conversation_id = ?"
+            " ORDER BY sequence",
+            (conversation_id,),
+        ).fetchall()
+        return [
+            {
+                "id": r["timeline_id"],
+                "kind": r["kind"],
+                "label": r["label"],
+                "detail": r["detail"],
+                "at": r["at"],
+            }
+            for r in rows
+        ]
+
+    def list_task_artifacts(self, task_id: str) -> list[str]:
+        rows = self.db.execute(
+            "SELECT artifact_id FROM task_materials WHERE task_id = ?"
+            " ORDER BY ordinal",
+            (task_id,),
+        ).fetchall()
+        return [r["artifact_id"] for r in rows]
+
+    def latest_task_id(self, conversation_id: str) -> str | None:
+        row = self.db.execute(
+            "SELECT task_id FROM messages WHERE conversation_id = ?"
+            " AND task_id IS NOT NULL ORDER BY sequence DESC LIMIT 1",
+            (conversation_id,),
+        ).fetchone()
+        return row["task_id"] if row else None
+
+    @staticmethod
+    def _conversation_view(row) -> dict:
+        return {
+            "id": row["conversation_id"],
+            "title": row["title"],
+            "status": row["status"],
+            "updated_at": row["updated_at"],
+            "brief": json.loads(row["brief"]) if row["brief"] else None,
+        }

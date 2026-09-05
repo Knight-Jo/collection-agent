@@ -18,10 +18,14 @@ class ResearchApplication:
         store: MaterialStore,
         orchestrator,
         settings: ResearchSettings,
+        conversation_service=None,
+        event_bus=None,
     ) -> None:
         self.store = store
         self.orchestrator = orchestrator
         self.settings = settings
+        self.conversations = conversation_service
+        self.events = event_bus
         self._tasks: dict[str, asyncio.Task] = {}
 
     def submit(self, question: str) -> ResearchTask:
@@ -60,4 +64,6 @@ class ResearchApplication:
         if self._tasks:
             await asyncio.gather(*self._tasks.values(), return_exceptions=True)
         self._tasks.clear()
+        if self.conversations is not None:
+            await self.conversations.close()
         self.store.close()

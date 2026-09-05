@@ -27,6 +27,9 @@ class FakeAgent:
         self._i += 1
         return decision
 
+    async def decide_with_repair(self, task, context):
+        return await self.decide(task, context)
+
 
 class FakeSearch:
     def __init__(self):

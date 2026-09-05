@@ -124,4 +124,10 @@ class IndexingService:
             report.vector.status = "degraded"
             report.vector.error = error.code
             report.warnings.append(f"vector index degraded: {error.code}")
+        except Exception as error:  # noqa: BLE001
+            report.vector.status = "degraded"
+            report.vector.error = type(error).__name__
+            report.warnings.append(
+                f"vector index degraded: {type(error).__name__}"
+            )
         return report

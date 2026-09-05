@@ -1,4 +1,4 @@
-"""HTTP API smoke tests (T19)."""
+"""HTTP API smoke tests for the conversation surface."""
 
 from __future__ import annotations
 
@@ -27,12 +27,31 @@ def test_health(api_client):
     assert response.status_code == 200
 
 
-def test_submit_returns_durable_task_without_waiting_for_research(api_client):
-    response = api_client.post(
-        "/api/tasks", json={"question": "动力电池回收进展"}
-    )
-    assert response.status_code == 202
-    task_id = response.json()["task_id"]
-    status = api_client.get(f"/api/tasks/{task_id}")
-    assert status.status_code == 200
-    assert status.json()["task_id"] == task_id
+def test_create_and_get_conversation(api_client):
+    response = api_client.post("/api/conversations")
+    assert response.status_code == 200
+    conversation_id = response.json()["id"]
+    assert conversation_id
+
+    detail = api_client.get(f"/api/conversations/{conversation_id}")
+    assert detail.status_code == 200
+    projection = detail.json()
+    assert projection["conversation"]["id"] == conversation_id
+    assert projection["messages"] == []
+    assert projection["timeline"] == []
+    assert projection["materials"] == []
+
+
+def test_system_status(api_client):
+    response = api_client.get("/api/system")
+    assert response.status_code == 200
+    body = response.json()
+    assert "model" in body
+    assert "search" in body
+    assert "processors" in body
+
+
+def test_search_sources(api_client):
+    response = api_client.get("/api/search-sources")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
