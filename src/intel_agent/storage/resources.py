@@ -157,6 +157,20 @@ class ResourceStore:
         finally:
             fh.close()
 
+    def blob_path(self, resource_id: str) -> Path:
+        """Filesystem path to the content-addressed blob.
+
+        Intended only for subprocess-based backends (ffmpeg) that require a
+        real path; never exposed over the HTTP surface.
+        """
+        resource = self.store.get_resource(resource_id)
+        path = self._blob_path(resource.content_hash)
+        if not path.exists():
+            raise DomainError(
+                "NOT_FOUND", f"blob missing: {resource_id}", stage="storage"
+            )
+        return path
+
 
 def _guess_media_type(path: Path) -> str:
     from mimetypes import guess_type

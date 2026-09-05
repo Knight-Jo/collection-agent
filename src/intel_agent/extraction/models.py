@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -51,3 +52,18 @@ class BackendOutput(BaseModel):
     coverage: list[CoverageUnit] = Field(default_factory=list)
     metrics: dict = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
+
+
+class Backend(ABC):
+    """A concrete extraction backend; only the run() contract is fixed."""
+
+    backend_id: str
+    version: str
+    capabilities: tuple[Capability, ...] = ()
+    media_types: tuple[str, ...] = ()
+
+    @abstractmethod
+    def availability(self) -> Availability: ...
+
+    @abstractmethod
+    async def run(self, request: BackendRequest) -> BackendOutput: ...
