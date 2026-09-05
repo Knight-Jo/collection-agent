@@ -8,11 +8,8 @@ from contextlib import asynccontextmanager
 import httpx
 
 from .acquisition import AcquisitionPipeline
-from .agent.researcher import (
-    OllamaLLMClient,
-    OpenAILLMClient,
-    ResearchAgent,
-)
+from .agent.models import build_model
+from .agent.roles import build_roles
 from .application import ResearchApplication
 from .context.manager import ContextManager
 from .context.retrieval import (
@@ -82,17 +79,6 @@ def build_search_providers(settings: ResearchSettings, client):
             RssProvider(client, feeds=cfg["rss"].extra.get("feeds", []))
         )
     return providers
-
-
-def _build_llm_client(settings, client, counter):
-    if settings.model.api_style == "ollama":
-        return OllamaLLMClient(client, settings.model.model_id, counter)
-    return OpenAILLMClient(
-        client,
-        settings.model.model_id,
-        counter,
-        disable_thinking=settings.model.disable_thinking,
-    )
 
 
 def _build_embedding(settings):
@@ -173,17 +159,6 @@ async def bootstrap(
     search_client = httpx.AsyncClient(
         trust_env=False, timeout=settings.search.provider_timeout_seconds
     )
-    llm_client = httpx.AsyncClient(
-        base_url=settings.model.base_url,
-        trust_env=False,
-        timeout=120.0,
-    )
-    if settings.model.api_key_env:
-        import os
-
-        key = os.environ.get(settings.model.api_key_env)
-        if key:
-            llm_client.headers["Authorization"] = f"Bearer {key}"
 
     fetch_service = FetchService(
         fetch_client,
@@ -229,8 +204,7 @@ async def bootstrap(
         vector_profile_id=embedding_profile_id,
     )
 
-    llm = _build_llm_client(settings, llm_client, counter)
-    agent = ResearchAgent(llm, store)
+    roles = build_roles(build_model(settings))
     pipeline = AcquisitionPipeline(
         fetch_service,
         extraction,
@@ -245,7 +219,7 @@ async def bootstrap(
         pipeline,
         indexing,
         context_manager,
-        agent,
+        roles,
         settings.research,
         extraction.profile_for("text/html") or "html",
         settings.tmp_root(),
@@ -256,7 +230,7 @@ async def bootstrap(
 
     event_bus = EventBus()
     conversation_service = ConversationService(
-        store, orchestrator, event_bus, llm, registry, settings
+        store, orchestrator, event_bus, roles, registry, settings
     )
     application = ResearchApplication(
         store, orchestrator, settings, conversation_service, event_bus
@@ -266,7 +240,6 @@ async def bootstrap(
     finally:
         await application.close()
         await search_client.aclose()
-        await llm_client.aclose()
         await fetch_client.aclose()
         if embedding_http is not None:
             await embedding_http.aclose()

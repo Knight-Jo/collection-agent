@@ -38,7 +38,7 @@ def main() -> int:
             "intel_agent.api.app:create_app",
             "--factory",
             "--host",
-            "127.0.0.1",
+            "0.0.0.0",
             "--port",
             backend_port,
             "--workers",
@@ -48,7 +48,9 @@ def main() -> int:
         env=env,
     )
     frontend = subprocess.Popen(
-        ["bun", "run", "dev"], cwd=root / "frontend", env=env
+        ["bun", "run", "dev", "--host", "0.0.0.0"],
+        cwd=root / "frontend",
+        env=env,
     )
     procs = [backend, frontend]
 

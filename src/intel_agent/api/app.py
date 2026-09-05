@@ -123,7 +123,7 @@ def create_app() -> FastAPI:
         brief = (body or {}).get("brief") or {}
         if not topic:
             raise HTTPException(422, "topic is required")
-        return _app(request).conversations.start_research(topic, brief)
+        return await _app(request).conversations.start_research(topic, brief)
 
     # --- system / library ---------------------------------------------------
 

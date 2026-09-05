@@ -55,6 +55,77 @@ class SearchQuery(BaseModel):
         return self
 
 
+class SearchDirection(BaseModel):
+    """A search direction: one query plus which engines to route it to."""
+
+    query: SearchQuery
+    provider_names: list[str] = Field(default_factory=list)
+    reason: str = ""
+
+
+class ResearchPlan(BaseModel):
+    """The planner's output: a brief plus concrete search directions."""
+
+    goal: str = ""
+    scope: str = ""
+    questions: list[str] = Field(default_factory=list)
+    key_entities: list[str] = Field(default_factory=list)
+    suggested_sources: list[str] = Field(default_factory=list)
+    directions: list[SearchDirection] = Field(default_factory=list)
+
+    def brief(self) -> dict:
+        """The user-facing brief subset (no internal search directions)."""
+        return {
+            "goal": self.goal,
+            "scope": self.scope,
+            "questions": self.questions,
+            "key_entities": self.key_entities,
+            "suggested_sources": self.suggested_sources,
+        }
+
+
+class QuestionCoverage(BaseModel):
+    question_id: str
+    question: str
+    status: Literal["pending", "researching", "answered", "blocked"] = (
+        "pending"
+    )
+    evidence_count: int = Field(default=0, ge=0)
+    coverage_note: str = ""
+
+
+class ResearchGap(BaseModel):
+    question_id: str
+    reason: str
+
+
+class CoverageAssessment(BaseModel):
+    sufficiency: Literal["high", "medium", "low"]
+    questions: list[QuestionCoverage] = Field(default_factory=list)
+    gaps: list[ResearchGap] = Field(default_factory=list)
+    summary: str = ""
+
+
+class EvidenceItem(BaseModel):
+    claim: str
+    relation: Literal["supports", "contradicts"]
+    quote: str = ""
+    citation_id: str = ""
+    source_title: str = ""
+
+
+class Conflict(BaseModel):
+    claim: str
+    description: str = ""
+    citation_ids: list[str] = Field(default_factory=list)
+
+
+class EvidenceReview(BaseModel):
+    claims: list[EvidenceItem] = Field(default_factory=list)
+    conflicts: list[Conflict] = Field(default_factory=list)
+    summary: str = ""
+
+
 class SearchRequest(BaseModel):
     query: SearchQuery
     provider_names: list[str] = Field(default_factory=list)
@@ -186,7 +257,7 @@ class ResearchTask(BaseModel):
 
 class ResearchDecision(BaseModel):
     action: Literal["search", "finish"]
-    queries: list[SearchQuery] = Field(default_factory=list)
+    directions: list[SearchDirection] = Field(default_factory=list)
     source_types: list[SourceType] = Field(default_factory=list)
     evidence_gaps: list[str] = Field(default_factory=list)
     reason: str
@@ -195,13 +266,13 @@ class ResearchDecision(BaseModel):
 
     @model_validator(mode="after")
     def _action_constraints(self) -> ResearchDecision:
-        if self.action == "search" and not self.queries:
-            raise ValueError("search decision requires at least one query")
+        if self.action == "search" and not self.directions:
+            raise ValueError("search decision requires at least one direction")
         if self.action == "finish":
             if not self.draft_answer:
                 raise ValueError("finish decision requires draft_answer")
-            if self.queries:
-                raise ValueError("finish decision must have empty queries")
+            if self.directions:
+                raise ValueError("finish decision must have empty directions")
         return self
 
 

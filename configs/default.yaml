@@ -121,8 +121,8 @@ research:
   max_rounds: 3                    # 最大轮数
   no_progress_rounds: 2            # 连续无新增轮数上限
   deadline_seconds: 3600           # 单任务总截止（60 分钟）
-  max_llm_calls: 10                # LLM 调用上限（含修复调用）
-  llm_token_budget: 100000         # 单任务 LLM 输入输出累计预算
+  max_llm_calls: 64                # LLM 调用上限（四角色×多轮；本地模型放宽）
+  llm_token_budget: 2000000        # 单任务 LLM 输入输出累计预算（本地模型放宽）
   new_resources_per_round: 20      # 单轮新采集资源上限
   new_resources_per_task: 60       # 单任务新采集资源上限
 

@@ -45,12 +45,12 @@ class SearchService:
     async def search(self, request: SearchRequest) -> SearchBatch:
         if request.per_provider_limit <= 0 or request.total_limit <= 0:
             raise DomainError("INVALID_REQUEST", "limits must be positive")
-        names = request.provider_names or list(self.providers)
-        unknown = [n for n in names if n not in self.providers]
-        if unknown:
-            raise DomainError(
-                "INVALID_REQUEST", f"unknown providers: {unknown}"
-            )
+        requested = request.provider_names or list(self.providers)
+        # Unknown provider names (e.g. a model emitting source-type labels)
+        # are ignored rather than failing the whole batch.
+        names = [n for n in requested if n in self.providers]
+        if not names:
+            names = list(self.providers)
 
         deadline = monotonic() + self.config.round_deadline_seconds
         reports: list[ProviderReport] = []

@@ -1,18 +1,22 @@
-"""ResearchOrchestrator: deterministic research loop (spec §12)."""
+"""ResearchOrchestrator: role-based research loop (spec §12)."""
 
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from ..contracts.research import (
+    BudgetUsage,
     Checkpoint,
     ContextPackage,
     ContextRequest,
     ResearchDecision,
+    ResearchPlan,
     ResearchResult,
     ResearchTask,
+    SearchDirection,
     SearchQuery,
     SearchRequest,
 )
@@ -23,6 +27,18 @@ from .state import TaskLock
 EventSink = Callable[[dict], Awaitable[None]]
 
 
+def _evidence_block(context: ContextPackage) -> str:
+    citations = "\n".join(
+        f"[{c.citation_id}] {c.source_url or c.document_id}"
+        for c in context.citations
+    )
+    return f"证据材料:\n{context.formatted_text}\n\n可用引用编号:\n{citations}"
+
+
+def _questions_block(plan: ResearchPlan) -> str:
+    return "\n".join(f"Q{i + 1}. {q}" for i, q in enumerate(plan.questions))
+
+
 class ResearchOrchestrator:
     def __init__(
         self,
@@ -31,7 +47,7 @@ class ResearchOrchestrator:
         acquisition_pipeline,
         indexing_service,
         context_manager,
-        agent,
+        roles,
         config: ResearchConfig,
         profile_id: str,
         lock_dir: Path,
@@ -45,7 +61,7 @@ class ResearchOrchestrator:
         self.acquisition_pipeline = acquisition_pipeline
         self.indexing_service = indexing_service
         self.context_manager = context_manager
-        self.agent = agent
+        self.roles = roles
         self.config = config
         self.profile_id = profile_id
         self.lock_dir = lock_dir
@@ -58,6 +74,19 @@ class ResearchOrchestrator:
         if sink is not None:
             await sink(event)
 
+    async def _run_agent(self, agent, prompt: str, task_id: str) -> Any:
+        result = await agent.run(prompt)
+        usage = result.usage
+        self.store.record_budget_change(
+            task_id,
+            BudgetUsage(
+                llm_calls=usage.requests,
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+            ),
+        )
+        return result.output
+
     async def run(self, question: str) -> ResearchResult:
         task = self.store.create_task(
             question, deadline_seconds=self.config.deadline_seconds
@@ -69,17 +98,17 @@ class ResearchOrchestrator:
         return await self.run_task(task)
 
     async def run_task(
-        self, task: ResearchTask, event_sink: EventSink | None = None
+        self,
+        task: ResearchTask,
+        event_sink: EventSink | None = None,
+        plan: ResearchPlan | None = None,
     ) -> ResearchResult:
         sink = event_sink or self.event_sink
         lock = TaskLock(self.lock_dir, task.task_id)
         lock.acquire()
         try:
-            self.store.get_task(task.task_id)
             context = ContextPackage(
-                task_id=task.task_id,
-                query=task.question,
-                scope_id="",
+                task_id=task.task_id, query=task.question, scope_id=""
             )
             accepted: list[str] = []
             round_no = task.round
@@ -109,59 +138,15 @@ class ResearchOrchestrator:
                     "detail": "拆解关键问题并确认范围",
                 },
             )
+            if plan is None:
+                plan = await self._run_agent(
+                    self.roles["planner"], task.question, task.task_id
+                )
+            assert plan is not None
+            directions = plan.directions or [
+                SearchDirection(query=SearchQuery(text=task.question))
+            ]
             for _ in range(self.config.max_rounds):
-                decision = await self.agent.decide_with_repair(task, context)
-                if decision.action == "finish" and not context.citations:
-                    decision = ResearchDecision(
-                        action="search",
-                        queries=[SearchQuery(text=task.question)],
-                        source_types=["web"],
-                        evidence_gaps=["no evidence collected"],
-                        reason="must search before finishing",
-                    )
-                if decision.action == "finish":
-                    citations = self._resolve_citations(
-                        decision.citation_ids, context
-                    )
-                    if not citations and context.citations:
-                        citations = list(context.citations)
-                    result = ResearchResult(
-                        task_id=task.task_id,
-                        status="completed",
-                        answer=decision.draft_answer or "",
-                        citations=citations,
-                        stop_reason="evidence_sufficient",
-                        usage=self.store.get_task(task.task_id).budget_used,
-                    )
-                    await self._emit_answer(sink, task.task_id, result.answer)
-                    await self._emit(
-                        sink,
-                        {
-                            "event": "timeline",
-                            "task_id": task.task_id,
-                            "kind": "decision",
-                            "label": "提交研究结果",
-                            "detail": "已提交检查点",
-                        },
-                    )
-                    await self._emit(
-                        sink,
-                        {
-                            "event": "run.status",
-                            "task_id": task.task_id,
-                            "status": "succeeded",
-                        },
-                    )
-                    await self._emit(
-                        sink,
-                        {
-                            "event": "run.phase",
-                            "task_id": task.task_id,
-                            "phase": "checkpointing",
-                        },
-                    )
-                    self._save_checkpoint(task, round_no, accepted, result)
-                    return result
                 await self._emit(
                     sink,
                     {
@@ -169,7 +154,7 @@ class ResearchOrchestrator:
                         "task_id": task.task_id,
                         "kind": "search_plan",
                         "label": "生成检索计划",
-                        "detail": f"规划 {len(decision.queries)} 组检索方向",
+                        "detail": f"规划 {len(directions)} 组检索方向",
                     },
                 )
                 await self._emit(
@@ -180,10 +165,11 @@ class ResearchOrchestrator:
                         "phase": "collecting",
                     },
                 )
-                for query in decision.queries:
+                for direction in directions:
                     batch = await self.search_service.search(
                         SearchRequest(
-                            query=query,
+                            query=direction.query,
+                            provider_names=direction.provider_names,
                             per_provider_limit=self.search_per_provider_limit,
                             total_limit=self.search_total_limit,
                         )
@@ -233,8 +219,6 @@ class ResearchOrchestrator:
                                     report.artifact_id
                                 )
                             except Exception:  # noqa: BLE001
-                                # A single artifact's index failure must not
-                                # abort the whole round.
                                 continue
                 round_no += 1
                 task.round = round_no
@@ -253,6 +237,8 @@ class ResearchOrchestrator:
                         max_tokens=self.context_max_tokens,
                     )
                 )
+                evidence_block = _evidence_block(context)
+                questions = _questions_block(plan)
                 await self._emit(
                     sink,
                     {
@@ -263,6 +249,93 @@ class ResearchOrchestrator:
                         "detail": f"已入库 {len(accepted)} 份材料",
                     },
                 )
+                coverage = await self._run_agent(
+                    self.roles["coverage"],
+                    f"研究问题:\n{questions}\n\n{evidence_block}\n\n"
+                    "逐问题评估证据是否充分。",
+                    task.task_id,
+                )
+                await self._emit(
+                    sink,
+                    {
+                        "event": "timeline",
+                        "task_id": task.task_id,
+                        "kind": "evidence",
+                        "label": "证据核验",
+                        "detail": "识别支持与矛盾证据",
+                    },
+                )
+                evidence = await self._run_agent(
+                    self.roles["verifier"],
+                    f"研究问题:\n{questions}\n\n{evidence_block}\n\n"
+                    "对关键主张核验证据并识别冲突。",
+                    task.task_id,
+                )
+                decision = await self._run_agent(
+                    self.roles["decider"],
+                    f"覆盖评估:\n{coverage.summary}\n\n"
+                    f"证据核验:\n{evidence.summary}\n\n"
+                    f"{evidence_block}\n\n"
+                    "决定下一步：继续搜索或结束。",
+                    task.task_id,
+                )
+                if decision.action == "finish":
+                    if not context.citations:
+                        decision = ResearchDecision(
+                            action="search",
+                            directions=[
+                                SearchDirection(
+                                    query=SearchQuery(text=task.question)
+                                )
+                            ],
+                            evidence_gaps=["no evidence collected"],
+                            reason="must search before finishing",
+                        )
+                        directions = decision.directions
+                        continue
+                    citations = self._resolve_citations(
+                        decision.citation_ids, context
+                    )
+                    if not citations and context.citations:
+                        citations = list(context.citations)
+                    result = ResearchResult(
+                        task_id=task.task_id,
+                        status="completed",
+                        answer=decision.draft_answer or "",
+                        citations=citations,
+                        stop_reason="evidence_sufficient",
+                        usage=self.store.get_task(task.task_id).budget_used,
+                    )
+                    await self._emit_answer(sink, task.task_id, result.answer)
+                    await self._emit(
+                        sink,
+                        {
+                            "event": "timeline",
+                            "task_id": task.task_id,
+                            "kind": "decision",
+                            "label": "提交研究结果",
+                            "detail": "已提交检查点",
+                        },
+                    )
+                    await self._emit(
+                        sink,
+                        {
+                            "event": "run.status",
+                            "task_id": task.task_id,
+                            "status": "succeeded",
+                        },
+                    )
+                    await self._emit(
+                        sink,
+                        {
+                            "event": "run.phase",
+                            "task_id": task.task_id,
+                            "phase": "checkpointing",
+                        },
+                    )
+                    self._save_checkpoint(task, round_no, accepted, result)
+                    return result
+                directions = decision.directions
                 self._save_checkpoint(task, round_no, accepted, None)
             result = ResearchResult(
                 task_id=task.task_id,

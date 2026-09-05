@@ -1,5 +1,6 @@
-"""Agent layer: research decision-making."""
+"""Agent layer: role-based research agents on pydantic-ai."""
 
-from .researcher import OpenAILLMClient, ResearchAgent
+from .models import build_model
+from .roles import build_roles
 
-__all__ = ["OpenAILLMClient", "ResearchAgent"]
+__all__ = ["build_model", "build_roles"]

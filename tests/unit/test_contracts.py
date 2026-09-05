@@ -14,6 +14,7 @@ from intel_agent.contracts.documents import (
 )
 from intel_agent.contracts.research import (
     ResearchDecision,
+    SearchDirection,
     SearchOccurrence,
     SearchQuery,
 )
@@ -30,18 +31,18 @@ def test_invalid_locations_and_decisions_are_rejected():
     with pytest.raises(ValidationError):
         ResearchDecision(
             action="search",
-            queries=[],
+            directions=[],
             source_types=["web"],
             evidence_gaps=[],
             reason="Need evidence",
         )
 
 
-def test_finish_decision_requires_answer_and_no_queries():
+def test_finish_decision_requires_answer_and_no_directions():
     with pytest.raises(ValidationError):
         ResearchDecision(
             action="finish",
-            queries=[],
+            directions=[],
             source_types=[],
             evidence_gaps=[],
             reason="done",
@@ -49,7 +50,7 @@ def test_finish_decision_requires_answer_and_no_queries():
     with pytest.raises(ValidationError):
         ResearchDecision(
             action="finish",
-            queries=[SearchQuery(text="x")],
+            directions=[SearchDirection(query=SearchQuery(text="x"))],
             source_types=[],
             evidence_gaps=[],
             reason="done",

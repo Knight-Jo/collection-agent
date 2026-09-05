@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 
 from .contracts.documents import Citation
+from .contracts.research import ResearchPlan
 from .runtime.events import EventBus
 from .storage.materials import MaterialStore
 
@@ -28,14 +29,14 @@ class ConversationService:
         store: MaterialStore,
         orchestrator,
         event_bus: EventBus,
-        llm_client,
+        roles,
         registry,
         settings,
     ) -> None:
         self.store = store
         self.orchestrator = orchestrator
         self.bus = event_bus
-        self.llm_client = llm_client
+        self.roles = roles
         self.registry = registry
         self.settings = settings
         self._runs: set[asyncio.Task] = set()
@@ -67,8 +68,9 @@ class ConversationService:
         timeline = self.store.list_timeline(conversation_id)
         materials = self._materials(conversation_id)
         run = self._run(conversation_id)
-        brief = conversation.get("brief")
-        questions = brief.get("questions", []) if brief else []
+        plan = self._load_plan(conversation_id)
+        questions = plan.questions if plan else []
+        brief = plan.brief() if plan else None
         return {
             "conversation": self._conversation_view(conversation),
             "messages": messages,
@@ -92,6 +94,16 @@ class ConversationService:
             ],
             "gaps": [],
         }
+
+    def _load_plan(self, conversation_id: str) -> ResearchPlan | None:
+        conversation = self.store.get_conversation(conversation_id)
+        brief = conversation.get("brief")
+        if brief and isinstance(brief, dict):
+            try:
+                return ResearchPlan.model_validate(brief)
+            except Exception:  # noqa: BLE001
+                return None
+        return None
 
     def _conversation_view(self, conversation: dict) -> dict:
         run = self._run(conversation["id"])
@@ -227,17 +239,22 @@ class ConversationService:
         task = self.store.create_task(
             content, deadline_seconds=self.settings.research.deadline_seconds
         )
+        plan = self._load_plan(conversation_id)
         sink = self._make_sink(conversation_id, task.task_id)
         run = asyncio.create_task(
-            self._run_and_reply(conversation_id, task, sink)
+            self._run_and_reply(conversation_id, task, sink, plan)
         )
         self._runs.add(run)
         run.add_done_callback(self._runs.discard)
         return user_message
 
-    async def _run_and_reply(self, conversation_id: str, task, sink) -> None:
+    async def _run_and_reply(
+        self, conversation_id: str, task, sink, plan
+    ) -> None:
         try:
-            result = await self.orchestrator.run_task(task, event_sink=sink)
+            result = await self.orchestrator.run_task(
+                task, event_sink=sink, plan=plan
+            )
             citations = self._map_citations(result.citations)
             self.store.add_message(
                 conversation_id,
@@ -281,11 +298,20 @@ class ConversationService:
     # --- brief / system / sources ------------------------------------------
 
     async def generate_brief(self, prompt: str) -> dict:
-        return await self.llm_client.generate_brief(prompt)
+        plan = await self._plan(prompt)
+        return plan.brief()
 
-    def start_research(self, topic: str, brief: dict) -> dict:
+    async def _plan(self, prompt: str) -> ResearchPlan:
+        result = await self.roles["planner"].run(prompt)
+        return result.output
+
+    async def start_research(self, topic: str, brief: dict) -> dict:
+        prompt = f"调研主题: {topic}\n\n调研简报:\n" + "\n".join(
+            f"- {q}" for q in (brief or {}).get("questions", [])
+        )
+        plan = await self._plan(prompt)
         conversation = self.store.create_conversation(topic)
-        self.store.save_brief(conversation["id"], brief)
+        self.store.save_brief(conversation["id"], plan.model_dump(mode="json"))
         self.store.set_conversation_status(conversation["id"], "active")
         return self._conversation_view(
             self.store.get_conversation(conversation["id"])
