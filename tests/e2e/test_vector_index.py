@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-import httpx
+import httpx2
 import pytest
 
 from intel_agent.contracts.research import MaterialScope
@@ -19,8 +19,8 @@ QDRANT_URL = "http://127.0.0.1:6333"
 
 def _services_ready() -> bool:
     try:
-        httpx.get(f"{EMBED_URL}/models", timeout=2).raise_for_status()
-        httpx.get(f"{QDRANT_URL}/collections", timeout=2).raise_for_status()
+        httpx2.get(f"{EMBED_URL}/models", timeout=2).raise_for_status()
+        httpx2.get(f"{QDRANT_URL}/collections", timeout=2).raise_for_status()
         return True
     except Exception:  # noqa: BLE001
         return False
@@ -36,7 +36,7 @@ async def test_vector_upsert_search_delete_roundtrip():
         dimension=1024,
     )
     pid = cfg.profile_id()
-    client = httpx.AsyncClient(base_url=EMBED_URL, trust_env=False)
+    client = httpx2.AsyncClient(base_url=EMBED_URL, trust_env=False)
     embedding = HttpEmbeddingClient(
         client, cfg.model_id, profile_id=pid, dimension=cfg.dimension
     )

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-import httpx
+import httpx2
 
 from .acquisition import AcquisitionPipeline
 from .agent.models import build_model
@@ -133,10 +133,11 @@ def build_search_providers(settings: ResearchSettings, client):
 def _build_embedding(settings):
     if settings.embedding is None:
         return None, None, None
-    client = httpx.AsyncClient(
+    client = httpx2.AsyncClient(
         base_url=settings.embedding.base_url,
         trust_env=False,
         timeout=60.0,
+        http2=True,
     )
     if settings.embedding.api_key_env:
         import os
@@ -229,8 +230,10 @@ async def bootstrap(
         timeout=settings.fetch.http_timeout_seconds,
         proxy=settings.fetch.proxy_url,
     )
-    search_client = httpx.AsyncClient(
-        trust_env=False, timeout=settings.search.provider_timeout_seconds
+    search_client = httpx2.AsyncClient(
+        trust_env=False,
+        timeout=settings.search.provider_timeout_seconds,
+        http2=True,
     )
 
     fetch_service = FetchService(

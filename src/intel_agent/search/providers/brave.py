@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import httpx
+import httpx2
 
 from ...contracts.ports import (
     FilterCapability,
@@ -17,7 +17,7 @@ class BraveProvider:
 
     def __init__(
         self,
-        client: httpx.AsyncClient,
+        client: httpx2.AsyncClient,
         api_key: str | None = None,
         base_url: str = "https://api.search.brave.com/res/v1/web/search",
         timeout_seconds: float = 20.0,

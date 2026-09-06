@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from time import monotonic
 
-import httpx
+import httpx2
 
 from ...contracts.ports import (
     FilterCapability,
@@ -42,7 +42,7 @@ class ArxivProvider:
 
     def __init__(
         self,
-        client: httpx.AsyncClient,
+        client: httpx2.AsyncClient,
         base_url: str = "https://export.arxiv.org/api/query",
         timeout_seconds: float = 20.0,
         min_interval: float = 3.0,

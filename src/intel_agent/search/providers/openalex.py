@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-import httpx
+import httpx2
 
 from ...contracts.ports import (
     FilterCapability,
@@ -19,7 +19,7 @@ class OpenAlexProvider:
 
     def __init__(
         self,
-        client: httpx.AsyncClient,
+        client: httpx2.AsyncClient,
         base_url: str = "https://api.openalex.org/works",
         api_key: str | None = None,
         timeout_seconds: float = 20.0,

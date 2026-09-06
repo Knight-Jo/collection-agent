@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from time import monotonic
 from urllib.parse import urljoin
 
-import httpx
+import httpx2
 
 from ..contracts.errors import DomainError
 from ..contracts.resources import FetchRequest, FetchResult, ResourceOrigin
@@ -21,9 +21,22 @@ _SNIFF_BYTES = 512
 
 
 class FetchService:
+    """Fetch remote resources safely and persist them as local resources.
+
+    The service validates public URLs, follows a bounded number of redirects,
+    streams response bodies through size limits, and retries retryable errors.
+    Browser requests are delegated to ``browser_fetcher`` when configured.
+
+    Attributes:
+        client: Async HTTP client used for ordinary HTTP requests.
+        resource_store: Destination for streamed resource content and metadata.
+        config: Fetch timeouts, retry limits, concurrency, and size limits.
+        browser_fetcher: Optional backend for browser-mode requests.
+    """
+
     def __init__(
         self,
-        client: httpx.AsyncClient,
+        client: httpx2.AsyncClient,
         resource_store: ResourceStore,
         config: FetchConfig,
         browser_fetcher=None,
@@ -35,9 +48,26 @@ class FetchService:
 
     @property
     def default_timeout(self) -> float:
+        """Return the default timeout configured for HTTP fetches."""
         return self.config.http_timeout_seconds
 
     async def fetch(self, request: FetchRequest) -> FetchResult:
+        """Fetch a resource using HTTP or the configured browser backend.
+
+        HTTP requests are retried according to the fetch configuration. The
+        returned result contains the persisted resource, response metadata, and
+        any non-fatal warnings.
+
+        Args:
+            request: URL, mode, headers, timeout, and size-limit options.
+
+        Returns:
+            The fetched resource and safe response metadata.
+
+        Raises:
+            DomainError: If validation, networking, response handling, or the
+                selected backend fails.
+        """
         if request.mode == "browser":
             if self.browser_fetcher is None:
                 raise DomainError(
@@ -50,6 +80,7 @@ class FetchService:
         last_error: DomainError | None = None
         for attempt in range(1, attempts + 1):
             try:
+                # Each attempt validates the URL and streams the response safely.
                 return await self._fetch_once(request)
             except DomainError as error:
                 if not error.retryable or attempt >= attempts:
@@ -127,11 +158,11 @@ class FetchService:
             )
         except DomainError:
             raise
-        except httpx.TimeoutException as error:
+        except httpx2.TimeoutException as error:
             raise DomainError(
                 "TIMEOUT", f"fetch timed out: {url}", stage="fetch"
             ) from error
-        except httpx.TransportError as error:
+        except httpx2.TransportError as error:
             raise DomainError(
                 "NETWORK_ERROR",
                 f"network error: {type(error).__name__} for {url}",

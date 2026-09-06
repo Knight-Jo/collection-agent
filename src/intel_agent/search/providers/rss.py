@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 from html import unescape
 
-import httpx
+import httpx2
 
 from ...contracts.ports import (
     FilterCapability,
@@ -39,7 +39,7 @@ class RssProvider:
 
     def __init__(
         self,
-        client: httpx.AsyncClient,
+        client: httpx2.AsyncClient,
         feeds: list[str],
         source_types: list[SourceType] | None = None,
         timeout_seconds: float = 20.0,
@@ -67,7 +67,7 @@ class RssProvider:
                     feed, timeout=self.timeout_seconds
                 )
                 response.raise_for_status()
-            except httpx.HTTPError:
+            except httpx2.HTTPError:
                 continue
             entries = _parse_feed(response.text)
             for rank, entry in enumerate(entries, start=1):

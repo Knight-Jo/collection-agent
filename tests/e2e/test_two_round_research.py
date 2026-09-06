@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import httpx
+import httpx2
 import pytest
 
 from intel_agent.bootstrap import bootstrap
@@ -16,7 +16,7 @@ OLLAMA = "http://127.0.0.1:11434"
 
 def _ollama_ready() -> bool:
     try:
-        return httpx.get(f"{OLLAMA}/api/tags", timeout=2).status_code == 200
+        return httpx2.get(f"{OLLAMA}/api/tags", timeout=2).status_code == 200
     except Exception:  # noqa: BLE001
         return False
 

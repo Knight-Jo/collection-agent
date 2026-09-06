@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import httpx
+import httpx2
 
 from ...contracts.ports import (
     FilterCapability,
@@ -19,7 +19,7 @@ class ExaProvider:
 
     def __init__(
         self,
-        client: httpx.AsyncClient,
+        client: httpx2.AsyncClient,
         api_key: str | None = None,
         base_url: str = "https://api.exa.ai/search",
         num_results: int = 10,

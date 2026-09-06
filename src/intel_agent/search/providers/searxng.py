@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-import httpx
+import httpx2
 
 from ...contracts.ports import (
     FilterCapability,
@@ -29,7 +29,7 @@ class SearXNGProvider:
 
     def __init__(
         self,
-        client: httpx.AsyncClient,
+        client: httpx2.AsyncClient,
         base_url: str,
         timeout_seconds: float = 20.0,
     ) -> None:

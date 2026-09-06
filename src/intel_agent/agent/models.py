@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import httpx
+import httpx2
 from pydantic_ai.models import infer_model
 from pydantic_ai.providers.ollama import OllamaProvider
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -15,7 +15,7 @@ def build_model(settings):
     `ollama` uses the native Ollama provider. The http client disables the
     ambient proxy so local endpoints are never routed through SOCKS.
     """
-    client = httpx.AsyncClient(trust_env=False, timeout=180.0)
+    client = httpx2.AsyncClient(trust_env=False, timeout=180.0, http2=True)
     api_key = None
     if settings.model.api_key_env:
         import os

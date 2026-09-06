@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import httpx
+import httpx2
 
 from ..contracts.errors import DomainError
 from .models import EmbeddingBatch
@@ -17,7 +17,7 @@ class HttpEmbeddingClient:
 
     def __init__(
         self,
-        client: httpx.AsyncClient,
+        client: httpx2.AsyncClient,
         model_id: str,
         *,
         profile_id: str,
