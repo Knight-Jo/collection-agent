@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import mimetypes
+import zipfile
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 
 from .contracts.documents import Citation
+from .contracts.errors import DomainError
 from .contracts.research import ResearchPlan
 from .runtime.events import EventBus
 from .storage.materials import MaterialStore
@@ -162,9 +166,65 @@ class ConversationService:
                     ),
                     "rating": 0,
                     "description": "",
+                    "download_url": f"/api/materials/{artifact_id}/download",
                 }
             )
         return materials
+
+    # --- material source files ---------------------------------------------
+
+    def _resource_store(self):
+        return self.orchestrator.acquisition_pipeline.resource_store
+
+    def _material_filename(self, document, resource) -> str:
+        title = document.title or (
+            resource.origin.final_url or document.artifact_id
+        )
+        base = (
+            "".join(c if c.isalnum() or c in "-_." else "_" for c in title)[
+                :80
+            ]
+            or document.artifact_id
+        )
+        ext = mimetypes.guess_extension(resource.media_type) or ""
+        return f"{base}{ext}"
+
+    def material_resource(self, artifact_id: str) -> tuple[Path, str, str]:
+        """Return (blob path, media type, filename) for a material's source."""
+        document = self.store.get_document(artifact_id)
+        resource = self.store.get_resource(document.resource_id)
+        path = self._resource_store().blob_path(document.resource_id)
+        filename = self._material_filename(document, resource)
+        return path, resource.media_type, filename
+
+    def materials_zip(self, conversation_id: str) -> Path:
+        """Bundle every material source file of the latest task into a zip."""
+        task_id = self.store.latest_task_id(conversation_id)
+        if task_id is None:
+            raise DomainError(
+                "NOT_FOUND", f"no task for conversation: {conversation_id}"
+            )
+        out = self.settings.tmp_root() / f"materials-{conversation_id}.zip"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        seen: set[str] = set()
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+            for artifact_id in self.store.list_task_artifacts(task_id):
+                try:
+                    document = self.store.get_document(artifact_id)
+                    resource = self.store.get_resource(document.resource_id)
+                    path = self._resource_store().blob_path(
+                        document.resource_id
+                    )
+                except DomainError:
+                    continue
+                if not path.exists():
+                    continue
+                filename = self._material_filename(document, resource)
+                if filename in seen:
+                    filename = f"{document.artifact_id}-{filename}"
+                seen.add(filename)
+                zf.write(path, filename)
+        return out
 
     # --- messages -----------------------------------------------------------
 

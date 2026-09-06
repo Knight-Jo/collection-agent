@@ -34,6 +34,7 @@ export interface Material {
   source_type: string;
   rating: number;
   description: string;
+  download_url?: string;
 }
 
 export interface Run {

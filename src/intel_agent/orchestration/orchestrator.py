@@ -40,6 +40,29 @@ def _questions_block(plan: ResearchPlan) -> str:
 
 
 class ResearchOrchestrator:
+    """Coordinate the role-based research loop for a research task.
+
+    The orchestrator plans search directions, collects and indexes sources,
+    evaluates evidence, and either requests another round or writes a report.
+    Progress and budget usage are persisted through the store so a task can be
+    resumed and checkpointed between rounds.
+
+    Attributes:
+        store: Persists tasks, materials, budget usage, and checkpoints.
+        search_service: Executes searches for the planned directions.
+        acquisition_pipeline: Fetches, extracts, stores, and prepares sources.
+        indexing_service: Indexes acquired artifacts for retrieval.
+        context_manager: Builds evidence context for agent evaluation.
+        roles: Planner, coverage, verifier, decider, and writer agents.
+        config: Limits and runtime settings for the research loop.
+        profile_id: Default extraction profile for acquired sources.
+        lock_dir: Directory used to prevent concurrent runs of one task.
+        context_max_tokens: Maximum tokens included in evidence context.
+        search_per_provider_limit: Maximum results requested per provider.
+        search_total_limit: Maximum results requested per search round.
+        event_sink: Optional default destination for progress events.
+    """
+
     def __init__(
         self,
         store: MaterialStore,
@@ -88,12 +111,28 @@ class ResearchOrchestrator:
         return result.output
 
     async def run(self, question: str) -> ResearchResult:
+        """Create and execute a new research task for ``question``.
+
+        Args:
+            question: Research question to investigate.
+
+        Returns:
+            The completed or partial research result.
+        """
         task = self.store.create_task(
             question, deadline_seconds=self.config.deadline_seconds
         )
         return await self.run_task(task)
 
     async def resume(self, task_id: str) -> ResearchResult:
+        """Resume and execute an existing research task.
+
+        Args:
+            task_id: Identifier of the task to resume.
+
+        Returns:
+            The completed or partial research result.
+        """
         task = self.store.get_task(task_id)
         return await self.run_task(task)
 
@@ -103,6 +142,23 @@ class ResearchOrchestrator:
         event_sink: EventSink | None = None,
         plan: ResearchPlan | None = None,
     ) -> ResearchResult:
+        """Execute a task through planning, research rounds, and reporting.
+
+        Each round searches in the current directions, acquires new materials,
+        assesses coverage and evidence, then decides whether to continue or
+        finish. A checkpoint is saved after each round and before returning.
+
+        Args:
+            task: Task to execute.
+            event_sink: Optional per-run event destination, overriding the
+                configured default sink.
+            plan: Optional existing plan; when omitted, the planner role creates
+                one from the task question.
+
+        Returns:
+            A completed result when evidence is sufficient, or a partial result
+            when the configured round limit is reached.
+        """
         sink = event_sink or self.event_sink
         lock = TaskLock(self.lock_dir, task.task_id)
         lock.acquire()

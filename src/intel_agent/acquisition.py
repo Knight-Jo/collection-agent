@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import html as _html
+from datetime import UTC, datetime
+
 from .contracts.documents import NormalizationInput
 from .contracts.errors import DomainError
 from .contracts.research import SearchHit
-from .contracts.resources import FetchRequest, Resource
+from .contracts.resources import FetchRequest, Resource, ResourceOrigin
 from .indexing.models import AcquisitionReport
 from .indexing.service import IndexingService
 from .normalization import Normalizer
@@ -16,6 +19,21 @@ type Source = SearchHit | Resource
 
 
 class AcquisitionPipeline:
+    """Acquire a source and turn it into a stored, optionally indexed document.
+
+    The pipeline runs the stages FETCH, EXTRACT, NORMALIZE, STORE, and INDEX.
+    Each work item records its progress so interrupted items can be resumed
+    without repeating completed stages.
+
+    Attributes:
+        fetch_service: Retrieves remote sources.
+        extraction_service: Extracts structured content from resources.
+        normalizer: Converts extracted content into a document model.
+        store: Persists work items, identities, revisions, and documents.
+        resource_store: Persists fetched resource content.
+        indexing_service: Optionally indexes stored documents.
+    """
+
     def __init__(
         self,
         fetch_service,
@@ -40,6 +58,17 @@ class AcquisitionPipeline:
         *,
         index_after_store: bool = False,
     ) -> AcquisitionReport:
+        """Start acquisition for a search hit or an existing resource.
+
+        Args:
+            task_id: Identifier of the research task owning the work item.
+            source: Search result or resource to process.
+            profile_id: Fallback extraction profile.
+            index_after_store: Whether to index the document after storing it.
+
+        Returns:
+            A report describing the completed or failed acquisition stage.
+        """
         if isinstance(source, Resource):
             resource = source
             work_item_id = self.store.create_work_item(
@@ -61,6 +90,14 @@ class AcquisitionPipeline:
         )
 
     async def resume_item(self, work_item_id: str) -> AcquisitionReport:
+        """Resume a previously created work item from its recorded progress.
+
+        Args:
+            work_item_id: Identifier of the work item to resume.
+
+        Returns:
+            A report describing the completed or failed acquisition stage.
+        """
         item = self.store.get_work_item(work_item_id)
         payload = item["payload"]
         source: Source
@@ -88,7 +125,7 @@ class AcquisitionPipeline:
         resource_id = item.get("resource_id")
         artifact_id = item.get("artifact_id")
 
-        # Already stored: only indexing can remain.
+        # A stored artifact only needs the optional indexing stage.
         if artifact_id is not None:
             if index_after_store and self.indexing_service is not None:
                 await self.indexing_service.index(artifact_id)
@@ -101,10 +138,12 @@ class AcquisitionPipeline:
                 status="success",
             )
 
-        # FETCH
+        # Fetch or reuse the source resource.
         if resource_id is None:
             if isinstance(source, Resource):
                 resource = source
+            elif getattr(source, "content", None):
+                resource = await self._content_resource(source)
             else:
                 try:
                     timeout = getattr(
@@ -132,7 +171,7 @@ class AcquisitionPipeline:
         else:
             resource = self.store.get_resource(resource_id)
 
-        # EXTRACT
+        # Extract content using the media-type-specific profile when available.
         try:
             pid = (
                 self.extraction_service.profile_for(resource.media_type)
@@ -152,7 +191,7 @@ class AcquisitionPipeline:
             )
         self.store.update_work_item(work_item_id, "extract", "done")
 
-        # NORMALIZE + STORE (idempotent)
+        # Normalize and store only when no artifact exists yet.
         if artifact_id is None:
             source_key = self._source_key(source, resource)
             identity = self.store.resolve_identity(source_key)
@@ -172,7 +211,7 @@ class AcquisitionPipeline:
                 work_item_id, "store", "done", artifact_id=artifact_id
             )
 
-        # INDEX
+        # Index the artifact when requested and an index is configured.
         if index_after_store and self.indexing_service is not None:
             await self.indexing_service.index(artifact_id)
             self.store.update_work_item(work_item_id, "index", "done")
@@ -183,6 +222,30 @@ class AcquisitionPipeline:
             artifact_id=artifact_id,
             stage="done",
             status="success",
+        )
+
+    async def _content_resource(self, source: SearchHit) -> Resource:
+        """Store a provider-supplied text payload as an HTML resource."""
+        title = source.title or ""
+        body = _html.escape(source.content or "")
+        doc = (
+            "<html><head><meta charset='utf-8'><title>"
+            f"{_html.escape(title)}</title></head><body>{body}</body></html>"
+        )
+
+        async def chunks():
+            data = doc.encode("utf-8")
+            for i in range(0, len(data), 64 * 1024):
+                yield data[i : i + 64 * 1024]
+
+        return await self.resource_store.write_stream(
+            chunks(),
+            origin=ResourceOrigin(
+                requested_url=source.url,
+                final_url=source.url,
+                acquired_at=datetime.now(UTC),
+            ),
+            media_type="text/html",
         )
 
     @staticmethod

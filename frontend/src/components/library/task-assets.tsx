@@ -1,4 +1,4 @@
-import { ExternalLink } from "lucide-react";
+import { Download, ExternalLink } from "lucide-react";
 import type { LibraryResearchRecord } from "@/api/types";
 import { AgentTimeline } from "@/components/research/agent-timeline";
 import { MaterialsList } from "@/components/research/materials-list";
@@ -56,6 +56,17 @@ export function TaskAssets({ task }: { task: LibraryResearchRecord }) {
       </TabsContent>
 
       <TabsContent value="materials" className="mt-4">
+        {task.materials.length > 0 && (
+          <div className="mb-3 flex justify-end">
+            <a
+              href={`/api/conversations/${task.id}/materials.zip`}
+              className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+            >
+              <Download className="size-3.5" />
+              导出全部材料 (zip)
+            </a>
+          </div>
+        )}
         <MaterialsList materials={task.materials} />
       </TabsContent>
 

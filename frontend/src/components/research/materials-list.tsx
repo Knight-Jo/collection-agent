@@ -1,4 +1,4 @@
-import { ExternalLink, Star } from "lucide-react";
+import { Download, ExternalLink, Star } from "lucide-react";
 import type { Material } from "@/api/types";
 
 function Stars({ rating }: { rating: number }) {
@@ -34,6 +34,16 @@ export function MaterialsList({ materials }: { materials: Material[] }) {
               <span className="line-clamp-2">{material.title}</span>
               <ExternalLink className="mt-0.5 size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
             </a>
+            {material.download_url && (
+              <a
+                href={material.download_url}
+                title="下载源文件"
+                className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+              >
+                <Download className="size-3.5" />
+                下载
+              </a>
+            )}
           </div>
           <div className="mt-1.5 flex items-center gap-2">
             <Stars rating={material.rating} />

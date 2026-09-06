@@ -156,6 +156,7 @@ class SearchHit(BaseModel):
     dedup_key: str
     title: str | None = None
     snippet: str | None = None
+    content: str | None = None
     published_at: datetime | None = None
     source_types: list[SourceType] = Field(default_factory=list)
     occurrences: list[SearchOccurrence] = Field(default_factory=list)

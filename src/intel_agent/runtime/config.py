@@ -29,6 +29,8 @@ def profile_id(config: Any) -> str:
 class ProviderConfig(BaseModel):
     enabled: bool = True
     base_url: str | None = None
+    api_key_env: str | None = None
+    api_key: str | None = None
     extra: dict[str, Any] = Field(default_factory=dict)
 
 

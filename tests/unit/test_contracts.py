@@ -17,6 +17,7 @@ from intel_agent.contracts.research import (
     ResearchDecision,
     ResearchReport,
     SearchDirection,
+    SearchHit,
     SearchOccurrence,
     SearchQuery,
 )
@@ -71,6 +72,16 @@ def test_research_report_markdown():
     assert "## 方法" in md
     assert "## 结论" in md
     assert "## 局限" in md
+
+
+def test_search_hit_carries_optional_content():
+    hit = SearchHit(
+        hit_id="h1",
+        url="https://example.org/a",
+        dedup_key="https://example.org/a",
+        content="full text",
+    )
+    assert hit.content == "full text"
 
 
 def test_naive_datetimes_are_rejected():

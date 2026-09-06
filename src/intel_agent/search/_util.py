@@ -31,6 +31,7 @@ def make_hit(
     score: float | None,
     channel: str = "web",
     metadata: dict | None = None,
+    content: str | None = None,
 ) -> SearchHit:
     key = dedup_key(url)
     occurrence = SearchOccurrence(
@@ -49,6 +50,7 @@ def make_hit(
         dedup_key=key,
         title=title,
         snippet=snippet,
+        content=content,
         published_at=published_at,
         source_types=source_types,
         occurrences=[occurrence],

@@ -6,7 +6,10 @@ import asyncio
 
 from .contracts.errors import DomainError
 from .contracts.research import ResearchResult, ResearchTask
+from .conversation import ConversationService
+from .orchestration import ResearchOrchestrator
 from .runtime.config import ResearchSettings
+from .runtime.events import EventBus
 from .storage.materials import MaterialStore
 
 
@@ -16,10 +19,10 @@ class ResearchApplication:
     def __init__(
         self,
         store: MaterialStore,
-        orchestrator,
+        orchestrator: ResearchOrchestrator,
         settings: ResearchSettings,
-        conversation_service=None,
-        event_bus=None,
+        conversation_service: ConversationService | None = None,
+        event_bus: EventBus | None = None,
     ) -> None:
         self.store = store
         self.orchestrator = orchestrator

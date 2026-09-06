@@ -51,6 +51,24 @@ search:
     searxng:
       enabled: true                # 需本机 SearXNG（http://127.0.0.1:8888）
       base_url: http://127.0.0.1:8888
+    exa:
+      enabled: true                # AI 神经搜索（返回正文），需 EXA_API_KEY
+      api_key_env: EXA_API_KEY
+      extra:
+        base_url: https://api.exa.ai/search
+        num_results: 10
+    tavily:
+      enabled: true                # AI 搜索（返回正文），需 TAVILY_API_KEY
+      api_key_env: TAVILY_API_KEY
+      extra:
+        base_url: https://api.tavily.com/search
+        search_depth: advanced
+        max_results: 10
+    brave:
+      enabled: true                # Brave 搜索 API，需 BRAVE_API_KEY
+      api_key_env: BRAVE_API_KEY
+      extra:
+        base_url: https://api.search.brave.com/res/v1/web/search
     arxiv:
       enabled: true                # 学术论文（arXiv，公网）
     openalex:

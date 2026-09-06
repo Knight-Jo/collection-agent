@@ -1,4 +1,4 @@
-"""Unique assembly entry point (spec §3.1, §5)."""
+"""Build the research application and its runtime dependencies."""
 
 from __future__ import annotations
 
@@ -46,16 +46,33 @@ from .runtime.events import EventBus
 from .runtime.execution import Executor
 from .search.providers import (
     ArxivProvider,
+    BraveProvider,
+    ExaProvider,
     OpenAlexProvider,
     RssProvider,
     SearXNGProvider,
+    TavilyProvider,
 )
 from .search.service import SearchService
 from .storage.materials import MaterialStore
 from .storage.resources import ResourceStore
 
 
+def _resolve_api_key(cfg):
+    if cfg.api_key_env:
+        import os
+
+        key = os.environ.get(cfg.api_key_env)
+        if key:
+            return key
+    return cfg.api_key
+
+
 def build_search_providers(settings: ResearchSettings, client):
+    """Return the search providers enabled in ``settings``.
+
+    ``client`` is the shared HTTP client used by the providers for requests.
+    """
     providers = []
     cfg = settings.search.providers
     if cfg.get("searxng", None) is not None:
@@ -64,6 +81,38 @@ def build_search_providers(settings: ResearchSettings, client):
             providers.append(
                 SearXNGProvider(client, p.base_url or "http://127.0.0.1:8888")
             )
+    if cfg.get("exa", None) is not None and cfg["exa"].enabled:
+        extra = cfg["exa"].extra
+        providers.append(
+            ExaProvider(
+                client,
+                api_key=_resolve_api_key(cfg["exa"]),
+                base_url=extra.get("base_url") or "https://api.exa.ai/search",
+                num_results=extra.get("num_results", 10),
+            )
+        )
+    if cfg.get("tavily", None) is not None and cfg["tavily"].enabled:
+        extra = cfg["tavily"].extra
+        providers.append(
+            TavilyProvider(
+                client,
+                api_key=_resolve_api_key(cfg["tavily"]),
+                base_url=extra.get("base_url")
+                or "https://api.tavily.com/search",
+                search_depth=extra.get("search_depth", "advanced"),
+                max_results=extra.get("max_results", 10),
+            )
+        )
+    if cfg.get("brave", None) is not None and cfg["brave"].enabled:
+        extra = cfg["brave"].extra
+        providers.append(
+            BraveProvider(
+                client,
+                api_key=_resolve_api_key(cfg["brave"]),
+                base_url=extra.get("base_url")
+                or "https://api.search.brave.com/res/v1/web/search",
+            )
+        )
     if cfg.get("arxiv", None) is not None and cfg["arxiv"].enabled:
         providers.append(ArxivProvider(client))
     if cfg.get("openalex", None) is not None and cfg["openalex"].enabled:
@@ -109,6 +158,28 @@ def _build_embedding(settings):
 async def bootstrap(
     settings: ResearchSettings,
 ) -> AsyncGenerator[ResearchApplication]:
+    """Build the research application from the supplied settings.
+
+    The setup creates shared stores and executors, registers extraction and
+    search services, configures indexing and retrieval, then assembles the
+    research workflow and application API. Use it as an asynchronous context
+    manager; all resources are released when the context exits.
+
+    creates the following services and components:
+    - MaterialStore: SQLite-backed store for artifacts, documents, and chunks.
+    - ResourceStore: File-backed store for downloaded and extracted resources.
+    - Executor: Resource-aware execution pool for CPU and GPU tasks.
+    - ExtractionService: Manages extraction backends and profiles.
+    - FetchService: Fetches and downloads artifacts from URLs.
+    - SearchService: Searches for documents using configured providers.
+    - IndexingService: Indexes and retrieves chunks, optionally with vector search.
+    - ContextManager: Manages context retrieval and hybrid search.
+
+
+    Args:
+        settings: Runtime configuration for all assembled services.
+    """
+    # Create the shared stores and resource-aware execution pool first.
     store = MaterialStore(settings.sqlite_file())
     resource_store = ResourceStore(
         settings.resources_root(),
@@ -120,6 +191,7 @@ async def bootstrap(
         gpu_concurrency=settings.extraction.gpu_concurrency,
     )
 
+    # Register every extraction backend before building the extraction service.
     registry = BackendRegistry()
     registry.register("trafilatura", TrafilaturaBackend(resource_store))
     registry.register("beautifulsoup", BeautifulSoupBackend(resource_store))
@@ -152,6 +224,7 @@ async def bootstrap(
     for profile in extraction.default_profiles():
         extraction.register_profile(profile)
 
+    # Fetching and searching use separate clients because their timeouts differ.
     fetch_client = build_fetch_client(
         timeout=settings.fetch.http_timeout_seconds,
         proxy=settings.fetch.proxy_url,
@@ -170,6 +243,7 @@ async def bootstrap(
         build_search_providers(settings, search_client), settings.search
     )
 
+    # Build indexing and retrieval, enabling vector search only when configured.
     counter = TiktokenCounter()
     embedding_client, embedding_http, embedding_profile_id = _build_embedding(
         settings
@@ -204,6 +278,7 @@ async def bootstrap(
         vector_profile_id=embedding_profile_id,
     )
 
+    # Assemble the research workflow and expose it through the application API.
     roles = build_roles(build_model(settings))
     pipeline = AcquisitionPipeline(
         fetch_service,
@@ -238,6 +313,7 @@ async def bootstrap(
     try:
         yield application
     finally:
+        # Close the application before its shared clients and execution pool.
         await application.close()
         await search_client.aclose()
         await fetch_client.aclose()

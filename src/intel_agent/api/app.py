@@ -8,7 +8,7 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from ..bootstrap import bootstrap
 from ..contracts.errors import DomainError
@@ -134,6 +134,30 @@ def create_app() -> FastAPI:
     @app.get("/api/library")
     async def library(request: Request):
         return _app(request).conversations.library()
+
+    # --- material source files ---------------------------------------------
+
+    @app.get("/api/materials/{artifact_id}/download")
+    async def download_material(request: Request, artifact_id: str):
+        try:
+            path, media_type, filename = _app(
+                request
+            ).conversations.material_resource(artifact_id)
+        except DomainError as error:
+            raise _map_error(error) from error
+        return FileResponse(path, media_type=media_type, filename=filename)
+
+    @app.get("/api/conversations/{conversation_id}/materials.zip")
+    async def download_materials_zip(request: Request, conversation_id: str):
+        try:
+            path = _app(request).conversations.materials_zip(conversation_id)
+        except DomainError as error:
+            raise _map_error(error) from error
+        return FileResponse(
+            path,
+            media_type="application/zip",
+            filename="materials.zip",
+        )
 
     # --- search sources -----------------------------------------------------
 

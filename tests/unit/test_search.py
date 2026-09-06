@@ -16,6 +16,7 @@ from intel_agent.contracts.research import (
     SearchRequest,
 )
 from intel_agent.runtime.config import SearchConfig
+from intel_agent.search._util import make_hit
 from intel_agent.search.dedup import dedup_key
 from intel_agent.search.service import SearchService
 
@@ -45,6 +46,24 @@ def test_dedup_key_strips_tracking_params():
     assert dedup_key(
         "https://x/a?utm_source=s&id=1", ("utm_source",)
     ) == dedup_key("https://x/a?id=1")
+
+
+def test_make_hit_passes_content_through():
+    query = SearchQuery(text="battery recycling")
+    hit = make_hit(
+        "tavily",
+        query,
+        "https://example.org/a",
+        title="t",
+        snippet="s",
+        published_at=None,
+        source_types=["web"],
+        rank=1,
+        score=0.9,
+        content="clean page text",
+    )
+    assert hit.content == "clean page text"
+    assert hit.occurrences[0].provider_score == 0.9
 
 
 class FakeProvider:
