@@ -451,6 +451,9 @@ class ResearchOrchestrator:
                             "phase": "checkpointing",
                         },
                     )
+                    self._persist_result(
+                        task.task_id, context, coverage, evidence, report
+                    )
                     self._save_checkpoint(task, round_no, accepted, result)
                     return result
                 directions = decision.directions
@@ -475,6 +478,7 @@ class ResearchOrchestrator:
                     "status": "failed",
                 },
             )
+            self._persist_result(task.task_id, context, coverage, evidence)
             self._save_checkpoint(task, round_no, accepted, result)
             return result
         finally:
@@ -513,3 +517,21 @@ class ResearchOrchestrator:
             updated_at=datetime.now(UTC),
         )
         self.store.save_checkpoint(task.task_id, checkpoint, usage)
+
+    def _persist_result(
+        self, task_id, context, coverage, evidence, report=None
+    ):
+        url_by_citation = {
+            c.citation_id: c.source_url for c in context.citations
+        }
+        evidence_data = evidence.model_dump(mode="json")
+        for item in evidence_data.get("claims", []):
+            item["source_url"] = url_by_citation.get(
+                item.get("citation_id"), ""
+            )
+        self.store.save_research_result(
+            task_id,
+            report=report.model_dump(mode="json") if report else None,
+            coverage=coverage.model_dump(mode="json"),
+            evidence=evidence_data,
+        )

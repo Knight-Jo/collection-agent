@@ -2,6 +2,7 @@ import {
   CheckCircle2,
   CircleDashed,
   FileSearch,
+  FileText,
   Lightbulb,
   ListTree,
   PackageSearch,
@@ -18,6 +19,7 @@ const ICONS: Record<TimelineKind, typeof Lightbulb> = {
   evidence: Scale,
   coverage: Sparkles,
   decision: CheckCircle2,
+  report: FileText,
 };
 
 export function AgentTimeline({ entries }: { entries: TimelineEntry[] }) {

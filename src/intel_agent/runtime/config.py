@@ -22,6 +22,10 @@ _DEFAULT_CONFIG = (
 
 ThinkingEffort = Literal["minimal", "low", "medium", "high", "xhigh"]
 
+# Search providers that are AI-native tools (API-key based) rather than
+# generic web/academic sources. Used to split the settings surface.
+AI_SEARCH_TOOL_NAMES = frozenset({"exa", "brave", "tavily"})
+
 
 def profile_id(config: Any) -> str:
     """Canonical-JSON SHA-256 over a config value (spec §4.4, §10.2).

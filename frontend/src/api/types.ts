@@ -50,7 +50,8 @@ export type TimelineKind =
   | "material"
   | "evidence"
   | "coverage"
-  | "decision";
+  | "decision"
+  | "report";
 
 export interface TimelineEntry {
   id: string;

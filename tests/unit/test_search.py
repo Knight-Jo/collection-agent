@@ -220,3 +220,43 @@ def test_date_postfilter_excludes_unknown_dates():
         assert [h.url for h in batch.hits] == ["https://x/known"]
 
     asyncio.run(run())
+
+
+def test_replace_providers_hot_swaps():
+    service = SearchService(
+        [FakeProvider("a", lambda q, limit: [])], SearchConfig()
+    )
+    assert list(service.providers) == ["a"]
+    service.replace_providers([FakeProvider("b", lambda q, limit: [])])
+    assert list(service.providers) == ["b"]
+
+
+def test_build_search_providers_applies_runtime_overrides():
+    from intel_agent.bootstrap import build_search_providers
+    from intel_agent.runtime.config import (
+        ProviderConfig,
+        ResearchSettings,
+    )
+
+    settings = ResearchSettings(
+        search=SearchConfig(
+            providers={
+                "searxng": ProviderConfig(
+                    enabled=True, base_url="http://127.0.0.1:8888"
+                ),
+                "exa": ProviderConfig(
+                    enabled=True, extra={"base_url": "https://api.exa.ai"}
+                ),
+                "arxiv": ProviderConfig(enabled=True),
+            }
+        )
+    )
+    names = [p.name for p in build_search_providers(settings, None)]
+    assert names == ["searxng", "exa", "arxiv"]
+
+    state = {
+        "ai_tool:exa": {"enabled": False},
+        "search_source:arxiv": {"enabled": False},
+    }
+    names = [p.name for p in build_search_providers(settings, None, state.get)]
+    assert names == ["searxng"]

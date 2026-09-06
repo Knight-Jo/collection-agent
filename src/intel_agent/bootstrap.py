@@ -68,54 +68,84 @@ def _resolve_api_key(cfg):
     return cfg.api_key
 
 
-def build_search_providers(settings: ResearchSettings, client):
+def build_search_providers(settings: ResearchSettings, client, state=None):
     """Return the search providers enabled in ``settings``.
 
     ``client`` is the shared HTTP client used by the providers for requests.
+    ``state`` is an optional callable ``key -> dict`` supplying runtime
+    overrides (enabled/cookies/api_key) from the writable state store.
     """
+
+    def override(key: str) -> dict:
+        if state is None:
+            return {}
+        value = state(key)
+        return value if isinstance(value, dict) else {}
+
+    def enabled(name: str, default: bool, ai: bool = False) -> bool:
+        key = f"ai_tool:{name}" if ai else f"search_source:{name}"
+        return override(key).get("enabled", default)
+
+    def api_key(name: str, cfg) -> str | None:
+        value = override(f"ai_tool:{name}").get("api_key")
+        if value:
+            return value
+        return _resolve_api_key(cfg)
+
     providers = []
     cfg = settings.search.providers
-    if cfg.get("searxng", None) is not None:
+    if cfg.get("searxng", None) is not None and enabled(
+        "searxng", cfg["searxng"].enabled
+    ):
         p = cfg["searxng"]
-        if p.enabled:
-            providers.append(
-                SearXNGProvider(client, p.base_url or "http://127.0.0.1:8888")
-            )
-    if cfg.get("exa", None) is not None and cfg["exa"].enabled:
+        providers.append(
+            SearXNGProvider(client, p.base_url or "http://127.0.0.1:8888")
+        )
+    if cfg.get("exa", None) is not None and enabled(
+        "exa", cfg["exa"].enabled, ai=True
+    ):
         extra = cfg["exa"].extra
         providers.append(
             ExaProvider(
                 client,
-                api_key=_resolve_api_key(cfg["exa"]),
+                api_key=api_key("exa", cfg["exa"]),
                 base_url=extra.get("base_url") or "https://api.exa.ai/search",
                 num_results=extra.get("num_results", 10),
             )
         )
-    if cfg.get("tavily", None) is not None and cfg["tavily"].enabled:
+    if cfg.get("tavily", None) is not None and enabled(
+        "tavily", cfg["tavily"].enabled, ai=True
+    ):
         extra = cfg["tavily"].extra
         providers.append(
             TavilyProvider(
                 client,
-                api_key=_resolve_api_key(cfg["tavily"]),
+                api_key=api_key("tavily", cfg["tavily"]),
                 base_url=extra.get("base_url")
                 or "https://api.tavily.com/search",
                 search_depth=extra.get("search_depth", "advanced"),
                 max_results=extra.get("max_results", 10),
             )
         )
-    if cfg.get("brave", None) is not None and cfg["brave"].enabled:
+    if cfg.get("brave", None) is not None and enabled(
+        "brave", cfg["brave"].enabled, ai=True
+    ):
         extra = cfg["brave"].extra
         providers.append(
             BraveProvider(
                 client,
-                api_key=_resolve_api_key(cfg["brave"]),
+                api_key=api_key("brave", cfg["brave"]),
                 base_url=extra.get("base_url")
                 or "https://api.search.brave.com/res/v1/web/search",
             )
         )
-    if cfg.get("arxiv", None) is not None and cfg["arxiv"].enabled:
+    if cfg.get("arxiv", None) is not None and enabled(
+        "arxiv", cfg["arxiv"].enabled
+    ):
         providers.append(ArxivProvider(client))
-    if cfg.get("openalex", None) is not None and cfg["openalex"].enabled:
+    if cfg.get("openalex", None) is not None and enabled(
+        "openalex", cfg["openalex"].enabled
+    ):
         providers.append(
             OpenAlexProvider(
                 client,
@@ -123,7 +153,7 @@ def build_search_providers(settings: ResearchSettings, client):
                 or "https://api.openalex.org/works",
             )
         )
-    if cfg.get("rss", None) is not None and cfg["rss"].enabled:
+    if cfg.get("rss", None) is not None and enabled("rss", cfg["rss"].enabled):
         providers.append(
             RssProvider(client, feeds=cfg["rss"].extra.get("feeds", []))
         )
@@ -243,7 +273,10 @@ async def bootstrap(
         BrowserFetcher(resource_store),
     )
     search_service = SearchService(
-        build_search_providers(settings, search_client), settings.search
+        build_search_providers(
+            settings, search_client, store.get_runtime_state
+        ),
+        settings.search,
     )
 
     # Build indexing and retrieval, enabling vector search only when configured.
@@ -307,8 +340,20 @@ async def bootstrap(
     )
 
     event_bus = EventBus()
+
+    def rebuild_providers():
+        return build_search_providers(
+            settings, search_client, store.get_runtime_state
+        )
+
     conversation_service = ConversationService(
-        store, orchestrator, event_bus, roles, registry, settings
+        store,
+        orchestrator,
+        event_bus,
+        roles,
+        registry,
+        settings,
+        rebuild_providers,
     )
     application = ResearchApplication(
         store, orchestrator, settings, conversation_service, event_bus

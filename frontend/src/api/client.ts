@@ -15,21 +15,17 @@ import type {
 } from "@/api/types";
 import { httpGet, httpPatch, httpPost } from "@/api/http";
 import {
-  addSearchSource as dbAddSearchSource,
   createFactCheck as dbCreateFactCheck,
   createMediaJob as dbCreateMediaJob,
   createMonitor as dbCreateMonitor,
   getFactCheck as dbGetFactCheck,
   getMediaJob as dbGetMediaJob,
   getMonitor as dbGetMonitor,
-  listAiSearchTools as dbListAiSearchTools,
   listFactChecks as dbListFactChecks,
   listMediaJobs as dbListMediaJobs,
   listMonitors as dbListMonitors,
   runMonitorNow as dbRunMonitorNow,
-  toggleAiSearchTool as dbToggleAiSearchTool,
   toggleMonitor as dbToggleMonitor,
-  updateAiSearchToolApiKey as dbUpdateAiSearchToolApiKey,
 } from "@/mocks/db";
 import { simulateFactCheck, simulateMediaAnalysis } from "@/mocks/sse";
 
@@ -114,28 +110,31 @@ export const api = {
     return wait(factCheck);
   },
 
-  // --- search source / ai tool config (mock) ---
+  // --- search source / ai tool config (real backend) ---
   toggleSearchSource: (id: string): Promise<SearchSource | undefined> =>
-    wait(undefined),
+    httpPost<SearchSource>(`/search-sources/${id}/toggle`),
 
   updateSearchSource: (
     id: string,
     patch: Partial<Pick<SearchSource, "cookies" | "enabled">>,
-  ): Promise<SearchSource | undefined> => wait(undefined),
+  ): Promise<SearchSource | undefined> =>
+    httpPatch<SearchSource>(`/search-sources/${id}`, patch),
 
   addSearchSource: (input: {
     name: string;
     url: string;
-  }): Promise<SearchSource> => wait(dbAddSearchSource(input)),
+  }): Promise<SearchSource> => httpPost<SearchSource>("/search-sources", input),
 
   toggleAiSearchTool: (id: string): Promise<AiSearchTool | undefined> =>
-    wait(dbToggleAiSearchTool(id)),
+    httpPost<AiSearchTool>(`/ai-search-tools/${id}/toggle`),
 
   updateAiSearchToolApiKey: (
     id: string,
     apiKey: string,
   ): Promise<AiSearchTool | undefined> =>
-    wait(dbUpdateAiSearchToolApiKey(id, apiKey)),
+    httpPatch<AiSearchTool>(`/ai-search-tools/${id}/api-key`, {
+      api_key: apiKey,
+    }),
 
   // --- media jobs (mock) ---
   mediaJobs: (): Promise<MediaJob[]> => wait(dbListMediaJobs()),

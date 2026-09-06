@@ -62,3 +62,33 @@ def test_missing_resource_raises(material_store):
     with pytest.raises(DomainError) as raised:
         material_store.get_resource("res-does-not-exist")
     assert raised.value.code == "NOT_FOUND"
+
+
+def test_research_result_round_trip(material_store):
+    assert material_store.get_research_result("t1") is None
+    material_store.save_research_result(
+        "t1",
+        report={"title": "r"},
+        coverage={"sufficiency": "high"},
+        evidence={"summary": "s"},
+    )
+    result = material_store.get_research_result("t1")
+    assert result["report"] == {"title": "r"}
+    assert result["coverage"] == {"sufficiency": "high"}
+    assert result["evidence"] == {"summary": "s"}
+
+
+def test_research_result_upsert_partial(material_store):
+    material_store.save_research_result("t1", report={"title": "r"})
+    material_store.save_research_result("t1", evidence={"summary": "s"})
+    result = material_store.get_research_result("t1")
+    assert result["report"] == {"title": "r"}
+    assert result["evidence"] == {"summary": "s"}
+
+
+def test_runtime_state_round_trip(material_store):
+    assert material_store.get_runtime_state("k") is None
+    material_store.set_runtime_state("k", {"enabled": False})
+    assert material_store.get_runtime_state("k") == {"enabled": False}
+    material_store.set_runtime_state("k", [1, 2, 3])
+    assert material_store.get_runtime_state("k") == [1, 2, 3]

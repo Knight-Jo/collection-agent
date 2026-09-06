@@ -933,3 +933,80 @@ class MaterialStore:
             "updated_at": row["updated_at"],
             "brief": json.loads(row["brief"]) if row["brief"] else None,
         }
+
+    # --- research results ---------------------------------------------------
+
+    def save_research_result(
+        self,
+        task_id: str,
+        *,
+        report: dict | None = None,
+        coverage: dict | None = None,
+        evidence: dict | None = None,
+    ) -> None:
+        with self.db.transaction() as conn:
+            conn.execute(
+                """
+                INSERT INTO research_results
+                (task_id, report, coverage, evidence, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(task_id) DO UPDATE SET
+                    report = COALESCE(excluded.report, research_results.report),
+                    coverage = COALESCE(
+                        excluded.coverage, research_results.coverage
+                    ),
+                    evidence = COALESCE(
+                        excluded.evidence, research_results.evidence
+                    ),
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    task_id,
+                    json.dumps(report, ensure_ascii=False)
+                    if report is not None
+                    else None,
+                    json.dumps(coverage, ensure_ascii=False)
+                    if coverage is not None
+                    else None,
+                    json.dumps(evidence, ensure_ascii=False)
+                    if evidence is not None
+                    else None,
+                    _iso(datetime.now(UTC)),
+                ),
+            )
+
+    def get_research_result(self, task_id: str) -> dict | None:
+        row = self.db.execute(
+            "SELECT * FROM research_results WHERE task_id = ?", (task_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "report": json.loads(row["report"]) if row["report"] else None,
+            "coverage": json.loads(row["coverage"])
+            if row["coverage"]
+            else None,
+            "evidence": json.loads(row["evidence"])
+            if row["evidence"]
+            else None,
+        }
+
+    # --- runtime state ------------------------------------------------------
+
+    def get_runtime_state(self, key: str):
+        row = self.db.execute(
+            "SELECT value FROM runtime_state WHERE key = ?", (key,)
+        ).fetchone()
+        if row is None:
+            return None
+        return json.loads(row["value"])
+
+    def set_runtime_state(self, key: str, value) -> None:
+        with self.db.transaction() as conn:
+            conn.execute(
+                """
+                INSERT INTO runtime_state (key, value) VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+                """,
+                (key, json.dumps(value, ensure_ascii=False)),
+            )

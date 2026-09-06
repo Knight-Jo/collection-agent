@@ -8,7 +8,12 @@ from contextlib import contextmanager
 from importlib import resources
 from pathlib import Path
 
-MIGRATIONS = ("001_initial.sql", "002_conversations.sql")
+MIGRATIONS = (
+    "001_initial.sql",
+    "002_conversations.sql",
+    "003_research_results.sql",
+    "004_runtime_state.sql",
+)
 
 
 class SqliteStore:

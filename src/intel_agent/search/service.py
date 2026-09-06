@@ -55,6 +55,10 @@ class SearchService:
         self.attempts = attempts
         self.logger = logger or StructuredLogger()
 
+    def replace_providers(self, providers: list[SearchProvider]) -> None:
+        """Hot-swap the active providers (e.g. after a settings mutation)."""
+        self.providers = {p.name: p for p in providers}
+
     async def search(self, request: SearchRequest) -> SearchBatch:
         """Run a bounded search across the requested providers.
 

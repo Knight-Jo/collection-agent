@@ -10,8 +10,10 @@ from pathlib import Path
 
 from .contracts.documents import Citation
 from .contracts.errors import DomainError
-from .contracts.research import ResearchPlan
+from .contracts.research import ResearchPlan, ResearchReport
+from .runtime.config import AI_SEARCH_TOOL_NAMES
 from .runtime.events import EventBus
+from .storage._ids import new_id
 from .storage.materials import MaterialStore
 
 _RUN_STATUS = {
@@ -36,6 +38,7 @@ class ConversationService:
         roles,
         registry,
         settings,
+        rebuild_providers=None,
     ) -> None:
         self.store = store
         self.orchestrator = orchestrator
@@ -43,6 +46,7 @@ class ConversationService:
         self.roles = roles
         self.registry = registry
         self.settings = settings
+        self.rebuild_providers = rebuild_providers
         self._runs: set[asyncio.Task] = set()
 
     # --- conversations ------------------------------------------------------
@@ -73,8 +77,11 @@ class ConversationService:
         materials = self._materials(conversation_id)
         run = self._run(conversation_id)
         plan = self._load_plan(conversation_id)
-        questions = plan.questions if plan else []
         brief = plan.brief() if plan else None
+        result = self._result(conversation_id)
+        coverage = result.get("coverage") if result else None
+        questions = self._project_questions(coverage, plan)
+        gaps = self._project_gaps(coverage)
         return {
             "conversation": self._conversation_view(conversation),
             "messages": messages,
@@ -82,22 +89,54 @@ class ConversationService:
             "materials": materials,
             "timeline": timeline,
             "committed_state_version": 0,
-            "report_ready": bool(
-                any(m["role"] == "assistant" for m in messages)
-            ),
+            "report_ready": bool(result and result.get("report")),
             "brief": brief,
-            "questions": [
-                {
-                    "id": f"q{i}",
-                    "text": q,
-                    "status": "answered",
-                    "evidence_count": 0,
-                    "coverage_note": "",
-                }
-                for i, q in enumerate(questions)
-            ],
-            "gaps": [],
+            "questions": questions,
+            "gaps": gaps,
         }
+
+    @staticmethod
+    def _project_questions(coverage, plan) -> list[dict]:
+        if coverage:
+            return [
+                {
+                    "id": q.get("question_id", f"q{i}"),
+                    "text": q.get("question", ""),
+                    "status": q.get("status", "pending"),
+                    "evidence_count": q.get("evidence_count", 0),
+                    "coverage_note": q.get("coverage_note", ""),
+                }
+                for i, q in enumerate(coverage.get("questions", []))
+            ]
+        return [
+            {
+                "id": f"q{i}",
+                "text": q,
+                "status": "pending",
+                "evidence_count": 0,
+                "coverage_note": "",
+            }
+            for i, q in enumerate(plan.questions if plan else [])
+        ]
+
+    @staticmethod
+    def _project_gaps(coverage) -> list[dict]:
+        if not coverage:
+            return []
+        return [
+            {
+                "id": g.get("question_id", ""),
+                "question_id": g.get("question_id", ""),
+                "reason": g.get("reason", ""),
+            }
+            for g in coverage.get("gaps", [])
+        ]
+
+    def _result(self, conversation_id: str) -> dict | None:
+        task_id = self.store.latest_task_id(conversation_id)
+        if task_id is None:
+            return None
+        return self.store.get_research_result(task_id)
 
     def _load_plan(self, conversation_id: str) -> ResearchPlan | None:
         conversation = self.store.get_conversation(conversation_id)
@@ -401,35 +440,165 @@ class ConversationService:
         }
 
     def search_sources(self) -> list[dict]:
-        return [
-            {
-                "id": name,
-                "name": name,
-                "url": (p.base_url or ""),
-                "enabled": p.enabled,
-                "cookies": "",
-            }
-            for name, p in self.settings.search.providers.items()
-        ]
-
-    def ai_search_tools(self) -> list[dict]:
-        tools = []
-        for name in ("exa", "brave", "tavily"):
-            tools.append(
+        providers = self.settings.search.providers
+        sources = []
+        for name, p in providers.items():
+            if name in AI_SEARCH_TOOL_NAMES:
+                continue
+            o = self._runtime(f"search_source:{name}")
+            sources.append(
                 {
                     "id": name,
                     "name": name,
-                    "description": f"{name} AI search provider",
-                    "enabled": False,
-                    "api_key": "",
-                    "api_key_env": f"{name.upper()}_API_KEY",
+                    "url": p.base_url or "",
+                    "enabled": o.get("enabled", p.enabled),
+                    "cookies": o.get("cookies", ""),
                 }
             )
+        for cid in self.store.get_runtime_state("custom_sources") or []:
+            o = self._runtime(f"search_source:{cid}")
+            if not o:
+                continue
+            sources.append(
+                {
+                    "id": cid,
+                    "name": o.get("name", ""),
+                    "url": o.get("url", ""),
+                    "enabled": o.get("enabled", True),
+                    "cookies": o.get("cookies", ""),
+                }
+            )
+        return sources
+
+    def ai_search_tools(self) -> list[dict]:
+        tools = []
+        for name in sorted(AI_SEARCH_TOOL_NAMES):
+            tools.append(self._tool_view(name))
         return tools
+
+    # --- search source / AI tool mutations ---------------------------------
+
+    def _runtime(self, key: str) -> dict:
+        value = self.store.get_runtime_state(key)
+        return value if isinstance(value, dict) else {}
+
+    def _reapply_providers(self) -> None:
+        if self.rebuild_providers is None:
+            return
+        providers = self.rebuild_providers()
+        self.orchestrator.search_service.replace_providers(providers)
+
+    def _source_view(self, source_id: str) -> dict:
+        provider = self.settings.search.providers.get(source_id)
+        o = self._runtime(f"search_source:{source_id}")
+        if provider is not None:
+            return {
+                "id": source_id,
+                "name": source_id,
+                "url": provider.base_url or "",
+                "enabled": o.get("enabled", provider.enabled),
+                "cookies": o.get("cookies", ""),
+            }
+        if o.get("custom"):
+            return {
+                "id": source_id,
+                "name": o.get("name", ""),
+                "url": o.get("url", ""),
+                "enabled": o.get("enabled", True),
+                "cookies": o.get("cookies", ""),
+            }
+        raise DomainError("NOT_FOUND", f"search source not found: {source_id}")
+
+    def _tool_view(self, tool_id: str) -> dict:
+        provider = self.settings.search.providers.get(tool_id)
+        o = self._runtime(f"ai_tool:{tool_id}")
+        return {
+            "id": tool_id,
+            "name": tool_id,
+            "description": f"{tool_id} AI search provider",
+            "enabled": o.get(
+                "enabled", provider.enabled if provider else False
+            ),
+            "api_key": "configured" if self._tool_has_key(tool_id) else "",
+            "api_key_env": (provider.api_key_env if provider else None)
+            or f"{tool_id.upper()}_API_KEY",
+        }
+
+    def _tool_has_key(self, tool_id: str) -> bool:
+        o = self._runtime(f"ai_tool:{tool_id}")
+        if o.get("api_key"):
+            return True
+        provider = self.settings.search.providers.get(tool_id)
+        if provider is not None and provider.api_key_env:
+            import os
+
+            return bool(os.environ.get(provider.api_key_env))
+        return False
+
+    def add_search_source(self, name: str, url: str) -> dict:
+        cid = new_id("src")
+        self.store.set_runtime_state(
+            f"search_source:{cid}",
+            {
+                "name": name,
+                "url": url,
+                "enabled": True,
+                "cookies": "",
+                "custom": True,
+            },
+        )
+        ids = list(self.store.get_runtime_state("custom_sources") or [])
+        ids.append(cid)
+        self.store.set_runtime_state("custom_sources", ids)
+        return {
+            "id": cid,
+            "name": name,
+            "url": url,
+            "enabled": True,
+            "cookies": "",
+        }
+
+    def toggle_search_source(self, source_id: str) -> dict:
+        o = self._runtime(f"search_source:{source_id}")
+        provider = self.settings.search.providers.get(source_id)
+        o["enabled"] = not o.get(
+            "enabled", provider.enabled if provider else True
+        )
+        self.store.set_runtime_state(f"search_source:{source_id}", o)
+        self._reapply_providers()
+        return self._source_view(source_id)
+
+    def update_search_source(self, source_id: str, patch: dict) -> dict:
+        o = self._runtime(f"search_source:{source_id}")
+        for key in ("enabled", "cookies"):
+            if key in patch:
+                o[key] = patch[key]
+        self.store.set_runtime_state(f"search_source:{source_id}", o)
+        self._reapply_providers()
+        return self._source_view(source_id)
+
+    def toggle_ai_tool(self, tool_id: str) -> dict:
+        o = self._runtime(f"ai_tool:{tool_id}")
+        provider = self.settings.search.providers.get(tool_id)
+        o["enabled"] = not o.get(
+            "enabled", provider.enabled if provider else False
+        )
+        self.store.set_runtime_state(f"ai_tool:{tool_id}", o)
+        self._reapply_providers()
+        return self._tool_view(tool_id)
+
+    def update_ai_tool_key(self, tool_id: str, api_key: str) -> dict:
+        o = self._runtime(f"ai_tool:{tool_id}")
+        o["api_key"] = api_key
+        self.store.set_runtime_state(f"ai_tool:{tool_id}", o)
+        self._reapply_providers()
+        return self._tool_view(tool_id)
 
     def library(self) -> dict:
         research = []
         for conv in self.list_conversations(archived=False):
+            task_id = self.store.latest_task_id(conv["id"])
+            result = self._result(conv["id"])
             projection = self.projection(conv["id"])
             research.append(
                 {
@@ -437,13 +606,109 @@ class ConversationService:
                     "title": conv["title"],
                     "updated_at": conv["updated_at"],
                     "materials": projection["materials"],
-                    "facts": [],
-                    "evidence": [],
-                    "sources": [],
-                    "report": None,
+                    "facts": self._facts_from_evidence(result),
+                    "evidence": self._evidence_from_review(result),
+                    "sources": self._sources_from(
+                        projection["materials"], result
+                    ),
+                    "report": self._project_report(task_id, conv, result),
                     "brief": projection["brief"],
                     "questions": projection["questions"],
                     "timeline": projection["timeline"],
                 }
             )
         return {"research": research, "monitors": [], "factChecks": []}
+
+    @staticmethod
+    def _project_report(task_id, conv, result) -> dict | None:
+        if not result or not result.get("report") or task_id is None:
+            return None
+        report = ResearchReport.model_validate(result["report"])
+        return {
+            "id": task_id,
+            "version": 1,
+            "status": "published",
+            "content": report.markdown(),
+            "created_at": conv["updated_at"],
+        }
+
+    @staticmethod
+    def _facts_from_evidence(result) -> list[dict]:
+        evidence = result.get("evidence") if result else None
+        if not evidence:
+            return []
+        facts: list[dict] = []
+        seen: set[str] = set()
+
+        def add(claim: str, status: str) -> None:
+            claim = (claim or "").strip()
+            if not claim or claim in seen:
+                return
+            seen.add(claim)
+            facts.append(
+                {
+                    "id": f"f{len(facts)}",
+                    "statement": claim,
+                    "status": status,
+                    "updated_at": "",
+                }
+            )
+
+        for item in evidence.get("claims", []):
+            add(
+                item.get("claim"),
+                "accepted"
+                if item.get("relation") == "supports"
+                else "disputed",
+            )
+        for conflict in evidence.get("conflicts", []):
+            add(conflict.get("claim"), "disputed")
+        return facts
+
+    @staticmethod
+    def _evidence_from_review(result) -> list[dict]:
+        evidence = result.get("evidence") if result else None
+        if not evidence:
+            return []
+        return [
+            {
+                "id": f"e{i}",
+                "relation": item.get("relation", "supports"),
+                "quote": item.get("quote", ""),
+                "source_title": item.get("source_title", ""),
+                "source_url": item.get("source_url", ""),
+            }
+            for i, item in enumerate(evidence.get("claims", []))
+        ]
+
+    @staticmethod
+    def _sources_from(materials, result) -> list[dict]:
+        evidence = result.get("evidence") if result else None
+        seen: set[str] = set()
+        sources: list[dict] = []
+        for m in materials:
+            url = m.get("url", "")
+            if url and url not in seen:
+                seen.add(url)
+                sources.append(
+                    {
+                        "id": m["id"],
+                        "name": m["title"],
+                        "type": m["source_type"],
+                        "url": url,
+                    }
+                )
+        if evidence:
+            for item in evidence.get("claims", []):
+                url = item.get("source_url", "")
+                if url and url not in seen:
+                    seen.add(url)
+                    sources.append(
+                        {
+                            "id": f"s{len(sources)}",
+                            "name": item.get("source_title") or url,
+                            "type": "证据来源",
+                            "url": url,
+                        }
+                    )
+        return sources

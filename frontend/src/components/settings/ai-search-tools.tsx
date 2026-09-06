@@ -29,7 +29,7 @@ export function AiSearchTools() {
 
   function openEdit(tool: AiSearchTool) {
     setEditing(tool);
-    setApiKey(tool.api_key);
+    setApiKey("");
   }
 
   async function saveKey() {
