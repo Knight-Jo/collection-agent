@@ -255,24 +255,50 @@ class ResearchTask(BaseModel):
         return require_aware(value) if value is not None else None
 
 
+class ReportSection(BaseModel):
+    heading: str
+    body: str
+
+
+class ResearchReport(BaseModel):
+    """The writer's structured final report (spec §12)."""
+
+    title: str = ""
+    sections: list[ReportSection] = Field(default_factory=list)
+    conclusions: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    citation_ids: list[str] = Field(default_factory=list)
+
+    def markdown(self) -> str:
+        parts: list[str] = []
+        if self.title:
+            parts.append(f"# {self.title}")
+        for section in self.sections:
+            parts.append(f"## {section.heading}")
+            parts.append(section.body.strip())
+        if self.conclusions:
+            parts.append("## 结论")
+            parts.extend(f"- {c}" for c in self.conclusions)
+        if self.limitations:
+            parts.append("## 局限")
+            parts.extend(f"- {lim}" for lim in self.limitations)
+        return "\n\n".join(p for p in parts if p)
+
+
 class ResearchDecision(BaseModel):
     action: Literal["search", "finish"]
     directions: list[SearchDirection] = Field(default_factory=list)
     source_types: list[SourceType] = Field(default_factory=list)
     evidence_gaps: list[str] = Field(default_factory=list)
     reason: str
-    draft_answer: str | None = None
     citation_ids: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _action_constraints(self) -> ResearchDecision:
         if self.action == "search" and not self.directions:
             raise ValueError("search decision requires at least one direction")
-        if self.action == "finish":
-            if not self.draft_answer:
-                raise ValueError("finish decision requires draft_answer")
-            if self.directions:
-                raise ValueError("finish decision must have empty directions")
+        if self.action == "finish" and self.directions:
+            raise ValueError("finish decision must have empty directions")
         return self
 
 
@@ -284,3 +310,4 @@ class ResearchResult(BaseModel):
     limitations: list[str] = Field(default_factory=list)
     stop_reason: StopReason
     usage: BudgetUsage = Field(default_factory=BudgetUsage)
+    report: ResearchReport | None = None

@@ -307,13 +307,40 @@ class ResearchOrchestrator:
                     )
                     if not citations and context.citations:
                         citations = list(context.citations)
+                    await self._emit(
+                        sink,
+                        {
+                            "event": "timeline",
+                            "task_id": task.task_id,
+                            "kind": "report",
+                            "label": "撰写研究报告",
+                            "detail": "整理证据并生成结构化报告",
+                        },
+                    )
+                    report = await self._run_agent(
+                        self.roles["writer"],
+                        f"研究主题:\n{task.question}\n\n"
+                        f"研究问题:\n{questions}\n\n"
+                        f"覆盖评估:\n{coverage.summary}\n\n"
+                        f"证据核验:\n{evidence.summary}\n\n"
+                        f"{evidence_block}\n\n"
+                        "撰写结构化研究报告。",
+                        task.task_id,
+                    )
+                    writer_citations = self._resolve_citations(
+                        report.citation_ids, context
+                    )
+                    if writer_citations:
+                        citations = writer_citations
+                    answer = report.markdown()
                     result = ResearchResult(
                         task_id=task.task_id,
                         status="completed",
-                        answer=decision.draft_answer or "",
+                        answer=answer,
                         citations=citations,
                         stop_reason="evidence_sufficient",
                         usage=self.store.get_task(task.task_id).budget_used,
+                        report=report,
                     )
                     await self._emit_answer(sink, task.task_id, result.answer)
                     await self._emit(

@@ -10,6 +10,7 @@ from intel_agent.contracts.research import (
     EvidenceReview,
     ResearchDecision,
     ResearchPlan,
+    ResearchReport,
     SearchBatch,
     SearchDirection,
     SearchQuery,
@@ -117,16 +118,25 @@ def research_harness(material_store, tmp_path):
             ),
             ResearchDecision(
                 action="finish",
-                draft_answer="an answer",
+                citation_ids=["C1"],
                 reason="enough",
             ),
         ]
+    )
+    writer = FakeRole(
+        ResearchReport(
+            title="report",
+            sections=[],
+            conclusions=["conclusion"],
+            citation_ids=["C1"],
+        )
     )
     roles = {
         "planner": planner,
         "coverage": coverage,
         "verifier": verifier,
         "decider": decider,
+        "writer": writer,
     }
     search = FakeSearch()
     orchestrator = ResearchOrchestrator(
@@ -154,3 +164,6 @@ async def test_two_rounds_use_planner_then_decider(research_harness):
     result = await research_harness.run_two_rounds()
     assert result.status == "completed"
     assert research_harness.searched_queries == ["first query", "gap query"]
+    assert result.report is not None
+    assert result.answer == result.report.markdown()
+    assert result.answer.startswith("# report")

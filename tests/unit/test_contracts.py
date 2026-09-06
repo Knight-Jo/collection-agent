@@ -13,7 +13,9 @@ from intel_agent.contracts.documents import (
     NormalizationInput,
 )
 from intel_agent.contracts.research import (
+    ReportSection,
     ResearchDecision,
+    ResearchReport,
     SearchDirection,
     SearchOccurrence,
     SearchQuery,
@@ -38,15 +40,15 @@ def test_invalid_locations_and_decisions_are_rejected():
         )
 
 
-def test_finish_decision_requires_answer_and_no_directions():
-    with pytest.raises(ValidationError):
-        ResearchDecision(
-            action="finish",
-            directions=[],
-            source_types=[],
-            evidence_gaps=[],
-            reason="done",
-        )
+def test_finish_decision_requires_no_directions_and_no_answer():
+    decision = ResearchDecision(
+        action="finish",
+        directions=[],
+        source_types=[],
+        evidence_gaps=[],
+        reason="done",
+    )
+    assert decision.reason == "done"
     with pytest.raises(ValidationError):
         ResearchDecision(
             action="finish",
@@ -54,8 +56,21 @@ def test_finish_decision_requires_answer_and_no_directions():
             source_types=[],
             evidence_gaps=[],
             reason="done",
-            draft_answer="an answer",
         )
+
+
+def test_research_report_markdown():
+    report = ResearchReport(
+        title="标题",
+        sections=[ReportSection(heading="方法", body="正文")],
+        conclusions=["结论一"],
+        limitations=["局限一"],
+    )
+    md = report.markdown()
+    assert md.startswith("# 标题")
+    assert "## 方法" in md
+    assert "## 结论" in md
+    assert "## 局限" in md
 
 
 def test_naive_datetimes_are_rejected():

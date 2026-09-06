@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from typing import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import httpx
@@ -108,7 +108,7 @@ def _build_embedding(settings):
 @asynccontextmanager
 async def bootstrap(
     settings: ResearchSettings,
-) -> AsyncIterator[ResearchApplication]:
+) -> AsyncGenerator[ResearchApplication]:
     store = MaterialStore(settings.sqlite_file())
     resource_store = ResourceStore(
         settings.resources_root(),
