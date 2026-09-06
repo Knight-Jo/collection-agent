@@ -11,7 +11,7 @@ from ..storage.tasks import TaskStore
 from .models import Checkability, FactCheck, FactCheckView, FactEvidence
 from .verdict import adjudicate
 
-logger = logging.getLogger("intel_agent.factcheck")
+logger = logging.getLogger(__file__)
 
 
 class FactCheckService:
@@ -60,8 +60,11 @@ class FactCheckService:
             fact_check=fact_check,
             status=task.status,
             phase=task.phase,
+            created_at=task.created_at,
+            started_at=task.created_at,
             error=task.error,
             evidence=self.store.list_evidence(fact_check_id),
+            timeline=self.task_store.list_timeline(fact_check.task_id),
         )
 
     async def _run(self, task_id: str) -> None:
@@ -75,6 +78,7 @@ class FactCheckService:
 
         task = self.task_store.get_task(task_id)
         understanding, questions = await self._understand(fact_check.claim)
+        logger.debug("understanding=%r questions=%r", understanding, questions)
         checkable = self._checkable(understanding)
 
         fact_check.understanding = understanding
@@ -95,20 +99,26 @@ class FactCheckService:
             return
 
         self.task_store.set_phase(task_id, "researching")
+        self.task_store.add_timeline(task_id, "researching", "started")
         plan = await self._plan(fact_check.claim, questions)
         assessment = await self.orchestrator.run_assessment(task, plan=plan)
 
         self.task_store.set_phase(task_id, "adjudicating")
+        self.task_store.add_timeline(task_id, "adjudicating", "started")
         evidence = self._evidence_from_assessment(fact_check, assessment)
+        logger.info("fact check: store evidence id=%s count=%d", fact_check.fact_check_id, len(evidence))
         for item in evidence:
             self.store.save_evidence(item)
         verdict, sufficiency, counts = adjudicate(evidence)
+        logger.info(f"verdict={verdict} sufficiency={sufficiency} counts={counts}")
 
         fact_check.verdict = verdict
         fact_check.evidence_sufficiency = sufficiency
         fact_check.independent_sources = counts["independent_sources"]
         fact_check.primary_sources = counts["primary_sources"]
         fact_check.counter_evidence = counts["counter_evidence"]
+        logger.info("fact check: rationale id=%s", fact_check.fact_check_id)
+
         fact_check.rationale = (
             f"独立来源 {counts['independent_sources']}，"
             f"一手来源 {counts['primary_sources']}，"
@@ -118,7 +128,7 @@ class FactCheckService:
             fact_check.limitations = assessment.limitations
         self.store.save(fact_check)
         logger.info(
-            "fact check finished id=%s verdict=%s sufficiency=%s evidence=%d",
+            "fact check: finished id=%s verdict=%s sufficiency=%s evidence=%d",
             fact_check.fact_check_id,
             verdict,
             sufficiency,

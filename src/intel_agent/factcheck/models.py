@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from ..contracts._time import AwareDatetime, JsonValue
 from ..contracts.documents import Citation
+from ..contracts.research import TimelineEntry
 
 Verdict = Literal[
     "supported",
@@ -60,7 +61,9 @@ class FactCheckView(BaseModel):
     fact_check: FactCheck
     status: str
     phase: str | None = None
+    created_at: AwareDatetime | None = None
     started_at: AwareDatetime | None = None
     finished_at: AwareDatetime | None = None
     error: JsonValue | None = None
     evidence: list[FactEvidence] = Field(default_factory=list)
+    timeline: list[TimelineEntry] = Field(default_factory=list)

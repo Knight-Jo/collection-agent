@@ -82,6 +82,11 @@ export function VerdictCard({ factCheck }: { factCheck: FactCheck }) {
           <span>反证 {factCheck.counter_evidence}</span>
         </div>
       </div>
+      {factCheck.rationale && (
+        <p className="mt-3 border-t pt-2 text-xs leading-relaxed opacity-80">
+          {factCheck.rationale}
+        </p>
+      )}
     </div>
   );
 }

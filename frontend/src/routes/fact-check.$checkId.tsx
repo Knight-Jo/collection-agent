@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, LoaderCircle } from "lucide-react";
 import { EvidenceTable } from "@/components/fact-check/evidence-table";
+import { FactCheckSteps } from "@/components/fact-check/fact-check-steps";
 import { VerdictCard } from "@/components/fact-check/verdict-card";
-import { AgentTimeline } from "@/components/research/agent-timeline";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFactCheckStream } from "@/hooks/use-fact-check-stream";
@@ -73,6 +73,28 @@ function FactCheckDetail() {
           </div>
         )}
 
+        {data.checkability === "not_checkable" && (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+            <p className="font-medium">该断言无法核验</p>
+            {data.checkability_reason && (
+              <p className="mt-1 text-xs">{data.checkability_reason}</p>
+            )}
+          </div>
+        )}
+
+        {data.limitations.length > 0 && (
+          <div className="mt-4 rounded-lg border bg-card p-3">
+            <p className="text-xs font-semibold text-muted-foreground">局限与不确定性</p>
+            <ul className="mt-1 list-disc space-y-1 pl-5">
+              {data.limitations.map((limitation) => (
+                <li key={limitation} className="text-sm text-muted-foreground">
+                  {limitation}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div className="mt-6">
           <Tabs defaultValue="evidence">
             <TabsList>
@@ -83,7 +105,7 @@ function FactCheckDetail() {
               <EvidenceTable evidence={data.evidence} />
             </TabsContent>
             <TabsContent value="trajectory" className="mt-4">
-              <AgentTimeline entries={data.timeline} />
+              <FactCheckSteps steps={data.timeline} />
             </TabsContent>
           </Tabs>
         </div>

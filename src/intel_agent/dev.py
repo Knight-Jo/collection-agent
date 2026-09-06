@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import signal
 import subprocess
@@ -9,6 +10,7 @@ import sys
 import time
 from pathlib import Path
 
+logger = logging.getLogger(__file__)
 
 def _repo_root() -> Path:
     candidate = Path(__file__).resolve().parents[2]
@@ -63,9 +65,9 @@ def main() -> int:
     signal.signal(signal.SIGINT, _stop)
     signal.signal(signal.SIGTERM, _stop)
 
-    print(f"backend: http://127.0.0.1:{backend_port}")
-    print("frontend: http://localhost:5173")
-    print("按 Ctrl+C 退出", flush=True)
+    logger.info(f"backend: http://127.0.0.1:{backend_port}")
+    logger.info("frontend: http://localhost:5173")
+    logger.info("按 Ctrl+C 退出")
 
     while running:
         if any(proc.poll() is not None for proc in procs):

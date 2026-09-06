@@ -133,6 +133,16 @@ export type Verdict =
 
 export type EvidenceSufficiency = "high" | "medium" | "low";
 
+export type Checkability = "pending" | "checkable" | "not_checkable";
+
+export interface FactCheckStep {
+  id: string;
+  phase: string;
+  state: string;
+  summary: string;
+  at: string;
+}
+
 export interface FactEvidence {
   id: string;
   relation: "supports" | "contradicts";
@@ -153,8 +163,12 @@ export interface FactCheck {
   primary_sources: number;
   counter_evidence: number;
   evidence: FactEvidence[];
-  timeline: TimelineEntry[];
+  timeline: FactCheckStep[];
   created_at: string;
+  checkability: Checkability;
+  checkability_reason: string | null;
+  rationale: string;
+  limitations: string[];
 }
 
 export interface ResearchBrief {

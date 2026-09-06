@@ -120,8 +120,19 @@ function mapFactCheck(raw: Record<string, unknown>): FactCheck {
     evidence: ((raw.evidence as Record<string, unknown>[]) ?? []).map(
       mapFactEvidence,
     ),
-    timeline: [],
-    created_at: String(fc.created_at ?? ""),
+    timeline: ((raw.timeline as Record<string, unknown>[]) ?? []).map((step) => ({
+      id: String(step.entry_id ?? ""),
+      phase: String(step.phase ?? ""),
+      state: String(step.state ?? ""),
+      summary: String(step.summary ?? ""),
+      at: String(step.created_at ?? ""),
+    })),
+    created_at: String(raw.created_at ?? fc.created_at ?? ""),
+    checkability:
+      (fc.checkability as FactCheck["checkability"]) ?? "pending",
+    checkability_reason: (fc.checkability_reason as string | null) ?? null,
+    rationale: String(fc.rationale ?? ""),
+    limitations: (fc.limitations as string[]) ?? [],
   };
 }
 
@@ -195,7 +206,20 @@ export const api = {
 
   system: (): Promise<SystemStatus> => httpGet<SystemStatus>("/system"),
 
-  library: (): Promise<Library> => httpGet<Library>("/library"),
+  library: async (): Promise<Library> => {
+    const raw = await httpGet<{
+      research: Library["research"];
+      monitors: Record<string, unknown>[];
+      factChecks: Record<string, unknown>[];
+      media: Record<string, unknown>[];
+    }>("/library");
+    return {
+      research: raw.research,
+      monitors: raw.monitors.map(mapMonitorDetail),
+      factChecks: raw.factChecks.map(mapFactCheck),
+      media: raw.media.map(mapMediaJob),
+    };
+  },
 
   searchSources: (): Promise<SearchSource[]> =>
     httpGet<SearchSource[]>("/search-sources"),
