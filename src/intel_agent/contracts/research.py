@@ -23,6 +23,7 @@ TaskStatus = Literal[
     "interrupted",
 ]
 ResultStatus = Literal["completed", "partial", "failed", "cancelled"]
+TaskKind = Literal["research", "monitor", "factcheck", "media"]
 StopReason = Literal[
     "evidence_sufficient",
     "max_rounds",
@@ -238,7 +239,12 @@ class ResearchTask(BaseModel):
     task_id: str
     question: str
     status: TaskStatus = "queued"
+    kind: TaskKind = "research"
     round: int = Field(default=0, ge=0)
+    phase: str | None = None
+    cancel_requested: bool = False
+    error: JsonValue | None = None
+    attempt: int = Field(default=0, ge=0)
     budget_used: BudgetUsage = Field(default_factory=BudgetUsage)
     checkpoint: Checkpoint | None = None
     created_at: AwareDatetime
@@ -254,6 +260,24 @@ class ResearchTask(BaseModel):
     @classmethod
     def _aware_opt(cls, value: datetime | None) -> datetime | None:
         return require_aware(value) if value is not None else None
+
+
+class TimelineEntry(BaseModel):
+    """A persisted progress/phase marker scoped to a task."""
+
+    entry_id: str
+    task_id: str
+    sequence: int = Field(ge=0)
+    attempt: int = Field(default=0, ge=0)
+    phase: str = ""
+    state: str = ""
+    summary: str = ""
+    created_at: AwareDatetime
+
+    @field_validator("created_at")
+    @classmethod
+    def _aware(cls, value: datetime) -> datetime:
+        return require_aware(value)
 
 
 class ReportSection(BaseModel):
@@ -312,3 +336,22 @@ class ResearchResult(BaseModel):
     stop_reason: StopReason
     usage: BudgetUsage = Field(default_factory=BudgetUsage)
     report: ResearchReport | None = None
+
+
+class ResearchAssessment(BaseModel):
+    """Typed evaluation output of the research loop (spec 002 §2.3).
+
+    Produced by the loop and consumed by report generation, Monitor, and
+    FactCheck alike. It carries the scope, coverage, evidence review, and the
+    fully-resolved citations; report writing is a separate, optional step.
+    """
+
+    task_id: str
+    scope_id: str = ""
+    coverage: CoverageAssessment
+    evidence_review: EvidenceReview
+    citations: list[Citation] = Field(default_factory=list)
+    accepted_artifact_ids: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    stop_reason: StopReason
+    usage: BudgetUsage = Field(default_factory=BudgetUsage)

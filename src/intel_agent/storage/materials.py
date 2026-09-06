@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Any
 
 from ..contracts.documents import (
@@ -36,8 +35,11 @@ def _parse_iso(value: str) -> datetime:
 class MaterialStore:
     """Authoritative business storage over SQLite (spec §9.2)."""
 
-    def __init__(self, db_path: Path) -> None:
-        self.db = SqliteStore(db_path)
+    def __init__(self, db) -> None:
+        if isinstance(db, SqliteStore):
+            self.db = db
+        else:
+            self.db = SqliteStore(db)
 
     def close(self) -> None:
         self.db.close()

@@ -69,9 +69,14 @@ async def _run(args, settings) -> int:
         if args.command == "experiment":
             return await _experiment(app, settings, args)
         if args.command == "resume":
-            task = app.resume(args.task_id)
-            result = await app.wait(task.task_id)
-            return _print_result(result)
+            await app.resume(args.task_id)
+            task = app.status(args.task_id)
+            print(
+                json.dumps(
+                    task.model_dump(mode="json"), ensure_ascii=False, indent=2
+                )
+            )
+            return 0
         if args.command == "status":
             task = app.status(args.task_id)
             print(

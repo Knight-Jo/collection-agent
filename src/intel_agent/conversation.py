@@ -594,7 +594,7 @@ class ConversationService:
         self._reapply_providers()
         return self._tool_view(tool_id)
 
-    def library(self) -> dict:
+    def library_research(self) -> list[dict]:
         research = []
         for conv in self.list_conversations(archived=False):
             task_id = self.store.latest_task_id(conv["id"])
@@ -617,7 +617,7 @@ class ConversationService:
                     "timeline": projection["timeline"],
                 }
             )
-        return {"research": research, "monitors": [], "factChecks": []}
+        return research
 
     @staticmethod
     def _project_report(task_id, conv, result) -> dict | None:

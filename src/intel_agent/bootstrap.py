@@ -32,6 +32,7 @@ from .extraction.backends.pdf import (
 )
 from .extraction.registry import BackendRegistry
 from .extraction.service import ExtractionService
+from .factcheck.service import FactCheckService
 from .fetch.browser import BrowserFetcher
 from .fetch.service import FetchService
 from .fetch.transport import build_client as build_fetch_client
@@ -39,6 +40,9 @@ from .indexing.embedding import HttpEmbeddingClient
 from .indexing.qdrant import QdrantVectorIndex
 from .indexing.service import IndexingService
 from .indexing.tokenize import TiktokenCounter
+from .library import Library
+from .media.service import MediaService
+from .monitoring.service import MonitoringService
 from .normalization import Normalizer
 from .orchestration.orchestrator import ResearchOrchestrator
 from .runtime.config import ResearchSettings
@@ -54,8 +58,15 @@ from .search.providers import (
     TavilyProvider,
 )
 from .search.service import SearchService
+from .search.settings import SearchSettings
+from .storage.factcheck import FactCheckStore
 from .storage.materials import MaterialStore
+from .storage.media import MediaStore
+from .storage.monitoring import MonitoringStore
 from .storage.resources import ResourceStore
+from .storage.settings import SettingsStore
+from .storage.sqlite import SqliteStore
+from .storage.tasks import TaskStore
 
 
 def _resolve_api_key(cfg):
@@ -211,7 +222,10 @@ async def bootstrap(
         settings: Runtime configuration for all assembled services.
     """
     # Create the shared stores and resource-aware execution pool first.
-    store = MaterialStore(settings.sqlite_file())
+    sqlite = SqliteStore(settings.sqlite_file())
+    store = MaterialStore(sqlite)
+    task_store = TaskStore(sqlite)
+    settings_store = SettingsStore(sqlite)
     resource_store = ResourceStore(
         settings.resources_root(),
         settings.import_roots() + [settings.tmp_root()],
@@ -273,9 +287,7 @@ async def bootstrap(
         BrowserFetcher(resource_store),
     )
     search_service = SearchService(
-        build_search_providers(
-            settings, search_client, store.get_runtime_state
-        ),
+        build_search_providers(settings, search_client, settings_store.get),
         settings.search,
     )
 
@@ -343,7 +355,7 @@ async def bootstrap(
 
     def rebuild_providers():
         return build_search_providers(
-            settings, search_client, store.get_runtime_state
+            settings, search_client, settings_store.get
         )
 
     conversation_service = ConversationService(
@@ -356,8 +368,49 @@ async def bootstrap(
         rebuild_providers,
     )
     application = ResearchApplication(
-        store, orchestrator, settings, conversation_service, event_bus
+        store,
+        task_store,
+        orchestrator,
+        settings,
+        conversation_service,
+        event_bus,
     )
+
+    # Workspace extensions: writable search config, monitoring, fact-check,
+    # media analysis, and the read-only library projection.
+    search_settings = SearchSettings(settings, settings_store)
+    monitoring = MonitoringService(
+        MonitoringStore(sqlite),
+        task_store,
+        orchestrator,
+        application,
+        settings,
+    )
+    factcheck = FactCheckService(
+        FactCheckStore(sqlite),
+        task_store,
+        orchestrator,
+        application,
+        settings,
+    )
+    media = MediaService(
+        MediaStore(sqlite),
+        task_store,
+        store,
+        pipeline,
+        application,
+        settings,
+    )
+    library = Library(conversation_service, monitoring, factcheck, media)
+
+    application.search_settings = search_settings
+    application.monitoring = monitoring
+    application.factcheck = factcheck
+    application.media = media
+    application.library = library
+    application.material_store = store
+    application.settings_store = settings_store
+    application.resource_store = resource_store
     try:
         yield application
     finally:

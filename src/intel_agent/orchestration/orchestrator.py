@@ -14,6 +14,7 @@ from ..contracts.research import (
     Checkpoint,
     ContextPackage,
     ContextRequest,
+    ResearchAssessment,
     ResearchDecision,
     ResearchPlan,
     ResearchResult,
@@ -140,29 +141,95 @@ class ResearchOrchestrator:
         task = self.store.get_task(task_id)
         return await self.run_task(task)
 
+    async def run_assessment(
+        self,
+        task: ResearchTask,
+        event_sink: EventSink | None = None,
+        plan: ResearchPlan | None = None,
+    ) -> ResearchAssessment:
+        """Run the research loop and return a typed assessment (no report).
+
+        The planner/search/acquire/coverage/verifier/decider loop is executed;
+        the returned assessment carries scope, coverage, evidence review and
+        fully-resolved citations. Report generation is a separate step so that
+        non-research callers (Monitor, FactCheck) can consume the evaluation
+        without triggering report writing.
+        """
+        assessment, _context, _block, _questions = await self._run_loop(
+            task, event_sink, plan
+        )
+        return assessment
+
     async def run_task(
         self,
         task: ResearchTask,
         event_sink: EventSink | None = None,
         plan: ResearchPlan | None = None,
     ) -> ResearchResult:
-        """Execute a task through planning, research rounds, and reporting.
-
-        Each round searches in the current directions, acquires new materials,
-        assesses coverage and evidence, then decides whether to continue or
-        finish. A checkpoint is saved after each round and before returning.
+        """Execute the research loop, then write the report for research tasks.
 
         Args:
             task: Task to execute.
-            event_sink: Optional per-run event destination, overriding the
-                configured default sink.
-            plan: Optional existing plan; when omitted, the planner role creates
-                one from the task question.
+            event_sink: Optional per-run event destination.
+            plan: Optional existing plan.
 
         Returns:
             A completed result when evidence is sufficient, or a partial result
             when the configured round limit is reached.
         """
+        assessment, context, evidence_block, questions = await self._run_loop(
+            task, event_sink, plan
+        )
+        sink = event_sink or self.event_sink
+        report = None
+        if (
+            assessment.stop_reason == "evidence_sufficient"
+            and assessment.citations
+        ):
+            report = await self._write_report(
+                task, assessment, questions, evidence_block, sink
+            )
+        self._persist_assessment(assessment, context, report)
+        if report is not None:
+            citations = (
+                self._resolve_citations(report.citation_ids, context)
+                or assessment.citations
+            )
+            answer = report.markdown()
+            result = ResearchResult(
+                task_id=task.task_id,
+                status="completed",
+                answer=answer,
+                citations=citations,
+                stop_reason="evidence_sufficient",
+                usage=assessment.usage,
+                report=report,
+            )
+            await self._emit_answer(sink, task.task_id, answer)
+        else:
+            answer = (
+                f"覆盖评估: {assessment.coverage.summary}\n"
+                f"证据核验: {assessment.evidence_review.summary}"
+            )
+            result = ResearchResult(
+                task_id=task.task_id,
+                status="partial",
+                answer=answer,
+                stop_reason=assessment.stop_reason,
+                limitations=assessment.limitations,
+                usage=assessment.usage,
+            )
+        self._save_checkpoint(
+            task, task.round, assessment.accepted_artifact_ids, result
+        )
+        return result
+
+    async def _run_loop(
+        self,
+        task: ResearchTask,
+        event_sink: EventSink | None = None,
+        plan: ResearchPlan | None = None,
+    ) -> tuple[ResearchAssessment, ContextPackage, str, str]:
         sink = event_sink or self.event_sink
         lock = TaskLock(self.lock_dir, task.task_id)
         lock.acquire()
@@ -172,7 +239,8 @@ class ResearchOrchestrator:
             )
             accepted: list[str] = []
             round_no = task.round
-            last_summary = ""
+            evidence_block = ""
+            questions = ""
             await self._emit(
                 sink,
                 {
@@ -370,6 +438,7 @@ class ResearchOrchestrator:
                     "决定下一步：继续搜索或结束。",
                     task.task_id,
                 )
+                usage = self.store.get_task(task.task_id).budget_used
                 if decision.action == "finish":
                     if not context.citations:
                         decision = ResearchDecision(
@@ -389,42 +458,6 @@ class ResearchOrchestrator:
                     )
                     if not citations and context.citations:
                         citations = list(context.citations)
-                    await self._emit(
-                        sink,
-                        {
-                            "event": "timeline",
-                            "task_id": task.task_id,
-                            "kind": "report",
-                            "label": "撰写研究报告",
-                            "detail": "整理证据并生成结构化报告",
-                        },
-                    )
-                    report = await self._run_agent(
-                        self.roles["writer"],
-                        f"研究主题:\n{task.question}\n\n"
-                        f"研究问题:\n{questions}\n\n"
-                        f"覆盖评估:\n{coverage.summary}\n\n"
-                        f"证据核验:\n{evidence.summary}\n\n"
-                        f"{evidence_block}\n\n"
-                        "撰写结构化研究报告。",
-                        task.task_id,
-                    )
-                    writer_citations = self._resolve_citations(
-                        report.citation_ids, context
-                    )
-                    if writer_citations:
-                        citations = writer_citations
-                    answer = report.markdown()
-                    result = ResearchResult(
-                        task_id=task.task_id,
-                        status="completed",
-                        answer=answer,
-                        citations=citations,
-                        stop_reason="evidence_sufficient",
-                        usage=self.store.get_task(task.task_id).budget_used,
-                        report=report,
-                    )
-                    await self._emit_answer(sink, task.task_id, result.answer)
                     await self._emit(
                         sink,
                         {
@@ -451,24 +484,31 @@ class ResearchOrchestrator:
                             "phase": "checkpointing",
                         },
                     )
-                    self._persist_result(
-                        task.task_id, context, coverage, evidence, report
+                    assessment = ResearchAssessment(
+                        task_id=task.task_id,
+                        scope_id=context.scope_id,
+                        coverage=coverage,
+                        evidence_review=evidence,
+                        citations=citations,
+                        accepted_artifact_ids=list(accepted),
+                        stop_reason="evidence_sufficient",
+                        usage=usage,
                     )
-                    self._save_checkpoint(task, round_no, accepted, result)
-                    return result
+                    self._save_checkpoint(task, round_no, accepted, None)
+                    return assessment, context, evidence_block, questions
                 directions = decision.directions
-                last_summary = (
-                    f"覆盖评估: {coverage.summary}\n"
-                    f"证据核验: {evidence.summary}"
-                )
                 self._save_checkpoint(task, round_no, accepted, None)
-            result = ResearchResult(
+            usage = self.store.get_task(task.task_id).budget_used
+            assessment = ResearchAssessment(
                 task_id=task.task_id,
-                status="partial",
-                answer=last_summary,
-                stop_reason="max_rounds",
+                scope_id=context.scope_id,
+                coverage=coverage,
+                evidence_review=evidence,
+                citations=list(context.citations),
+                accepted_artifact_ids=list(accepted),
                 limitations=["max rounds reached", "no conclusive finish"],
-                usage=self.store.get_task(task.task_id).budget_used,
+                stop_reason="max_rounds",
+                usage=usage,
             )
             await self._emit(
                 sink,
@@ -478,11 +518,33 @@ class ResearchOrchestrator:
                     "status": "failed",
                 },
             )
-            self._persist_result(task.task_id, context, coverage, evidence)
-            self._save_checkpoint(task, round_no, accepted, result)
-            return result
+            return assessment, context, evidence_block, questions
         finally:
             lock.release()
+
+    async def _write_report(
+        self, task, assessment, questions, evidence_block, sink
+    ):
+        await self._emit(
+            sink,
+            {
+                "event": "timeline",
+                "task_id": task.task_id,
+                "kind": "report",
+                "label": "撰写研究报告",
+                "detail": "整理证据并生成结构化报告",
+            },
+        )
+        return await self._run_agent(
+            self.roles["writer"],
+            f"研究主题:\n{task.question}\n\n"
+            f"研究问题:\n{questions}\n\n"
+            f"覆盖评估:\n{assessment.coverage.summary}\n\n"
+            f"证据核验:\n{assessment.evidence_review.summary}\n\n"
+            f"{evidence_block}\n\n"
+            "撰写结构化研究报告。",
+            task.task_id,
+        )
 
     async def _emit_answer(
         self, sink: EventSink | None, task_id: str, answer: str
@@ -518,20 +580,23 @@ class ResearchOrchestrator:
         )
         self.store.save_checkpoint(task.task_id, checkpoint, usage)
 
-    def _persist_result(
-        self, task_id, context, coverage, evidence, report=None
-    ):
+    def _persist_assessment(
+        self,
+        assessment: ResearchAssessment,
+        context: ContextPackage,
+        report=None,
+    ) -> None:
         url_by_citation = {
             c.citation_id: c.source_url for c in context.citations
         }
-        evidence_data = evidence.model_dump(mode="json")
+        evidence_data = assessment.evidence_review.model_dump(mode="json")
         for item in evidence_data.get("claims", []):
             item["source_url"] = url_by_citation.get(
                 item.get("citation_id"), ""
             )
         self.store.save_research_result(
-            task_id,
+            assessment.task_id,
             report=report.model_dump(mode="json") if report else None,
-            coverage=coverage.model_dump(mode="json"),
+            coverage=assessment.coverage.model_dump(mode="json"),
             evidence=evidence_data,
         )

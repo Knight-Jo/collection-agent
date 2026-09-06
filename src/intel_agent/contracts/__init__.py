@@ -27,6 +27,7 @@ from .research import (
     ProviderReport,
     QuestionCoverage,
     ReportSection,
+    ResearchAssessment,
     ResearchDecision,
     ResearchGap,
     ResearchPlan,
@@ -39,6 +40,7 @@ from .research import (
     SearchOccurrence,
     SearchQuery,
     SearchRequest,
+    TimelineEntry,
 )
 from .resources import FetchRequest, FetchResult, Resource, ResourceOrigin
 
@@ -75,6 +77,7 @@ __all__ = [
     "ProviderReport",
     "QuestionCoverage",
     "ReportSection",
+    "ResearchAssessment",
     "ResearchDecision",
     "ResearchGap",
     "ResearchPlan",
@@ -90,4 +93,5 @@ __all__ = [
     "SearchOccurrence",
     "SearchQuery",
     "SearchRequest",
+    "TimelineEntry",
 ]

@@ -13,6 +13,7 @@ MIGRATIONS = (
     "002_conversations.sql",
     "003_research_results.sql",
     "004_runtime_state.sql",
+    "005_workspace_extensions.sql",
 )
 
 

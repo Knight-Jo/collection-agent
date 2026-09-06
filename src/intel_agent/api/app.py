@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from ..bootstrap import bootstrap
 from ..contracts.errors import DomainError
 from ..runtime.config import load_settings
+from .routes import settings_router, workspace_router
 
 
 def _app(request: Request):
@@ -125,15 +126,11 @@ def create_app() -> FastAPI:
             raise HTTPException(422, "topic is required")
         return await _app(request).conversations.start_research(topic, brief)
 
-    # --- system / library ---------------------------------------------------
+    # --- system -------------------------------------------------------------
 
     @app.get("/api/system")
     async def system(request: Request):
         return _app(request).conversations.system_status()
-
-    @app.get("/api/library")
-    async def library(request: Request):
-        return _app(request).conversations.library()
 
     # --- material source files ---------------------------------------------
 
@@ -159,64 +156,9 @@ def create_app() -> FastAPI:
             filename="materials.zip",
         )
 
-    # --- search sources -----------------------------------------------------
+    # --- workspace routes (monitors, fact checks, media, tasks, library) ----
 
-    @app.get("/api/search-sources")
-    async def search_sources(request: Request):
-        return _app(request).conversations.search_sources()
-
-    @app.post("/api/search-sources")
-    async def add_search_source(request: Request, body: dict):
-        name = (body or {}).get("name", "").strip()
-        url = (body or {}).get("url", "").strip()
-        if not name or not url:
-            raise HTTPException(422, "name and url are required")
-        try:
-            return _app(request).conversations.add_search_source(name, url)
-        except DomainError as error:
-            raise _map_error(error) from error
-
-    @app.post("/api/search-sources/{source_id}/toggle")
-    async def toggle_search_source(request: Request, source_id: str):
-        try:
-            return _app(request).conversations.toggle_search_source(source_id)
-        except DomainError as error:
-            raise _map_error(error) from error
-
-    @app.patch("/api/search-sources/{source_id}")
-    async def update_search_source(
-        request: Request, source_id: str, body: dict
-    ):
-        try:
-            return _app(request).conversations.update_search_source(
-                source_id, body or {}
-            )
-        except DomainError as error:
-            raise _map_error(error) from error
-
-    # --- ai search tools ----------------------------------------------------
-
-    @app.get("/api/ai-search-tools")
-    async def ai_search_tools(request: Request):
-        return _app(request).conversations.ai_search_tools()
-
-    @app.post("/api/ai-search-tools/{tool_id}/toggle")
-    async def toggle_ai_search_tool(request: Request, tool_id: str):
-        try:
-            return _app(request).conversations.toggle_ai_tool(tool_id)
-        except DomainError as error:
-            raise _map_error(error) from error
-
-    @app.patch("/api/ai-search-tools/{tool_id}/api-key")
-    async def update_ai_search_tool_key(
-        request: Request, tool_id: str, body: dict
-    ):
-        api_key = (body or {}).get("api_key", "")
-        try:
-            return _app(request).conversations.update_ai_tool_key(
-                tool_id, api_key
-            )
-        except DomainError as error:
-            raise _map_error(error) from error
+    app.include_router(workspace_router, prefix="/api")
+    app.include_router(settings_router, prefix="/api")
 
     return app
