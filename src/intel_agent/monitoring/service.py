@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 
 from ..contracts.errors import DomainError
@@ -19,6 +20,8 @@ from .models import (
     MonitorSchedule,
 )
 from .scheduler import next_run_after
+
+logger = logging.getLogger("intel_agent.monitoring")
 
 
 class MonitoringService:
@@ -168,6 +171,9 @@ class MonitoringService:
         if run is None:
             return
         monitor = self.store.get_monitor(run.monitor_id)
+        logger.info(
+            "monitor run started run=%s monitor=%s", run.run_id, run.monitor_id
+        )
         self.task_store.claim_queued(task_id)
         self.task_store.set_phase(task_id, "researching")
         self.task_store.add_timeline(task_id, "researching", "started")
@@ -181,6 +187,12 @@ class MonitoringService:
         facts = self._facts_from_assessment(run, assessment)
         baseline = self._frozen_baseline(run, monitor)
         changes = self._compare(run, monitor, facts, baseline, assessment)
+        logger.info(
+            "monitor run compared run=%s facts=%d changes=%d",
+            run.run_id,
+            len(facts),
+            len(changes),
+        )
 
         self.store.save_run(
             MonitorRun(

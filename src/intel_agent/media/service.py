@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from ..contracts.documents import BlockSpan, Locator
 from ..storage._ids import new_id
 from ..storage.media import MediaStore
@@ -13,6 +15,8 @@ from .models import (
     MediaJobView,
     MediaSegment,
 )
+
+logger = logging.getLogger("intel_agent.media")
 
 
 class MediaService:
@@ -58,6 +62,12 @@ class MediaService:
         )
         self.store.save_job(job)
         self.task_store.add_timeline(task.task_id, "queued", "submitted")
+        logger.info(
+            "media job submitted id=%s filename=%s kind=%s",
+            job.media_job_id,
+            filename,
+            kind,
+        )
         self.application.launch(task.task_id, self._run)
         return job
 
@@ -104,6 +114,7 @@ class MediaService:
         job = self.store.get_by_task(task_id)
         if job is None:
             return
+        logger.info("media job started id=%s", job.media_job_id)
         self.task_store.claim_queued(task_id)
         self.task_store.set_phase(task_id, "transcribing")
         self.task_store.add_timeline(task_id, "transcribing", "started")
@@ -114,6 +125,12 @@ class MediaService:
             task_id, resource, profile, index_after_store=False
         )
         if not report.artifact_id:
+            logger.warning(
+                "media job failed id=%s stage=%s error=%s",
+                job.media_job_id,
+                report.stage,
+                report.error,
+            )
             self.task_store.update_task_status(
                 task_id,
                 "failed",
@@ -133,6 +150,14 @@ class MediaService:
         self.task_store.set_phase(task_id, "analyzing")
         self._extract_facts(job)
 
+        facts = self.store.list_facts(job.media_job_id)
+        segments = self.segments(job.media_job_id)
+        logger.info(
+            "media job completed id=%s segments=%d facts=%d",
+            job.media_job_id,
+            len(segments),
+            len(facts),
+        )
         self.task_store.update_task_status(task_id, "completed", phase="done")
         self.task_store.add_timeline(task_id, "done", "completed")
 

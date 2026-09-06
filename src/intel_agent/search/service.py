@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from time import monotonic
 
 from ..contracts.errors import DomainError
@@ -21,6 +22,8 @@ from ..runtime.limits import AttemptLedger
 from ..runtime.logging import StructuredLogger
 
 RRF_CONSTANT = 60
+
+logger = logging.getLogger("intel_agent.search")
 
 
 def rrf_score(ranks: list[int]) -> float:
@@ -110,6 +113,12 @@ class SearchService:
                 )
                 hits = [h for h in hits if self._post_filter(request.query, h)]
                 self._merge(merged, hits)
+                logger.debug(
+                    "provider=%s query=%r hits=%d",
+                    name,
+                    request.query.text,
+                    len(hits),
+                )
                 return ProviderReport(
                     provider=name,
                     status="success",
@@ -166,9 +175,14 @@ class SearchService:
             merged.values(),
             key=lambda h: (-rrf_score(_ranks(h)), h.dedup_key),
         )[: request.total_limit]
-        return SearchBatch(
-            hits=hits, provider_reports=reports, status=_batch_status(reports)
+        status = _batch_status(reports)
+        logger.debug(
+            "search query=%r status=%s hits=%d",
+            request.query.text,
+            status,
+            len(hits),
         )
+        return SearchBatch(hits=hits, provider_reports=reports, status=status)
 
     async def _call_with_retry(
         self,

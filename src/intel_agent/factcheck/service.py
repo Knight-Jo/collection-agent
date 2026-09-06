@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import logging
+
 from ..contracts.errors import DomainError
 from ..storage._ids import new_id
 from ..storage.factcheck import FactCheckStore
 from ..storage.tasks import TaskStore
 from .models import Checkability, FactCheck, FactCheckView, FactEvidence
 from .verdict import adjudicate
+
+logger = logging.getLogger("intel_agent.factcheck")
 
 
 class FactCheckService:
@@ -64,6 +68,7 @@ class FactCheckService:
         fact_check = self.store.get_by_task(task_id)
         if fact_check is None:
             return
+        logger.info("fact check started id=%s", fact_check.fact_check_id)
         self.task_store.claim_queued(task_id)
         self.task_store.set_phase(task_id, "understanding")
         self.task_store.add_timeline(task_id, "understanding", "started")
@@ -79,6 +84,11 @@ class FactCheckService:
             None if checkable == "checkable" else understanding
         )
         self.store.save(fact_check)
+        logger.debug(
+            "fact check understood id=%s checkable=%s",
+            fact_check.fact_check_id,
+            checkable,
+        )
 
         if checkable != "checkable":
             self._finish(fact_check, task_id, "completed", "done")
@@ -107,6 +117,13 @@ class FactCheckService:
         if assessment.limitations:
             fact_check.limitations = assessment.limitations
         self.store.save(fact_check)
+        logger.info(
+            "fact check finished id=%s verdict=%s sufficiency=%s evidence=%d",
+            fact_check.fact_check_id,
+            verdict,
+            sufficiency,
+            len(evidence),
+        )
         self._finish(fact_check, task_id, "completed", "done")
 
     async def _understand(self, claim: str) -> tuple[str, list[str]]:

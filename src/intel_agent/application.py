@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -16,6 +17,8 @@ from .storage.materials import MaterialStore
 from .storage.tasks import TaskStore
 
 Runner = Callable[[str], Awaitable[None]]
+
+logger = logging.getLogger("intel_agent.application")
 
 
 class ResearchApplication:
@@ -67,6 +70,7 @@ class ResearchApplication:
     def launch(self, task_id: str, runner: Runner) -> None:
         async def _guarded() -> None:
             async with self._sem:
+                logger.info("task launched id=%s", task_id)
                 try:
                     await runner(task_id)
                 finally:
@@ -78,6 +82,7 @@ class ResearchApplication:
         return task_id in self._running
 
     def request_cancel(self, task_id: str) -> None:
+        logger.info("cancel requested id=%s", task_id)
         self.task_store.request_cancel(task_id)
         task = self._running.get(task_id)
         if task is not None:
@@ -94,13 +99,16 @@ class ResearchApplication:
             raise DomainError(
                 "NOT_FOUND", f"no runner for task kind {task.kind}"
             )
+        logger.info("resuming task id=%s kind=%s", task_id, task.kind)
         self.task_store.update_task_status(task_id, "queued", error=None)
         self.launch(task_id, runner)
 
     async def recover(self) -> None:
         """Re-register queued work and interrupt orphaned running tasks."""
         self._running.clear()
-        for task_id in self._orphaned_running():
+        orphaned = self._orphaned_running()
+        for task_id in orphaned:
+            logger.warning("interrupting orphaned running task id=%s", task_id)
             self.task_store.update_task_status(
                 task_id,
                 "interrupted",
@@ -111,10 +119,14 @@ class ResearchApplication:
                     "retryable": True,
                 },
             )
-        for task_id in self._queued():
+        queued = self._queued()
+        for task_id in queued:
             task = self.task_store.get_task(task_id)
             runner = self._runners.get(task.kind)
             if runner is not None:
+                logger.info(
+                    "recovering queued task id=%s kind=%s", task_id, task.kind
+                )
                 self.launch(task_id, runner)
 
     def _orphaned_running(self) -> list[str]:
@@ -131,6 +143,7 @@ class ResearchApplication:
             kind="research",
             deadline_seconds=self.settings.research.deadline_seconds,
         )
+        logger.info("submitting research task id=%s", task.task_id)
         self.launch(task.task_id, self._run_research)
         return task
 
@@ -152,6 +165,10 @@ class ResearchApplication:
         return self.task_store.get_task(task_id)
 
     async def close(self) -> None:
+        logger.info(
+            "closing application (cancelling %d running tasks)",
+            len(self._running),
+        )
         for task in self._running.values():
             task.cancel()
         if self._running:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -48,6 +49,7 @@ from .orchestration.orchestrator import ResearchOrchestrator
 from .runtime.config import ResearchSettings
 from .runtime.events import EventBus
 from .runtime.execution import Executor
+from .runtime.logging import configure_logging
 from .search.providers import (
     ArxivProvider,
     BraveProvider,
@@ -221,6 +223,19 @@ async def bootstrap(
     Args:
         settings: Runtime configuration for all assembled services.
     """
+    configure_logging(
+        settings.logging.level,
+        settings.logs_root(),
+        console=settings.logging.console,
+        file=settings.logging.file,
+    )
+    logger = logging.getLogger("intel_agent.bootstrap")
+    logger.info(
+        "starting research application (model=%s, qdrant=%s)",
+        settings.model.model_id,
+        settings.storage.qdrant_url,
+    )
+
     # Create the shared stores and resource-aware execution pool first.
     sqlite = SqliteStore(settings.sqlite_file())
     store = MaterialStore(sqlite)
@@ -289,6 +304,10 @@ async def bootstrap(
     search_service = SearchService(
         build_search_providers(settings, search_client, settings_store.get),
         settings.search,
+    )
+    logger.info(
+        "search providers: %s",
+        sorted(search_service.providers) or ["<none>"],
     )
 
     # Build indexing and retrieval, enabling vector search only when configured.
@@ -423,3 +442,4 @@ async def bootstrap(
         if vector_index is not None:
             await vector_index.close()
         await executor.close()
+        logger.info("research application stopped")

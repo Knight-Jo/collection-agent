@@ -179,6 +179,12 @@ class StorageConfig(BaseModel):
     import_roots: list[Path] = Field(default_factory=list)
 
 
+class LoggingConfig(BaseModel):
+    level: str = "INFO"
+    console: bool = True
+    file: bool = True
+
+
 # --- top-level settings -----------------------------------------------------
 
 
@@ -194,6 +200,7 @@ class ResearchSettings(BaseModel):
     context: ContextConfig = Field(default_factory=ContextConfig)
     research: ResearchConfig = Field(default_factory=ResearchConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
     # Optional capability profiles keyed by stable name -> typed payload.
     extraction_profiles: dict[str, dict[str, Any]] = Field(
         default_factory=dict

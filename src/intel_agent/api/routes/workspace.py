@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import mimetypes
 from datetime import UTC, datetime
 from typing import Annotated
@@ -13,6 +14,9 @@ from ...contracts.resources import ResourceOrigin
 from ...monitoring.models import MonitorSchedule
 
 router = APIRouter()
+
+
+logger = logging.getLogger("intel_agent.api")
 
 
 def _app(request: Request):
@@ -27,6 +31,7 @@ def _map(error: DomainError) -> HTTPException:
         "TOO_LARGE": 413,
         "UNSUPPORTED_MEDIA": 415,
     }
+    logger.warning("api error code=%s message=%s", error.code, error.message)
     return HTTPException(mapping.get(error.code, 500), error.message)
 
 
@@ -131,9 +136,7 @@ async def get_fact_check(request: Request, fact_check_id: str):
 
 
 @router.post("/media")
-async def upload_media(
-    request: Request, file: Annotated[UploadFile, File()]
-):
+async def upload_media(request: Request, file: Annotated[UploadFile, File()]):
     app = _app(request)
     filename = file.filename or "upload"
     media_type = file.content_type or ""

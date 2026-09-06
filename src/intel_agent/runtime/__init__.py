@@ -6,6 +6,7 @@ from .config import (
     ExtractionConfig,
     FetchConfig,
     IndexingConfig,
+    LoggingConfig,
     ModelConfig,
     ProviderConfig,
     ResearchConfig,
@@ -17,7 +18,7 @@ from .config import (
 )
 from .execution import Executor, ProcessResult
 from .limits import AttemptLedger, BudgetLedger, OperationContext
-from .logging import StructuredLogger, redact_secrets
+from .logging import StructuredLogger, configure_logging, redact_secrets
 
 __all__ = [
     "AttemptLedger",
@@ -28,6 +29,7 @@ __all__ = [
     "ExtractionConfig",
     "FetchConfig",
     "IndexingConfig",
+    "LoggingConfig",
     "ModelConfig",
     "OperationContext",
     "ProcessResult",
@@ -37,6 +39,7 @@ __all__ = [
     "SearchConfig",
     "StorageConfig",
     "StructuredLogger",
+    "configure_logging",
     "load_settings",
     "profile_id",
     "redact_secrets",

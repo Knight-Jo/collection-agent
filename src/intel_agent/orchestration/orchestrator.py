@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,6 +31,8 @@ from ..storage.materials import MaterialStore
 from .state import TaskLock
 
 EventSink = Callable[[dict], Awaitable[None]]
+
+logger = logging.getLogger("intel_agent.orchestrator")
 
 
 def _evidence_block(context: ContextPackage) -> str:
@@ -102,9 +105,24 @@ class ResearchOrchestrator:
         if sink is not None:
             await sink(event)
 
-    async def _run_agent(self, agent, prompt: str, task_id: str) -> Any:
+    async def _run_agent(
+        self, agent, prompt: str, task_id: str, name: str = "agent"
+    ) -> Any:
+        logger.debug(
+            "llm call task=%s role=%s prompt=%d chars",
+            task_id,
+            name,
+            len(prompt),
+        )
         result = await agent.run(prompt)
         usage = result.usage
+        logger.info(
+            "llm task=%s role=%s in=%d out=%d",
+            task_id,
+            name,
+            usage.input_tokens,
+            usage.output_tokens,
+        )
         self.store.record_budget_change(
             task_id,
             BudgetUsage(
@@ -219,6 +237,12 @@ class ResearchOrchestrator:
                 limitations=assessment.limitations,
                 usage=assessment.usage,
             )
+        logger.info(
+            "finished task=%s stop_reason=%s citations=%d",
+            task.task_id,
+            result.stop_reason,
+            len(result.citations),
+        )
         self._save_checkpoint(
             task, task.round, assessment.accepted_artifact_ids, result
         )
@@ -269,13 +293,21 @@ class ResearchOrchestrator:
             )
             if plan is None:
                 plan = await self._run_agent(
-                    self.roles["planner"], task.question, task.task_id
+                    self.roles["planner"],
+                    task.question,
+                    task.task_id,
+                    "planner",
                 )
             assert plan is not None
             directions = plan.directions or [
                 SearchDirection(query=SearchQuery(text=task.question))
             ]
             for _ in range(self.config.max_rounds):
+                logger.info(
+                    "round task=%s directions=%d",
+                    task.task_id,
+                    len(directions),
+                )
                 await self._emit(
                     sink,
                     {
@@ -413,6 +445,7 @@ class ResearchOrchestrator:
                     f"研究问题:\n{questions}\n\n{evidence_block}\n\n"
                     "逐问题评估证据是否充分。",
                     task.task_id,
+                    "coverage",
                 )
                 await self._emit(
                     sink,
@@ -429,6 +462,7 @@ class ResearchOrchestrator:
                     f"研究问题:\n{questions}\n\n{evidence_block}\n\n"
                     "对关键主张核验证据并识别冲突。",
                     task.task_id,
+                    "verifier",
                 )
                 decision = await self._run_agent(
                     self.roles["decider"],
@@ -437,6 +471,7 @@ class ResearchOrchestrator:
                     f"{evidence_block}\n\n"
                     "决定下一步：继续搜索或结束。",
                     task.task_id,
+                    "decider",
                 )
                 usage = self.store.get_task(task.task_id).budget_used
                 if decision.action == "finish":
@@ -544,6 +579,7 @@ class ResearchOrchestrator:
             f"{evidence_block}\n\n"
             "撰写结构化研究报告。",
             task.task_id,
+            "writer",
         )
 
     async def _emit_answer(

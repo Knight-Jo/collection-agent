@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Request
 
 from ...contracts.errors import DomainError
 
 router = APIRouter()
+
+
+logger = logging.getLogger("intel_agent.api")
 
 
 def _app(request: Request):
@@ -19,6 +24,7 @@ def _map(error: DomainError) -> HTTPException:
         "INVALID_REQUEST": 422,
         "CONFLICT": 409,
     }
+    logger.warning("api error code=%s message=%s", error.code, error.message)
     return HTTPException(mapping.get(error.code, 500), error.message)
 
 

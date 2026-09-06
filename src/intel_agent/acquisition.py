@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html as _html
+import logging
 from datetime import UTC, datetime
 
 from .contracts.documents import NormalizationInput
@@ -16,6 +17,8 @@ from .storage.materials import MaterialStore
 
 STAGES = ("fetch", "extract", "normalize", "store", "index")
 type Source = SearchHit | Resource
+
+logger = logging.getLogger("intel_agent.acquisition")
 
 
 class AcquisitionPipeline:
@@ -154,6 +157,9 @@ class AcquisitionPipeline:
                     )
                     resource = fetch_result.resource
                 except DomainError as error:
+                    logger.warning(
+                        "fetch failed task=%s error=%s", task_id, error.code
+                    )
                     self.store.update_work_item(
                         work_item_id, "fetch", "failed"
                     )
@@ -165,6 +171,13 @@ class AcquisitionPipeline:
                         error=error.code,
                     )
             resource_id = resource.resource_id
+            logger.debug(
+                "fetched task=%s resource=%s media_type=%s bytes=%d",
+                task_id,
+                resource_id,
+                resource.media_type,
+                resource.byte_length,
+            )
             self.store.update_work_item(
                 work_item_id, "fetch", "done", resource_id=resource_id
             )
@@ -181,6 +194,9 @@ class AcquisitionPipeline:
                 resource, pid
             )
         except DomainError as error:
+            logger.warning(
+                "extract failed task=%s error=%s", task_id, error.code
+            )
             self.store.update_work_item(work_item_id, "extract", "failed")
             return AcquisitionReport(
                 task_id=task_id,
@@ -207,6 +223,12 @@ class AcquisitionPipeline:
             )
             document = self.normalizer.normalize(input_)
             artifact_id = self.store.save_document(task_id, document)
+            logger.debug(
+                "stored task=%s artifact=%s blocks=%d",
+                task_id,
+                artifact_id,
+                len(document.blocks),
+            )
             self.store.update_work_item(
                 work_item_id, "store", "done", artifact_id=artifact_id
             )
