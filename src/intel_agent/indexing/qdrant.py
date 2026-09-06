@@ -19,7 +19,18 @@ def vector_point_id(chunk_id: str, profile_id: str) -> str:
 
 
 class QdrantVectorIndex:
-    """A real Qdrant backend; collections are isolated per profile."""
+    """A real Qdrant backend; collections are isolated per profile.
+
+    public methods:
+    - upsert(points, profile_id)
+        Upsert a list of vector points into the specified profile.
+    - search(vector, scope, profile_id, top_k)
+        Search for similar vectors within the specified scope.
+    - delete(point_ids, profile_id)
+        Delete the specified vector points from the specified profile.
+    - close()
+        Close the connection to the Qdrant client.
+    """
 
     def __init__(self, url: str) -> None:
         from qdrant_client import AsyncQdrantClient

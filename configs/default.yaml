@@ -150,7 +150,7 @@ research:
 storage:
   qdrant_url: http://127.0.0.1:6333   # 本地 Qdrant；null 则禁用向量
   data_dir: ../data                # SQLite / resources / tmp / logs
-  output_dir: ../output            # 结果导出（result.json / result.md）
+  output_dir: ../data/output            # 结果导出（result.json / result.md）
   # sqlite_path: ../data/research.sqlite
   # resources_dir: ../data/resources
   # tmp_dir: ../data/tmp
