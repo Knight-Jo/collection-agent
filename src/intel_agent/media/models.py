@@ -84,3 +84,17 @@ class MediaJobView(BaseModel):
     segments: list[MediaSegment] = Field(default_factory=list)
     facts: list[MediaFact] = Field(default_factory=list)
     evidence: list[MediaEvidence] = Field(default_factory=list)
+
+
+class FactExtractionItem(BaseModel):
+    """A semantic fact extracted from a transcript, referencing segments."""
+
+    statement: str
+    segment_indices: list[int] = Field(default_factory=list)
+
+
+class FactExtractionResult(BaseModel):
+    """Structured output of the media fact-extractor role."""
+
+    summary: str = ""
+    facts: list[FactExtractionItem] = Field(default_factory=list)

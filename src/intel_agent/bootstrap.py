@@ -419,6 +419,7 @@ async def bootstrap(
         pipeline,
         application,
         settings,
+        roles,
     )
     library = Library(conversation_service, monitoring, factcheck, media)
 
