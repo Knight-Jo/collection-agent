@@ -28,6 +28,19 @@ def rrf_score(ranks: list[int]) -> float:
 
 
 class SearchService:
+    """Search configured providers concurrently and combine their results.
+
+    Each provider is bounded by the configured timeout and retry policy. The
+    service filters invalid results, merges duplicate sources, ranks them with
+    reciprocal rank fusion, and returns provider-level status reports.
+
+    Attributes:
+        providers: Search providers keyed by their public provider name.
+        config: Search timeouts, retry counts, and result limits.
+        attempts: Optional shared ledger for tracking search attempts.
+        logger: Structured logger available to the search service.
+    """
+
     def __init__(
         self,
         providers: list[SearchProvider],
@@ -43,6 +56,21 @@ class SearchService:
         self.logger = logger or StructuredLogger()
 
     async def search(self, request: SearchRequest) -> SearchBatch:
+        """Run a bounded search across the requested providers.
+
+        Unknown provider names are ignored; when no names are supplied, all
+        configured providers are queried. Results are filtered, deduplicated,
+        ranked, and limited before the batch status is returned.
+
+        Args:
+            request: Query, provider selection, and per-batch result limits.
+
+        Returns:
+            Search hits together with one status report per attempted provider.
+
+        Raises:
+            DomainError: If the request limits are invalid.
+        """
         if request.per_provider_limit <= 0 or request.total_limit <= 0:
             raise DomainError("INVALID_REQUEST", "limits must be positive")
         requested = request.provider_names or list(self.providers)
@@ -105,6 +133,7 @@ class SearchService:
                     warnings=[str(error)],
                 )
 
+        # Run providers concurrently, then collect completed and timed-out work.
         calls = {name: asyncio.create_task(run_one(name)) for name in names}
         done, pending = await asyncio.wait(
             calls.values(),
@@ -128,6 +157,7 @@ class SearchService:
             else:
                 reports.append(task.result())
 
+        # Merge duplicate hits and rank sources by their provider positions.
         hits = sorted(
             merged.values(),
             key=lambda h: (-rrf_score(_ranks(h)), h.dedup_key),

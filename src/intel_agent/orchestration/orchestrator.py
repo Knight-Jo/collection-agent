@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ..acquisition import AcquisitionPipeline
+from ..context.manager import ContextManager
 from ..contracts.research import (
     BudgetUsage,
     Checkpoint,
@@ -20,7 +22,9 @@ from ..contracts.research import (
     SearchQuery,
     SearchRequest,
 )
+from ..indexing.service import IndexingService
 from ..runtime.config import ResearchConfig
+from ..search.service import SearchService
 from ..storage.materials import MaterialStore
 from .state import TaskLock
 
@@ -66,11 +70,11 @@ class ResearchOrchestrator:
     def __init__(
         self,
         store: MaterialStore,
-        search_service,
-        acquisition_pipeline,
-        indexing_service,
-        context_manager,
-        roles,
+        search_service: SearchService,
+        acquisition_pipeline: AcquisitionPipeline,
+        indexing_service: IndexingService,
+        context_manager: ContextManager,
+        roles: dict[str, Any],
         config: ResearchConfig,
         profile_id: str,
         lock_dir: Path,
@@ -223,7 +227,29 @@ class ResearchOrchestrator:
                     },
                 )
                 round_materials = 0
-                for direction in directions:
+                for direction_index, direction in enumerate(directions, 1):
+                    query = direction.query.text
+                    reason = direction.reason or "按规划方向检索"
+                    providers = (
+                        ", ".join(direction.provider_names)
+                        if direction.provider_names
+                        else "全部可用来源"
+                    )
+                    await self._emit(
+                        sink,
+                        {
+                            "event": "timeline",
+                            "task_id": task.task_id,
+                            "kind": "search_plan",
+                            "label": (
+                                f"执行检索方向 {direction_index}/"
+                                f"{len(directions)}"
+                            ),
+                            "detail": (
+                                f"{query}；{reason}；来源：{providers}"
+                            ),
+                        },
+                    )
                     batch = await self.search_service.search(
                         SearchRequest(
                             query=direction.query,

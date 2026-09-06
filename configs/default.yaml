@@ -134,7 +134,7 @@ indexing:
 
 # ── 上下文构建 ───────────────────────────────────────────────────────────────
 context:
-  default_budget_tokens: 8000      # 证据包默认 token 预算
+  default_budget_tokens: 16000      # 证据包默认 token 预算
 
 # ── 研究循环与预算 ───────────────────────────────────────────────────────────
 research:
@@ -142,9 +142,9 @@ research:
   no_progress_rounds: 2            # 连续无新增轮数上限
   deadline_seconds: 3600           # 单任务总截止（60 分钟）
   max_llm_calls: 64                # LLM 调用上限（四角色×多轮；本地模型放宽）
-  llm_token_budget: 2000000        # 单任务 LLM 输入输出累计预算（本地模型放宽）
-  new_resources_per_round: 20      # 单轮新采集资源上限
-  new_resources_per_task: 60       # 单任务新采集资源上限
+  llm_token_budget: 2_000_000        # 单任务 LLM 输入输出累计预算（本地模型放宽）
+  new_resources_per_round: 500      # 单轮新采集资源上限
+  new_resources_per_task: 500       # 单任务新采集资源上限
 
 # ── 存储 ─────────────────────────────────────────────────────────────────────
 storage:

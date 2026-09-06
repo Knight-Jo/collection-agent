@@ -141,10 +141,10 @@ def research_harness(material_store, tmp_path):
     search = FakeSearch()
     orchestrator = ResearchOrchestrator(
         material_store,
-        search,
-        FakeAcquisition(),
-        FakeIndexing(),
-        FakeContext(),
+        search,  # type: ignore[arg-type]
+        FakeAcquisition(),  # type: ignore[arg-type]
+        FakeIndexing(),  # type: ignore[arg-type]
+        FakeContext(),  # type: ignore[arg-type]
         roles,
         ResearchConfig(),
         "profile-1",
