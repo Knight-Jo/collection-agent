@@ -49,6 +49,12 @@ def test_load_settings_resolves_relative_paths(tmp_path):
     assert settings.data_root() == (tmp_path / "../data").resolve()
 
 
-def test_load_settings_defaults_without_file():
+def test_load_settings_falls_back_to_default_config():
     settings = load_settings(None)
     assert settings.model.model_id
+    assert settings.search.providers
+
+
+def test_load_settings_missing_explicit_path_raises(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        load_settings(tmp_path / "missing.yaml")

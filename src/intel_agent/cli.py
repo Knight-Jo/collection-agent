@@ -15,7 +15,10 @@ from .runtime.config import ResearchSettings, load_settings
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="research-agent")
-    parser.add_argument("--config", help="path to a YAML config file")
+    parser.add_argument(
+        "--config",
+        help="path to a YAML config file (default: configs/default.yaml)",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("preflight", help="check configured capabilities")

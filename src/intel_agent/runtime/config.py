@@ -11,6 +11,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ._profile import profile_id as _profile_id
 
+# Committed default config, resolved relative to the package so it works
+# regardless of the process working directory (src/intel_agent/runtime/..).
+_DEFAULT_CONFIG = (
+    Path(__file__).resolve().parents[3] / "configs" / "default.yaml"
+)
+
 # --- stable profile identity ------------------------------------------------
 
 
@@ -231,13 +237,19 @@ class ResearchSettings(BaseModel):
 
 
 def load_settings(path: str | Path | None = None) -> ResearchSettings:
-    """Load settings from a YAML file, defaulting to a bare configuration."""
+    """Load settings from a YAML file.
+
+    Resolution order: explicit ``path``, then the ``INTEL_AGENT_CONFIG`` env
+    var, then the committed ``configs/default.yaml``. A missing explicit path
+    raises FileNotFoundError; the default config is expected to always exist.
+    """
     if path is None:
-        env = os.environ.get("INTEL_AGENT_CONFIG")
-        path = env if env else None
+        path = os.environ.get("INTEL_AGENT_CONFIG")
     if path is None:
-        return ResearchSettings()
+        path = _DEFAULT_CONFIG
     file = Path(path)
+    if not file.exists():
+        raise FileNotFoundError(f"config file not found: {file}")
     with open(file, encoding="utf-8") as fh:
         data = yaml.safe_load(fh) or {}
     return ResearchSettings.model_validate({**data, "source_path": file})

@@ -51,6 +51,8 @@ class SearchService:
         names = [n for n in requested if n in self.providers]
         if not names:
             names = list(self.providers)
+        if not names:
+            return SearchBatch(hits=[], provider_reports=[], status="failed")
 
         deadline = monotonic() + self.config.round_deadline_seconds
         reports: list[ProviderReport] = []

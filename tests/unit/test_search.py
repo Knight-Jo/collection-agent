@@ -177,6 +177,22 @@ def test_all_failed_is_failed():
     asyncio.run(run())
 
 
+def test_no_providers_returns_empty_batch():
+    async def run():
+        service = SearchService([], SearchConfig())
+        batch = await service.search(
+            SearchRequest(
+                query=SearchQuery(text="q"),
+                per_provider_limit=10,
+                total_limit=10,
+            )
+        )
+        assert batch.status == "failed"
+        assert batch.hits == []
+
+    asyncio.run(run())
+
+
 def test_date_postfilter_excludes_unknown_dates():
     async def run():
         published = datetime(2025, 1, 1, tzinfo=UTC)
