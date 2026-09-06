@@ -1,6 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { subscribeMedia } from "@/mocks/sse";
 import { mediaKeys } from "./use-media";
 
 export function useMediaStream(jobId: string | undefined) {
@@ -8,9 +7,9 @@ export function useMediaStream(jobId: string | undefined) {
 
   useEffect(() => {
     if (!jobId) return;
-    return subscribeMedia(jobId, () => {
+    const timer = setInterval(() => {
       void queryClient.invalidateQueries({ queryKey: mediaKeys.detail(jobId) });
-      void queryClient.invalidateQueries({ queryKey: mediaKeys.all });
-    });
+    }, 3000);
+    return () => clearInterval(timer);
   }, [jobId, queryClient]);
 }

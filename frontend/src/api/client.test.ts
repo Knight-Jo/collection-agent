@@ -70,36 +70,82 @@ it("reads system status via GET", async () => {
 });
 
 it("lists search sources via GET", async () => {
-  const { calls } = mockFetch([{ id: "arxiv", name: "arxiv", url: "", enabled: true, cookies: "" }]);
+  const { calls } = mockFetch([{ id: "arxiv", name: "arxiv", url: "", enabled: true, cookie_configured: false }]);
   const sources = await api.searchSources();
   expect(sources[0].name).toBe("arxiv");
   expect(calls[0].url).toBe("/api/search-sources");
 });
 
 it("lists AI search tools via GET", async () => {
-  const { calls } = mockFetch([{ id: "exa", name: "exa", description: "", enabled: false, api_key: "", api_key_env: "EXA_API_KEY" }]);
+  const { calls } = mockFetch([{ id: "exa", name: "exa", description: "", enabled: false, api_key_configured: false, api_key_env: "EXA_API_KEY" }]);
   const tools = await api.aiSearchTools();
   expect(tools[0].api_key_env).toBe("EXA_API_KEY");
   expect(calls[0].url).toBe("/api/ai-search-tools");
 });
 
-it("lists seeded monitors (mock)", async () => {
+it("maps monitors from the backend shape", async () => {
+  const { calls } = mockFetch([
+    {
+      monitor_id: "m1",
+      name: "n",
+      subject: "s",
+      strategy: "g",
+      schedule: { cadence: "daily", local_time: "09:00", timezone: "UTC", weekday: null },
+      status: "active",
+      next_run_at: null,
+      last_run_at: null,
+      created_at: "",
+      questions: [],
+      websites: [],
+    },
+  ]);
   const monitors = await api.monitors();
-  expect(monitors.length).toBeGreaterThan(0);
-  const detail = await api.monitor("mon-1");
-  expect(detail?.runs.length).toBeGreaterThan(0);
+  expect(monitors[0].id).toBe("m1");
+  expect(monitors[0].frequency).toBe("每天 09:00");
+  expect(calls[0].url).toBe("/api/monitors");
 });
 
-it("lists seeded fact checks (mock)", async () => {
+it("maps fact checks from the backend shape", async () => {
+  mockFetch([
+    {
+      fact_check: {
+        fact_check_id: "fc1",
+        claim: "c",
+        understanding: "",
+        questions: [],
+        checkability: "checkable",
+        verdict: "supported",
+        evidence_sufficiency: "high",
+        independent_sources: 2,
+        primary_sources: 1,
+        counter_evidence: 0,
+      },
+      status: "completed",
+      evidence: [],
+    },
+  ]);
   const checks = await api.factChecks();
-  expect(checks.length).toBeGreaterThan(0);
-  const check = await api.factCheck("fc-1");
-  expect(check?.verdict).toBe("mostly_supported");
+  expect(checks[0].id).toBe("fc1");
+  expect(checks[0].verdict).toBe("supported");
 });
 
-it("lists media jobs (mock)", async () => {
+it("maps media jobs from the backend shape", async () => {
+  mockFetch([
+    {
+      job: {
+        media_job_id: "m1",
+        filename: "f.mp3",
+        kind: "audio",
+        size_bytes: 100,
+        summary: null,
+      },
+      status: "completed",
+      segments: [],
+      facts: [],
+      evidence: [],
+    },
+  ]);
   const jobs = await api.mediaJobs();
-  expect(jobs.length).toBeGreaterThan(0);
-  const job = await api.mediaJob("media-1");
-  expect(job?.segments.length).toBeGreaterThan(0);
+  expect(jobs[0].id).toBe("m1");
+  expect(jobs[0].filename).toBe("f.mp3");
 });

@@ -1,4 +1,4 @@
-import type { AgentEvent } from "@/mocks/sse";
+import type { AgentEvent } from "@/api/types";
 
 type Handler = (event: AgentEvent) => void;
 

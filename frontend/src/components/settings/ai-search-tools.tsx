@@ -65,10 +65,10 @@ export function AiSearchTools() {
               variant="ghost"
               size="sm"
               onClick={() => openEdit(tool)}
-              className={tool.api_key ? "text-primary" : undefined}
+              className={tool.api_key_configured ? "text-primary" : undefined}
             >
               <KeyRound />
-              {tool.api_key ? "已配置" : "配置 API Key"}
+              {tool.api_key_configured ? "已配置" : "配置 API Key"}
             </Button>
             <Switch
               checked={tool.enabled}

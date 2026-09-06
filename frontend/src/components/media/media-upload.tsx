@@ -16,11 +16,7 @@ export function MediaUpload() {
       return;
     }
     setError("");
-    const job = await createJob.mutateAsync({
-      filename: file.name,
-      kind: file.type.startsWith("video/") ? "video" : "audio",
-      size: file.size,
-    });
+    const job = await createJob.mutateAsync({ file });
     await navigate({ to: "/media/$jobId", params: { jobId: job.id } });
   }
 

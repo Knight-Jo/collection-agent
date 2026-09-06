@@ -1,6 +1,4 @@
-export type RunStatus = "queued" | "running" | "stopping" | "stopped" | "succeeded" | "failed";
-
-export type RunPhase = "planning" | "collecting" | "assessing" | "checkpointing";
+export type RunStatus = "queued" | "running" | "stopping" | "stopped" | "succeeded" | "failed";export type RunPhase = "planning" | "collecting" | "assessing" | "checkpointing";
 
 export interface Conversation {
   id: string;
@@ -74,6 +72,16 @@ export interface ConversationProjection {
   gaps: ResearchGap[];
 }
 
+export type AgentEvent =
+  | { type: "answer.started" }
+  | { type: "answer.delta"; delta: string }
+  | { type: "answer.completed" }
+  | { type: "run.status"; status: RunStatus }
+  | { type: "run.phase"; phase: RunPhase }
+  | { type: "timeline"; entry: TimelineEntry }
+  | { type: "material"; material: Material }
+  | { type: "refetch" };
+
 export interface Monitor {
   id: string;
   name: string;
@@ -104,7 +112,7 @@ export interface MonitorRun {
   id: string;
   monitor_id: string;
   status: MonitorRunStatus;
-  started_at: string;
+  started_at: string | null;
   finished_at: string | null;
   changes: MonitorChange[];
   summary: string;
@@ -196,7 +204,8 @@ export interface SearchSource {
   name: string;
   url: string;
   enabled: boolean;
-  cookies: string;
+  cookie_configured: boolean;
+  executable?: boolean;
 }
 
 export interface AiSearchTool {
@@ -204,7 +213,7 @@ export interface AiSearchTool {
   name: string;
   description: string;
   enabled: boolean;
-  api_key: string;
+  api_key_configured: boolean;
   api_key_env: string;
 }
 
@@ -237,6 +246,7 @@ export interface Library {
   research: LibraryResearchRecord[];
   monitors: MonitorDetail[];
   factChecks: FactCheck[];
+  media: MediaJob[];
 }
 
 export type MediaKind = "audio" | "video";
@@ -248,7 +258,7 @@ export interface MediaSegment {
   start: number;
   end: number;
   text: string;
-  speaker: string;
+  speaker: string | null;
 }
 
 export interface MediaFact {

@@ -35,7 +35,7 @@ export function SearchSourceManager() {
 
   function openCookie(source: SearchSource) {
     setCookieSource(source);
-    setCookieValue(source.cookies);
+    setCookieValue("");
   }
 
   async function saveCookie() {
@@ -85,10 +85,10 @@ export function SearchSourceManager() {
               variant="ghost"
               size="sm"
               onClick={() => openCookie(source)}
-              className={source.cookies ? "text-primary" : undefined}
+              className={source.cookie_configured ? "text-primary" : undefined}
             >
               <Cookie />
-              Cookie{source.cookies ? " 已配置" : ""}
+              Cookie{source.cookie_configured ? " 已配置" : ""}
             </Button>
             <Switch
               checked={source.enabled}

@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+import mimetypes
+from datetime import UTC, datetime
+from typing import Annotated
+
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 
 from ...contracts.errors import DomainError
+from ...contracts.resources import ResourceOrigin
+from ...monitoring.models import MonitorSchedule
 
 router = APIRouter()
 
@@ -31,11 +37,14 @@ def _map(error: DomainError) -> HTTPException:
 async def create_monitor(request: Request, body: dict):
     app = _app(request)
     try:
+        schedule = MonitorSchedule.model_validate(
+            (body or {}).get("schedule") or {}
+        )
         return app.monitoring.create_monitor(
             name=(body or {}).get("name", "").strip(),
             subject=(body or {}).get("subject", "").strip(),
             strategy=(body or {}).get("strategy", "").strip(),
-            schedule=(body or {}).get("schedule") or {},
+            schedule=schedule,
             questions=(body or {}).get("questions") or [],
             websites=(body or {}).get("websites") or [],
         ).model_dump(mode="json")
@@ -63,6 +72,16 @@ async def update_monitor(request: Request, monitor_id: str, body: dict):
             _app(request)
             .monitoring.update_monitor(monitor_id, body or {})
             .model_dump(mode="json")
+        )
+    except DomainError as error:
+        raise _map(error) from error
+
+
+@router.post("/monitors/{monitor_id}/toggle")
+async def toggle_monitor(request: Request, monitor_id: str):
+    try:
+        return (
+            _app(request).monitoring.toggle(monitor_id).model_dump(mode="json")
         )
     except DomainError as error:
         raise _map(error) from error
@@ -112,16 +131,42 @@ async def get_fact_check(request: Request, fact_check_id: str):
 
 
 @router.post("/media")
-async def create_media(request: Request, body: dict):
+async def upload_media(
+    request: Request, file: Annotated[UploadFile, File()]
+):
     app = _app(request)
+    filename = file.filename or "upload"
+    media_type = file.content_type or ""
+    if not media_type or media_type == "application/octet-stream":
+        media_type = (
+            mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        )
+    kind = "audio" if media_type.startswith("audio/") else "video"
+
+    async def chunks():
+        while True:
+            chunk = await file.read(65536)
+            if not chunk:
+                break
+            yield chunk
+
     try:
-        return app.media.submit(
-            resource_id=(body or {}).get("resource_id", ""),
-            filename=(body or {}).get("filename", ""),
-            kind=(body or {}).get("kind", "audio"),
-            media_type=(body or {}).get("media_type", ""),
-            size_bytes=int((body or {}).get("size_bytes", 0)),
-        ).model_dump(mode="json")
+        resource = await app.resource_store.write_stream(
+            chunks(),
+            origin=ResourceOrigin(
+                local_display_name=filename,
+                acquired_at=datetime.now(UTC),
+            ),
+            media_type=media_type,
+        )
+        job = app.media.submit(
+            resource.resource_id,
+            filename,
+            kind,
+            media_type,
+            resource.byte_length,
+        )
+        return job.model_dump(mode="json")
     except DomainError as error:
         raise _map(error) from error
 

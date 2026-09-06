@@ -1,6 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { subscribeFactCheck } from "@/mocks/sse";
 import { factCheckKeys } from "./use-fact-checks";
 
 export function useFactCheckStream(checkId: string | undefined) {
@@ -8,9 +7,11 @@ export function useFactCheckStream(checkId: string | undefined) {
 
   useEffect(() => {
     if (!checkId) return;
-    return subscribeFactCheck(checkId, () => {
-      void queryClient.invalidateQueries({ queryKey: factCheckKeys.detail(checkId) });
-      void queryClient.invalidateQueries({ queryKey: factCheckKeys.all });
-    });
+    const timer = setInterval(() => {
+      void queryClient.invalidateQueries({
+        queryKey: factCheckKeys.detail(checkId),
+      });
+    }, 3000);
+    return () => clearInterval(timer);
   }, [checkId, queryClient]);
 }

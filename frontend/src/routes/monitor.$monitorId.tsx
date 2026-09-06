@@ -152,7 +152,7 @@ function MonitorDetail() {
                           {run.status === "succeeded" ? "成功" : "失败"}
                         </Badge>
                         <span className="text-xs text-muted-foreground">
-                          {new Date(run.started_at).toLocaleString("zh-CN")}
+                          {run.started_at ? new Date(run.started_at).toLocaleString("zh-CN") : "—"}
                         </span>
                       </div>
                       <p className="mt-2 text-sm text-muted-foreground">{run.summary}</p>

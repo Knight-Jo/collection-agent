@@ -25,8 +25,7 @@ export function useMediaJob(id: string | undefined) {
 export function useCreateMediaJob() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { filename: string; kind: "audio" | "video"; size: number }) =>
-      api.createMediaJob(input),
+    mutationFn: (input: { file: File }) => api.createMediaJob(input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: mediaKeys.all }),
   });
 }
