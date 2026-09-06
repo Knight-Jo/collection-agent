@@ -279,7 +279,7 @@ async def bootstrap(
     )
 
     # Assemble the research workflow and expose it through the application API.
-    roles = build_roles(build_model(settings))
+    roles = build_roles(build_model(settings), settings)
     pipeline = AcquisitionPipeline(
         fetch_service,
         extraction,

@@ -14,6 +14,9 @@ from ._profile import profile_id as _profile_id
 # --- stable profile identity ------------------------------------------------
 
 
+ThinkingEffort = Literal["minimal", "low", "medium", "high", "xhigh"]
+
+
 def profile_id(config: Any) -> str:
     """Canonical-JSON SHA-256 over a config value (spec §4.4, §10.2).
 
@@ -129,9 +132,17 @@ class ModelConfig(BaseModel):
     api_key_env: str | None = "DEEPSEEK_API_KEY"
     tokenizer: str | None = None
     api_style: Literal["openai", "ollama"] = "openai"
-    # Disable reasoning/thinking preamble on reasoning models served by vLLM
-    # (e.g. qwen3.8-27b), so the response is pure JSON.
+    # Master switch: when true, thinking is disabled for every role and the
+    # `thinking` / `role_thinking` settings below are ignored.
     disable_thinking: bool = False
+    # Global thinking effort (effective only when disable_thinking is false):
+    # None = per-role built-in default; False = off; or an effort level.
+    thinking: ThinkingEffort | bool | None = None
+    # Per-role thinking override, keyed by role name (planner/coverage/
+    # verifier/decider/writer).
+    role_thinking: dict[str, ThinkingEffort | bool] = Field(
+        default_factory=dict
+    )
 
 
 class EmbeddingConfig(BaseModel):

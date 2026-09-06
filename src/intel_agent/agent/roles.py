@@ -14,6 +14,7 @@ from ..contracts.research import (
     ResearchPlan,
     ResearchReport,
 )
+from ..runtime.config import ThinkingEffort
 
 PLANNER_INSTRUCTIONS = (
     "你是调研规划者。理解用户的调研对象，拆解为关键研究问题，并为每个问题设计"
@@ -57,42 +58,78 @@ WRITER_INSTRUCTIONS = (
 )
 
 
-def build_roles(model) -> dict[str, Agent[Any, Any]]:
-    """Build the four role agents, each with a typed structured output."""
+DEFAULT_THINKING: dict[str, ThinkingEffort] = {
+    "planner": "low",
+    "coverage": "medium",
+    "verifier": "medium",
+    "decider": "medium",
+    "writer": "high",
+}
+
+
+def resolve_thinking(settings, role: str) -> ThinkingEffort | bool:
+    """Resolve the thinking setting for a role.
+
+    Precedence: disable_thinking master switch, then the per-role override,
+    then the global level, then the role's built-in default.
+    """
+    if settings is not None and settings.model.disable_thinking:
+        return False
+    if settings is not None:
+        role_level = (settings.model.role_thinking or {}).get(role)
+        if role_level is not None:
+            return role_level
+        if settings.model.thinking is not None:
+            return settings.model.thinking
+    return DEFAULT_THINKING.get(role, "medium")
+
+
+def build_roles(model, settings=None) -> dict[str, Agent[Any, Any]]:
+    """Build the role agents, each with a typed structured output."""
     planner = Agent(
         model,
         output_type=ResearchPlan,
         instructions=PLANNER_INSTRUCTIONS,
         retries=1,
-        model_settings=ModelSettings(thinking="low", max_tokens=8192),
+        model_settings=ModelSettings(
+            thinking=resolve_thinking(settings, "planner"), max_tokens=8192
+        ),
     )
     coverage = Agent(
         model,
         output_type=CoverageAssessment,
         instructions=COVERAGE_INSTRUCTIONS,
         retries=1,
-        model_settings=ModelSettings(thinking="medium", max_tokens=16384),
+        model_settings=ModelSettings(
+            thinking=resolve_thinking(settings, "coverage"), max_tokens=16384
+        ),
     )
     verifier = Agent(
         model,
         output_type=EvidenceReview,
         instructions=VERIFIER_INSTRUCTIONS,
         retries=1,
-        model_settings=ModelSettings(thinking="medium", max_tokens=16384),
+        model_settings=ModelSettings(
+            thinking=resolve_thinking(settings, "verifier"), max_tokens=16384
+        ),
     )
     decider = Agent(
         model,
         output_type=ResearchDecision,
         instructions=DECIDER_INSTRUCTIONS,
         retries=1,
-        model_settings=ModelSettings(thinking="medium", max_tokens=16384),
+        model_settings=ModelSettings(
+            thinking=resolve_thinking(settings, "decider"), max_tokens=16384
+        ),
     )
     writer = Agent(
         model,
         output_type=ResearchReport,
         instructions=WRITER_INSTRUCTIONS,
         retries=1,
-        model_settings=ModelSettings(thinking="high", max_tokens=65536),
+        model_settings=ModelSettings(
+            thinking=resolve_thinking(settings, "writer"), max_tokens=65536
+        ),
     )
     return {
         "planner": planner,
