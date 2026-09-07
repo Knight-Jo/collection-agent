@@ -14,7 +14,7 @@ import type {
   SearchSource,
   SystemStatus,
 } from "@/api/types";
-import { httpGet, httpPatch, httpPost } from "@/api/http";
+import { errorMessage, httpGet, httpPatch, httpPost } from "@/api/http";
 
 type Schedule = {
   cadence: "daily" | "weekly";
@@ -337,7 +337,7 @@ export const api = {
       body: form,
     });
     if (!response.ok) {
-      throw new Error(`${response.status} ${response.statusText}`);
+      throw new Error(await errorMessage(response));
     }
     const raw = (await response.json()) as Record<string, unknown>;
     return mapMediaJob(raw);

@@ -8,7 +8,7 @@ export function MessageList({ messages, streaming }: { messages: Message[]; stre
       {messages.length === 0 && !streaming && (
         <div className="py-16 text-center text-sm text-muted-foreground">
           <p className="text-base font-medium text-foreground">从一个问题开始调研</p>
-          <p className="mt-1">可以先询问系统能力，也可以直接描述需要调查的主题、范围和产出。</p>
+          <p className="mt-1">发送需要调查的主题或问题，系统会检索公开资料、评估证据并撰写报告。</p>
         </div>
       )}
       {messages.map((message) => (

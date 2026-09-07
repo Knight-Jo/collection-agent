@@ -1,6 +1,7 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import {
   Aperture,
+  ArchiveRestore,
   BookOpen,
   Clapperboard,
   Compass,
@@ -25,7 +26,12 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useConversations, useCreateConversation } from "@/hooks/use-conversations";
+import {
+  useArchiveConversation,
+  useConversations,
+  useCreateConversation,
+  useRestoreConversation,
+} from "@/hooks/use-conversations";
 import { cn } from "@/lib/utils";
 
 const RUN_PHASE_LABELS: Record<string, string> = {
@@ -39,7 +45,10 @@ export function AppSidebar() {
   const { conversationId } = useParams({ strict: false });
   const navigate = useNavigate();
   const { data: conversations, isLoading } = useConversations(false);
+  const { data: archived } = useConversations(true);
   const createConversation = useCreateConversation();
+  const archiveConversation = useArchiveConversation();
+  const restoreConversation = useRestoreConversation();
 
   async function create() {
     const conversation = await createConversation.mutateAsync();
@@ -166,6 +175,7 @@ export function AppSidebar() {
                     showOnHover
                     className={cn("text-muted-foreground hover:text-destructive")}
                     aria-label={`归档 ${conversation.title}`}
+                    onClick={() => archiveConversation.mutate(conversation.id)}
                   >
                     <Trash2 className="size-4" />
                   </SidebarMenuAction>
@@ -174,6 +184,43 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {(archived?.length ?? 0) > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>
+              已归档 ({archived?.length ?? 0})
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {archived?.map((conversation) => (
+                  <SidebarMenuItem key={conversation.id}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={conversation.id === conversationId}
+                      tooltip={conversation.title}
+                    >
+                      <Link
+                        to="/research/$conversationId"
+                        params={{ conversationId: conversation.id }}
+                      >
+                        <span className="truncate text-muted-foreground">
+                          {conversation.title}
+                        </span>
+                      </Link>
+                    </SidebarMenuButton>
+                    <SidebarMenuAction
+                      showOnHover
+                      aria-label={`恢复 ${conversation.title}`}
+                      onClick={() => restoreConversation.mutate(conversation.id)}
+                    >
+                      <ArchiveRestore className="size-4" />
+                    </SidebarMenuAction>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <div className="flex items-center gap-2 px-2 text-xs text-muted-foreground">

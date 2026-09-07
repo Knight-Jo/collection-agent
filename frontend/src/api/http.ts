@@ -1,9 +1,21 @@
 const BASE = "/api";
 
+export async function errorMessage(response: Response): Promise<string> {
+  let detail: unknown;
+  try {
+    const data = (await response.json()) as Record<string, unknown>;
+    detail = data.detail;
+  } catch {
+    detail = undefined;
+  }
+  const message = typeof detail === "string" ? detail : undefined;
+  return message || `${response.status} ${response.statusText}`;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE}${path}`, init);
   if (!response.ok) {
-    throw new Error(`${response.status} ${response.statusText}`);
+    throw new Error(await errorMessage(response));
   }
   return (await response.json()) as T;
 }

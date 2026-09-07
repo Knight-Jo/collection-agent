@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Aperture, Compass, History, Sparkles } from "lucide-react";
+import { Aperture, Compass, History, LoaderCircle, Sparkles } from "lucide-react";
 import { useState } from "react";
 import type { ResearchBrief } from "@/api/types";
 import { Button } from "@/components/ui/button";
@@ -20,20 +20,35 @@ function ResearchIndex() {
   const { data: library, isLoading: loadingHistory } = useLibrary();
   const [prompt, setPrompt] = useState("");
   const [brief, setBrief] = useState<ResearchBrief | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+  }
 
   async function onGenerate() {
     const value = prompt.trim();
     if (!value) return;
-    setBrief(await generateBrief.mutateAsync(value));
+    setError(null);
+    try {
+      setBrief(await generateBrief.mutateAsync(value));
+    } catch (error) {
+      setError(`生成调研简报失败：${errorMessage(error)}`);
+    }
   }
 
   async function onStart() {
     if (!brief) return;
-    const conversation = await startResearch.mutateAsync({ topic: prompt.trim(), brief });
-    await navigate({
-      to: "/research/$conversationId",
-      params: { conversationId: conversation.id },
-    });
+    setError(null);
+    try {
+      const conversation = await startResearch.mutateAsync({ topic: prompt.trim(), brief });
+      await navigate({
+        to: "/research/$conversationId",
+        params: { conversationId: conversation.id },
+      });
+    } catch (error) {
+      setError(`创建调研失败：${errorMessage(error)}`);
+    }
   }
 
   if (!brief) {
@@ -57,10 +72,19 @@ function ResearchIndex() {
               onClick={onGenerate}
               disabled={!prompt.trim() || generateBrief.isPending}
             >
-              <Sparkles />
-              {generateBrief.isPending ? "生成中…" : "生成调研简报"}
+              {generateBrief.isPending ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <Sparkles />
+              )}
+              {generateBrief.isPending ? "生成中" : "生成调研简报"}
             </Button>
           </div>
+          {error && (
+            <p className="mt-3 text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          )}
 
           <section className="mt-10">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
@@ -153,9 +177,19 @@ function ResearchIndex() {
             返回修改
           </Button>
           <Button onClick={onStart} disabled={startResearch.isPending} className="flex-1">
-            {startResearch.isPending ? "创建中…" : "开始调研"}
+            {startResearch.isPending ? (
+              <LoaderCircle className="size-4 animate-spin" />
+            ) : (
+              <Sparkles />
+            )}
+            {startResearch.isPending ? "创建中" : "开始调研"}
           </Button>
         </div>
+        {error && (
+          <p className="mt-3 text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
       </div>
     </div>
   );
