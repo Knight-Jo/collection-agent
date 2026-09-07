@@ -188,14 +188,23 @@ from pydantic import ValidationError
 from intel_agent.contracts.documents import Locator
 from intel_agent.contracts.research import ResearchDecision
 
+
 def test_invalid_locations_and_decisions_are_rejected():
-    for fields in ({"page": 0}, {"start_ms": 20, "end_ms": 10},
-                   {"bbox": (0.8, 0.0, 0.2, 1.0)}):
+    for fields in (
+        {"page": 0},
+        {"start_ms": 20, "end_ms": 10},
+        {"bbox": (0.8, 0.0, 0.2, 1.0)},
+    ):
         with pytest.raises(ValidationError):
             Locator(**fields)
     with pytest.raises(ValidationError):
-        ResearchDecision(action="search", queries=[], source_types=["web"],
-                         evidence_gaps=[], reason="Need evidence")
+        ResearchDecision(
+            action="search",
+            queries=[],
+            source_types=["web"],
+            evidence_gaps=[],
+            reason="Need evidence",
+        )
 ```
 
 - [ ] 运行 `uv run pytest tests/unit/test_contracts.py -q`，先确认因新模型不存在而失败。
@@ -203,8 +212,13 @@ def test_invalid_locations_and_decisions_are_rejected():
 
 ```python
 def profile_id(config):
-    payload = json.dumps(config, sort_keys=True, ensure_ascii=False,
-                         separators=(",", ":"), allow_nan=False)
+    payload = json.dumps(
+        config,
+        sort_keys=True,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 ```
 
@@ -228,8 +242,12 @@ async def test_same_bytes_share_revision_but_not_document(
     resource = await resource_store.import_file(path)
     left = material_store.resolve_identity("https://example.org/a")
     right = material_store.resolve_identity("https://example.org/b")
-    revision = material_store.resolve_revision(left.document_id, resource.resource_id)
-    assert revision == material_store.resolve_revision(left.document_id, resource.resource_id)
+    revision = material_store.resolve_revision(
+        left.document_id, resource.resource_id
+    )
+    assert revision == material_store.resolve_revision(
+        left.document_id, resource.resource_id
+    )
     assert left.document_id != right.document_id
 ```
 
@@ -260,10 +278,13 @@ ON task_materials(task_id, artifact_id);
 ```python
 async def test_timeout_terminates_owned_process(executor, tmp_path):
     marker = tmp_path / "late.txt"
-    script = "import time,pathlib; time.sleep(2); pathlib.Path('late.txt').touch()"
+    script = (
+        "import time,pathlib; time.sleep(2); pathlib.Path('late.txt').touch()"
+    )
     with pytest.raises(DomainError) as raised:
-        await executor.run_process([sys.executable, "-c", script],
-                                   timeout_seconds=0.05, cwd=tmp_path)
+        await executor.run_process(
+            [sys.executable, "-c", script], timeout_seconds=0.05, cwd=tmp_path
+        )
     assert raised.value.code == "TIMEOUT"
     assert executor.active_process_count == 0
     assert not marker.exists()
@@ -284,11 +305,14 @@ async def test_timeout_terminates_owned_process(executor, tmp_path):
 - [ ] 写 A01–A05：使用真实 service + 本地 fake Provider 检验超时后保留成功，取消结束，空成功与全失败不同。同 Provider 重复只能贡献一次 RRF，但 occurrences 全保留。
 
 ```python
-@pytest.mark.parametrize("left,right", [
-    ("https://example.org/a", "https://example.org/a/"),
-    ("http://example.org/a", "https://example.org/a"),
-    ("https://example.org/#/a", "https://example.org/#/b"),
-])
+@pytest.mark.parametrize(
+    "left,right",
+    [
+        ("https://example.org/a", "https://example.org/a/"),
+        ("http://example.org/a", "https://example.org/a"),
+        ("https://example.org/#/a", "https://example.org/#/b"),
+    ],
+)
 def test_conservative_keys_do_not_merge_distinct_sources(left, right):
     assert dedup_key(left) != dedup_key(right)
 ```
@@ -319,6 +343,7 @@ await asyncio.gather(*pending, return_exceptions=True)
 async def test_private_resolution_is_rejected():
     async def resolver(host):
         return ["127.0.0.1"]
+
     with pytest.raises(DomainError) as raised:
         await validate_public_url("https://source.example/report", resolver)
     assert raised.value.code == "UNSAFE_URL"
@@ -328,10 +353,14 @@ async def test_private_resolution_is_rejected():
 - [ ] 使用 HTTPX AsyncBaseTransport + HTTPCore AsyncConnectionPool 的可注入网络后端，复用成熟 HTTP 解析；传入已校验 IP 连接，Host/SNI 使用来源域名，校验连接 peer。重定向显式逐跳处理，`trust_env=False`，重试设为 0 交给服务；跨域丢弃认证与 cookies。
 
 ```python
-async with client.stream("GET", request.url, follow_redirects=False) as response:
+async with client.stream(
+    "GET", request.url, follow_redirects=False
+) as response:
     resource = await resource_store.write_stream(
-        bounded_decoded_chunks(response), origin=origin,
-        media_type=media_type, max_bytes=effective_limit,
+        bounded_decoded_chunks(response),
+        origin=origin,
+        media_type=media_type,
+        max_bytes=effective_limit,
     )
 ```
 
@@ -376,8 +405,14 @@ async def test_auto_fallback_runs_once(fetch_harness):
 @pytest.mark.parametrize("backend_id", ["trafilatura", "beautifulsoup"])
 async def test_both_html_backends_keep_order(html_service, backend_id):
     result = await html_service.extract_fixture("article-zh.html", backend_id)
-    assert [block.text for block in result.blocks if block.block_type == "paragraph"] == [
-        "项目于2025年启动。", "第一阶段覆盖三个城市。", "下一阶段计划扩展测试。"
+    assert [
+        block.text
+        for block in result.blocks
+        if block.block_type == "paragraph"
+    ] == [
+        "项目于2025年启动。",
+        "第一阶段覆盖三个城市。",
+        "下一阶段计划扩展测试。",
     ]
 ```
 
@@ -401,7 +436,9 @@ async def test_failed_page_does_not_discard_other_pages(pdf_harness):
     assert result.status == "partial"
     assert {block.locator.page for block in result.blocks} == {1, 3}
     assert [(u.locator.page, u.status) for u in result.coverage] == [
-        (1, "success"), (2, "failed"), (3, "success")
+        (1, "success"),
+        (2, "failed"),
+        (3, "success"),
     ]
 ```
 
@@ -494,7 +531,7 @@ def test_attempt_timing_does_not_change_artifact(normalization_input):
 - [ ] 使用 NFC、统一换行和段落空白，保留原文语义，绝不总结或依 query 删正文。artifact manifest 只包含有序块、位置、coverage 的稳定语义，剔除 attempts/耗时/瞬态诊断；backend/profile/version 独立参与身份。block ID 在规范化后确定，Chunk 的字符偏移以保存的标准 block 为准。
 
 ```python
-span_text = block.text[span.char_start:span.char_end]
+span_text = block.text[span.char_start : span.char_end]
 assert 0 <= span.char_start < span.char_end <= len(block.text)
 ```
 
@@ -554,10 +591,14 @@ def test_vector_id_is_stable_uuid():
 ```python
 async def test_final_text_and_citation_spans_fit_budget(context_harness):
     package = await context_harness.build(query="动力电池", max_tokens=96)
-    assert package.token_count == context_harness.counter.count(package.formatted_text)
+    assert package.token_count == context_harness.counter.count(
+        package.formatted_text
+    )
     assert package.token_count <= 96
     for citation in package.citations:
-        assert context_harness.displayed_text(citation) == context_harness.source_slice(citation)
+        assert context_harness.displayed_text(
+            citation
+        ) == context_harness.source_slice(citation)
 ```
 
 `context_harness` 在本任务定义：真实 SQLite/Chunk/ContextManager、确定性的注入检索排序和 tokenizer；displayed_text/source_slice 由 formatter 展示记录与标准 block 独立读取比较。
@@ -645,7 +686,9 @@ async def test_two_rounds_do_not_replan_after_evaluate(research_harness):
 
 ```python
 def test_submit_returns_durable_task_without_waiting_for_research(api_client):
-    response = api_client.post("/api/tasks", json={"question": "动力电池回收进展"})
+    response = api_client.post(
+        "/api/tasks", json={"question": "动力电池回收进展"}
+    )
     assert response.status_code == 202
     task_id = response.json()["task_id"]
     status = api_client.get(f"/api/tasks/{task_id}")
@@ -710,8 +753,10 @@ def test_positive_fixtures_have_reviewable_evidence(fixture_manifest):
     for fixture in fixture_manifest:
         if fixture["kind"] == "positive":
             assert len(fixture["expected_evidence"]) >= 3
-            assert all(item["text"] and item["locator"]
-                       for item in fixture["expected_evidence"])
+            assert all(
+                item["text"] and item["locator"]
+                for item in fixture["expected_evidence"]
+            )
 ```
 
 `fixture_manifest` 为本任务从 manifest.json 读取的 fixture；此断言只验证标注完整性，真实文本检索及引用逐项通过才算验收。
