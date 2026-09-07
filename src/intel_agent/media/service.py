@@ -198,7 +198,8 @@ class MediaService:
         )
         logger.debug(
             "media job %s: extracting facts from %d segments",
-            job.media_job_id, len(segments),
+            job.media_job_id,
+            len(segments),
         )
         result = await extractor.run(prompt)
         usage = result.usage
@@ -222,11 +223,7 @@ class MediaService:
             statement = (item.statement or "").strip()
             if not statement:
                 continue
-            refs = [
-                by_index[i]
-                for i in item.segment_indices
-                if i in by_index
-            ]
+            refs = [by_index[i] for i in item.segment_indices if i in by_index]
             if not refs:
                 continue
             fact = MediaFact(

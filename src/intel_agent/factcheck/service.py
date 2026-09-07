@@ -106,11 +106,17 @@ class FactCheckService:
         self.task_store.set_phase(task_id, "adjudicating")
         self.task_store.add_timeline(task_id, "adjudicating", "started")
         evidence = self._evidence_from_assessment(fact_check, assessment)
-        logger.info("fact check: store evidence id=%s count=%d", fact_check.fact_check_id, len(evidence))
+        logger.info(
+            "fact check: store evidence id=%s count=%d",
+            fact_check.fact_check_id,
+            len(evidence),
+        )
         for item in evidence:
             self.store.save_evidence(item)
         verdict, sufficiency, counts = adjudicate(evidence)
-        logger.info(f"verdict={verdict} sufficiency={sufficiency} counts={counts}")
+        logger.info(
+            f"verdict={verdict} sufficiency={sufficiency} counts={counts}"
+        )
 
         fact_check.verdict = verdict
         fact_check.evidence_sufficiency = sufficiency

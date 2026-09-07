@@ -12,6 +12,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__file__)
 
+
 def _repo_root() -> Path:
     candidate = Path(__file__).resolve().parents[2]
     if (candidate / "frontend").exists():

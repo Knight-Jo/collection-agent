@@ -64,25 +64,27 @@ class SearchDirection(BaseModel):
     reason: str = ""
 
 
-class ResearchPlan(BaseModel):
-    """The planner's output: a brief plus concrete search directions."""
+class ResearchBrief(BaseModel):
+    """The user-facing brief subset, generated before research starts."""
 
     goal: str = ""
     scope: str = ""
     questions: list[str] = Field(default_factory=list)
     key_entities: list[str] = Field(default_factory=list)
     suggested_sources: list[str] = Field(default_factory=list)
+
+    def brief(self) -> dict:
+        return self.model_dump(mode="json")
+
+
+class ResearchPlan(ResearchBrief):
+    """The planner's output: a brief plus concrete search directions."""
+
     directions: list[SearchDirection] = Field(default_factory=list)
 
     def brief(self) -> dict:
         """The user-facing brief subset (no internal search directions)."""
-        return {
-            "goal": self.goal,
-            "scope": self.scope,
-            "questions": self.questions,
-            "key_entities": self.key_entities,
-            "suggested_sources": self.suggested_sources,
-        }
+        return self.model_dump(mode="json", exclude={"directions"})
 
 
 class QuestionCoverage(BaseModel):

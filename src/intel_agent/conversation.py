@@ -333,11 +333,20 @@ class ConversationService:
         content = content.strip()
         if not content:
             raise ValueError("empty message")
-        user_message = self.store.add_message(conversation_id, "user", content)
-        self.store.set_conversation_title(conversation_id, content[:18])
+        return self._launch(conversation_id, content)
+
+    def _launch(self, conversation_id: str, content: str) -> dict:
+        """Record a user message and start the research loop on it."""
         task = self.store.create_task(
             content, deadline_seconds=self.settings.research.deadline_seconds
         )
+        user_message = self.store.add_message(
+            conversation_id,
+            "user",
+            content,
+            task_id=task.task_id,
+        )
+        self.store.set_conversation_title(conversation_id, content[:18])
         plan = self._load_plan(conversation_id)
         sink = self._make_sink(conversation_id, task.task_id)
         run = asyncio.create_task(
@@ -355,18 +364,26 @@ class ConversationService:
                 task, event_sink=sink, plan=plan
             )
             citations = self._map_citations(result.citations)
+            content = result.answer
+            if result.status == "partial":
+                content = (
+                    "已达最大研究轮次，未形成最终报告。"
+                    "以下是当前的覆盖与证据评估：\n\n" + content
+                )
             self.store.add_message(
                 conversation_id,
                 "assistant",
-                result.answer,
+                content,
                 task_id=task.task_id,
                 citations=citations,
             )
-        except Exception:  # noqa: BLE001
+        except Exception as error:  # noqa: BLE001
+            detail = str(error).strip() or type(error).__name__
+            self.store.update_task_status(task.task_id, "failed")
             self.store.add_message(
                 conversation_id,
                 "assistant",
-                "",
+                f"调研未能完成：{detail[:500]}",
                 task_id=task.task_id,
                 citations=[],
                 status="failed",
@@ -397,8 +414,15 @@ class ConversationService:
     # --- brief / system / sources ------------------------------------------
 
     async def generate_brief(self, prompt: str) -> dict:
-        plan = await self._plan(prompt)
-        return plan.brief()
+        for _attempt in range(2):
+            result = await self.roles["brief"].run(prompt)
+            brief = result.output.brief()
+            if brief.get("goal") and brief.get("questions"):
+                return brief
+        raise DomainError(
+            "INVALID_REQUEST",
+            "简报生成失败：模型未返回有效内容，请重试",
+        )
 
     async def _plan(self, prompt: str) -> ResearchPlan:
         result = await self.roles["planner"].run(prompt)
@@ -412,6 +436,7 @@ class ConversationService:
         conversation = self.store.create_conversation(topic)
         self.store.save_brief(conversation["id"], plan.model_dump(mode="json"))
         self.store.set_conversation_status(conversation["id"], "active")
+        self._launch(conversation["id"], topic)
         return self._conversation_view(
             self.store.get_conversation(conversation["id"])
         )

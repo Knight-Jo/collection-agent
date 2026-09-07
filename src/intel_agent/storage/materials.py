@@ -456,6 +456,15 @@ class MaterialStore:
             else None,
         )
 
+    def update_task_status(self, task_id: str, status: str) -> None:
+        """Persist a research task's lifecycle status."""
+        with self.db.transaction() as conn:
+            conn.execute(
+                "UPDATE tasks SET status = ?, updated_at = ?"
+                " WHERE task_id = ?",
+                (status, _iso(datetime.now(UTC)), task_id),
+            )
+
     def save_checkpoint(
         self, task_id: str, checkpoint: Checkpoint, usage: BudgetUsage
     ) -> None:

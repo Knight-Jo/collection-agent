@@ -8,6 +8,7 @@ from intel_agent.contracts.research import (
     ContextPackage,
     CoverageAssessment,
     EvidenceReview,
+    ReportSection,
     ResearchDecision,
     ResearchPlan,
     ResearchReport,
@@ -167,3 +168,61 @@ async def test_two_rounds_use_planner_then_decider(research_harness):
     assert result.report is not None
     assert result.answer == result.report.markdown()
     assert result.answer.startswith("# report")
+
+
+def _orchestrator(
+    material_store, tmp_path, roles, max_rounds: int = 3
+) -> ResearchOrchestrator:
+    return ResearchOrchestrator(
+        material_store,
+        FakeSearch(),  # type: ignore[arg-type]
+        FakeAcquisition(),  # type: ignore[arg-type]
+        FakeIndexing(),  # type: ignore[arg-type]
+        FakeContext(),  # type: ignore[arg-type]
+        roles,
+        ResearchConfig(max_rounds=max_rounds),
+        "profile-1",
+        tmp_path / "locks",
+    )
+
+
+async def test_max_rounds_exhausted_forces_final_report(
+    material_store, tmp_path
+):
+    roles = {
+        "planner": FakeRole(
+            ResearchPlan(
+                questions=["q1"],
+                directions=[
+                    SearchDirection(query=SearchQuery(text="first query"))
+                ],
+            )
+        ),
+        "coverage": FakeRole(
+            CoverageAssessment(sufficiency="low", summary="partial evidence")
+        ),
+        "verifier": FakeRole(EvidenceReview(summary="some conflicts")),
+        "decider": FakeRole(
+            ResearchDecision(
+                action="search",
+                directions=[SearchDirection(query=SearchQuery(text="gap"))],
+                reason="still a gap",
+            )
+        ),
+        "writer": FakeRole(
+            ResearchReport(
+                title="forced report",
+                sections=[ReportSection(heading="h", body="b")],
+                conclusions=["c"],
+                citation_ids=["C1"],
+            )
+        ),
+    }
+    orchestrator = _orchestrator(material_store, tmp_path, roles, max_rounds=2)
+    result = await orchestrator.run("question")
+
+    assert result.status == "completed"
+    assert result.stop_reason == "max_rounds"
+    assert result.report is not None
+    assert result.report.title == "forced report"
+    assert material_store.get_task(result.task_id).status == "completed"

@@ -192,23 +192,45 @@ class ResearchOrchestrator:
             plan: Optional existing plan.
 
         Returns:
-            A completed result when evidence is sufficient, or a partial result
-            when the configured round limit is reached.
+            A completed result with a report when evidence is sufficient or
+            the round limit is reached (a final report is forced from the
+            collected evidence), otherwise a partial result.
         """
         assessment, context, evidence_block, questions = await self._run_loop(
             task, event_sink, plan
         )
         sink = event_sink or self.event_sink
         report = None
+        rounds_exhausted = assessment.stop_reason == "max_rounds"
         if (
             assessment.stop_reason == "evidence_sufficient"
             and assessment.citations
-        ):
+        ) or rounds_exhausted:
+            if rounds_exhausted:
+                # The loop hit the round cap without a clean finish: mark the
+                # run terminal and force a final report from what was gathered.
+                await self._emit(
+                    sink,
+                    {
+                        "event": "run.status",
+                        "task_id": task.task_id,
+                        "status": "succeeded",
+                    },
+                )
+                await self._emit(
+                    sink,
+                    {
+                        "event": "run.phase",
+                        "task_id": task.task_id,
+                        "phase": "checkpointing",
+                    },
+                )
             report = await self._write_report(
                 task, assessment, questions, evidence_block, sink
             )
         self._persist_assessment(assessment, context, report)
         if report is not None:
+            self.store.update_task_status(task.task_id, "completed")
             citations = (
                 self._resolve_citations(report.citation_ids, context)
                 or assessment.citations
@@ -219,7 +241,7 @@ class ResearchOrchestrator:
                 status="completed",
                 answer=answer,
                 citations=citations,
-                stop_reason="evidence_sufficient",
+                stop_reason=assessment.stop_reason,
                 usage=assessment.usage,
                 report=report,
             )
@@ -273,6 +295,7 @@ class ResearchOrchestrator:
                     "status": "running",
                 },
             )
+            self.store.update_task_status(task.task_id, "running")
             await self._emit(
                 sink,
                 {
@@ -541,17 +564,9 @@ class ResearchOrchestrator:
                 evidence_review=evidence,
                 citations=list(context.citations),
                 accepted_artifact_ids=list(accepted),
-                limitations=["max rounds reached", "no conclusive finish"],
+                limitations=["max rounds reached"],
                 stop_reason="max_rounds",
                 usage=usage,
-            )
-            await self._emit(
-                sink,
-                {
-                    "event": "run.status",
-                    "task_id": task.task_id,
-                    "status": "failed",
-                },
             )
             return assessment, context, evidence_block, questions
         finally:

@@ -10,6 +10,7 @@ from pydantic_ai.settings import ModelSettings
 from ..contracts.research import (
     CoverageAssessment,
     EvidenceReview,
+    ResearchBrief,
     ResearchDecision,
     ResearchPlan,
     ResearchReport,
@@ -23,6 +24,16 @@ PLANNER_INSTRUCTIONS = (
     "（可选：exa、tavily、brave、searxng、arxiv、openalex、rss；"
     "网页/新闻类用 exa/tavily/brave/searxng，学术类用 arxiv/openalex，"
     "订阅源用 rss）。搜索方向要具体、可执行，避免宽泛重复。"
+)
+
+BRIEF_INSTRUCTIONS = (
+    "你是调研简报规划者。给定用户想研究的主题，产出一份调研简报："
+    "goal（一句话目标）、scope（研究范围与边界）、questions（6-8 个"
+    "关键研究问题，覆盖现状、格局、关键参与者、案例、影响与趋势等维度，"
+    "每条表述简洁）、key_entities（6-10 个关键实体：厂商、产品、技术、"
+    "机构、人物等，只列名称）、suggested_sources（3-6 个建议的来源类型"
+    "或站点，如 科技媒体、行业报告、arxiv 等）。只输出简报本身，不要设计"
+    "任何检索方向。"
 )
 
 COVERAGE_INSTRUCTIONS = (
@@ -71,13 +82,16 @@ FACT_EXTRACTOR_INSTRUCTIONS = (
 )
 
 
-DEFAULT_THINKING: dict[str, ThinkingEffort] = {
+DEFAULT_THINKING: dict[str, ThinkingEffort | bool] = {
     "planner": "low",
     "coverage": "medium",
     "verifier": "medium",
     "decider": "medium",
     "writer": "high",
     "fact_extractor": "medium",
+    # Brief is a fast UI scaffold shown on button click; search-direction
+    # quality is decided later by the planner role, so default it off.
+    "brief": False,
 }
 
 
@@ -107,6 +121,15 @@ def build_roles(model, settings=None) -> dict[str, Agent[Any, Any]]:
         retries=1,
         model_settings=ModelSettings(
             thinking=resolve_thinking(settings, "planner"), max_tokens=8192
+        ),
+    )
+    brief = Agent(
+        model,
+        output_type=ResearchBrief,
+        instructions=BRIEF_INSTRUCTIONS,
+        retries=1,
+        model_settings=ModelSettings(
+            thinking=resolve_thinking(settings, "brief"), max_tokens=2048
         ),
     )
     coverage = Agent(
@@ -157,6 +180,7 @@ def build_roles(model, settings=None) -> dict[str, Agent[Any, Any]]:
     )
     return {
         "planner": planner,
+        "brief": brief,
         "coverage": coverage,
         "verifier": verifier,
         "decider": decider,

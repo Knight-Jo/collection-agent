@@ -116,7 +116,10 @@ def create_app() -> FastAPI:
         prompt = (body or {}).get("prompt", "").strip()
         if not prompt:
             raise HTTPException(422, "prompt is required")
-        return await _app(request).conversations.generate_brief(prompt)
+        try:
+            return await _app(request).conversations.generate_brief(prompt)
+        except DomainError as error:
+            raise _map_error(error) from error
 
     @app.post("/api/research/start")
     async def start_research(request: Request, body: dict):
@@ -124,7 +127,12 @@ def create_app() -> FastAPI:
         brief = (body or {}).get("brief") or {}
         if not topic:
             raise HTTPException(422, "topic is required")
-        return await _app(request).conversations.start_research(topic, brief)
+        try:
+            return await _app(request).conversations.start_research(
+                topic, brief
+            )
+        except DomainError as error:
+            raise _map_error(error) from error
 
     # --- system -------------------------------------------------------------
 
