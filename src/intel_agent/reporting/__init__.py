@@ -6,7 +6,12 @@ from datetime import UTC, datetime
 
 from ..contracts.research import ResearchReport
 from .exporters import render_docx, render_markdown, render_pdf
-from .references import ExportMeta, Reference, references_from_evidence
+from .references import (
+    ExportMeta,
+    Reference,
+    references_for_report,
+    references_from_evidence,
+)
 
 EXPORT_FORMATS = ("markdown", "pdf", "docx")
 
@@ -66,7 +71,7 @@ def render_report(
     meta = ExportMeta(
         subject=subject, generated_at=generated_at or datetime.now(UTC)
     )
-    references = references_from_evidence(evidence)
+    references = references_for_report(report, evidence)
     renderers = {
         "markdown": render_markdown,
         "pdf": render_pdf,
@@ -84,6 +89,7 @@ __all__ = [
     "ascii_slug",
     "export_filename",
     "normalize_format",
+    "references_for_report",
     "references_from_evidence",
     "render_markdown",
     "render_pdf",

@@ -16,6 +16,7 @@ from intel_agent.reporting import (
     ascii_slug,
     export_filename,
     normalize_format,
+    references_for_report,
     references_from_evidence,
     render_docx,
     render_markdown,
@@ -60,17 +61,50 @@ EVIDENCE = {
             "source_title": "来源乙",
             "source_url": "https://example.com/b",
         },
+        {
+            "claim": "d",
+            "citation_id": "C3",
+            "source_title": "来源丙",
+            "source_url": "https://example.com/c",
+        },
     ]
 }
 
 REPORT_CJK_TITLE = REPORT.model_copy(update={"title": "纯中文标题"})
 
 
+def test_references_are_citation_keyed():
+    # the report cites C2 first; cited keys lead, uncited C3 follows
+    report = REPORT.model_copy(update={"citation_ids": ["C2", "C1"]})
+    refs = references_for_report(report, EVIDENCE)
+    assert [(r.key, r.title) for r in refs] == [
+        ("C2", "来源乙"),
+        ("C1", "来源甲"),
+        ("C3", "来源丙"),  # present in evidence, not cited: still listed
+    ]
+
+
+def test_references_unresolvable_key_gets_placeholder():
+    report = REPORT.model_copy(update={"citation_ids": ["C1", "C9"]})
+    refs = references_for_report(report, EVIDENCE)
+    dangling = refs[1]
+    assert dangling.key == "C9"
+    assert dangling.title == "（来源信息缺失）"
+    assert dangling.url == ""
+
+
+def test_references_without_citation_ids_cover_all_sources():
+    report = REPORT.model_copy(update={"citation_ids": []})
+    refs = references_for_report(report, EVIDENCE)
+    assert {r.key for r in refs} == {"C1", "C2", "C3"}
+
+
 def test_references_dedup_and_order():
     refs = references_from_evidence(EVIDENCE)
-    assert [(r.index, r.title, r.url) for r in refs] == [
-        (1, "来源甲", "https://example.com/a"),
-        (2, "来源乙", "https://example.com/b"),
+    assert [(r.key, r.title, r.url) for r in refs] == [
+        ("C1", "来源甲", "https://example.com/a"),
+        ("C2", "来源乙", "https://example.com/b"),
+        ("C3", "来源丙", "https://example.com/c"),
     ]
     assert references_from_evidence(None) == []
     assert references_from_evidence({"claims": []}) == []
@@ -85,7 +119,7 @@ def test_markdown_contains_header_sections_and_references():
     assert "- 要点一" in decoded
     assert "## 结论" in decoded
     assert "## 参考文献" in decoded
-    assert "[来源甲](https://example.com/a)" in decoded
+    assert "[C1] [来源甲](https://example.com/a)" in decoded
     assert decoded.count("来源甲") == 1  # deduplicated
 
 
@@ -107,8 +141,10 @@ def test_docx_structure_round_trip():
     assert "参考文献" in headings
     bullets = [p.text for p in doc.paragraphs if _style(p) == "List Bullet"]
     assert "要点一" in bullets and "要点二" in bullets
-    numbered = [p.text for p in doc.paragraphs if _style(p) == "List Number"]
-    assert any("来源甲" in text for text in numbered)
+    reference_par = [
+        p.text for p in doc.paragraphs if p.text.startswith("[C1]")
+    ]
+    assert any("来源甲" in text for text in reference_par)
     # bold run survives the markdown conversion
     bold_runs = [
         run.text

@@ -52,9 +52,9 @@ def render_markdown(
         parts.append("## 参考文献")
         parts.append(
             "\n".join(
-                f"{ref.index}. [{ref.title or ref.url}]({ref.url})"
+                f"[{ref.key}] [{ref.title or ref.url}]({ref.url})"
                 if ref.url
-                else f"{ref.index}. {ref.title}"
+                else f"[{ref.key}] {ref.title}"
                 for ref in references
             )
         )
@@ -109,8 +109,10 @@ def render_docx(
     if references:
         doc.add_heading("参考文献", level=1)
         for ref in references:
-            entry = f"{ref.title} — {ref.url}" if ref.url else ref.title
-            doc.add_paragraph(entry, style="List Number")
+            entry = f"[{ref.key}] {ref.title}"
+            if ref.url:
+                entry += f" — {ref.url}"
+            doc.add_paragraph(entry)
 
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -210,7 +212,7 @@ def render_pdf(
     if references:
         story.append(Paragraph("参考文献", h1))
         for ref in references:
-            entry = f"{ref.index}. {_escape(ref.title)}"
+            entry = f"[{ref.key}] {_escape(ref.title)}"
             if ref.url:
                 entry += f" — {_escape(ref.url)}"
             story.append(Paragraph(entry, base))
