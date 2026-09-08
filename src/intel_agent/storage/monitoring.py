@@ -171,6 +171,9 @@ class MonitoringStore:
                 scheduled_for, input_snapshot, baseline_run_id,
                 initial_baseline, summary, limitations)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(run_id) DO UPDATE SET
+                    summary = excluded.summary,
+                    limitations = excluded.limitations
                 """,
                 (
                     run.run_id,
@@ -235,6 +238,10 @@ class MonitoringStore:
                 monitor_id, created_run_id, fact_key, subject, predicate,
                 scope, value, statement, previous_version_id, citations)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(fact_version_id) DO UPDATE SET
+                    created_run_id = excluded.created_run_id,
+                    statement = excluded.statement,
+                    citations = excluded.citations
                 """,
                 (
                     fact.fact_version_id,
@@ -299,13 +306,21 @@ class MonitoringStore:
                 (run_id, fact_key, fact_version_id),
             )
 
-    def baseline_fact_keys(self, run_id: str) -> dict[str, str]:
+    def baseline_facts(self, run_id: str) -> dict[str, FactVersion]:
+        """Load a baseline run's facts keyed by fact_key.
+
+        Joins the membership table with the immutable fact versions so the
+        differ sees both statements (for overlap matching) and version ids
+        (for previous_version_id links).
+        """
         rows = self.db.execute(
-            "SELECT fact_key, fact_version_id FROM monitor_baseline_facts"
-            " WHERE run_id = ?",
+            "SELECT fv.* FROM monitor_baseline_facts bf"
+            " JOIN monitor_fact_versions fv"
+            " ON fv.fact_version_id = bf.fact_version_id"
+            " WHERE bf.run_id = ?",
             (run_id,),
         ).fetchall()
-        return {r["fact_key"]: r["fact_version_id"] for r in rows}
+        return {row["fact_key"]: self._fact_from_row(row) for row in rows}
 
     def save_baseline_source(self, run_id: str, source_key: str) -> None:
         with self.db.transaction() as conn:

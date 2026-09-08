@@ -12,7 +12,7 @@ from ..contracts.documents import Citation
 
 MonitorStatus = Literal["active", "paused"]
 MonitorTrigger = Literal["scheduled", "manual"]
-ChangeKind = Literal["new_fact", "changed_fact", "new_source"]
+ChangeKind = Literal["new_fact", "changed_fact", "removed_fact", "new_source"]
 Importance = Literal["high", "normal"]
 
 

@@ -73,6 +73,12 @@ class ResearchApplication:
                 logger.info("task launched id=%s", task_id)
                 try:
                     await runner(task_id)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    # Surface swallowed runner failures: without this the
+                    # fire-and-forget task hides them until retrieval.
+                    logger.exception("task runner failed id=%s", task_id)
                 finally:
                     self._running.pop(task_id, None)
 

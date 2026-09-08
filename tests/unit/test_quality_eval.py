@@ -37,7 +37,7 @@ def run_monitor_diff_eval() -> dict:
     total = len(MONITOR_DIFF_CASES)
     correct = 0
     for baseline, current, exp_new, exp_changed in MONITOR_DIFF_CASES:
-        new, changed, _matched = diff_baseline(current, baseline)
+        new, changed, _matched, _removed, _near = diff_baseline(current, baseline)
         if new == exp_new and changed == exp_changed:
             correct += 1
     return {
