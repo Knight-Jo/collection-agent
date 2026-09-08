@@ -21,6 +21,10 @@ class FetchRequest(BaseModel):
     # Explicit media-download permission (spec §14): only after MIME/signature
     # validation may the larger 1 GiB media limit replace the 50 MiB default.
     allow_media: bool = False
+    # Conditional-request validators: sent as If-None-Match / If-Modified-
+    # Since when present, letting servers answer 304 instead of a full body.
+    etag: str | None = None
+    last_modified: str | None = None
 
 
 class ResourceOrigin(BaseModel):
@@ -55,8 +59,13 @@ class Resource(BaseModel):
 
 
 class FetchResult(BaseModel):
-    resource: Resource
+    # ``resource`` is None exactly when the server answered 304 to a
+    # conditional request: nothing was downloaded, so nothing was stored.
+    resource: Resource | None = None
     status_code: int | None = None
+    not_modified: bool = False
+    etag: str | None = None
+    last_modified: str | None = None
     safe_headers: dict[str, str] = Field(default_factory=dict)
     method: Literal["http", "browser"] = "http"
     elapsed_ms: int = Field(ge=0)

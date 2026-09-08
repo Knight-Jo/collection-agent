@@ -15,6 +15,7 @@ from .diff import (
     normalize_source_key,
     normalize_statement,
 )
+from .gates import GateResult, WatchGate
 from .models import (
     FactVersion,
     Monitor,
@@ -37,12 +38,16 @@ class MonitoringService:
         orchestrator,
         application,
         settings,
+        gate: WatchGate | None = None,
     ) -> None:
         self.store = store
         self.task_store = task_store
         self.orchestrator = orchestrator
         self.application = application
         self.settings = settings
+        # Optional cheap-change gate over monitor.websites; None keeps the
+        # unconditional research loop.
+        self.gate = gate
         self.application.register_runner("monitor", self._run)
 
     # --- configuration ------------------------------------------------------
@@ -207,6 +212,21 @@ class MonitoringService:
             "monitor run started run=%s monitor=%s", run.run_id, run.monitor_id
         )
         self.task_store.claim_queued(task_id)
+
+        gate_outcome = ""
+        if self.gate is not None:
+            self.task_store.set_phase(task_id, "checking")
+            gate_result = await self.gate.check(monitor)
+            gate_outcome = gate_result.counts_summary()
+            logger.info(
+                "monitor gate run=%s outcome=%s",
+                run.run_id,
+                gate_outcome,
+            )
+            if gate_result.should_skip_research:
+                self._finish_unchanged(run, monitor, gate_result)
+                return
+
         self.task_store.set_phase(task_id, "researching")
         self.task_store.add_timeline(task_id, "researching", "started")
 
@@ -238,12 +258,42 @@ class MonitoringService:
                 initial_baseline=run.initial_baseline,
                 summary=f"{len(changes)} 项变化",
                 limitations=assessment.limitations,
+                gate_outcome=gate_outcome,
             )
         )
         self._commit(run, monitor, facts, changes, assessment)
 
+    def _finish_unchanged(
+        self, run: MonitorRun, monitor: Monitor, gate_result: GateResult
+    ) -> None:
+        """Complete a run the gate short-circuited: no research was needed."""
+        self.store.save_run(
+            run.model_copy(
+                update={
+                    "summary": "闸门未检出变化，跳过研究循环",
+                    "gate_outcome": f"skipped:{gate_result.counts_summary()}",
+                }
+            )
+        )
+        self.store.release_active_run(run.monitor_id, run.run_id)
+        self.store.set_next_run(
+            run.monitor_id, next_run_after(monitor.schedule, datetime.now(UTC))
+        )
+        self.task_store.update_task_status(
+            run.task_id, "completed", phase="done"
+        )
+        self.task_store.add_timeline(run.task_id, "done", "no change detected")
+
     async def _plan(self, monitor: Monitor):
         prompt = f"调研主题: {monitor.subject}\n\n关注策略: {monitor.strategy}"
+        if monitor.questions:
+            prompt += "\n\n必须回答的问题:\n" + "\n".join(
+                f"- {q}" for q in monitor.questions
+            )
+        if monitor.websites:
+            prompt += "\n\n重点信息源（优先直接抓取这些页面）:\n" + "\n".join(
+                f"- {u}" for u in monitor.websites
+            )
         result = await self.orchestrator.roles["planner"].run(prompt)
         return result.output
 

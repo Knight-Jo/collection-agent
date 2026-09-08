@@ -21,6 +21,7 @@ async def test_browser_renders_real_page(harness):
         FetchRequest(url=_REAL_URL, mode="browser", timeout_seconds=30)
     )
     assert result.method == "browser"
+    assert result.resource is not None
     assert result.resource.media_type == "text/html"
     with harness.resource_store.open(result.resource.resource_id) as fh:
         html = fh.read().decode("utf-8", errors="replace")

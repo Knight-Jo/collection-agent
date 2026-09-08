@@ -6,28 +6,42 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
-from intel_agent.contracts.documents import Citation
+from intel_agent.contracts.documents import (
+    Citation,
+    EvidenceBlock,
+    ExtractResult,
+)
+from intel_agent.contracts.errors import DomainError
 from intel_agent.contracts.research import (
     CoverageAssessment,
     EvidenceItem,
     EvidenceReview,
     ResearchAssessment,
 )
+from intel_agent.contracts.resources import (
+    FetchRequest,
+    FetchResult,
+    Resource,
+    ResourceOrigin,
+)
+from intel_agent.fetch.service import FetchService
 from intel_agent.monitoring.diff import (
     derive_fact_key,
     diff_baseline,
     normalize_source_key,
     normalize_statement,
 )
+from intel_agent.monitoring.gates import WatchGate
 from intel_agent.monitoring.models import (
     FactVersion,
     Monitor,
     MonitorRun,
     MonitorSchedule,
+    WatchSourceState,
 )
 from intel_agent.monitoring.scheduler import next_run_after
 from intel_agent.monitoring.service import MonitoringService
-from intel_agent.runtime.config import ResearchSettings
+from intel_agent.runtime.config import FetchConfig, ResearchSettings
 from intel_agent.storage.monitoring import MonitoringStore
 from intel_agent.storage.sqlite import SqliteStore
 from intel_agent.storage.tasks import TaskStore
@@ -184,7 +198,11 @@ def test_save_fact_version_reobservation(tmp_path):
 
 
 class FakePlanner:
+    def __init__(self):
+        self.prompts: list[str] = []
+
     async def run(self, prompt):
+        self.prompts.append(prompt)
         return SimpleNamespace(output=None)
 
 
@@ -377,3 +395,476 @@ async def test_update_monitor_persists_fields(tmp_path):
     assert updated.schedule.cadence == "weekly"
     assert updated.config_version == 2
     assert store.get_monitor(monitor.monitor_id).name == "renamed"
+
+
+# --- conditional fetch (gate L0) ---------------------------------------------
+
+
+class FakeResponse:
+    def __init__(self, status_code, headers=None, chunks=()):
+        self.status_code = status_code
+        self.headers = headers or {}
+        self._chunks = list(chunks)
+        self.url = "https://watch.example/page"
+        self.closed = False
+
+    async def aclose(self):
+        self.closed = True
+
+    async def aiter_bytes(self):
+        for chunk in self._chunks:
+            yield chunk
+
+
+class FakeHttpClient:
+    def __init__(self, response):
+        self._response = response
+        self.requests: list[dict] = []
+
+    def build_request(self, method, url, headers=None, timeout=None):
+        self.requests.append({"url": url, "headers": dict(headers or {})})
+        return SimpleNamespace(url=url)
+
+    async def send(self, request, stream=True, follow_redirects=False):
+        return self._response
+
+
+class FakeResourceStore:
+    async def write_stream(self, chunks, *, origin, media_type, max_bytes):
+        data = b""
+        async for chunk in chunks:
+            data += chunk
+        return Resource(
+            resource_id="res-1",
+            content_hash=f"sha-{len(data)}",
+            byte_length=len(data),
+            media_type=media_type,
+            content_ref="mem://res-1",
+            origin=origin,
+            created_at=datetime.now(UTC),
+        )
+
+
+async def test_fetch_sends_conditional_validators_and_handles_304(monkeypatch):
+    async def _pass(url):
+        return None, []
+
+    monkeypatch.setattr("intel_agent.fetch.service.validate_public_url", _pass)
+    client = FakeHttpClient(FakeResponse(304, {"etag": '"v2"'}))
+    service = FetchService(client, None, FetchConfig())  # type: ignore[arg-type]
+    result = await service.fetch(
+        FetchRequest(
+            url="https://watch.example/page",
+            etag='"v1"',
+            last_modified="Wed, 21 Oct 2015 07:28:00 GMT",
+        )
+    )
+    assert result.not_modified
+    assert result.resource is None
+    assert result.status_code == 304
+    assert result.etag == '"v2"'
+    sent = client.requests[0]["headers"]
+    assert sent["If-None-Match"] == '"v1"'
+    assert sent["If-Modified-Since"] == "Wed, 21 Oct 2015 07:28:00 GMT"
+
+
+async def test_fetch_exposes_validators_on_200(monkeypatch):
+    async def _pass(url):
+        return None, []
+
+    monkeypatch.setattr("intel_agent.fetch.service.validate_public_url", _pass)
+    body = b"<html><body>x</body></html>"
+    client = FakeHttpClient(
+        FakeResponse(
+            200,
+            {"etag": '"v3"', "content-type": "text/html"},
+            chunks=[body],
+        )
+    )
+    service = FetchService(
+        client,  # type: ignore[arg-type]
+        FakeResourceStore(),  # type: ignore[arg-type]
+        FetchConfig(),
+    )
+    result = await service.fetch(
+        FetchRequest(url="https://watch.example/page")
+    )
+    assert result.resource is not None
+    assert result.resource.byte_length == len(body)
+    assert result.etag == '"v3"'
+    assert not result.not_modified
+
+
+# --- watch gate (L0/L1/L2) ---------------------------------------------------
+
+
+def _resource(content_hash: str) -> Resource:
+    now = datetime.now(UTC)
+    return Resource(
+        resource_id=f"res-{content_hash[:6]}",
+        content_hash=content_hash,
+        byte_length=10,
+        media_type="text/html",
+        content_ref=f"mem://{content_hash}",
+        origin=ResourceOrigin(
+            requested_url="u", final_url="u", acquired_at=now
+        ),
+        created_at=now,
+    )
+
+
+def _ok_result(byte_hash: str, etag: str | None = None) -> FetchResult:
+    return FetchResult(
+        resource=_resource(byte_hash),
+        status_code=200,
+        etag=etag,
+        elapsed_ms=5,
+    )
+
+
+def _not_modified(etag: str | None = None) -> FetchResult:
+    return FetchResult(
+        resource=None,
+        status_code=304,
+        not_modified=True,
+        etag=etag,
+        elapsed_ms=2,
+    )
+
+
+class StubFetch:
+    def __init__(self, results):
+        self._results = list(results)
+        self.requests: list[FetchRequest] = []
+
+    async def fetch(self, request: FetchRequest) -> FetchResult:
+        self.requests.append(request)
+        item = self._results.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+class StubExtraction:
+    def __init__(self, texts_by_hash: dict[str, list[str]]):
+        self._texts = texts_by_hash
+        self.calls = 0
+
+    async def extract(self, resource, profile_id):
+        self.calls += 1
+        texts = self._texts.get(resource.content_hash, [])
+        return ExtractResult(
+            resource_id=resource.resource_id,
+            blocks=[
+                EvidenceBlock(
+                    block_id=f"b{i}",
+                    text=text,
+                    block_type="paragraph",
+                    origin_method="native_text",
+                    backend_id="stub",
+                    backend_version="1",
+                )
+                for i, text in enumerate(texts)
+            ],
+            status="success",
+            extraction_profile_id=profile_id,
+        )
+
+
+def _watch_monitor(store: MonitoringStore, url: str) -> Monitor:
+    now = datetime.now(UTC)
+    monitor = Monitor(
+        monitor_id="monw",
+        name="n",
+        subject="s",
+        strategy="g",
+        websites=[url],
+        schedule=MonitorSchedule(
+            cadence="daily", local_time="09:00", timezone="UTC"
+        ),
+        created_at=now,
+        updated_at=now,
+    )
+    store.save_monitor(monitor)
+    return monitor
+
+
+async def test_watch_gate_first_check_is_changed(tmp_path):
+    store, _task_store = _store(tmp_path)
+    url = "https://watch.example/page"
+    monitor = _watch_monitor(store, url)
+    extraction = StubExtraction({"h1": ["alpha beta"]})
+    gate = WatchGate(
+        StubFetch([_ok_result("h1", etag='"v1"')]), extraction, store
+    )
+
+    result = await gate.check(monitor)
+
+    check = result.checks[0]
+    assert check.outcome == "changed"
+    assert not result.should_skip_research
+    state = store.get_watch_source("monw", url)
+    assert state is not None
+    assert state.etag == '"v1"'
+    assert state.byte_hash == "h1"
+    assert state.content_hash  # extraction ran and the digest is stored
+
+
+async def test_watch_gate_304_short_circuits_without_extraction(tmp_path):
+    store, _task_store = _store(tmp_path)
+    url = "https://watch.example/page"
+    monitor = _watch_monitor(store, url)
+    gate = WatchGate(
+        StubFetch([_ok_result("h1", etag='"v1"')]),
+        StubExtraction({"h1": ["alpha beta"]}),
+        store,
+    )
+    await gate.check(monitor)  # seed baseline state
+
+    extraction = StubExtraction({})
+    gate2 = WatchGate(StubFetch([_not_modified('"v1"')]), extraction, store)
+    result = await gate2.check(monitor)
+
+    assert result.checks[0].outcome == "unchanged"
+    assert result.should_skip_research
+    assert extraction.calls == 0  # 304 answered before any parsing
+    state = store.get_watch_source("monw", url)
+    assert state is not None
+    assert state.etag == '"v1"'
+
+
+async def test_watch_gate_304_sends_stored_validators(tmp_path):
+    store, _task_store = _store(tmp_path)
+    url = "https://watch.example/page"
+    monitor = _watch_monitor(store, url)
+    gate = WatchGate(
+        StubFetch([_ok_result("h1", etag='"v1"')]),
+        StubExtraction({"h1": ["alpha beta"]}),
+        store,
+    )
+    await gate.check(monitor)
+
+    fetch = StubFetch([_not_modified('"v1"')])
+    gate2 = WatchGate(fetch, StubExtraction({}), store)
+    await gate2.check(monitor)
+
+    sent = fetch.requests[0]
+    assert sent.etag == '"v1"'
+    assert sent.last_modified is None
+
+
+async def test_watch_gate_same_bytes_skip_extraction(tmp_path):
+    store, _task_store = _store(tmp_path)
+    url = "https://watch.example/page"
+    monitor = _watch_monitor(store, url)
+    gate = WatchGate(
+        StubFetch([_ok_result("h1", etag='"v1"')]),
+        StubExtraction({"h1": ["alpha beta"]}),
+        store,
+    )
+    await gate.check(monitor)
+
+    extraction = StubExtraction({"h1": ["alpha beta"]})
+    gate2 = WatchGate(
+        StubFetch([_ok_result("h1", etag='"v2"')]), extraction, store
+    )
+    result = await gate2.check(monitor)
+
+    # identical bytes: unchanged even though the server rotated its ETag
+    assert result.checks[0].outcome == "unchanged"
+    assert result.should_skip_research
+    assert extraction.calls == 0
+    state = store.get_watch_source("monw", url)
+    assert state is not None
+    assert state.etag == '"v2"'
+
+
+async def test_watch_gate_template_churn_is_content_unchanged(tmp_path):
+    store, _task_store = _store(tmp_path)
+    url = "https://watch.example/page"
+    monitor = _watch_monitor(store, url)
+    gate = WatchGate(
+        StubFetch([_ok_result("h1", etag='"v1"')]),
+        StubExtraction({"h1": ["alpha beta"]}),
+        store,
+    )
+    await gate.check(monitor)
+
+    # bytes changed (ads/timestamps) but extracted main content is identical
+    gate2 = WatchGate(
+        StubFetch([_ok_result("h2", etag='"v2"')]),
+        StubExtraction({"h2": ["alpha beta"]}),
+        store,
+    )
+    result = await gate2.check(monitor)
+
+    assert result.checks[0].outcome == "content_unchanged"
+    assert result.should_skip_research
+
+
+async def test_watch_gate_real_content_change(tmp_path):
+    store, _task_store = _store(tmp_path)
+    url = "https://watch.example/page"
+    monitor = _watch_monitor(store, url)
+    gate = WatchGate(
+        StubFetch([_ok_result("h1", etag='"v1"')]),
+        StubExtraction({"h1": ["alpha beta"]}),
+        store,
+    )
+    await gate.check(monitor)
+
+    gate2 = WatchGate(
+        StubFetch([_ok_result("h2", etag='"v2"')]),
+        StubExtraction({"h2": ["alpha beta", "new announcement"]}),
+        store,
+    )
+    result = await gate2.check(monitor)
+
+    assert result.checks[0].outcome == "changed"
+    assert result.changed_urls == [url]
+    assert not result.should_skip_research
+
+
+async def test_watch_gate_failure_preserves_validators(tmp_path):
+    store, _task_store = _store(tmp_path)
+    url = "https://watch.example/page"
+    monitor = _watch_monitor(store, url)
+    gate = WatchGate(
+        StubFetch([_ok_result("h1", etag='"v1"')]),
+        StubExtraction({"h1": ["alpha beta"]}),
+        store,
+    )
+    await gate.check(monitor)
+
+    gate2 = WatchGate(
+        StubFetch([DomainError("NETWORK_ERROR", "down", stage="fetch")]),
+        StubExtraction({}),
+        store,
+    )
+    result = await gate2.check(monitor)
+
+    check = result.checks[0]
+    assert check.outcome == "failed"
+    assert check.error_code == "NETWORK_ERROR"
+    assert not result.should_skip_research  # failure is not "no change"
+    state = store.get_watch_source("monw", url)
+    assert state is not None
+    assert state.etag == '"v1"'  # last good validators survive
+    assert state.byte_hash == "h1"
+
+
+# --- gate integration with the run flow --------------------------------------
+
+
+class NoCallOrchestrator(FakeOrchestrator):
+    async def run_assessment(self, task, plan=None):
+        raise AssertionError("research loop must not run when gate is green")
+
+
+async def test_monitor_run_skips_research_when_gate_unchanged(tmp_path):
+    sqlite = SqliteStore(tmp_path / "m.sqlite")
+    store = MonitoringStore(sqlite)
+    task_store = TaskStore(sqlite)
+    app = FakeApplication()
+    url = "https://watch.example/page"
+    service = MonitoringService(
+        store,
+        task_store,
+        NoCallOrchestrator([]),
+        app,
+        ResearchSettings(),
+    )
+    monitor = service.create_monitor(
+        "m", "s", "g", _schedule(), websites=[url]
+    )
+    store.save_watch_source(
+        WatchSourceState(
+            monitor_id=monitor.monitor_id,
+            url=url,
+            etag='"v1"',
+            byte_hash="h1",
+            content_hash="c1",
+            last_checked_at=datetime.now(UTC),
+            last_outcome="changed",
+        )
+    )
+    gate = WatchGate(
+        StubFetch([_not_modified('"v1"')]), StubExtraction({}), store
+    )
+    service.gate = gate
+
+    run = await service.submit_run(monitor.monitor_id, "manual")
+    await app.run_pending()
+
+    assert task_store.get_task(run.task_id).status == "completed"
+    loaded = store.get_run(run.run_id)
+    assert loaded.gate_outcome.startswith("skipped:")
+    assert "unchanged" in loaded.gate_outcome
+    assert "跳过" in loaded.summary
+    monitor = store.get_monitor(monitor.monitor_id)
+    assert monitor.active_run_id is None
+    assert monitor.next_run_at is not None
+
+
+async def test_monitor_run_gate_changed_proceeds_to_research(tmp_path):
+    sqlite = SqliteStore(tmp_path / "m.sqlite")
+    store = MonitoringStore(sqlite)
+    task_store = TaskStore(sqlite)
+    app = FakeApplication()
+    url = "https://watch.example/page"
+    assessment = _assessment(
+        [("Acme employs 5000 people.", "c1")],
+        [_citation("c1", "https://example.com/reports")],
+    )
+    service = MonitoringService(
+        store,
+        task_store,
+        FakeOrchestrator([assessment]),
+        app,
+        ResearchSettings(),
+    )
+    monitor = service.create_monitor(
+        "m", "s", "g", _schedule(), websites=[url]
+    )
+    gate = WatchGate(
+        StubFetch([_ok_result("h9", etag='"v9"')]),
+        StubExtraction({"h9": ["acme employs 5000 people"]}),
+        store,
+    )
+    service.gate = gate
+
+    run = await service.submit_run(monitor.monitor_id, "manual")
+    await app.run_pending()
+
+    loaded = store.get_run(run.run_id)
+    assert loaded.gate_outcome == "changed=1"
+    assert task_store.get_task(run.task_id).status == "completed"
+    # initial baseline run recorded facts without changes
+    assert store.list_changes(run.run_id) == []
+
+
+async def test_plan_prompt_includes_questions_and_websites(tmp_path):
+    service, _store, _task_store, app = _service(
+        tmp_path,
+        [
+            _assessment(
+                [("Acme employs 5000 people.", "c1")],
+                [_citation("c1", "https://example.com/reports")],
+            )
+        ],
+    )
+    monitor = service.create_monitor(
+        "m",
+        "s",
+        "g",
+        _schedule(),
+        questions=["What is Acme's revenue?"],
+        websites=["https://watch.example/page"],
+    )
+    await service.submit_run(monitor.monitor_id, "manual")
+    await app.run_pending()
+
+    planner = service.orchestrator.roles["planner"]
+    prompt = planner.prompts[0]
+    assert "What is Acme's revenue?" in prompt
+    assert "https://watch.example/page" in prompt

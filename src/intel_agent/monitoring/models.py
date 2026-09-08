@@ -57,8 +57,29 @@ class MonitorRun(BaseModel):
     initial_baseline: bool = False
     summary: str = ""
     limitations: list[str] = Field(default_factory=list)
+    # Compact watch-gate result, e.g. "unchanged=2,content_unchanged=1" or
+    # "skipped_unchanged"; empty when no gate ran.
+    gate_outcome: str = ""
 
     @field_validator("scheduled_for")
+    @classmethod
+    def _aware(cls, value: datetime | None) -> datetime | None:
+        return require_aware(value) if value is not None else None
+
+
+class WatchSourceState(BaseModel):
+    """Persisted watch-gate state for one monitored page."""
+
+    monitor_id: str
+    url: str
+    etag: str | None = None
+    last_modified: str | None = None
+    byte_hash: str | None = None
+    content_hash: str | None = None
+    last_checked_at: AwareDatetime | None = None
+    last_outcome: str = ""
+
+    @field_validator("last_checked_at")
     @classmethod
     def _aware(cls, value: datetime | None) -> datetime | None:
         return require_aware(value) if value is not None else None

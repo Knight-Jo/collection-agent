@@ -112,6 +112,23 @@ class FetchService:
                 continue
             status_code: int = response.status_code
             final_url = str(response.url)
+            if status_code == 304:
+                # The conditional validators matched: no body was sent, so no
+                # resource is stored. Callers keep their cached copy.
+                etag = response.headers.get("etag")
+                last_modified = response.headers.get("last-modified")
+                await response.aclose()
+                return FetchResult(
+                    resource=None,
+                    status_code=304,
+                    not_modified=True,
+                    etag=etag,
+                    last_modified=last_modified,
+                    safe_headers=_safe_headers(response.headers),
+                    method="http",
+                    elapsed_ms=int((monotonic() - start) * 1000),
+                    warnings=warnings,
+                )
             if status_code >= 400:
                 await response.aclose()
                 code = "BLOCKED" if status_code in (401, 403) else "HTTP_ERROR"
@@ -138,6 +155,8 @@ class FetchService:
             return FetchResult(
                 resource=resource,
                 status_code=status_code,
+                etag=response.headers.get("etag"),
+                last_modified=response.headers.get("last-modified"),
                 safe_headers=_safe_headers(response.headers),
                 method="http",
                 elapsed_ms=int((monotonic() - start) * 1000),
@@ -147,10 +166,15 @@ class FetchService:
 
     async def _get(self, url: str, request: FetchRequest):
         try:
+            headers = dict(request.headers)
+            if request.etag:
+                headers.setdefault("If-None-Match", request.etag)
+            if request.last_modified:
+                headers.setdefault("If-Modified-Since", request.last_modified)
             req = self.client.build_request(
                 "GET",
                 url,
-                headers=request.headers,
+                headers=headers,
                 timeout=request.timeout_seconds,
             )
             return await self.client.send(

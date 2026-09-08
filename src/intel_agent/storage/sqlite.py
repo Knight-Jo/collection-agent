@@ -14,6 +14,7 @@ MIGRATIONS = (
     "003_research_results.sql",
     "004_runtime_state.sql",
     "005_workspace_extensions.sql",
+    "006_monitor_watch_sources.sql",
 )
 
 

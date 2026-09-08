@@ -11,6 +11,7 @@ from ..monitoring.models import (
     Monitor,
     MonitorChange,
     MonitorRun,
+    WatchSourceState,
 )
 from .sqlite import SqliteStore
 from .tasks import _iso, _parse_iso
@@ -169,11 +170,12 @@ class MonitoringStore:
                 """
                 INSERT INTO monitor_runs (run_id, monitor_id, task_id, trigger,
                 scheduled_for, input_snapshot, baseline_run_id,
-                initial_baseline, summary, limitations)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                initial_baseline, summary, limitations, gate_outcome)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(run_id) DO UPDATE SET
                     summary = excluded.summary,
-                    limitations = excluded.limitations
+                    limitations = excluded.limitations,
+                    gate_outcome = excluded.gate_outcome
                 """,
                 (
                     run.run_id,
@@ -186,6 +188,7 @@ class MonitoringStore:
                     1 if run.initial_baseline else 0,
                     run.summary,
                     json.dumps(run.limitations, ensure_ascii=False),
+                    run.gate_outcome,
                 ),
             )
 
@@ -212,6 +215,7 @@ class MonitoringStore:
             initial_baseline=bool(row["initial_baseline"]),
             summary=row["summary"],
             limitations=json.loads(row["limitations"]),
+            gate_outcome=row["gate_outcome"],
         )
 
     def get_run_by_task(self, task_id: str) -> MonitorRun | None:
@@ -227,6 +231,61 @@ class MonitoringStore:
             (monitor_id,),
         ).fetchall()
         return [self.get_run(r["run_id"]) for r in rows]
+
+    # --- watch sources ------------------------------------------------------
+
+    def get_watch_source(
+        self, monitor_id: str, url: str
+    ) -> WatchSourceState | None:
+        row = self.db.execute(
+            "SELECT * FROM monitor_watch_sources"
+            " WHERE monitor_id = ? AND url = ?",
+            (monitor_id, url),
+        ).fetchone()
+        if row is None:
+            return None
+        return WatchSourceState(
+            monitor_id=row["monitor_id"],
+            url=row["url"],
+            etag=row["etag"],
+            last_modified=row["last_modified"],
+            byte_hash=row["byte_hash"],
+            content_hash=row["content_hash"],
+            last_checked_at=_parse_iso(row["last_checked_at"])
+            if row["last_checked_at"]
+            else None,
+            last_outcome=row["last_outcome"],
+        )
+
+    def save_watch_source(self, state: WatchSourceState) -> None:
+        with self.db.transaction() as conn:
+            conn.execute(
+                """
+                INSERT INTO monitor_watch_sources (monitor_id, url, etag,
+                last_modified, byte_hash, content_hash, last_checked_at,
+                last_outcome)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(monitor_id, url) DO UPDATE SET
+                    etag = excluded.etag,
+                    last_modified = excluded.last_modified,
+                    byte_hash = excluded.byte_hash,
+                    content_hash = excluded.content_hash,
+                    last_checked_at = excluded.last_checked_at,
+                    last_outcome = excluded.last_outcome
+                """,
+                (
+                    state.monitor_id,
+                    state.url,
+                    state.etag,
+                    state.last_modified,
+                    state.byte_hash,
+                    state.content_hash,
+                    _iso(state.last_checked_at)
+                    if state.last_checked_at
+                    else None,
+                    state.last_outcome,
+                ),
+            )
 
     # --- fact versions ------------------------------------------------------
 

@@ -155,6 +155,14 @@ class AcquisitionPipeline:
                     fetch_result = await self.fetch_service.fetch(
                         FetchRequest(url=source.url, timeout_seconds=timeout)
                     )
+                    # Acquisition never sends conditional validators, so a
+                    # 304 response cannot occur here; guard defensively.
+                    if fetch_result.resource is None:
+                        raise DomainError(
+                            "HTTP_ERROR",
+                            f"no content for {source.url}",
+                            stage="fetch",
+                        )
                     resource = fetch_result.resource
                 except DomainError as error:
                     logger.warning(

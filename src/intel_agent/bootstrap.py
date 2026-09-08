@@ -43,6 +43,7 @@ from .indexing.service import IndexingService
 from .indexing.tokenize import TiktokenCounter
 from .library import Library
 from .media.service import MediaService
+from .monitoring.gates import WatchGate
 from .monitoring.service import MonitoringService
 from .normalization import Normalizer
 from .orchestration.orchestrator import ResearchOrchestrator
@@ -398,12 +399,14 @@ async def bootstrap(
     # Workspace extensions: writable search config, monitoring, fact-check,
     # media analysis, and the read-only library projection.
     search_settings = SearchSettings(settings, settings_store)
+    monitoring_store = MonitoringStore(sqlite)
     monitoring = MonitoringService(
-        MonitoringStore(sqlite),
+        monitoring_store,
         task_store,
         orchestrator,
         application,
         settings,
+        gate=WatchGate(fetch_service, extraction, monitoring_store),
     )
     factcheck = FactCheckService(
         FactCheckStore(sqlite),
