@@ -128,13 +128,21 @@ class ContextConfig(BaseModel):
     # block ahead of other sources; extras only fill leftover budget. Keeps a
     # single keyword-dense page from monopolizing the window.
     max_chunks_per_artifact: int = Field(default=3, ge=1)
+    # Upper bound for a merged per-question evidence block
+    # (context budget x question batches, capped here).
+    merged_context_cap_tokens: int = Field(default=49152, ge=0)
 
 
 class ResearchConfig(BaseModel):
     max_rounds: int = Field(default=3, ge=1)
     no_progress_rounds: int = Field(default=2, ge=1)
     deadline_seconds: float = Field(default=3600.0, gt=0)
-    max_llm_calls: int = Field(default=10, ge=1)
+    # Per-question evidence blocks: each round retrieves per question batch
+    # and merges the picks, so every question contributes sources instead of
+    # one broad query dominating the window.
+    per_question_context: bool = True
+    questions_per_context: int = Field(default=2, ge=1)
+    max_llm_calls: int = Field(default=24, ge=1)
     llm_token_budget: int = Field(default=100_000, ge=1)
     new_resources_per_round: int = Field(default=20, ge=1)
     new_resources_per_task: int = Field(default=60, ge=1)

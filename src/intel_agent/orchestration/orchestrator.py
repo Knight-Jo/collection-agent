@@ -15,6 +15,7 @@ from ..contracts.research import (
     Checkpoint,
     ContextPackage,
     ContextRequest,
+    CoverageAssessment,
     ResearchAssessment,
     ResearchDecision,
     ResearchPlan,
@@ -45,6 +46,40 @@ def _evidence_block(context: ContextPackage) -> str:
 
 def _questions_block(plan: ResearchPlan) -> str:
     return "\n".join(f"Q{i + 1}. {q}" for i, q in enumerate(plan.questions))
+
+
+def _summary_count(summary, key: str) -> int:
+    value = summary.get(key, 0) if isinstance(summary, dict) else 0
+    return int(value) if isinstance(value, (int, float)) else 0
+
+
+def question_batches(questions: list[str], batch_size: int) -> list[list[str]]:
+    """Group plan questions into retrieval batches."""
+    if batch_size >= len(questions):
+        return [questions]
+    return [
+        questions[i : i + batch_size]
+        for i in range(0, len(questions), batch_size)
+    ]
+
+
+def weak_questions(questions: list[str], coverage) -> list[str]:
+    """Questions a previous round left unanswered, keyed Q1..Qn.
+
+    Falls back to every question when the filter would empty the list (a
+    stale coverage must never blank the evidence build).
+    """
+    weak_ids = {
+        item.question_id
+        for item in coverage.questions
+        if item.status in ("pending", "researching", "blocked")
+    }
+    selected = [
+        question
+        for index, question in enumerate(questions)
+        if f"Q{index + 1}" in weak_ids
+    ]
+    return selected or questions
 
 
 class ResearchOrchestrator:
@@ -83,6 +118,7 @@ class ResearchOrchestrator:
         profile_id: str,
         lock_dir: Path,
         context_max_tokens: int = 8000,
+        merged_context_cap: int = 49152,
         search_per_provider_limit: int = 10,
         search_total_limit: int = 20,
         event_sink: EventSink | None = None,
@@ -97,6 +133,7 @@ class ResearchOrchestrator:
         self.profile_id = profile_id
         self.lock_dir = lock_dir
         self.context_max_tokens = context_max_tokens
+        self.merged_context_cap = merged_context_cap
         self.search_per_provider_limit = search_per_provider_limit
         self.search_total_limit = search_total_limit
         self.event_sink = event_sink
@@ -104,6 +141,64 @@ class ResearchOrchestrator:
     async def _emit(self, sink: EventSink | None, event: dict) -> None:
         if sink is not None:
             await sink(event)
+
+    async def _build_evidence(self, task, plan, previous_coverage, sink):
+        """Build the round's evidence block, per question batch when enabled.
+
+        Each batch retrieves with its own questions as the query, so every
+        question contributes its best sources; the batch packages merge into
+        one deduplicated block (unique citation ids). Rounds after the first
+        retrieve only for questions the previous coverage left weak, keeping
+        later rounds focused on the actual gaps.
+        """
+        questions = list(plan.questions) if plan and plan.questions else []
+        if not self.config.per_question_context or not questions:
+            return await self.context_manager.build(
+                ContextRequest(
+                    task_id=task.task_id,
+                    query=task.question,
+                    max_tokens=self.context_max_tokens,
+                )
+            )
+
+        targets = (
+            weak_questions(questions, previous_coverage)
+            if previous_coverage is not None
+            else questions
+        )
+        batches = question_batches(targets, self.config.questions_per_context)
+
+        packages = [
+            await self.context_manager.build(
+                ContextRequest(
+                    task_id=task.task_id,
+                    query=" ".join(batch),
+                    max_tokens=self.context_max_tokens,
+                )
+            )
+            for batch in batches
+        ]
+        cap = min(
+            self.context_max_tokens * len(batches),
+            self.merged_context_cap,
+        )
+        merged = self.context_manager.merge_packages(
+            task.task_id, task.question, packages, cap
+        )
+        await self._emit(
+            sink,
+            {
+                "event": "timeline",
+                "task_id": task.task_id,
+                "kind": "coverage",
+                "label": "分问题证据块",
+                "detail": (
+                    f"{len(targets)} 个问题 / {len(batches)} 批，"
+                    f"合并 {_summary_count(merged.coverage_summary, 'chunks')} 个片段"
+                ),
+            },
+        )
+        return merged
 
     async def _run_agent(
         self, agent, prompt: str, task_id: str, name: str = "agent"
@@ -286,6 +381,7 @@ class ResearchOrchestrator:
             accepted: list[str] = []
             round_no = task.round
             evidence_block = ""
+            coverage = None
             questions = ""
             await self._emit(
                 sink,
@@ -444,12 +540,8 @@ class ResearchOrchestrator:
                         "phase": "assessing",
                     },
                 )
-                context = await self.context_manager.build(
-                    ContextRequest(
-                        task_id=task.task_id,
-                        query=task.question,
-                        max_tokens=self.context_max_tokens,
-                    )
+                context = await self._build_evidence(
+                    task, plan, coverage, sink
                 )
                 evidence_block = _evidence_block(context)
                 questions = _questions_block(plan)
@@ -560,7 +652,8 @@ class ResearchOrchestrator:
             assessment = ResearchAssessment(
                 task_id=task.task_id,
                 scope_id=context.scope_id,
-                coverage=coverage,
+                coverage=coverage
+                or CoverageAssessment(sufficiency="low", summary="未评估"),
                 evidence_review=evidence,
                 citations=list(context.citations),
                 accepted_artifact_ids=list(accepted),

@@ -74,7 +74,17 @@ class FakeIndexing:
 
 
 class FakeContext:
+    def __init__(self):
+        self.queries: list[str] = []
+        self.merges = 0
+
+    def merge_packages(self, task_id, query, packages, max_tokens):
+        # keep the first package's citations; enough for loop-level fakes
+        self.merges += 1
+        return packages[0]
+
     async def build(self, request):
+        self.queries.append(request.query)
         from intel_agent.contracts.documents import Citation
 
         return ContextPackage(
@@ -226,3 +236,91 @@ async def test_max_rounds_exhausted_forces_final_report(
     assert result.report is not None
     assert result.report.title == "forced report"
     assert material_store.get_task(result.task_id).status == "completed"
+
+
+def test_question_batches_grouping():
+    from intel_agent.orchestration.orchestrator import question_batches
+
+    assert question_batches(["a", "b", "c", "d", "e"], 2) == [
+        ["a", "b"],
+        ["c", "d"],
+        ["e"],
+    ]
+    assert question_batches(["a"], 2) == [["a"]]
+    assert question_batches(["a", "b"], 5) == [["a", "b"]]
+
+
+def test_weak_questions_filter_and_fallback():
+    from intel_agent.contracts.research import (
+        CoverageAssessment,
+        QuestionCoverage,
+    )
+    from intel_agent.orchestration.orchestrator import weak_questions
+
+    questions = ["战场态势", "军援规模", "制裁执行"]
+    coverage = CoverageAssessment(
+        sufficiency="low",
+        questions=[
+            QuestionCoverage(
+                question_id="Q1", question="战场态势", status="answered"
+            ),
+            QuestionCoverage(
+                question_id="Q2", question="军援规模", status="blocked"
+            ),
+            QuestionCoverage(
+                question_id="Q3", question="制裁执行", status="researching"
+            ),
+        ],
+    )
+    assert weak_questions(questions, coverage) == ["军援规模", "制裁执行"]
+
+    all_answered = CoverageAssessment(
+        sufficiency="high",
+        questions=[
+            QuestionCoverage(
+                question_id=f"Q{i + 1}", question=q, status="answered"
+            )
+            for i, q in enumerate(questions)
+        ],
+    )
+    # empty filter falls back to every question, never a blank build
+    assert weak_questions(questions, all_answered) == questions
+
+
+async def test_per_question_context_builds_batched_queries(
+    material_store, tmp_path
+):
+    plan = ResearchPlan(
+        questions=["战场态势", "军援规模", "制裁执行"],
+        directions=[SearchDirection(query=SearchQuery(text="q"))],
+    )
+    decider = FakeRole(
+        ResearchDecision(action="finish", citation_ids=["C1"], reason="enough")
+    )
+    roles = {
+        "planner": FakeRole(plan),
+        "coverage": FakeRole(CoverageAssessment(sufficiency="high")),
+        "verifier": FakeRole(EvidenceReview(summary="ok")),
+        "decider": decider,
+        "writer": FakeRole(
+            ResearchReport(title="t", conclusions=["c"], citation_ids=["C1"])
+        ),
+    }
+    context = FakeContext()
+    orchestrator = ResearchOrchestrator(
+        material_store,
+        FakeSearch(),  # type: ignore[arg-type]
+        FakeAcquisition(),  # type: ignore[arg-type]
+        FakeIndexing(),  # type: ignore[arg-type]
+        context,  # type: ignore[arg-type]
+        roles,
+        ResearchConfig(per_question_context=True, questions_per_context=2),
+        "profile-1",
+        tmp_path / "locks",
+    )
+    task = material_store.create_task("俄罗斯乌克兰战争三年情况")
+    await orchestrator.run_task(task)
+    # three questions in batches of two -> two question-driven queries
+    assert "战场态势 军援规模" in context.queries
+    assert "制裁执行" in context.queries
+    assert context.merges >= 1

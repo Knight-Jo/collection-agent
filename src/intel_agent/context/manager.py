@@ -53,7 +53,6 @@ class ContextManager:
                 warnings=["zero token budget"],
             )
         all_chunks = self.store.read_chunks(scope)
-        source_by_artifact = self._source_by_artifact(scope.artifact_ids)
 
         chunks: list[Chunk]
         warnings: list[str] = []
@@ -82,14 +81,66 @@ class ContextManager:
         if filtered:
             warnings.append(f"filtered {filtered} low-quality chunks")
 
-        chunks = self._trim(chunks, request.max_tokens)
+        chunks = self._diversify(chunks, self.config.max_chunks_per_artifact)
+        return self._assemble(
+            request.task_id,
+            request.query,
+            scope.scope_id,
+            chunks,
+            request.max_tokens,
+            warnings,
+            filtered,
+        )
+
+    def merge_packages(
+        self,
+        task_id: str,
+        query: str,
+        packages: list[ContextPackage],
+        max_tokens: int,
+    ) -> ContextPackage:
+        """Merge per-question packages into one deduplicated evidence block.
+
+        Chunks selected for several questions appear once; rank order follows
+        package order (first question's picks first). Citations are rebuilt
+        over the merged list so ids stay unique across the whole block.
+        """
+        if not packages:
+            return ContextPackage(task_id=task_id, query=query, scope_id="")
+        seen: set[str] = set()
+        merged: list[Chunk] = []
+        warnings: list[str] = []
+        for package in packages:
+            warnings.extend(package.warnings)
+            for chunk in package.selected_chunks:
+                if chunk.chunk_id not in seen:
+                    seen.add(chunk.chunk_id)
+                    merged.append(chunk)
+        return self._assemble(
+            task_id, query, packages[0].scope_id, merged, max_tokens, warnings
+        )
+
+    def _assemble(
+        self,
+        task_id: str,
+        query: str,
+        scope_id: str,
+        chunks: list[Chunk],
+        max_tokens: int,
+        warnings: list[str],
+        filtered: int = 0,
+    ) -> ContextPackage:
+        source_by_artifact = self._source_by_artifact(
+            [c.artifact_id for c in chunks]
+        )
+        chunks = self._trim(chunks, max_tokens)
         citations = build_citations(chunks, source_by_artifact)
         formatted = format_context(chunks, citations)
         token_count = self.counter.count(formatted)
         return ContextPackage(
-            task_id=request.task_id,
-            query=request.query,
-            scope_id=scope.scope_id,
+            task_id=task_id,
+            query=query,
+            scope_id=scope_id,
             selected_chunks=chunks,
             citations=citations,
             formatted_text=formatted,

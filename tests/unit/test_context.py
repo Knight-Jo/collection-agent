@@ -157,3 +157,77 @@ def test_diversify_keeps_order_below_cap():
         "B",
         "C",
     ]
+
+
+def test_merge_packages_dedupes_and_rebuilds_citations(material_store):
+    task = material_store.create_task("多问题调研")
+    _seed(
+        material_store,
+        task.task_id,
+        "https://a.example/x",
+        "第一份材料讨论战场态势与战线变化的整体走向，覆盖多个时间段。",
+    )
+    _seed(
+        material_store,
+        task.task_id,
+        "https://b.example/y",
+        "第二份材料分析军援规模与财政承受能力，包含量化数据与对比。",
+    )
+    counter = TiktokenCounter()
+    manager = ContextManager(material_store, counter, ContextConfig())
+    pkg1 = asyncio.run(
+        manager.build(
+            ContextRequest(
+                task_id=task.task_id, query="战场 态势", max_tokens=4000
+            )
+        )
+    )
+    pkg2 = asyncio.run(
+        manager.build(
+            ContextRequest(
+                task_id=task.task_id, query="军援 规模", max_tokens=4000
+            )
+        )
+    )
+    merged = manager.merge_packages(
+        task.task_id, "合并查询", [pkg1, pkg2], max_tokens=8000
+    )
+    ids = [c.chunk_id for c in merged.selected_chunks]
+    assert len(ids) == len(set(ids))  # no duplicates across question blocks
+    assert merged.citations
+    cite_ids = [c.citation_id for c in merged.citations]
+    assert len(cite_ids) == len(set(cite_ids))  # globally unique citations
+    assert merged.token_count == counter.count(merged.formatted_text)
+
+
+def test_merge_packages_trims_to_cap(material_store):
+    task = material_store.create_task("裁剪")
+    _seed(
+        material_store,
+        task.task_id,
+        "https://a.example/x",
+        "材料甲的内容" * 200,
+    )
+    _seed(
+        material_store,
+        task.task_id,
+        "https://b.example/y",
+        "材料乙的内容" * 200,
+    )
+    manager = ContextManager(
+        material_store, TiktokenCounter(), ContextConfig()
+    )
+    pkg1 = asyncio.run(
+        manager.build(
+            ContextRequest(task_id=task.task_id, query="甲", max_tokens=4000)
+        )
+    )
+    pkg2 = asyncio.run(
+        manager.build(
+            ContextRequest(task_id=task.task_id, query="乙", max_tokens=4000)
+        )
+    )
+    merged = manager.merge_packages(
+        task.task_id, "合并", [pkg1, pkg2], max_tokens=200
+    )
+    assert merged.token_count <= 200

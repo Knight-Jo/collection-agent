@@ -368,6 +368,7 @@ async def bootstrap(
         extraction.profile_for("text/html") or "html",
         settings.tmp_root(),
         context_max_tokens=settings.context.default_budget_tokens,
+        merged_context_cap=settings.context.merged_context_cap_tokens,
         search_per_provider_limit=settings.search.per_provider_limit,
         search_total_limit=settings.search.total_limit,
     )
