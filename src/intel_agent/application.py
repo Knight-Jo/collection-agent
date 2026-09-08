@@ -53,6 +53,7 @@ class ResearchApplication:
         # Workspace services, wired by bootstrap.
         self.search_settings: Any = None
         self.monitoring: Any = None
+        self.monitor_scheduler: Any = None
         self.factcheck: Any = None
         self.media: Any = None
         self.library: Any = None

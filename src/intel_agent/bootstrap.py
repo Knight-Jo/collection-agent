@@ -44,6 +44,7 @@ from .indexing.tokenize import TiktokenCounter
 from .library import Library
 from .media.service import MediaService
 from .monitoring.gates import WatchGate
+from .monitoring.scheduler import MonitorScheduler
 from .monitoring.service import MonitoringService
 from .normalization import Normalizer
 from .orchestration.orchestrator import ResearchOrchestrator
@@ -406,7 +407,19 @@ async def bootstrap(
         orchestrator,
         application,
         settings,
-        gate=WatchGate(fetch_service, extraction, monitoring_store),
+        gate=WatchGate(
+            fetch_service,
+            extraction,
+            monitoring_store,
+            timeout_seconds=settings.monitor.watch_timeout_seconds,
+            max_bytes=settings.monitor.watch_max_bytes,
+        ),
+    )
+    monitor_scheduler = MonitorScheduler(
+        monitoring,
+        interval_seconds=settings.monitor.scheduler_interval_seconds,
+        jitter_seconds=settings.monitor.jitter_seconds,
+        max_submissions_per_tick=settings.monitor.max_submissions_per_tick,
     )
     factcheck = FactCheckService(
         FactCheckStore(sqlite),
@@ -434,9 +447,13 @@ async def bootstrap(
     application.material_store = store
     application.settings_store = settings_store
     application.resource_store = resource_store
+    application.monitor_scheduler = monitor_scheduler
+    monitor_scheduler.start()
     try:
         yield application
     finally:
+        # Stop submitting new runs before closing the runners and stores.
+        await monitor_scheduler.stop()
         # Close the application before its shared clients and execution pool.
         await application.close()
         await search_client.aclose()

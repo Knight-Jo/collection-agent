@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from ..contracts.errors import DomainError
 from ..storage._ids import new_id
@@ -28,6 +28,17 @@ from .models import (
 from .scheduler import next_run_after
 
 logger = logging.getLogger("intel_agent.monitoring")
+
+
+def _fingerprint(change: MonitorChange) -> str:
+    """Stable identity of a change event for repeat suppression."""
+    identity = (
+        change.current_version_id
+        or change.source_key
+        or change.previous_version_id
+        or ""
+    )
+    return f"{change.kind}:{identity}"
 
 
 class MonitoringService:
@@ -121,6 +132,10 @@ class MonitoringService:
     def list(self) -> list[Monitor]:
         return self.store.list_monitors()
 
+    def due_monitors(self, now: datetime | None = None) -> list[Monitor]:
+        """Active/degraded monitors whose next run is due now."""
+        return self.store.list_due_monitors(now or datetime.now(UTC))
+
     def get(self, monitor_id: str) -> MonitorDetail:
         monitor = self.store.get_monitor(monitor_id)
         runs = []
@@ -193,9 +208,7 @@ class MonitoringService:
         message = str(error) or error.__class__.__name__
         self.store.release_active_run(run.monitor_id, run.run_id)
         monitor = self.store.get_monitor(run.monitor_id)
-        self.store.set_next_run(
-            run.monitor_id, next_run_after(monitor.schedule, datetime.now(UTC))
-        )
+        self._schedule_with_backoff(monitor)
         self.task_store.update_task_status(
             run.task_id,
             "failed",
@@ -205,6 +218,34 @@ class MonitoringService:
         self.task_store.add_timeline(
             run.task_id, "failed", "monitor run failed"
         )
+
+    def _schedule_with_backoff(self, monitor: Monitor) -> None:
+        """Exponential backoff after failures; degrade past the threshold.
+
+        A failure keeps the monitor working (unlike paused): the next run is
+        merely pushed out so a dead source cannot burn a research loop per
+        tick.
+        """
+        config = self.settings.monitor
+        failures = monitor.consecutive_failures + 1
+        # Paused stays paused; active/degraded follow the failure count.
+        status = monitor.status
+        if status != "paused" and failures >= config.degraded_after_failures:
+            status = "degraded"
+        backoff = min(
+            config.failure_backoff_base_seconds * (2 ** (failures - 1)),
+            config.failure_backoff_max_seconds,
+        )
+        self.store.update_monitor_health(monitor.monitor_id, failures, status)
+        self.store.set_next_run(
+            monitor.monitor_id, datetime.now(UTC) + timedelta(seconds=backoff)
+        )
+
+    def _reset_health(self, monitor: Monitor) -> None:
+        """Any successful run clears failure history and degraded state."""
+        if monitor.consecutive_failures == 0 and monitor.status != "degraded":
+            return
+        self.store.update_monitor_health(monitor.monitor_id, 0, "active")
 
     async def _execute(self, run: MonitorRun, task_id: str) -> None:
         monitor = self.store.get_monitor(run.monitor_id)
@@ -276,6 +317,7 @@ class MonitoringService:
             )
         )
         self.store.release_active_run(run.monitor_id, run.run_id)
+        self._reset_health(monitor)
         self.store.set_next_run(
             run.monitor_id, next_run_after(monitor.schedule, datetime.now(UTC))
         )
@@ -418,7 +460,10 @@ class MonitoringService:
                         created_at=now,
                     )
                 )
-        return changes
+        # A baseline that has not advanced re-detects the same differences
+        # every run; suppress events already reported for this monitor.
+        reported = self.store.reported_fingerprints(run.monitor_id)
+        return [c for c in changes if _fingerprint(c) not in reported]
 
     def _commit(self, run, monitor, facts, changes, assessment) -> None:
         citation_map = {c.citation_id: c for c in assessment.citations}
@@ -451,10 +496,17 @@ class MonitoringService:
                 self.store.save_baseline_source(run.run_id, key)
         for change in changes:
             self.store.save_change(change)
+            self.store.mark_reported(
+                run.monitor_id, _fingerprint(change), run.run_id
+            )
 
         if assessment.stop_reason == "evidence_sufficient":
             self.store.set_baseline(run.monitor_id, run.run_id)
+            # The baseline absorbed everything reported so far; keeping the
+            # suppression set would only hide genuinely new events later.
+            self.store.clear_reported(run.monitor_id)
         self.store.release_active_run(run.monitor_id, run.run_id)
+        self._reset_health(monitor)
         self.store.set_next_run(
             run.monitor_id,
             next_run_after(monitor.schedule, datetime.now(UTC)),

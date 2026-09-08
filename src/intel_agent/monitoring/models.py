@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from ..contracts._time import AwareDatetime, JsonValue, require_aware
 from ..contracts.documents import Citation
 
-MonitorStatus = Literal["active", "paused"]
+MonitorStatus = Literal["active", "paused", "degraded"]
 MonitorTrigger = Literal["scheduled", "manual"]
 ChangeKind = Literal["new_fact", "changed_fact", "removed_fact", "new_source"]
 Importance = Literal["high", "normal"]
@@ -33,6 +33,9 @@ class Monitor(BaseModel):
     schedule: MonitorSchedule
     status: MonitorStatus = "active"
     config_version: int = Field(default=1, ge=1)
+    # Consecutive failed runs; drives exponential backoff and the degraded
+    # flag. Any successful run resets it to zero.
+    consecutive_failures: int = Field(default=0, ge=0)
     baseline_run_id: str | None = None
     active_run_id: str | None = None
     next_run_at: AwareDatetime | None = None

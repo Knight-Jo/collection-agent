@@ -188,6 +188,26 @@ class LoggingConfig(BaseModel):
 # --- top-level settings -----------------------------------------------------
 
 
+class MonitorConfig(BaseModel):
+    """Scheduling and resilience knobs for the monitoring module."""
+
+    # Tick loop cadence of the scheduler daemon.
+    scheduler_interval_seconds: float = Field(default=60.0, gt=0)
+    # Upper bound of the per-submission random delay; spreads monitors
+    # sharing a slot (e.g. many daily 09:00 schedules) over a window.
+    jitter_seconds: float = Field(default=30.0, ge=0)
+    # Burst cap per tick so a backlog cannot fire every research loop at once.
+    max_submissions_per_tick: int = Field(default=5, ge=1)
+    # Exponential backoff after failed runs: base * 2^(failures-1), capped.
+    failure_backoff_base_seconds: float = Field(default=900.0, gt=0)
+    failure_backoff_max_seconds: float = Field(default=86400.0, gt=0)
+    # Consecutive failures before a monitor is flagged degraded.
+    degraded_after_failures: int = Field(default=3, ge=1)
+    # Watch-gate fetch bounds (L0/L1 requests).
+    watch_timeout_seconds: float = Field(default=20.0, gt=0)
+    watch_max_bytes: int | None = Field(default=None, gt=0)
+
+
 class ResearchSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -199,6 +219,7 @@ class ResearchSettings(BaseModel):
     indexing: IndexingConfig = Field(default_factory=IndexingConfig)
     context: ContextConfig = Field(default_factory=ContextConfig)
     research: ResearchConfig = Field(default_factory=ResearchConfig)
+    monitor: MonitorConfig = Field(default_factory=MonitorConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     # Optional capability profiles keyed by stable name -> typed payload.

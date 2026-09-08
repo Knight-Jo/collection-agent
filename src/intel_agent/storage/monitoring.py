@@ -29,15 +29,16 @@ class MonitoringStore:
                 """
                 INSERT INTO monitors (monitor_id, name, subject, strategy,
                 questions, websites, schedule, status, config_version,
-                baseline_run_id, active_run_id, next_run_at, last_run_at,
-                created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                consecutive_failures, baseline_run_id, active_run_id,
+                next_run_at, last_run_at, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(monitor_id) DO UPDATE SET
                     name = excluded.name, subject = excluded.subject,
                     strategy = excluded.strategy, questions = excluded.questions,
                     websites = excluded.websites, schedule = excluded.schedule,
                     status = excluded.status,
                     config_version = excluded.config_version,
+                    consecutive_failures = excluded.consecutive_failures,
                     baseline_run_id = excluded.baseline_run_id,
                     active_run_id = excluded.active_run_id,
                     next_run_at = excluded.next_run_at,
@@ -54,6 +55,7 @@ class MonitoringStore:
                     json.dumps(monitor.schedule.model_dump(mode="json")),
                     monitor.status,
                     monitor.config_version,
+                    monitor.consecutive_failures,
                     monitor.baseline_run_id,
                     monitor.active_run_id,
                     _iso(monitor.next_run_at) if monitor.next_run_at else None,
@@ -83,6 +85,7 @@ class MonitoringStore:
             schedule=json.loads(row["schedule"]),
             status=row["status"],
             config_version=row["config_version"],
+            consecutive_failures=row["consecutive_failures"],
             baseline_run_id=row["baseline_run_id"],
             active_run_id=row["active_run_id"],
             next_run_at=_parse_iso(row["next_run_at"])
@@ -100,6 +103,35 @@ class MonitoringStore:
             "SELECT monitor_id FROM monitors ORDER BY created_at DESC"
         ).fetchall()
         return [self.get_monitor(r["monitor_id"]) for r in rows]
+
+    def list_due_monitors(self, now: datetime) -> list[Monitor]:
+        """Active or degraded monitors whose next run is due.
+
+        Degraded monitors keep scheduling (under backoff) so a transient
+        outage self-heals once the source recovers; only paused stops work.
+        """
+        rows = self.db.execute(
+            "SELECT monitor_id FROM monitors WHERE next_run_at IS NOT NULL"
+            " AND next_run_at <= ? AND status IN ('active', 'degraded')"
+            " ORDER BY next_run_at",
+            (_iso(now),),
+        ).fetchall()
+        return [self.get_monitor(r["monitor_id"]) for r in rows]
+
+    def update_monitor_health(
+        self, monitor_id: str, consecutive_failures: int, status: str
+    ) -> None:
+        with self.db.transaction() as conn:
+            conn.execute(
+                "UPDATE monitors SET consecutive_failures = ?, status = ?,"
+                " updated_at = ? WHERE monitor_id = ?",
+                (
+                    consecutive_failures,
+                    status,
+                    _iso(datetime.now(UTC)),
+                    monitor_id,
+                ),
+            )
 
     def update_monitor_fields(self, monitor_id: str, fields: dict) -> None:
         with self.db.transaction() as conn:
@@ -395,6 +427,44 @@ class MonitoringStore:
             (run_id,),
         ).fetchall()
         return {r["source_key"] for r in rows}
+
+    # --- reported changes ---------------------------------------------------
+
+    def reported_fingerprints(self, monitor_id: str) -> set[str]:
+        rows = self.db.execute(
+            "SELECT fingerprint FROM monitor_reported_changes"
+            " WHERE monitor_id = ?",
+            (monitor_id,),
+        ).fetchall()
+        return {r["fingerprint"] for r in rows}
+
+    def mark_reported(
+        self, monitor_id: str, fingerprint: str, run_id: str
+    ) -> None:
+        with self.db.transaction() as conn:
+            conn.execute(
+                "INSERT INTO monitor_reported_changes"
+                " (monitor_id, fingerprint, first_run_id, last_run_id,"
+                " created_at) VALUES (?, ?, ?, ?, ?)"
+                " ON CONFLICT(monitor_id, fingerprint) DO UPDATE SET"
+                " last_run_id = excluded.last_run_id",
+                (
+                    monitor_id,
+                    fingerprint,
+                    run_id,
+                    run_id,
+                    _iso(datetime.now(UTC)),
+                ),
+            )
+
+    def clear_reported(self, monitor_id: str) -> None:
+        # Called when the baseline advances: everything it covered is now
+        # baseline state, so old suppressions would only hide future events.
+        with self.db.transaction() as conn:
+            conn.execute(
+                "DELETE FROM monitor_reported_changes WHERE monitor_id = ?",
+                (monitor_id,),
+            )
 
     # --- changes ------------------------------------------------------------
 

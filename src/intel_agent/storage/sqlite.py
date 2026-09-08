@@ -15,6 +15,7 @@ MIGRATIONS = (
     "004_runtime_state.sql",
     "005_workspace_extensions.sql",
     "006_monitor_watch_sources.sql",
+    "007_monitor_resilience.sql",
 )
 
 

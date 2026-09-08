@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 from intel_agent.contracts.documents import (
@@ -17,6 +18,7 @@ from intel_agent.contracts.research import (
     EvidenceItem,
     EvidenceReview,
     ResearchAssessment,
+    StopReason,
 )
 from intel_agent.contracts.resources import (
     FetchRequest,
@@ -39,7 +41,7 @@ from intel_agent.monitoring.models import (
     MonitorSchedule,
     WatchSourceState,
 )
-from intel_agent.monitoring.scheduler import next_run_after
+from intel_agent.monitoring.scheduler import MonitorScheduler, next_run_after
 from intel_agent.monitoring.service import MonitoringService
 from intel_agent.runtime.config import FetchConfig, ResearchSettings
 from intel_agent.storage.monitoring import MonitoringStore
@@ -247,7 +249,11 @@ def _citation(cid: str, url: str) -> Citation:
     )
 
 
-def _assessment(claims: list[tuple[str, str]], citations: list[Citation]):
+def _assessment(
+    claims: list[tuple[str, str]],
+    citations: list[Citation],
+    stop_reason: StopReason = "evidence_sufficient",
+):
     return ResearchAssessment(
         task_id="t",
         coverage=CoverageAssessment(sufficiency="high"),
@@ -258,7 +264,7 @@ def _assessment(claims: list[tuple[str, str]], citations: list[Citation]):
             ]
         ),
         citations=citations,
-        stop_reason="evidence_sufficient",
+        stop_reason=stop_reason,
     )
 
 
@@ -266,14 +272,18 @@ def _schedule():
     return MonitorSchedule(cadence="daily", local_time="09:00", timezone="UTC")
 
 
-def _service(tmp_path, assessments):
+def _service(tmp_path, assessments, settings=None):
     sqlite = SqliteStore(tmp_path / "m.sqlite")
     store = MonitoringStore(sqlite)
     task_store = TaskStore(sqlite)
     app = FakeApplication()
     orchestrator = FakeOrchestrator(assessments)
     service = MonitoringService(
-        store, task_store, orchestrator, app, ResearchSettings()
+        store,
+        task_store,
+        orchestrator,
+        app,
+        settings or ResearchSettings(),
     )
     return service, store, task_store, app
 
@@ -868,3 +878,192 @@ async def test_plan_prompt_includes_questions_and_websites(tmp_path):
     prompt = planner.prompts[0]
     assert "What is Acme's revenue?" in prompt
     assert "https://watch.example/page" in prompt
+
+
+# --- failure backoff and degraded state --------------------------------------
+
+
+async def test_failure_backoff_and_degraded_then_recover(tmp_path):
+    from intel_agent.runtime.config import MonitorConfig
+
+    settings = ResearchSettings(
+        monitor=MonitorConfig(
+            failure_backoff_base_seconds=60,
+            failure_backoff_max_seconds=600,
+            degraded_after_failures=2,
+        )
+    )
+    claims = [("Acme employs 5000 people.", "c1")]
+    citations = [_citation("c1", "https://example.com/reports")]
+    service, store, task_store, app = _service(
+        tmp_path,
+        [
+            RuntimeError("first"),
+            RuntimeError("second"),
+            _assessment(claims, citations),
+        ],
+        settings=settings,
+    )
+    monitor = service.create_monitor("m", "s", "g", _schedule())
+    before = datetime.now(UTC)
+
+    await service.submit_run(monitor.monitor_id, "manual")
+    await app.run_pending()
+    m = store.get_monitor(monitor.monitor_id)
+    assert m.consecutive_failures == 1
+    assert m.status == "active"
+    # backoff (60s), not the next daily slot (hours away)
+    assert m.next_run_at is not None
+    delay = (m.next_run_at - before).total_seconds()
+    assert 0 < delay < 3600
+
+    await service.submit_run(monitor.monitor_id, "manual")
+    await app.run_pending()
+    m = store.get_monitor(monitor.monitor_id)
+    assert m.consecutive_failures == 2
+    assert m.status == "degraded"  # threshold reached
+    # degraded monitors remain schedulable (under backoff)
+    assert m.next_run_at is not None
+    at_due = m.next_run_at + timedelta(seconds=1)
+    assert monitor.monitor_id in {
+        x.monitor_id for x in store.list_due_monitors(at_due)
+    }
+
+    run3 = await service.submit_run(monitor.monitor_id, "manual")
+    await app.run_pending()
+    m = store.get_monitor(monitor.monitor_id)
+    assert m.consecutive_failures == 0  # success resets health
+    assert m.status == "active"
+    assert task_store.get_task(run3.task_id).status == "completed"
+
+
+# --- scheduler daemon --------------------------------------------------------
+
+
+def _with_next_run(store, monitor, when):
+    store.set_next_run(monitor.monitor_id, when)
+
+
+async def test_scheduler_tick_selects_due_and_caps_burst(tmp_path):
+    service, store, _task_store, app = _service(
+        tmp_path,
+        [
+            _assessment(
+                [("a", "c1")], [_citation("c1", "https://x.example/1")]
+            ),
+            _assessment(
+                [("b", "c1")], [_citation("c1", "https://x.example/2")]
+            ),
+            _assessment(
+                [("c", "c1")], [_citation("c1", "https://x.example/3")]
+            ),
+        ],
+    )
+    now = datetime.now(UTC)
+    past = now - timedelta(minutes=5)
+    m1 = service.create_monitor("m1", "s", "g", _schedule())
+    m2 = service.create_monitor("m2", "s", "g", _schedule())
+    m3 = service.create_monitor("m3", "s", "g", _schedule())
+    m4 = service.create_monitor("m4", "s", "g", _schedule())  # future
+    m5 = service.create_monitor("m5", "s", "g", _schedule())  # paused
+    service.update_monitor(m5.monitor_id, {"status": "paused"})
+    for m in (m1, m2, m3, m5):
+        _with_next_run(store, m, past)
+    _with_next_run(store, m4, now + timedelta(hours=3))
+
+    due_ids = {m.monitor_id for m in service.due_monitors(now)}
+    assert due_ids == {m1.monitor_id, m2.monitor_id, m3.monitor_id}
+    # paused and future monitors are never due
+
+    scheduler = MonitorScheduler(
+        service,
+        interval_seconds=60,
+        jitter_seconds=0,
+        max_submissions_per_tick=2,
+    )
+    run_ids = await scheduler.tick()
+    assert len(run_ids) == 2  # burst cap
+    assert len(app.launched) == 2
+    # future monitor untouched
+    assert store.list_runs(m4.monitor_id) == []
+
+    # complete the two submitted runs, then only the remaining monitor is due
+    await app.run_pending()
+    run_ids2 = await scheduler.tick()
+    assert len(run_ids2) == 1
+
+
+async def test_scheduler_tolerates_active_run_conflict(tmp_path):
+    service, store, _task_store, app = _service(tmp_path, [])
+    monitor = service.create_monitor("m", "s", "g", _schedule())
+    _with_next_run(store, monitor, datetime.now(UTC) - timedelta(minutes=1))
+    await service.submit_run(monitor.monitor_id, "manual")  # slot occupied
+
+    scheduler = MonitorScheduler(
+        service,
+        interval_seconds=60,
+        jitter_seconds=0,
+        max_submissions_per_tick=3,
+    )
+    run_ids = await scheduler.tick()  # must not raise CONFLICT
+    assert run_ids == []
+
+
+async def test_scheduler_start_stop_lifecycle(tmp_path):
+    service, _store, _task_store, _app = _service(tmp_path, [])
+    scheduler = MonitorScheduler(
+        service,
+        interval_seconds=0.01,
+        jitter_seconds=0,
+        max_submissions_per_tick=1,
+    )
+    scheduler.start()
+    assert scheduler.running
+    await asyncio.sleep(0.05)  # let at least one tick pass
+    await scheduler.stop()
+    assert not scheduler.running
+    await asyncio.sleep(0.02)  # no further ticks after stop
+
+
+# --- change deduplication -----------------------------------------------------
+
+
+async def test_change_dedup_until_baseline_advances(tmp_path):
+    baseline_claims = [
+        ("Acme employs 5000 people.", "c1"),
+        ("Acme is headquartered in Paris.", "c1"),
+    ]
+    later_claims = baseline_claims + [
+        ("Acme opened a new office.", "c1"),
+    ]
+    cits = [_citation("c1", "https://example.com/reports")]
+    service, store, _task_store, app = _service(
+        tmp_path,
+        [
+            _assessment(baseline_claims, cits),  # baseline, sufficient
+            _assessment(later_claims, cits, stop_reason="max_rounds"),
+            _assessment(later_claims, cits, stop_reason="max_rounds"),
+            _assessment(later_claims, cits),  # sufficient: advance + clear
+        ],
+    )
+    monitor = service.create_monitor("m", "Acme", "track", _schedule())
+
+    run1 = await service.submit_run(monitor.monitor_id, "manual")
+    await app.run_pending()  # baseline frozen, no events
+    assert store.list_changes(run1.run_id) == []
+
+    run2 = await service.submit_run(monitor.monitor_id, "manual")
+    await app.run_pending()
+    kinds2 = [c.kind for c in store.list_changes(run2.run_id)]
+    assert kinds2 == ["new_fact"]  # the office fact is new
+
+    run3 = await service.submit_run(monitor.monitor_id, "manual")
+    await app.run_pending()
+    assert store.list_changes(run3.run_id) == []  # suppressed repeat
+
+    run4 = await service.submit_run(monitor.monitor_id, "manual")
+    await app.run_pending()
+    assert store.list_changes(run4.run_id) == []  # still suppressed
+    # baseline advanced and the suppression set was cleared
+    assert store.get_monitor(monitor.monitor_id).baseline_run_id == run4.run_id
+    assert store.reported_fingerprints(monitor.monitor_id) == set()
