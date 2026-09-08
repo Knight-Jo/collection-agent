@@ -31,7 +31,14 @@ it("lists conversations via GET", async () => {
 
 it("loads a conversation projection via GET", async () => {
   const projection = {
-    conversation: { id: "c1", title: "t", status: "active", updated_at: "", run_status: null, run_phase: null },
+    conversation: {
+      id: "c1",
+      title: "t",
+      status: "active",
+      updated_at: "",
+      run_status: null,
+      run_phase: null,
+    },
     messages: [],
     run: null,
     materials: [],
@@ -70,14 +77,25 @@ it("reads system status via GET", async () => {
 });
 
 it("lists search sources via GET", async () => {
-  const { calls } = mockFetch([{ id: "arxiv", name: "arxiv", url: "", enabled: true, cookie_configured: false }]);
+  const { calls } = mockFetch([
+    { id: "arxiv", name: "arxiv", url: "", enabled: true, cookie_configured: false },
+  ]);
   const sources = await api.searchSources();
   expect(sources[0].name).toBe("arxiv");
   expect(calls[0].url).toBe("/api/search-sources");
 });
 
 it("lists AI search tools via GET", async () => {
-  const { calls } = mockFetch([{ id: "exa", name: "exa", description: "", enabled: false, api_key_configured: false, api_key_env: "EXA_API_KEY" }]);
+  const { calls } = mockFetch([
+    {
+      id: "exa",
+      name: "exa",
+      description: "",
+      enabled: false,
+      api_key_configured: false,
+      api_key_env: "EXA_API_KEY",
+    },
+  ]);
   const tools = await api.aiSearchTools();
   expect(tools[0].api_key_env).toBe("EXA_API_KEY");
   expect(calls[0].url).toBe("/api/ai-search-tools");
@@ -91,10 +109,15 @@ it("maps monitors from the backend shape", async () => {
       subject: "s",
       strategy: "g",
       schedule: { cadence: "daily", local_time: "09:00", timezone: "UTC", weekday: null },
-      status: "active",
+      status: "degraded",
+      config_version: 1,
+      consecutive_failures: 3,
+      baseline_run_id: null,
+      active_run_id: null,
       next_run_at: null,
       last_run_at: null,
       created_at: "",
+      updated_at: "",
       questions: [],
       websites: [],
     },
@@ -102,7 +125,69 @@ it("maps monitors from the backend shape", async () => {
   const monitors = await api.monitors();
   expect(monitors[0].id).toBe("m1");
   expect(monitors[0].frequency).toBe("每天 09:00");
+  expect(monitors[0].status).toBe("degraded");
+  expect(monitors[0].consecutive_failures).toBe(3);
   expect(calls[0].url).toBe("/api/monitors");
+});
+
+it("maps monitor runs with gate outcome and removed_fact changes", async () => {
+  mockFetch({
+    monitor: {
+      monitor_id: "m1",
+      name: "n",
+      subject: "s",
+      strategy: "g",
+      schedule: { cadence: "daily", local_time: "09:00", timezone: "UTC", weekday: null },
+      status: "active",
+      consecutive_failures: 0,
+      next_run_at: null,
+      last_run_at: null,
+      created_at: "",
+      questions: [],
+      websites: [],
+    },
+    runs: [
+      {
+        run: {
+          run_id: "r1",
+          monitor_id: "m1",
+          task_id: "t1",
+          trigger: "scheduled",
+          scheduled_for: null,
+          input_snapshot: {},
+          baseline_run_id: null,
+          initial_baseline: true,
+          summary: "闸门未检出变化，跳过研究循环",
+          limitations: [],
+          gate_outcome: "skipped:unchanged=2",
+        },
+        status: "succeeded",
+        phase: "done",
+        started_at: null,
+        finished_at: null,
+        error: null,
+        changes: [
+          {
+            change_id: "chg1",
+            run_id: "r1",
+            kind: "removed_fact",
+            previous_version_id: "fk-1",
+            current_version_id: null,
+            source_key: null,
+            citation: null,
+            importance: "normal",
+            importance_reason: "",
+            summary: "不再被来源支撑: 旧事实",
+            created_at: "2026-01-01T00:00:00Z",
+          },
+        ],
+      },
+    ],
+  });
+  const detail = await api.monitor("m1");
+  expect(detail?.runs[0]?.gate_outcome).toBe("skipped:unchanged=2");
+  expect(detail?.runs[0]?.status).toBe("succeeded");
+  expect(detail?.runs[0]?.changes[0]?.kind).toBe("removed_fact");
 });
 
 it("maps fact checks from the backend shape", async () => {

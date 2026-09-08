@@ -29,6 +29,18 @@ from .scheduler import next_run_after
 
 logger = logging.getLogger("intel_agent.monitoring")
 
+# Task status -> display status; keep in sync with conversation._RUN_STATUS
+# so every surface shows the same run-state vocabulary.
+_TASK_STATUS_VIEW = {
+    "queued": "queued",
+    "running": "running",
+    "completed": "succeeded",
+    "partial": "succeeded",
+    "failed": "failed",
+    "cancelled": "stopped",
+    "interrupted": "stopped",
+}
+
 
 def _fingerprint(change: MonitorChange) -> str:
     """Stable identity of a change event for repeat suppression."""
@@ -144,7 +156,7 @@ class MonitoringService:
             runs.append(
                 MonitorRunView(
                     run=run,
-                    status=task.status,
+                    status=_TASK_STATUS_VIEW.get(task.status, task.status),
                     phase=task.phase,
                     error=task.error,
                     changes=self.store.list_changes(run.run_id),

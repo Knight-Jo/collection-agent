@@ -1,4 +1,5 @@
-export type RunStatus = "queued" | "running" | "stopping" | "stopped" | "succeeded" | "failed";export type RunPhase = "planning" | "collecting" | "assessing" | "checkpointing";
+export type RunStatus = "queued" | "running" | "stopping" | "stopped" | "succeeded" | "failed";
+export type RunPhase = "planning" | "collecting" | "assessing" | "checkpointing";
 
 export interface Conversation {
   id: string;
@@ -88,7 +89,8 @@ export interface Monitor {
   subject: string;
   strategy: string;
   frequency: string;
-  status: "active" | "paused";
+  status: "active" | "paused" | "degraded";
+  consecutive_failures: number;
   next_run_at: string | null;
   last_run_at: string | null;
   created_at: string;
@@ -98,7 +100,7 @@ export interface Monitor {
 
 export type MonitorRunStatus = "running" | "succeeded" | "failed";
 
-export type MonitorChangeKind = "new_fact" | "changed_fact" | "new_source";
+export type MonitorChangeKind = "new_fact" | "changed_fact" | "removed_fact" | "new_source";
 
 export interface MonitorChange {
   id: string;
@@ -116,6 +118,8 @@ export interface MonitorRun {
   finished_at: string | null;
   changes: MonitorChange[];
   summary: string;
+  /** Watch-gate result, e.g. "skipped:unchanged=2" or "changed=1". */
+  gate_outcome: string;
 }
 
 export interface MonitorDetail {

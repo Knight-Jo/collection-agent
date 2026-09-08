@@ -12,9 +12,15 @@ export function MonitorRecord({ detail }: { detail: MonitorDetail }) {
       <div className="rounded-lg border bg-card p-3">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">{monitor.name}</span>
-          <Badge variant={monitor.status === "active" ? "default" : "secondary"}>
-            {monitor.status === "active" ? "监测中" : "已暂停"}
-          </Badge>
+          {monitor.status === "degraded" ? (
+            <Badge variant="outline" className="border-destructive/40 text-destructive">
+              降级重试 · 连续失败 {monitor.consecutive_failures} 次
+            </Badge>
+          ) : (
+            <Badge variant={monitor.status === "active" ? "default" : "secondary"}>
+              {monitor.status === "active" ? "监测中" : "已暂停"}
+            </Badge>
+          )}
         </div>
         <p className="mt-1 text-sm text-muted-foreground">{monitor.subject}</p>
         {monitor.strategy && (
@@ -56,14 +62,21 @@ export function MonitorRecord({ detail }: { detail: MonitorDetail }) {
             {runs.map((run) => (
               <li key={run.id} className="rounded-lg border bg-card p-3">
                 <div className="flex items-center justify-between">
-                  <Badge
-                    variant={run.status === "succeeded" ? "default" : "secondary"}
-                    className={
-                      run.status === "failed" ? "bg-destructive/10 text-destructive" : undefined
-                    }
-                  >
-                    {run.status === "succeeded" ? "成功" : "失败"}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={run.status === "succeeded" ? "default" : "secondary"}
+                      className={
+                        run.status === "failed" ? "bg-destructive/10 text-destructive" : undefined
+                      }
+                    >
+                      {run.status === "succeeded" ? "成功" : "失败"}
+                    </Badge>
+                    {run.gate_outcome && (
+                      <span className="text-xs text-muted-foreground">
+                        闸门：{run.gate_outcome}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs text-muted-foreground">
                     {run.started_at ? new Date(run.started_at).toLocaleString("zh-CN") : "—"}
                   </span>

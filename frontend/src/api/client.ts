@@ -57,7 +57,8 @@ function mapMonitor(raw: Record<string, unknown>): Monitor {
     subject: String(raw.subject ?? ""),
     strategy: String(raw.strategy ?? ""),
     frequency: scheduleToFrequency(raw.schedule as Schedule),
-    status: (raw.status as "active" | "paused") ?? "active",
+    status: (raw.status as Monitor["status"]) ?? "active",
+    consecutive_failures: Number(raw.consecutive_failures ?? 0),
     next_run_at: (raw.next_run_at as string | null) ?? null,
     last_run_at: (raw.last_run_at as string | null) ?? null,
     created_at: String(raw.created_at ?? ""),
@@ -82,6 +83,7 @@ function mapMonitorRun(raw: Record<string, unknown>): MonitorRun {
       at: String(c.created_at ?? ""),
     })),
     summary: String(run.summary ?? ""),
+    gate_outcome: String(run.gate_outcome ?? ""),
   };
 }
 
@@ -112,14 +114,11 @@ function mapFactCheck(raw: Record<string, unknown>): FactCheck {
     questions: (fc.questions as string[]) ?? [],
     status: (raw.status as "running" | "completed") ?? "running",
     verdict: (fc.verdict as FactCheck["verdict"]) ?? null,
-    evidence_sufficiency:
-      (fc.evidence_sufficiency as FactCheck["evidence_sufficiency"]) ?? null,
+    evidence_sufficiency: (fc.evidence_sufficiency as FactCheck["evidence_sufficiency"]) ?? null,
     independent_sources: Number(fc.independent_sources ?? 0),
     primary_sources: Number(fc.primary_sources ?? 0),
     counter_evidence: Number(fc.counter_evidence ?? 0),
-    evidence: ((raw.evidence as Record<string, unknown>[]) ?? []).map(
-      mapFactEvidence,
-    ),
+    evidence: ((raw.evidence as Record<string, unknown>[]) ?? []).map(mapFactEvidence),
     timeline: ((raw.timeline as Record<string, unknown>[]) ?? []).map((step) => ({
       id: String(step.entry_id ?? ""),
       phase: String(step.phase ?? ""),
@@ -128,8 +127,7 @@ function mapFactCheck(raw: Record<string, unknown>): FactCheck {
       at: String(step.created_at ?? ""),
     })),
     created_at: String(raw.created_at ?? fc.created_at ?? ""),
-    checkability:
-      (fc.checkability as FactCheck["checkability"]) ?? "pending",
+    checkability: (fc.checkability as FactCheck["checkability"]) ?? "pending",
     checkability_reason: (fc.checkability_reason as string | null) ?? null,
     rationale: String(fc.rationale ?? ""),
     limitations: (fc.limitations as string[]) ?? [],
@@ -180,8 +178,7 @@ export const api = {
   conversations: (archived = false): Promise<Conversation[]> =>
     httpGet<Conversation[]>(`/conversations?archived=${archived}`),
 
-  createConversation: (): Promise<Conversation> =>
-    httpPost<Conversation>("/conversations"),
+  createConversation: (): Promise<Conversation> => httpPost<Conversation>("/conversations"),
 
   archiveConversation: (id: string): Promise<Conversation | undefined> =>
     httpPost<Conversation>(`/conversations/${id}/archive`),
@@ -198,10 +195,7 @@ export const api = {
   generateBrief: (prompt: string): Promise<ResearchBrief> =>
     httpPost<ResearchBrief>("/briefs/generate", { prompt }),
 
-  startResearch: (
-    topic: string,
-    brief: ResearchBrief,
-  ): Promise<Conversation> =>
+  startResearch: (topic: string, brief: ResearchBrief): Promise<Conversation> =>
     httpPost<Conversation>("/research/start", { topic, brief }),
 
   system: (): Promise<SystemStatus> => httpGet<SystemStatus>("/system"),
@@ -221,11 +215,9 @@ export const api = {
     };
   },
 
-  searchSources: (): Promise<SearchSource[]> =>
-    httpGet<SearchSource[]>("/search-sources"),
+  searchSources: (): Promise<SearchSource[]> => httpGet<SearchSource[]>("/search-sources"),
 
-  aiSearchTools: (): Promise<AiSearchTool[]> =>
-    httpGet<AiSearchTool[]>("/ai-search-tools"),
+  aiSearchTools: (): Promise<AiSearchTool[]> => httpGet<AiSearchTool[]>("/ai-search-tools"),
 
   // --- monitors (real backend) ---
   monitors: async (): Promise<Monitor[]> => {
@@ -258,17 +250,14 @@ export const api = {
   },
 
   toggleMonitor: async (id: string): Promise<Monitor | undefined> => {
-    const raw = await httpPost<Record<string, unknown>>(
-      `/monitors/${id}/toggle`,
-    );
+    const raw = await httpPost<Record<string, unknown>>(`/monitors/${id}/toggle`);
     return mapMonitor(raw);
   },
 
   runMonitorNow: async (id: string): Promise<MonitorRun> => {
-    const raw = await httpPost<Record<string, unknown>>(
-      `/monitors/${id}/runs`,
-      { trigger: "manual" },
-    );
+    const raw = await httpPost<Record<string, unknown>>(`/monitors/${id}/runs`, {
+      trigger: "manual",
+    });
     return mapMonitorRun(raw);
   },
 
@@ -297,21 +286,15 @@ export const api = {
   updateSearchSource: (
     id: string,
     patch: Partial<Pick<SearchSource, "enabled">> & { cookies?: string },
-  ): Promise<SearchSource | undefined> =>
-    httpPatch<SearchSource>(`/search-sources/${id}`, patch),
+  ): Promise<SearchSource | undefined> => httpPatch<SearchSource>(`/search-sources/${id}`, patch),
 
-  addSearchSource: (input: {
-    name: string;
-    url: string;
-  }): Promise<SearchSource> => httpPost<SearchSource>("/search-sources", input),
+  addSearchSource: (input: { name: string; url: string }): Promise<SearchSource> =>
+    httpPost<SearchSource>("/search-sources", input),
 
   toggleAiSearchTool: (id: string): Promise<AiSearchTool | undefined> =>
     httpPost<AiSearchTool>(`/ai-search-tools/${id}/toggle`),
 
-  updateAiSearchToolApiKey: (
-    id: string,
-    apiKey: string,
-  ): Promise<AiSearchTool | undefined> =>
+  updateAiSearchToolApiKey: (id: string, apiKey: string): Promise<AiSearchTool | undefined> =>
     httpPatch<AiSearchTool>(`/ai-search-tools/${id}/api-key`, {
       api_key: apiKey,
     }),
@@ -327,9 +310,7 @@ export const api = {
     return mapMediaJob(raw);
   },
 
-  createMediaJob: async (input: {
-    file: File;
-  }): Promise<MediaJob> => {
+  createMediaJob: async (input: { file: File }): Promise<MediaJob> => {
     const form = new FormData();
     form.append("file", input.file);
     const response = await fetch("/api/media", {

@@ -1,10 +1,11 @@
-import { AlertTriangle, FileText, RefreshCw } from "lucide-react";
+import { AlertTriangle, FileMinus, FileText, RefreshCw } from "lucide-react";
 import type { MonitorChange, MonitorChangeKind } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 
 const KIND_META: Record<MonitorChangeKind, { label: string; icon: typeof FileText }> = {
   new_fact: { label: "新增事实", icon: FileText },
   changed_fact: { label: "事实更新", icon: RefreshCw },
+  removed_fact: { label: "事实撤销", icon: FileMinus },
   new_source: { label: "新增材料", icon: FileText },
 };
 

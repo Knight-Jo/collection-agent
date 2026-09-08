@@ -355,12 +355,16 @@ async def test_monitor_run_flow_records_changes(tmp_path):
     office = next(
         c for c in changes if c.kind == "new_fact" and "Singapore" in c.summary
     )
-    assert office.current_version_id is not None
     version = store.latest_fact_version(
-        monitor.monitor_id, office.current_version_id
+        monitor.monitor_id, office.current_version_id or ""
     )
     assert version is not None
     assert version.citations[0].citation_id == "c3"
+
+    # run views expose display statuses, not raw task statuses
+    detail = service.get(monitor.monitor_id)
+    assert detail.runs[-1].status == "succeeded"
+    assert detail.runs[-1].run.gate_outcome == ""
 
 
 async def test_monitor_run_failure_releases_slot_and_reschedules(tmp_path):
