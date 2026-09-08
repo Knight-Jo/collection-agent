@@ -8,7 +8,7 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 
 from ..bootstrap import bootstrap
 from ..contracts.errors import DomainError
@@ -162,6 +162,24 @@ def create_app() -> FastAPI:
             path,
             media_type="application/zip",
             filename="materials.zip",
+        )
+
+    @app.get("/api/conversations/{conversation_id}/report/export")
+    async def export_report(
+        request: Request, conversation_id: str, format: str = "markdown"
+    ):
+        try:
+            payload, media_type, filename = _app(
+                request
+            ).conversations.export_report(conversation_id, format)
+        except DomainError as error:
+            raise _map_error(error) from error
+        return Response(
+            content=payload,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            },
         )
 
     # --- workspace routes (monitors, fact checks, media, tasks, library) ----

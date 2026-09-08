@@ -17,6 +17,7 @@ dependencies = [
     "qdrant-client>=1.19.0",
     "httpx2>=2.10.0",
     "httpcore2>=2.10.0",
+    "reportlab>=5.0.1",
 ]
 
 [project.optional-dependencies]

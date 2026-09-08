@@ -49,7 +49,7 @@ export function TaskAssets({ task }: { task: LibraryResearchRecord }) {
 
       <TabsContent value="report" className="mt-4">
         {task.report ? (
-          <ReportView report={task.report} />
+          <ReportView report={task.report} conversationId={task.id} />
         ) : (
           <p className="px-1 py-6 text-sm text-muted-foreground">调研尚未生成报告</p>
         )}

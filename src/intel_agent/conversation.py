@@ -6,11 +6,19 @@ import asyncio
 import mimetypes
 import zipfile
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .contracts.documents import Citation
 from .contracts.errors import DomainError
 from .contracts.research import ResearchPlan, ResearchReport
+from .reporting import (
+    MEDIA_TYPES,
+    ExportMeta,
+    export_filename,
+    normalize_format,
+    render_report,
+)
 from .runtime.config import AI_SEARCH_TOOL_NAMES
 from .runtime.events import EventBus
 from .storage._ids import new_id
@@ -618,6 +626,39 @@ class ConversationService:
         self.store.set_runtime_state(f"ai_tool:{tool_id}", o)
         self._reapply_providers()
         return self._tool_view(tool_id)
+
+    def export_report(
+        self, conversation_id: str, fmt: str
+    ) -> tuple[bytes, str, str]:
+        """Render the conversation's latest report for download.
+
+        Returns ``(payload, media_type, filename)``. Raises NOT_FOUND when the
+        research loop has not produced a report yet and INVALID_REQUEST for
+        unknown formats.
+        """
+        try:
+            fmt = normalize_format(fmt)
+        except ValueError as error:
+            raise DomainError(
+                "INVALID_REQUEST", str(error), stage="report"
+            ) from error
+        result = self._result(conversation_id)
+        if not result or not result.get("report"):
+            raise DomainError(
+                "NOT_FOUND", "report not generated yet", stage="report"
+            )
+        report = ResearchReport.model_validate(result["report"])
+        conversation = self.store.get_conversation(conversation_id)
+        subject = str(conversation.get("title") or "")
+        meta = ExportMeta(subject=subject, generated_at=datetime.now(UTC))
+        payload = render_report(
+            report,
+            result.get("evidence"),
+            fmt,
+            subject=subject,
+        )
+        filename = export_filename(report, fmt, meta)
+        return payload, MEDIA_TYPES[fmt], filename
 
     def library_research(self) -> list[dict]:
         research = []
