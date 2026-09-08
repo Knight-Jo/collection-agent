@@ -165,7 +165,7 @@ def build_roles(model, settings=None) -> dict[str, Agent[Any, Any]]:
         instructions=WRITER_INSTRUCTIONS,
         retries=1,
         model_settings=ModelSettings(
-            thinking=resolve_thinking(settings, "writer"), max_tokens=65536
+            thinking=resolve_thinking(settings, "writer"), max_tokens=16384
         ),
     )
     fact_extractor = Agent(

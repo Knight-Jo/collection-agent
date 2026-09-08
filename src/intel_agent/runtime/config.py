@@ -152,6 +152,12 @@ class ModelConfig(BaseModel):
     model_id: str = "deepseek-chat"
     base_url: str = "https://api.deepseek.com/v1"
     api_key_env: str | None = "DEEPSEEK_API_KEY"
+    # Per-request timeout for LLM calls. Long structured generations (writer)
+    # legitimately exceed 3 minutes; the retry loop multiplies this by
+    # (max_retries + 1) before a call finally fails.
+    request_timeout_seconds: float = Field(default=300.0, gt=0)
+    # SDK-level retries on timeout/429/5xx with exponential backoff.
+    max_retries: int = Field(default=2, ge=0)
     tokenizer: str | None = None
     api_style: Literal["openai", "ollama"] = "openai"
     # Master switch: when true, thinking is disabled for every role and the

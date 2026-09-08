@@ -14,6 +14,9 @@ model:
   base_url: http://10.108.25.128:8001/v1   # vLLM OpenAI 兼容端点（部署时填端口）
   api_key_env: null                # vLLM 无鉴权用 null；有 token 填环境变量名
   api_style: openai                # openai（DeepSeek/vLLM）或 ollama
+  request_timeout_seconds: 300     # 单次 LLM 请求超时；结构化长生成（writer）可超过 3 分钟，
+                                   # 实际失败前总耗时 ≈ 超时 × (max_retries + 1)
+  max_retries: 2                   # SDK 对超时/429/5xx 的重试次数（指数退避）
   disable_thinking: true           # 主开关：true 时全部角色关闭 thinking（推理模型更快、输出纯 JSON），
                                    # 此时下面 thinking / role_thinking 不生效
   thinking: null                   # 全局档位（disable_thinking=false 时生效）：null=按角色内置默认 / false=关 / low|medium|high|xhigh

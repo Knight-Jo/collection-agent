@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import httpx2
+
 from intel_agent.agent.roles import DEFAULT_THINKING, resolve_thinking
 
 
@@ -40,3 +42,16 @@ def test_default_per_role_when_unset():
     settings = _Settings(_Model())
     assert resolve_thinking(settings, "planner") == DEFAULT_THINKING["planner"]
     assert resolve_thinking(settings, "writer") == DEFAULT_THINKING["writer"]
+
+
+def test_build_model_wires_timeout_and_retries():
+    from intel_agent.agent.models import build_model
+    from intel_agent.runtime.config import ModelConfig, ResearchSettings
+
+    settings = ResearchSettings(
+        model=ModelConfig(request_timeout_seconds=321.0, max_retries=4)
+    )
+    model = build_model(settings)
+    client = model.client  # type: ignore[attr-defined]  # openai model exposes the SDK client
+    assert client.timeout == httpx2.Timeout(321.0)
+    assert client.max_retries == 4
