@@ -1,0 +1,37 @@
+# 持续监控界面冒烟测试配置
+#
+# 用途：scripts/dev/monitor_ui_smoke.py 的后端环境。要点：
+# - LLM 指向本机未监听端口（连接立即失败）：S4 降级场景快速且零成本，
+#   闸门短路场景则完全不触碰 LLM
+# - 调度器 5 秒一扫、零抖动：S6 自动调度在秒级可观察
+# - 独立 SQLite：测试间互不污染（相对本文件目录解析）
+#
+# 启动：
+#   INTEL_AGENT_CONFIG=configs/test-monitor.yaml uv run uvicorn \
+#     intel_agent.api.app:create_app --factory --host 127.0.0.1 --port 8000
+
+model:
+  model_id: smoke-test
+  base_url: http://127.0.0.1:9/v1 # 未监听端口：LLM 调用立即失败
+  api_key_env: null
+  api_style: openai
+  disable_thinking: true
+
+embedding: null # 退化为词法检索，无需 embedding 服务
+
+research:
+  deadline_seconds: 60
+  max_rounds: 1
+
+monitor:
+  scheduler_interval_seconds: 5
+  jitter_seconds: 0
+  max_submissions_per_tick: 5
+  failure_backoff_base_seconds: 60
+  failure_backoff_max_seconds: 300
+  degraded_after_failures: 3
+  watch_timeout_seconds: 10
+
+storage:
+  data_dir: ../data
+  sqlite_path: ../data/test-monitor-ui.sqlite
