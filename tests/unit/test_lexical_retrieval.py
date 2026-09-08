@@ -82,8 +82,12 @@ def test_scoped_lexical_retrieval_does_not_leak_across_tasks(material_store):
     id_b = material_store.resolve_identity("db")
     rev_a = material_store.resolve_revision(id_a.document_id, "res-a")
     rev_b = material_store.resolve_revision(id_b.document_id, "res-b")
-    doc_a = _document("da", rev_a, "res-a", "动力电池产业持续增长")
-    doc_b = _document("db", rev_b, "res-b", "动力电池回收技术进展")
+    doc_a = _document(
+        "da", rev_a, "res-a", "动力电池产业持续增长，头部企业加快产能布局"
+    )
+    doc_b = _document(
+        "db", rev_b, "res-b", "动力电池回收技术进展，湿法冶金路线逐步成熟"
+    )
     art_a = material_store.save_document("task-a", doc_a)
     art_b = material_store.save_document("task-b", doc_b)
 

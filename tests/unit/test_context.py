@@ -10,6 +10,7 @@ import pytest
 from intel_agent.context.formatter import validate_citation_ids
 from intel_agent.context.manager import ContextManager
 from intel_agent.contracts.documents import (
+    Chunk,
     DocumentIdentity,
     EvidenceBlock,
     ExtractResult,
@@ -87,13 +88,15 @@ def test_context_respects_budget_and_builds_citations(material_store):
         material_store,
         task.task_id,
         "https://a.example/x",
-        "动力电池回收产业持续增长。",
+        "动力电池回收产业近年持续增长，梯次利用与湿法冶金回收路线"
+        "在不同场景下逐步成熟，头部企业加速布局产能。",
     )
     _seed(
         material_store,
         task.task_id,
         "https://b.example/y",
-        "回收技术取得重要进展。",
+        "回收技术取得重要进展，锂镍钴的回收率已提升至九成以上，"
+        "成本与环保合规成为规模化竞争的关键变量。",
     )
 
     counter = TiktokenCounter()
@@ -122,3 +125,35 @@ def test_validate_citation_ids_rejects_unknown(material_store):
     with pytest.raises(DomainError) as raised:
         validate_citation_ids(["C999"], package)
     assert raised.value.code == "INVALID_DECISION"
+
+
+def _chunk(artifact_id: str, ordinal: int) -> Chunk:
+    return Chunk(
+        chunk_id=f"{artifact_id}-{ordinal}",
+        artifact_id=artifact_id,
+        document_id=f"doc-{artifact_id}",
+        revision_id="rev",
+        text="正文内容" * 20,
+        chunk_profile_id="p",
+        ordinal=ordinal,
+    )
+
+
+def test_diversify_caps_chunks_per_artifact():
+    # ranked order: five chunks from artifact A then two from B
+    ranked = [_chunk("A", i) for i in range(1, 6)] + [
+        _chunk("B", i) for i in range(1, 3)
+    ]
+    diversified = ContextManager._diversify(ranked, cap=2)
+    order = [c.artifact_id for c in diversified]
+    # B's chunks move ahead of A's overflow; A keeps its first two slots
+    assert order == ["A", "A", "B", "B", "A", "A", "A"]
+
+
+def test_diversify_keeps_order_below_cap():
+    ranked = [_chunk("A", 1), _chunk("B", 1), _chunk("C", 1)]
+    assert [c.artifact_id for c in ContextManager._diversify(ranked, 3)] == [
+        "A",
+        "B",
+        "C",
+    ]

@@ -124,6 +124,10 @@ class IndexingConfig(BaseModel):
 
 class ContextConfig(BaseModel):
     default_budget_tokens: int = Field(default=8000, ge=0)
+    # Diversity cap: at most this many chunks per artifact enter the evidence
+    # block ahead of other sources; extras only fill leftover budget. Keeps a
+    # single keyword-dense page from monopolizing the window.
+    max_chunks_per_artifact: int = Field(default=3, ge=1)
 
 
 class ResearchConfig(BaseModel):

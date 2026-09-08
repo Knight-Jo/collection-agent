@@ -12,6 +12,7 @@ from ..contracts.documents import (
     NormalizedDocument,
 )
 from ..runtime import profile_id
+from .quality import is_junk_chunk
 
 SEPARATOR = "\n\n"
 _SENTENCE_SPLIT = re.compile(r"(?<=[。！？.!?])\s*")
@@ -38,8 +39,13 @@ def chunk_document(
     def flush() -> None:
         nonlocal ordinal
         if buffer:
-            chunks.append(_build(document, pid, ordinal, buffer))
-            ordinal += 1
+            candidate = _build(document, pid, ordinal, buffer)
+            # Judge the assembled chunk, not single blocks: short lead
+            # sentences merge with neighbours here, and only the merged
+            # text reveals link lists and reference sections.
+            if not is_junk_chunk(candidate.text):
+                chunks.append(candidate)
+                ordinal += 1
 
     for block in document.blocks:
         block_tokens = counter.count(block.text)
@@ -51,15 +57,15 @@ def chunk_document(
             for piece_start, piece_end in _split_spans(
                 block.text, counter, hard
             ):
-                chunks.append(
-                    _build(
-                        document,
-                        pid,
-                        ordinal,
-                        [(block, piece_start, piece_end)],
-                    )
+                candidate = _build(
+                    document,
+                    pid,
+                    ordinal,
+                    [(block, piece_start, piece_end)],
                 )
-                ordinal += 1
+                if not is_junk_chunk(candidate.text):
+                    chunks.append(candidate)
+                    ordinal += 1
             continue
         if buffer and buffer_tokens + block_tokens > hard:
             flush()

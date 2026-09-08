@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ..contracts.documents import Chunk
 from ..contracts.research import ContextPackage, ContextRequest
+from ..indexing.quality import is_junk_chunk
 from ..runtime.config import ContextConfig
 from ..storage.materials import MaterialStore
 from .formatter import build_citations, format_context
@@ -62,14 +63,24 @@ class ContextManager:
             hits, warnings = await self.hybrid.retrieve(
                 request.query,
                 scope,
-                top_k=30,
+                top_k=60,
                 vector_profile_id=self.vector_profile_id,
             )
             chunks = [hit.chunk for hit in hits]
         else:
-            hits = await self.direct.retrieve(request.query, scope, 30)
+            hits = await self.direct.retrieve(request.query, scope, 60)
             chunks = [hit.chunk for hit in hits]
             warnings.append("no hybrid retriever; used direct recall")
+
+        # Junk chunks (link lists, citation backlink soup) rank high on
+        # lexical signal precisely because they are keyword-stuffed; drop
+        # them before they crowd real prose out of the budget.
+        kept = [c for c in chunks if not is_junk_chunk(c.text)]
+        filtered = len(chunks) - len(kept)
+        chunks = kept
+        chunks = self._diversify(chunks, self.config.max_chunks_per_artifact)
+        if filtered:
+            warnings.append(f"filtered {filtered} low-quality chunks")
 
         chunks = self._trim(chunks, request.max_tokens)
         citations = build_citations(chunks, source_by_artifact)
@@ -84,8 +95,33 @@ class ContextManager:
             formatted_text=formatted,
             token_count=token_count,
             warnings=warnings,
-            coverage_summary={"chunks": len(chunks)},
+            coverage_summary={
+                "chunks": len(chunks),
+                "filtered_junk": filtered,
+                "artifacts": len({c.artifact_id for c in chunks}),
+            },
         )
+
+    @staticmethod
+    def _diversify(chunks: list[Chunk], cap: int) -> list[Chunk]:
+        """Re-rank so one artifact cannot monopolize the budget.
+
+        The first ``cap`` chunks of each artifact keep their rank order; a
+        page's extra chunks move behind everyone else's first picks and only
+        fill whatever budget remains.
+        """
+        per_artifact: dict[str, int] = {}
+        head: list[Chunk] = []
+        tail: list[Chunk] = []
+        for chunk in chunks:
+            artifact = chunk.artifact_id
+            used = per_artifact.get(artifact, 0)
+            if used < cap:
+                per_artifact[artifact] = used + 1
+                head.append(chunk)
+            else:
+                tail.append(chunk)
+        return head + tail
 
     def _fits(self, chunks: list[Chunk], max_tokens: int) -> bool:
         total = 0
