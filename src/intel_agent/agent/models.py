@@ -18,14 +18,19 @@ def build_model(settings):
     `ollama` uses the native Ollama provider. The http client disables the
     ambient proxy so local endpoints are never routed through SOCKS.
 
-    Timeout and retries come from model config: a non-streamed structured
-    generation (writer) can legitimately run for minutes, and the openai
-    SDK retries timeouts with backoff before finally raising -- a hard-coded
-    180s timeout turned healthy long generations into retry storms.
+    Timeout and retries come from model config. Calls stream, so the read
+    timeout bounds the gap BETWEEN chunks -- a healthy long generation
+    never times out, while a dead endpoint surfaces within one window.
     """
     client = httpx2.AsyncClient(
         trust_env=False,
-        timeout=settings.model.request_timeout_seconds,
+        timeout=httpx2.Timeout(
+            None,
+            connect=10.0,
+            read=settings.model.request_timeout_seconds,
+            write=30.0,
+            pool=10.0,
+        ),
         http2=True,
     )
     api_key = None

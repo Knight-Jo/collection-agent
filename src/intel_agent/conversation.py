@@ -9,6 +9,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .agent.runner import run_agent
 from .contracts.documents import Citation
 from .contracts.errors import DomainError
 from .contracts.research import ResearchPlan, ResearchReport
@@ -423,7 +424,7 @@ class ConversationService:
 
     async def generate_brief(self, prompt: str) -> dict:
         for _attempt in range(2):
-            result = await self.roles["brief"].run(prompt)
+            result = await run_agent(self.roles["brief"], prompt)
             brief = result.output.brief()
             if brief.get("goal") and brief.get("questions"):
                 return brief
@@ -433,7 +434,7 @@ class ConversationService:
         )
 
     async def _plan(self, prompt: str) -> ResearchPlan:
-        result = await self.roles["planner"].run(prompt)
+        result = await run_agent(self.roles["planner"], prompt)
         return result.output
 
     async def start_research(self, topic: str, brief: dict) -> dict:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from ..agent.runner import run_agent
 from ..contracts.errors import DomainError
 from ..storage._ids import new_id
 from ..storage.factcheck import FactCheckStore
@@ -143,8 +144,9 @@ class FactCheckService:
         self._finish(fact_check, task_id, "completed", "done")
 
     async def _understand(self, claim: str) -> tuple[str, list[str]]:
-        result = await self.orchestrator.roles["planner"].run(
-            f"请理解以下待核验断言，给出其含义与需要核验的关键问题（用于事实核查）。\n\n断言: {claim}"
+        result = await run_agent(
+            self.orchestrator.roles["planner"],
+            f"请理解以下待核验断言，给出其含义与需要核验的关键问题（用于事实核查）。\n\n断言: {claim}",
         )
         plan = result.output
         return plan.goal or "", plan.questions or []
@@ -155,8 +157,9 @@ class FactCheckService:
         return "checkable"
 
     async def _plan(self, claim: str, questions: list[str]):
-        result = await self.orchestrator.roles["planner"].run(
-            f"调研主题: 核验断言\n断言: {claim}\n核验问题: {questions}"
+        result = await run_agent(
+            self.orchestrator.roles["planner"],
+            f"调研主题: 核验断言\n断言: {claim}\n核验问题: {questions}",
         )
         return result.output
 

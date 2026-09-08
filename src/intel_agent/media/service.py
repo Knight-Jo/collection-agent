@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from ..agent.runner import run_agent
 from ..contracts.documents import BlockSpan, Locator
 from ..contracts.research import BudgetUsage
 from ..storage._ids import new_id
@@ -201,7 +202,7 @@ class MediaService:
             job.media_job_id,
             len(segments),
         )
-        result = await extractor.run(prompt)
+        result = await run_agent(extractor, prompt)
         usage = result.usage
         self.task_store.record_budget_change(
             job.task_id,

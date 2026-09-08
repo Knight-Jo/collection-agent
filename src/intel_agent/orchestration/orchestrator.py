@@ -6,9 +6,11 @@ import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from time import monotonic
 from typing import Any
 
 from ..acquisition import AcquisitionPipeline
+from ..agent.runner import run_agent
 from ..context.manager import ContextManager
 from ..contracts.research import (
     BudgetUsage,
@@ -201,7 +203,12 @@ class ResearchOrchestrator:
         return merged
 
     async def _run_agent(
-        self, agent, prompt: str, task_id: str, name: str = "agent"
+        self,
+        agent,
+        prompt: str,
+        task_id: str,
+        name: str = "agent",
+        sink: EventSink | None = None,
     ) -> Any:
         logger.debug(
             "llm call task=%s role=%s prompt=%d chars",
@@ -209,23 +216,43 @@ class ResearchOrchestrator:
             name,
             len(prompt),
         )
-        result = await agent.run(prompt)
+        last_heartbeat = 0.0
+
+        async def on_progress(events: int) -> None:
+            # Throttled heartbeat: proof the stream is alive during long
+            # generations, without flooding the event pipeline.
+            nonlocal last_heartbeat
+            now = monotonic()
+            if sink is not None and now - last_heartbeat >= 5.0:
+                last_heartbeat = now
+                await self._emit(
+                    sink,
+                    {
+                        "event": "llm.progress",
+                        "task_id": task_id,
+                        "role": name,
+                        "stream_events": events,
+                    },
+                )
+
+        result = await run_agent(agent, prompt, on_progress=on_progress)
         usage = result.usage
-        logger.info(
-            "llm task=%s role=%s in=%d out=%d",
-            task_id,
-            name,
-            usage.input_tokens,
-            usage.output_tokens,
-        )
-        self.store.record_budget_change(
-            task_id,
-            BudgetUsage(
-                llm_calls=usage.requests,
-                input_tokens=usage.input_tokens,
-                output_tokens=usage.output_tokens,
-            ),
-        )
+        if usage is not None:
+            logger.info(
+                "llm task=%s role=%s in=%d out=%d",
+                task_id,
+                name,
+                usage.input_tokens,
+                usage.output_tokens,
+            )
+            self.store.record_budget_change(
+                task_id,
+                BudgetUsage(
+                    llm_calls=usage.requests,
+                    input_tokens=usage.input_tokens,
+                    output_tokens=usage.output_tokens,
+                ),
+            )
         return result.output
 
     async def run(self, question: str) -> ResearchResult:
@@ -416,6 +443,7 @@ class ResearchOrchestrator:
                     task.question,
                     task.task_id,
                     "planner",
+                    sink=sink,
                 )
             assert plan is not None
             directions = plan.directions or [
@@ -561,6 +589,7 @@ class ResearchOrchestrator:
                     "逐问题评估证据是否充分。",
                     task.task_id,
                     "coverage",
+                    sink=sink,
                 )
                 await self._emit(
                     sink,
@@ -578,6 +607,7 @@ class ResearchOrchestrator:
                     "对关键主张核验证据并识别冲突。",
                     task.task_id,
                     "verifier",
+                    sink=sink,
                 )
                 decision = await self._run_agent(
                     self.roles["decider"],
@@ -587,6 +617,7 @@ class ResearchOrchestrator:
                     "决定下一步：继续搜索或结束。",
                     task.task_id,
                     "decider",
+                    sink=sink,
                 )
                 usage = self.store.get_task(task.task_id).budget_used
                 if decision.action == "finish":
@@ -688,6 +719,7 @@ class ResearchOrchestrator:
             "撰写结构化研究报告。",
             task.task_id,
             "writer",
+            sink=sink,
         )
 
     async def _emit_answer(

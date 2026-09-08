@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime, timedelta
 
+from ..agent.runner import run_agent
 from ..contracts.errors import DomainError
 from ..storage._ids import new_id
 from ..storage.monitoring import MonitoringStore
@@ -384,7 +385,7 @@ class MonitoringService:
             prompt += "\n\n重点信息源（优先直接抓取这些页面）:\n" + "\n".join(
                 f"- {u}" for u in monitor.websites
             )
-        result = await self.orchestrator.roles["planner"].run(prompt)
+        result = await run_agent(self.orchestrator.roles["planner"], prompt)
         return result.output
 
     def _facts_from_assessment(
