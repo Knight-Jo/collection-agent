@@ -1071,3 +1071,35 @@ async def test_change_dedup_until_baseline_advances(tmp_path):
     # baseline advanced and the suppression set was cleared
     assert store.get_monitor(monitor.monitor_id).baseline_run_id == run4.run_id
     assert store.reported_fingerprints(monitor.monitor_id) == set()
+
+
+async def test_reconcile_startup_releases_orphaned_slots(tmp_path):
+    service, store, task_store, _app = _service(tmp_path, [])
+    monitor = service.create_monitor("m", "s", "g", _schedule())
+
+    # simulate a hard kill: slot claimed, run saved, task left "running"
+    task = task_store.create_task("q", kind="monitor")
+    run = MonitorRun(
+        run_id="monrun-x",
+        monitor_id=monitor.monitor_id,
+        task_id=task.task_id,
+        trigger="manual",
+    )
+    store.save_run(run)
+    task_store.claim_queued(task.task_id)
+    assert store.claim_active_run(monitor.monitor_id, run.run_id)
+
+    released = service.reconcile_startup()
+
+    assert released == 1
+    m = store.get_monitor(monitor.monitor_id)
+    assert m.active_run_id is None
+    assert task_store.get_task(task.task_id).status == "interrupted"
+    assert "重启" in store.get_run(run.run_id).summary
+
+    # a ghost slot (claimed but the run row was never saved) still frees
+    assert store.claim_active_run(monitor.monitor_id, "monrun-ghost")
+    assert service.reconcile_startup() == 1
+    assert store.get_monitor(monitor.monitor_id).active_run_id is None
+    # and the slot is usable again afterwards
+    assert store.claim_active_run(monitor.monitor_id, "monrun-next")

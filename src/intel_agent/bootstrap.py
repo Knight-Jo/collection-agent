@@ -448,6 +448,10 @@ async def bootstrap(
     application.settings_store = settings_store
     application.resource_store = resource_store
     application.monitor_scheduler = monitor_scheduler
+    # Crash recovery first: orphaned running tasks and monitor slots survive
+    # hard kills and would otherwise block their owners forever.
+    await application.recover()
+    monitoring.reconcile_startup()
     monitor_scheduler.start()
     try:
         yield application

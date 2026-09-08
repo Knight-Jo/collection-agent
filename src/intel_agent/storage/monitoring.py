@@ -174,6 +174,19 @@ class MonitoringStore:
                 (_iso(datetime.now(UTC)), monitor_id, run_id),
             )
 
+    def list_stuck_slots(self) -> list[tuple[str, str]]:
+        """Occupied active-run slots: (monitor_id, active_run_id) pairs.
+
+        A freshly started process has no in-flight runs, so every occupied
+        slot belongs to a run killed with its process and must be reconciled
+        at startup or the scheduler CONFLICT-loops forever.
+        """
+        rows = self.db.execute(
+            "SELECT monitor_id, active_run_id FROM monitors"
+            " WHERE active_run_id IS NOT NULL"
+        ).fetchall()
+        return [(r["monitor_id"], r["active_run_id"]) for r in rows]
+
     def set_baseline(self, monitor_id: str, run_id: str) -> None:
         with self.db.transaction() as conn:
             conn.execute(

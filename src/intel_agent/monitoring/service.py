@@ -148,6 +148,42 @@ class MonitoringService:
         """Active/degraded monitors whose next run is due now."""
         return self.store.list_due_monitors(now or datetime.now(UTC))
 
+    def reconcile_startup(self) -> int:
+        """Release active-run slots orphaned by a hard process death.
+
+        The in-process failure path (_fail_run) cannot run when the process
+        is killed outright, so occupied slots can survive a restart. A fresh
+        process has no in-flight runs: mark each orphaned run's task
+        interrupted and free the slot.
+        """
+        released = 0
+        for monitor_id, run_id in self.store.list_stuck_slots():
+            logger.warning(
+                "releasing orphaned monitor run monitor=%s run=%s",
+                monitor_id,
+                run_id,
+            )
+            try:
+                run = self.store.get_run(run_id)
+                self.task_store.update_task_status(
+                    run.task_id,
+                    "interrupted",
+                    error={
+                        "code": "INTERRUPTED",
+                        "message": "process restarted",
+                        "stage": "monitor",
+                        "retryable": True,
+                    },
+                )
+                self.store.save_run(
+                    run.model_copy(update={"summary": "进程重启中断"})
+                )
+            except DomainError:
+                pass  # run row never persisted; freeing the slot is enough
+            self.store.release_active_run(monitor_id, run_id)
+            released += 1
+        return released
+
     def get(self, monitor_id: str) -> MonitorDetail:
         monitor = self.store.get_monitor(monitor_id)
         runs = []
