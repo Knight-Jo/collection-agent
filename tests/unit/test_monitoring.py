@@ -1147,21 +1147,28 @@ async def test_watch_gate_resolves_profile_by_media_type(tmp_path):
     assert extraction.requested_profiles == ["pf-hash-html"]
 
 
-async def test_watch_gate_unsupported_media_fails_cleanly(tmp_path):
+async def test_watch_gate_unsupported_media_falls_back_to_byte_level(tmp_path):
     store, _task_store = _store(tmp_path)
-    url = "https://watch.example/binary"
+    url = "https://watch.example/feed.json"
     monitor = _watch_monitor(store, url)
-    resource = _resource("h9")
-    resource = resource.model_copy(update={"media_type": "application/zip"})
+    resource = _resource("h9").model_copy(
+        update={"media_type": "application/json"}
+    )
 
-    class ZipFetch(StubFetch):
+    class JsonFetch(StubFetch):
         async def fetch(self, request):
             await super().fetch(request)
             return FetchResult(
                 resource=resource, status_code=200, elapsed_ms=3
             )
 
-    gate = WatchGate(ZipFetch([None]), MediaStubExtraction({}), store)
+    extraction = MediaStubExtraction({})
+    gate = WatchGate(JsonFetch([None]), extraction, store)
     result = await gate.check(monitor)
-    assert result.checks[0].outcome == "failed"
-    assert result.checks[0].error_code == "UNSUPPORTED_MEDIA"
+    # no extraction profile for JSON -> byte-level change detection, not a
+    # gate failure that would force the expensive research loop
+    check = result.checks[0]
+    assert check.outcome == "changed"
+    assert check.byte_hash == "h9"
+    assert check.content_hash is None
+    assert extraction.calls == 0

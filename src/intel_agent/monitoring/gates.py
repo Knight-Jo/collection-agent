@@ -171,7 +171,22 @@ class WatchGate:
                 byte_hash=byte_hash,
                 content_hash=previous.content_hash,
             )
-        content_hash = await self._content_hash(resource)
+        # L2 refines byte changes into content changes, but only for media
+        # types we can extract (html, pdf, ...). Profiles register under
+        # content-hashed ids, so resolve by media type -- never by profile
+        # name. JSON/RSS endpoints and other raw payloads fall back to
+        # byte-level detection: a byte change is still worth a run, while a
+        # gate failure would force the expensive loop on every check.
+        profile_id = self.extraction_service.profile_for(resource.media_type)
+        if profile_id is None:
+            return WatchCheck(
+                url=url,
+                outcome=GATE_CHANGED,
+                etag=etag,
+                last_modified=last_modified,
+                byte_hash=byte_hash,
+            )
+        content_hash = await self._content_hash(resource, profile_id)
         outcome = GATE_CHANGED
         if previous is not None and previous.content_hash == content_hash:
             outcome = GATE_CONTENT_UNCHANGED
@@ -184,17 +199,7 @@ class WatchGate:
             content_hash=content_hash,
         )
 
-    async def _content_hash(self, resource) -> str:
-        # Profiles are registered under content-hashed ids, not their names
-        # ("html" as a key never resolves); resolve by media type exactly
-        # like bootstrap does for the acquisition pipeline.
-        profile_id = self.extraction_service.profile_for(resource.media_type)
-        if profile_id is None:
-            raise DomainError(
-                "UNSUPPORTED_MEDIA",
-                f"no extraction profile for {resource.media_type}",
-                stage="extraction",
-            )
+    async def _content_hash(self, resource, profile_id: str) -> str:
         result = await self.extraction_service.extract(resource, profile_id)
         # Canonical form: block order preserved by the extractor, surrounding
         # whitespace stripped; volatile fields (timestamps, ids) are not part
