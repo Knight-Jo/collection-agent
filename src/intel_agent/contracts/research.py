@@ -82,6 +82,16 @@ class ResearchPlan(ResearchBrief):
 
     directions: list[SearchDirection] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _has_questions(self) -> ResearchPlan:
+        # A plan without questions starves every downstream stage (question
+        # blocks, per-question evidence, coverage); reject it here so the
+        # agent's retry loop regenerates instead of silently accepting a
+        # hollow plan the model occasionally emits.
+        if not self.questions:
+            raise ValueError("research plan requires at least one question")
+        return self
+
     def brief(self) -> dict:
         """The user-facing brief subset (no internal search directions)."""
         return self.model_dump(mode="json", exclude={"directions"})

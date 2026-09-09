@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import httpx2
+
 from intel_agent.agent.roles import DEFAULT_THINKING, resolve_thinking
 
 
@@ -52,7 +54,9 @@ def test_build_model_wires_timeout_and_retries():
     model = build_model(settings)
     client = model.client  # type: ignore[attr-defined]  # openai model exposes the SDK client
     # streaming: read timeout bounds the inter-chunk gap, not total runtime
-    assert client.timeout.read == 321.0
-    assert client.timeout.connect == 10.0
-    assert client.timeout.write == 30.0
+    timeout = client.timeout
+    assert isinstance(timeout, httpx2.Timeout)
+    assert timeout.read == 321.0
+    assert timeout.connect == 10.0
+    assert timeout.write == 30.0
     assert client.max_retries == 4

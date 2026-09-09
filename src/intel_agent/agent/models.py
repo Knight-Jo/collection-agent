@@ -7,6 +7,7 @@ import os
 import httpx2
 from openai import AsyncOpenAI
 from pydantic_ai.models import infer_model
+from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.ollama import OllamaProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 
@@ -52,6 +53,9 @@ def build_model(settings):
         max_retries=settings.model.max_retries,
     )
     provider = OpenAIProvider(openai_client=openai_client)
-    return infer_model(
-        f"openai:{settings.model.model_id}", lambda _name: provider
-    )
+    # Chat Completions, not the Responses API: infer_model defaults to the
+    # latter, whose streaming + structured-output path is immature on
+    # vLLM (intermittent truncated tool JSON -> validation failures on
+    # ~8% of calls in production logs). chat/completions streaming has
+    # been stable for the same workloads.
+    return OpenAIChatModel(settings.model.model_id, provider=provider)
