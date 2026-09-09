@@ -22,7 +22,10 @@ export const Route = createFileRoute("/media/$jobId")({
 function MediaDetail() {
   const { jobId } = Route.useParams();
   const { data, isLoading } = useMediaJob(jobId);
-  useMediaStream(jobId);
+  // poll only while the job is live (or not yet loaded); a finished job
+  // must not keep hitting the backend while the user reads the transcript
+  const live = !data || data.status === "transcribing" || data.status === "analyzing";
+  useMediaStream(jobId, live);
 
   if (isLoading || !data) {
     return (
