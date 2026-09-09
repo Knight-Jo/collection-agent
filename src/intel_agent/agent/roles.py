@@ -120,7 +120,12 @@ def build_roles(model, settings=None) -> dict[str, Agent[Any, Any]]:
         instructions=PLANNER_INSTRUCTIONS,
         retries=1,
         model_settings=ModelSettings(
-            thinking=resolve_thinking(settings, "planner"), max_tokens=8192
+            # 16k leaves room for wide-topic plans (10+ questions with
+            # directions and queries) without inviting rambling; the vLLM
+            # endpoint accepts far more (256k context) if this ever needs
+            # raising again.
+            thinking=resolve_thinking(settings, "planner"),
+            max_tokens=16384,
         ),
     )
     brief = Agent(
