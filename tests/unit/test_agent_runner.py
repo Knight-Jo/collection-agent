@@ -87,3 +87,44 @@ async def test_streaming_without_progress_callback():
     agent = StreamingAgent(output=42)
     outcome = await run_agent(agent, "p")
     assert outcome.output == 42
+
+
+class BrokenStreamAgent:
+    """Stream validates fine structurally but the model JSON is truncated."""
+
+    def __init__(self, recovered_output) -> None:
+        self._recovered = recovered_output
+        self.ran_non_streamed = False
+
+    async def run(self, prompt):
+        self.ran_non_streamed = True
+        return SimpleNamespace(output=self._recovered)
+
+    def run_stream(self, prompt):
+        class _Result:
+            async def stream_response(self):
+                yield SimpleNamespace()
+
+            async def get_output(self):
+                from pydantic_ai.exceptions import UnexpectedModelBehavior
+
+                raise UnexpectedModelBehavior(
+                    "Output validation failed during streaming, "
+                    "and retries are not supported in `run_stream()`"
+                )
+
+        class _Ctx:
+            async def __aenter__(self):
+                return _Result()
+
+            async def __aexit__(self, *exc):
+                return False
+
+        return _Ctx()
+
+
+async def test_validation_failure_falls_back_to_run_retry():
+    agent = BrokenStreamAgent(recovered_output={"plan": "recovered"})
+    outcome = await run_agent(agent, "prompt")
+    assert outcome.output == {"plan": "recovered"}
+    assert agent.ran_non_streamed

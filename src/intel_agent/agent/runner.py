@@ -9,13 +9,24 @@ Streaming changes the timeout contract: the HTTP read timeout now bounds
 the gap between chunks, not the whole generation, so a healthy long
 generation never times out while a dead endpoint is detected within one
 read-timeout window.
+
+One streaming caveat needs a safety net: ``run_stream`` cannot retry when
+output validation fails, so a truncated tool-call JSON (routine with local
+models hitting a length cap) becomes a hard error instead of the self-heal
+``run`` provides. On ``UnexpectedModelBehavior`` the runner falls back to
+``agent.run``, which feeds the validation error back to the model.
 """
 
 from __future__ import annotations
 
 import inspect
+import logging
 from collections.abc import Callable
 from typing import Any, NamedTuple
+
+from pydantic_ai.exceptions import UnexpectedModelBehavior
+
+logger = logging.getLogger("intel_agent.agent.runner")
 
 ProgressCallback = Callable[[int], Any]
 
@@ -47,15 +58,32 @@ async def run_agent(
         )
 
     events = 0
-    async with agent.run_stream(prompt) as result:
-        async for _ in result.stream_response():
-            events += 1
-            if on_progress is not None:
-                awaited = on_progress(events)
-                if inspect.isawaitable(awaited):
-                    await awaited
-        output = await result.get_output()
-        return RunOutcome(output=output, usage=getattr(result, "usage", None))
+    try:
+        async with agent.run_stream(prompt) as result:
+            async for _ in result.stream_response():
+                events += 1
+                if on_progress is not None:
+                    awaited = on_progress(events)
+                    if inspect.isawaitable(awaited):
+                        await awaited
+            output = await result.get_output()
+            return RunOutcome(
+                output=output, usage=getattr(result, "usage", None)
+            )
+    except UnexpectedModelBehavior as error:
+        # Streaming has no validation retry: truncated JSON tool args
+        # (length-capped generations) would hard-fail here. Re-run through
+        # agent.run, whose retry loop feeds the error back to the model.
+        logger.warning(
+            "streamed output failed validation (%d events); "
+            "retrying non-streamed: %s",
+            events,
+            str(error)[:200],
+        )
+        result = await agent.run(prompt)
+        return RunOutcome(
+            output=result.output, usage=getattr(result, "usage", None)
+        )
 
 
 __all__ = ["run_agent", "RunOutcome", "ProgressCallback"]
