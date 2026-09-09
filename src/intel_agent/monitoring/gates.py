@@ -83,14 +83,12 @@ class WatchGate:
         extraction_service,
         store: MonitoringStore,
         *,
-        profile_id: str = "html",
         timeout_seconds: float = 20.0,
         max_bytes: int | None = None,
     ) -> None:
         self.fetch_service = fetch_service
         self.extraction_service = extraction_service
         self.store = store
-        self.profile_id = profile_id
         self.timeout_seconds = timeout_seconds
         self.max_bytes = max_bytes
 
@@ -187,9 +185,17 @@ class WatchGate:
         )
 
     async def _content_hash(self, resource) -> str:
-        result = await self.extraction_service.extract(
-            resource, self.profile_id
-        )
+        # Profiles are registered under content-hashed ids, not their names
+        # ("html" as a key never resolves); resolve by media type exactly
+        # like bootstrap does for the acquisition pipeline.
+        profile_id = self.extraction_service.profile_for(resource.media_type)
+        if profile_id is None:
+            raise DomainError(
+                "UNSUPPORTED_MEDIA",
+                f"no extraction profile for {resource.media_type}",
+                stage="extraction",
+            )
+        result = await self.extraction_service.extract(resource, profile_id)
         # Canonical form: block order preserved by the extractor, surrounding
         # whitespace stripped; volatile fields (timestamps, ids) are not part
         # of the block text.

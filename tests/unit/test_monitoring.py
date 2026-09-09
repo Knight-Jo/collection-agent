@@ -564,6 +564,9 @@ class StubExtraction:
         self._texts = texts_by_hash
         self.calls = 0
 
+    def profile_for(self, media_type: str) -> str | None:
+        return "stub-profile" if media_type == "text/html" else None
+
     async def extract(self, resource, profile_id):
         self.calls += 1
         texts = self._texts.get(resource.content_hash, [])
@@ -1103,3 +1106,62 @@ async def test_reconcile_startup_releases_orphaned_slots(tmp_path):
     assert store.get_monitor(monitor.monitor_id).active_run_id is None
     # and the slot is usable again afterwards
     assert store.claim_active_run(monitor.monitor_id, "monrun-next")
+
+
+class MediaStubExtraction(StubExtraction):
+    """Resolves profiles like the real service (by media type)."""
+
+    def __init__(self, texts_by_hash):
+        super().__init__(texts_by_hash)
+        self.requested_profiles: list[str] = []
+
+    def profile_for(self, media_type: str) -> str | None:
+        return "pf-hash-html" if media_type == "text/html" else None
+
+    async def extract(self, resource, profile_id):
+        self.requested_profiles.append(profile_id)
+        return await super().extract(resource, profile_id)
+
+
+async def test_watch_gate_resolves_profile_by_media_type(tmp_path):
+    store, _task_store = _store(tmp_path)
+    url = "https://watch.example/page"
+    monitor = _watch_monitor(store, url)
+    # byte hash differs from the stored state -> L2 content hash runs
+    gate = WatchGate(
+        StubFetch([_ok_result("h1", etag='"v1"')]),
+        MediaStubExtraction({"h1": ["alpha"]}),
+        store,
+    )
+    await gate.check(monitor)  # seed
+
+    extraction = MediaStubExtraction({"h2": ["alpha"]})
+    gate2 = WatchGate(
+        StubFetch([_ok_result("h2", etag='"v2"')]), extraction, store
+    )
+    result = await gate2.check(monitor)
+
+    # L2 ran with the RESOLVED profile id (hash, not the "html" name) and
+    # correctly classified template churn as content_unchanged
+    assert result.checks[0].outcome == "content_unchanged"
+    assert extraction.requested_profiles == ["pf-hash-html"]
+
+
+async def test_watch_gate_unsupported_media_fails_cleanly(tmp_path):
+    store, _task_store = _store(tmp_path)
+    url = "https://watch.example/binary"
+    monitor = _watch_monitor(store, url)
+    resource = _resource("h9")
+    resource = resource.model_copy(update={"media_type": "application/zip"})
+
+    class ZipFetch(StubFetch):
+        async def fetch(self, request):
+            await super().fetch(request)
+            return FetchResult(
+                resource=resource, status_code=200, elapsed_ms=3
+            )
+
+    gate = WatchGate(ZipFetch([None]), MediaStubExtraction({}), store)
+    result = await gate.check(monitor)
+    assert result.checks[0].outcome == "failed"
+    assert result.checks[0].error_code == "UNSUPPORTED_MEDIA"
