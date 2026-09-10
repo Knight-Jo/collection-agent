@@ -18,6 +18,7 @@ from intel_agent.indexing.service import IndexingService
 from intel_agent.indexing.tokenize import TiktokenCounter
 from intel_agent.normalization import Normalizer
 from intel_agent.runtime.config import IndexingConfig
+from intel_agent.storage.tasks import TaskStore
 
 
 class FakeFetchService:
@@ -89,7 +90,7 @@ class CountingIndexingService(IndexingService):
         return await super().index(artifact_id)
 
 
-def _pipeline(material_store, resource_store):
+def _pipeline(material_store, resource_store, task_store: TaskStore):
     fetch = FakeFetchService(resource_store)
     extract = FakeExtractionService()
     indexing = CountingIndexingService(
@@ -102,16 +103,19 @@ def _pipeline(material_store, resource_store):
         material_store,
         resource_store,
         indexing,
+        task_store=task_store,
     )
     return pipeline, fetch, extract, indexing
 
 
-def test_resume_after_store_only_indexes(material_store, resource_store):
+def test_resume_after_store_only_indexes(
+    material_store, resource_store, task_store
+):
     async def run():
         pipeline, fetch, extract, indexing = _pipeline(
-            material_store, resource_store
+            material_store, resource_store, task_store
         )
-        task = material_store.create_task("q")
+        task = task_store.create_task("q")
         hit = SearchHit(
             hit_id="h1",
             url="https://example.org/a",
@@ -126,7 +130,7 @@ def test_resume_after_store_only_indexes(material_store, resource_store):
         # resuming with a fresh pipeline instance (same store).
         await asyncio.sleep(0)
         pipeline2, fetch2, extract2, indexing2 = _pipeline(
-            material_store, resource_store
+            material_store, resource_store, task_store
         )
         report2 = await pipeline2.resume_item(report.work_item_id)
         assert report2.artifact_id == report.artifact_id
@@ -137,12 +141,14 @@ def test_resume_after_store_only_indexes(material_store, resource_store):
     asyncio.run(run())
 
 
-def test_resume_does_not_refetch_or_reindex(material_store, resource_store):
+def test_resume_does_not_refetch_or_reindex(
+    material_store, resource_store, task_store
+):
     async def run():
         pipeline, fetch, extract, indexing = _pipeline(
-            material_store, resource_store
+            material_store, resource_store, task_store
         )
-        task = material_store.create_task("q")
+        task = task_store.create_task("q")
         hit = SearchHit(
             hit_id="h1",
             url="https://example.org/b",

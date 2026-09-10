@@ -9,6 +9,7 @@ import pytest
 
 from intel_agent.storage.materials import MaterialStore
 from intel_agent.storage.resources import ResourceStore
+from intel_agent.storage.tasks import TaskStore
 
 
 @pytest.fixture
@@ -16,6 +17,11 @@ def material_store(tmp_path: Path) -> Iterator[MaterialStore]:
     store = MaterialStore(tmp_path / "research.sqlite")
     yield store
     store.close()
+
+
+@pytest.fixture
+def task_store(material_store: MaterialStore) -> TaskStore:
+    return TaskStore(material_store.db)
 
 
 @pytest.fixture

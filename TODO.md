@@ -1,60 +1,24 @@
-# 待办清单（TODO）
+# 待办清单
 
-> 语境：新引擎已合并进 main，前端研究闭环已重连真实后端。以下为尚未完成的能力与收尾项。
+> 2026-09-09 按当前源码核对。这里只保留未完成或未验证事项，不重复列出已接通的功能。
+> 详细要求见 [基础引擎规格](specs/2026-09-05-search-agent-design.md) 与
+> [监测、核验、媒体规格](specs/002-monitor-factcheck-media/spec.md)；规格目标不等于已验收能力。
 
-## P0 — 前端功能补齐（当前仍 mock）
+## 安全与配置边界
 
-- [ ] **Monitor 监测闭环**
-  - [ ] 后端：`monitors` / `monitor_runs` / `monitor_changes` 表 + 定时调度（`runNow` 即时触发一轮）
-  - [ ] 端点：`GET/POST /api/monitors`、`GET /api/monitors/{id}`、`POST /api/monitors/{id}/toggle`、`POST /api/monitors/{id}/run`
-  - [ ] 前端：`client.ts` 的 `monitors/monitor/createMonitor/toggleMonitor/runMonitorNow` 换真 HTTP（`use-monitors.ts` 签名不变）
+- [ ] 浏览器受控出口与自动回退：当前只支持显式 browser 获取；补齐子资源、重定向、私网出口阻断与真实隔离验收（A06/A07），见[部署说明](docs/development/js-dynamic-page-deployment.md)。
+- [ ] 配置凭证安全：设置接口已可用且读取脱敏，但提交的 Key/Cookie 仍写入 SQLite JSON；补齐安全存储，不能把“只写字段”当作静态加密。
+- [ ] 运行配置冻结与自定义来源：按 spec 002 核对配置 revision 的原子性、运行中策略隔离；自定义来源目前仅登记，`executable=false`，不是新增可执行 Provider。
 
-- [ ] **FactCheck 事实核验闭环**
-  - [ ] 后端：`fact_checks` / `fact_evidence` 表 + 核验逻辑（LLM 判定 claim 支持度 → verdict/evidence_sufficiency）
-  - [ ] 端点：`GET/POST /api/fact-checks`、`GET /api/fact-checks/{id}`
-  - [ ] SSE：`FactCheckEvent`（timeline/evidence/verdict/refetch）
-  - [ ] 前端：`client.ts` + `use-fact-check-stream.ts`（`subscribeFactCheck` → 真实 SSE）
+## 回归与真实环境验收
 
-- [ ] **MediaJob 媒体闭环**
-  - [ ] 后端：`media_jobs` 表 + 上传 → ASR 转写 → 事实/证据抽取（复用已接好的 whisper 后端）
-  - [ ] 端点：`GET/POST /api/media-jobs`、`GET /api/media-jobs/{id}`
-  - [ ] SSE：`MediaEvent`（segment/fact/evidence/status/refetch）
-  - [ ] 前端：`client.ts` + `use-media-stream.ts`（`subscribeMedia` → 真实 SSE）
+- [ ] SSE HTTP 测试：补会话事件流的连接、断开和清理检查；现有 EventBus 测试不能替代 HTTP 流测试。
+- [ ] Provider 契约：补新增 Provider 扩展边界（A01）与不支持过滤条件的 `UNSUPPORTED_FILTER`（A03）回归。
+- [ ] 真实媒体样本：补带字幕轨视频、帧 OCR、中文扫描件与真实 Office 材料；检查 `tests/fixtures/manifest.json` 中实际文件、语言及定位标注，不能将 authored 样本或跳过项视作真实验收通过。
+- [ ] Windows/POSIX 分别验证取消、子进程树及临时资源回收（A16）；历史 Linux 结果不能代替 Windows 验收。
+- [ ] arXiv 出站限流：以可复现运行评估重试、缓存和多来源策略，不把历史限流当作当前所有环境的固定结论。
+- [ ] 对照 spec 002 逐项核验持久入队、恢复、幂等、原子基线、引用与核验质量；已有接口及调度器不代表完整规格通过。
 
-- [ ] **Library 完整化**
-  - [ ] 当前 `/api/library` 仅返回 `research`；`monitors`/`factChecks` 待 P0 前三项落地后补全
+## 文档收敛
 
-## P1 — 配置 CRUD（当前后端 501 占位）
-
-- [ ] **搜索源管理**
-  - [ ] `POST /api/search-sources`（add）、`/toggle`、`PATCH /api/search-sources/{id}`（cookies 更新）
-  - [ ] cookies/凭据走环境变量或加密存储，不落明文；实现 Provider 配置的运行时读写
-
-- [ ] **AI 工具管理**
-  - [ ] `POST /api/ai-search-tools/{id}/toggle`、`PATCH .../api-key`（api_key 走环境变量）
-  - [ ] `ai_search_tools()` 目前只返回 exa/brave/tavily 静态骨架，需接入真实 Provider 配置
-
-## P2 — 测试与健壮性
-
-- [ ] **SSE 自动化 HTTP 测试**
-  - [ ] TestClient 对无限流会挂起；用真实异步客户端或特殊处理，为 `GET /api/conversations/{id}/events` 补自动化测试（当前仅 EventBus 单测 + 手动冒烟）
-
-- [ ] **arXiv 直连限流**
-  - [ ] 已加抓取重试与向量降级；直连仍周期性被 arXiv 限流。评估更稳健的出站/缓存策略（多 Provider 均衡、结果缓存）
-
-- [ ] **回归测试缺口**
-  - [ ] A01：新增 Provider 只改 Adapter/注册/配置的回归测试
-  - [ ] A03：域名/语言等能力不支持时的 `UNSUPPORTED_FILTER` 测试
-
-## P3 — 规格收尾（继承自原 refactor 计划）
-
-- [ ] **浏览器出口隔离（A06）**
-  - [ ] `deploy/research-browser/`（compose.yaml / Dockerfile / squid.conf / egress.nft / start.ps1）+ 受控出口实测
-
-- [ ] **字幕 / 帧 OCR 真实样本**
-  - [ ] 带字幕轨视频样本（测字幕路径）、`video_frame_ocr=true` 的样本（测帧 OCR 路径）；更新 `tests/fixtures/manifest.json`
-
-## P4 — 文档
-
-- [ ] **文档同步**
-  - [ ] README / `docs/reports/search-agent-refactor-status.md`：补新 conversation API 面、前端联调说明（dev server 代理 8000、启动顺序）
+- [ ] 逐篇核对重构前的架构长文、建设方案和演示稿；保留仍有效的设计约束，删除被替代内容。当前实现从 [README](README.md) 和 [CONTEXT](CONTEXT.md) 开始，历史报告中的测试数量及能力判断只适用于其记录版本。

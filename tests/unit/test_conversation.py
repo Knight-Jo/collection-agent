@@ -53,6 +53,7 @@ async def test_generate_brief_uses_brief_role_not_full_planner():
         roles={"brief": brief_role},
         registry=None,  # type: ignore[arg-type]
         settings=None,  # type: ignore[arg-type]
+        task_store=None,  # type: ignore[arg-type]
     )
     result = await service.generate_brief("调研 AI 芯片")
     assert brief_role.prompts == ["调研 AI 芯片"]
@@ -65,7 +66,7 @@ async def test_generate_brief_uses_brief_role_not_full_planner():
     }
 
 
-async def test_start_research_auto_launches_run(material_store):
+async def test_start_research_auto_launches_run(material_store, task_store):
     plan = ResearchPlan(questions=["q1"], directions=[])
     service = ConversationService(
         store=material_store,
@@ -74,6 +75,7 @@ async def test_start_research_auto_launches_run(material_store):
         roles={"planner": _Role(plan)},
         registry=None,  # type: ignore[arg-type]
         settings=_Settings(),  # type: ignore[arg-type]
+        task_store=task_store,
     )
     try:
         view = await service.start_research(
@@ -90,8 +92,8 @@ async def test_start_research_auto_launches_run(material_store):
         assert [m["role"] for m in messages] == ["user", "assistant"]
         assert messages[0]["content"] == "调研中国大模型产业"
         assert messages[1]["content"].startswith("调研未能完成")
-        task_id = material_store.latest_task_id(conversation_id)
+        task_id = task_store.latest_task_id(conversation_id)
         assert task_id is not None
-        assert material_store.get_task(task_id).status == "failed"
+        assert task_store.get_task(task_id).status == "failed"
     finally:
         await service.close()

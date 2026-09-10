@@ -11,9 +11,7 @@ export function FactCheckRecord({ check }: { check: FactCheck }) {
       {check.checkability === "not_checkable" && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
           <p className="font-medium">该断言无法核验</p>
-          {check.checkability_reason && (
-            <p className="mt-1 text-xs">{check.checkability_reason}</p>
-          )}
+          {check.checkability_reason && <p className="mt-1 text-xs">{check.checkability_reason}</p>}
         </div>
       )}
 

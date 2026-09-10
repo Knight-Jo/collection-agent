@@ -31,6 +31,7 @@ from ..indexing.service import IndexingService
 from ..runtime.config import ResearchConfig
 from ..search.service import SearchService
 from ..storage.materials import MaterialStore
+from ..storage.tasks import TaskStore
 from .state import TaskLock
 
 EventSink = Callable[[dict], Awaitable[None]]
@@ -89,11 +90,11 @@ class ResearchOrchestrator:
 
     The orchestrator plans search directions, collects and indexes sources,
     evaluates evidence, and either requests another round or writes a report.
-    Progress and budget usage are persisted through the store so a task can be
-    resumed and checkpointed between rounds.
+    Progress and budget usage are persisted through the task store so a task
+    can be resumed and checkpointed between rounds.
 
     Attributes:
-        store: Persists tasks, materials, budget usage, and checkpoints.
+        store: Persists materials and research results.
         search_service: Executes searches for the planned directions.
         acquisition_pipeline: Fetches, extracts, stores, and prepares sources.
         indexing_service: Indexes acquired artifacts for retrieval.
@@ -102,6 +103,7 @@ class ResearchOrchestrator:
         config: Limits and runtime settings for the research loop.
         profile_id: Default extraction profile for acquired sources.
         lock_dir: Directory used to prevent concurrent runs of one task.
+        task_store: Persists tasks, budget usage, and checkpoints.
         context_max_tokens: Maximum tokens included in evidence context.
         search_per_provider_limit: Maximum results requested per provider.
         search_total_limit: Maximum results requested per search round.
@@ -124,6 +126,8 @@ class ResearchOrchestrator:
         search_per_provider_limit: int = 10,
         search_total_limit: int = 20,
         event_sink: EventSink | None = None,
+        *,
+        task_store: TaskStore,
     ) -> None:
         self.store = store
         self.search_service = search_service
@@ -134,6 +138,7 @@ class ResearchOrchestrator:
         self.config = config
         self.profile_id = profile_id
         self.lock_dir = lock_dir
+        self.task_store = task_store
         self.context_max_tokens = context_max_tokens
         self.merged_context_cap = merged_context_cap
         self.search_per_provider_limit = search_per_provider_limit
@@ -245,7 +250,7 @@ class ResearchOrchestrator:
                 usage.input_tokens,
                 usage.output_tokens,
             )
-            self.store.record_budget_change(
+            self.task_store.record_budget_change(
                 task_id,
                 BudgetUsage(
                     llm_calls=usage.requests,
@@ -264,7 +269,7 @@ class ResearchOrchestrator:
         Returns:
             The completed or partial research result.
         """
-        task = self.store.create_task(
+        task = self.task_store.create_task(
             question, deadline_seconds=self.config.deadline_seconds
         )
         return await self.run_task(task)
@@ -278,7 +283,7 @@ class ResearchOrchestrator:
         Returns:
             The completed or partial research result.
         """
-        task = self.store.get_task(task_id)
+        task = self.task_store.get_task(task_id)
         return await self.run_task(task)
 
     async def run_assessment(
@@ -352,7 +357,7 @@ class ResearchOrchestrator:
             )
         self._persist_assessment(assessment, context, report)
         if report is not None:
-            self.store.update_task_status(task.task_id, "completed")
+            self.task_store.update_task_status(task.task_id, "completed")
             citations = (
                 self._resolve_citations(report.citation_ids, context)
                 or assessment.citations
@@ -418,7 +423,7 @@ class ResearchOrchestrator:
                     "status": "running",
                 },
             )
-            self.store.update_task_status(task.task_id, "running")
+            self.task_store.update_task_status(task.task_id, "running")
             await self._emit(
                 sink,
                 {
@@ -619,7 +624,7 @@ class ResearchOrchestrator:
                     "decider",
                     sink=sink,
                 )
-                usage = self.store.get_task(task.task_id).budget_used
+                usage = self.task_store.get_task(task.task_id).budget_used
                 if decision.action == "finish":
                     if not context.citations:
                         decision = ResearchDecision(
@@ -679,7 +684,7 @@ class ResearchOrchestrator:
                     return assessment, context, evidence_block, questions
                 directions = decision.directions
                 self._save_checkpoint(task, round_no, accepted, None)
-            usage = self.store.get_task(task.task_id).budget_used
+            usage = self.task_store.get_task(task.task_id).budget_used
             assessment = ResearchAssessment(
                 task_id=task.task_id,
                 scope_id=context.scope_id,
@@ -745,7 +750,7 @@ class ResearchOrchestrator:
         return [by_id[cid] for cid in ids if cid in by_id]
 
     def _save_checkpoint(self, task, round_no, accepted, result) -> None:
-        usage = self.store.get_task(task.task_id).budget_used
+        usage = self.task_store.get_task(task.task_id).budget_used
         checkpoint = Checkpoint(
             task_id=task.task_id,
             round=round_no,
@@ -754,7 +759,7 @@ class ResearchOrchestrator:
             stop_reason=result.stop_reason if result else None,
             updated_at=datetime.now(UTC),
         )
-        self.store.save_checkpoint(task.task_id, checkpoint, usage)
+        self.task_store.save_checkpoint(task.task_id, checkpoint, usage)
 
     def _persist_assessment(
         self,

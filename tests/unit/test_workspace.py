@@ -34,6 +34,15 @@ def test_task_store_kind_round_trip(tmp_path):
     assert task_store.get_task(task.task_id).status == "completed"
 
 
+def test_settings_state_round_trip(material_store):
+    store = SettingsStore(material_store.db)
+    assert store.get("search") is None
+    store.set("search", {"enabled": True})
+    assert store.get("search") == {"enabled": True}
+    store.set("search", ["arxiv"])
+    assert store.get("search") == ["arxiv"]
+
+
 def test_monitoring_store_round_trip(tmp_path):
     store = MonitoringStore(SqliteStore(tmp_path / "m.sqlite"))
     now = datetime.now(UTC)

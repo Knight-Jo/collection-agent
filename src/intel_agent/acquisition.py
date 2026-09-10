@@ -14,6 +14,7 @@ from .indexing.models import AcquisitionReport
 from .indexing.service import IndexingService
 from .normalization import Normalizer
 from .storage.materials import MaterialStore
+from .storage.tasks import TaskStore
 
 STAGES = ("fetch", "extract", "normalize", "store", "index")
 type Source = SearchHit | Resource
@@ -32,7 +33,8 @@ class AcquisitionPipeline:
         fetch_service: Retrieves remote sources.
         extraction_service: Extracts structured content from resources.
         normalizer: Converts extracted content into a document model.
-        store: Persists work items, identities, revisions, and documents.
+        store: Persists identities, revisions, and documents.
+        task_store: Persists work items and their execution progress.
         resource_store: Persists fetched resource content.
         indexing_service: Optionally indexes stored documents.
     """
@@ -45,11 +47,14 @@ class AcquisitionPipeline:
         store: MaterialStore,
         resource_store,
         indexing_service: IndexingService | None = None,
+        *,
+        task_store: TaskStore,
     ) -> None:
         self.fetch_service = fetch_service
         self.extraction_service = extraction_service
         self.normalizer = normalizer
         self.store = store
+        self.task_store = task_store
         self.resource_store = resource_store
         self.indexing_service = indexing_service
 
@@ -74,18 +79,18 @@ class AcquisitionPipeline:
         """
         if isinstance(source, Resource):
             resource = source
-            work_item_id = self.store.create_work_item(
+            work_item_id = self.task_store.create_work_item(
                 task_id,
                 "",
                 profile_id,
                 index_after_store,
                 resource_id=resource.resource_id,
             )
-            self.store.update_work_item(
+            self.task_store.update_work_item(
                 work_item_id, "fetch", "done", resource_id=resource.resource_id
             )
         else:
-            work_item_id = self.store.create_work_item(
+            work_item_id = self.task_store.create_work_item(
                 task_id, source.url, profile_id, index_after_store
             )
         return await self._run(
@@ -101,7 +106,7 @@ class AcquisitionPipeline:
         Returns:
             A report describing the completed or failed acquisition stage.
         """
-        item = self.store.get_work_item(work_item_id)
+        item = self.task_store.get_work_item(work_item_id)
         payload = item["payload"]
         source: Source
         if item["resource_id"]:
@@ -124,7 +129,7 @@ class AcquisitionPipeline:
     async def _run(
         self, task_id, work_item_id, source, profile_id, index_after_store
     ) -> AcquisitionReport:
-        item = self.store.get_work_item(work_item_id)
+        item = self.task_store.get_work_item(work_item_id)
         resource_id = item.get("resource_id")
         artifact_id = item.get("artifact_id")
 
@@ -132,7 +137,7 @@ class AcquisitionPipeline:
         if artifact_id is not None:
             if index_after_store and self.indexing_service is not None:
                 await self.indexing_service.index(artifact_id)
-                self.store.update_work_item(work_item_id, "index", "done")
+                self.task_store.update_work_item(work_item_id, "index", "done")
             return AcquisitionReport(
                 task_id=task_id,
                 work_item_id=work_item_id,
@@ -168,7 +173,7 @@ class AcquisitionPipeline:
                     logger.warning(
                         "fetch failed task=%s error=%s", task_id, error.code
                     )
-                    self.store.update_work_item(
+                    self.task_store.update_work_item(
                         work_item_id, "fetch", "failed"
                     )
                     return AcquisitionReport(
@@ -186,7 +191,7 @@ class AcquisitionPipeline:
                 resource.media_type,
                 resource.byte_length,
             )
-            self.store.update_work_item(
+            self.task_store.update_work_item(
                 work_item_id, "fetch", "done", resource_id=resource_id
             )
         else:
@@ -205,7 +210,7 @@ class AcquisitionPipeline:
             logger.warning(
                 "extract failed task=%s error=%s", task_id, error.code
             )
-            self.store.update_work_item(work_item_id, "extract", "failed")
+            self.task_store.update_work_item(work_item_id, "extract", "failed")
             return AcquisitionReport(
                 task_id=task_id,
                 work_item_id=work_item_id,
@@ -213,7 +218,7 @@ class AcquisitionPipeline:
                 status="failed",
                 error=error.code,
             )
-        self.store.update_work_item(work_item_id, "extract", "done")
+        self.task_store.update_work_item(work_item_id, "extract", "done")
 
         # Normalize and store only when no artifact exists yet.
         if artifact_id is None:
@@ -237,14 +242,14 @@ class AcquisitionPipeline:
                 artifact_id,
                 len(document.blocks),
             )
-            self.store.update_work_item(
+            self.task_store.update_work_item(
                 work_item_id, "store", "done", artifact_id=artifact_id
             )
 
         # Index the artifact when requested and an index is configured.
         if index_after_store and self.indexing_service is not None:
             await self.indexing_service.index(artifact_id)
-            self.store.update_work_item(work_item_id, "index", "done")
+            self.task_store.update_work_item(work_item_id, "index", "done")
 
         return AcquisitionReport(
             task_id=task_id,

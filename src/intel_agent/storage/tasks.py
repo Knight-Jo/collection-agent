@@ -156,22 +156,6 @@ class TaskStore:
                 (_iso(datetime.now(UTC)), task_id),
             )
 
-    def bump_attempt(self, task_id: str) -> int:
-        with self.db.transaction() as conn:
-            row = conn.execute(
-                "SELECT attempt FROM tasks WHERE task_id = ?", (task_id,)
-            ).fetchone()
-            if row is None:
-                raise DomainError(
-                    "NOT_FOUND", f"task not found: {task_id}", stage="storage"
-                )
-            attempt = (row["attempt"] or 0) + 1
-            conn.execute(
-                "UPDATE tasks SET attempt = ?, updated_at = ? WHERE task_id = ?",
-                (attempt, _iso(datetime.now(UTC)), task_id),
-            )
-        return attempt
-
     def claim_queued(self, task_id: str) -> int:
         """Atomically claim a queued task into running; returns new attempt."""
         with self.db.transaction() as conn:

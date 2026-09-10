@@ -76,9 +76,7 @@ function FactCheckDetail() {
         {data.checkability === "not_checkable" && (
           <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
             <p className="font-medium">该断言无法核验</p>
-            {data.checkability_reason && (
-              <p className="mt-1 text-xs">{data.checkability_reason}</p>
-            )}
+            {data.checkability_reason && <p className="mt-1 text-xs">{data.checkability_reason}</p>}
           </div>
         )}
 

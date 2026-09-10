@@ -82,8 +82,10 @@ def _seed(material_store, task_id, doc_id, text):
     return artifact_id
 
 
-def test_context_respects_budget_and_builds_citations(material_store):
-    task = material_store.create_task("动力电池回收")
+def test_context_respects_budget_and_builds_citations(
+    material_store, task_store
+):
+    task = task_store.create_task("动力电池回收")
     _seed(
         material_store,
         task.task_id,
@@ -159,8 +161,10 @@ def test_diversify_keeps_order_below_cap():
     ]
 
 
-def test_merge_packages_dedupes_and_rebuilds_citations(material_store):
-    task = material_store.create_task("多问题调研")
+def test_merge_packages_dedupes_and_rebuilds_citations(
+    material_store, task_store
+):
+    task = task_store.create_task("多问题调研")
     _seed(
         material_store,
         task.task_id,
@@ -200,8 +204,8 @@ def test_merge_packages_dedupes_and_rebuilds_citations(material_store):
     assert merged.token_count == counter.count(merged.formatted_text)
 
 
-def test_merge_packages_trims_to_cap(material_store):
-    task = material_store.create_task("裁剪")
+def test_merge_packages_trims_to_cap(material_store, task_store):
+    task = task_store.create_task("裁剪")
     _seed(
         material_store,
         task.task_id,

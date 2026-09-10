@@ -20,10 +20,9 @@ from .reporting import (
     normalize_format,
     render_report,
 )
-from .runtime.config import AI_SEARCH_TOOL_NAMES
 from .runtime.events import EventBus
-from .storage._ids import new_id
 from .storage.materials import MaterialStore
+from .storage.tasks import TaskStore
 
 _RUN_STATUS = {
     "queued": "queued",
@@ -47,15 +46,16 @@ class ConversationService:
         roles,
         registry,
         settings,
-        rebuild_providers=None,
+        *,
+        task_store: TaskStore,
     ) -> None:
         self.store = store
+        self.task_store = task_store
         self.orchestrator = orchestrator
         self.bus = event_bus
         self.roles = roles
         self.registry = registry
         self.settings = settings
-        self.rebuild_providers = rebuild_providers
         self._runs: set[asyncio.Task] = set()
 
     # --- conversations ------------------------------------------------------
@@ -142,7 +142,7 @@ class ConversationService:
         ]
 
     def _result(self, conversation_id: str) -> dict | None:
-        task_id = self.store.latest_task_id(conversation_id)
+        task_id = self.task_store.latest_task_id(conversation_id)
         if task_id is None:
             return None
         return self.store.get_research_result(task_id)
@@ -169,11 +169,11 @@ class ConversationService:
         }
 
     def _run(self, conversation_id: str) -> dict | None:
-        task_id = self.store.latest_task_id(conversation_id)
+        task_id = self.task_store.latest_task_id(conversation_id)
         if task_id is None:
             return None
         try:
-            task = self.store.get_task(task_id)
+            task = self.task_store.get_task(task_id)
         except Exception:  # noqa: BLE001
             return None
         status = _RUN_STATUS.get(task.status, "queued")
@@ -185,11 +185,11 @@ class ConversationService:
         return {"id": task_id, "status": status, "phase": phase}
 
     def _materials(self, conversation_id: str) -> list[dict]:
-        task_id = self.store.latest_task_id(conversation_id)
+        task_id = self.task_store.latest_task_id(conversation_id)
         if task_id is None:
             return []
         materials = []
-        for artifact_id in self.store.list_task_artifacts(task_id):
+        for artifact_id in self.task_store.list_task_artifacts(task_id):
             try:
                 document = self.store.get_document(artifact_id)
             except Exception:  # noqa: BLE001
@@ -247,7 +247,7 @@ class ConversationService:
 
     def materials_zip(self, conversation_id: str) -> Path:
         """Bundle every material source file of the latest task into a zip."""
-        task_id = self.store.latest_task_id(conversation_id)
+        task_id = self.task_store.latest_task_id(conversation_id)
         if task_id is None:
             raise DomainError(
                 "NOT_FOUND", f"no task for conversation: {conversation_id}"
@@ -256,7 +256,7 @@ class ConversationService:
         out.parent.mkdir(parents=True, exist_ok=True)
         seen: set[str] = set()
         with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
-            for artifact_id in self.store.list_task_artifacts(task_id):
+            for artifact_id in self.task_store.list_task_artifacts(task_id):
                 try:
                     document = self.store.get_document(artifact_id)
                     resource = self.store.get_resource(document.resource_id)
@@ -346,7 +346,7 @@ class ConversationService:
 
     def _launch(self, conversation_id: str, content: str) -> dict:
         """Record a user message and start the research loop on it."""
-        task = self.store.create_task(
+        task = self.task_store.create_task(
             content, deadline_seconds=self.settings.research.deadline_seconds
         )
         user_message = self.store.add_message(
@@ -388,7 +388,7 @@ class ConversationService:
             )
         except Exception as error:  # noqa: BLE001
             detail = str(error).strip() or type(error).__name__
-            self.store.update_task_status(task.task_id, "failed")
+            self.task_store.update_task_status(task.task_id, "failed")
             self.store.add_message(
                 conversation_id,
                 "assistant",
@@ -420,7 +420,7 @@ class ConversationService:
             for i, c in enumerate(citations)
         ]
 
-    # --- brief / system / sources ------------------------------------------
+    # --- brief / system ----------------------------------------------------
 
     async def generate_brief(self, prompt: str) -> dict:
         for _attempt in range(2):
@@ -473,161 +473,6 @@ class ConversationService:
             },
         }
 
-    def search_sources(self) -> list[dict]:
-        providers = self.settings.search.providers
-        sources = []
-        for name, p in providers.items():
-            if name in AI_SEARCH_TOOL_NAMES:
-                continue
-            o = self._runtime(f"search_source:{name}")
-            sources.append(
-                {
-                    "id": name,
-                    "name": name,
-                    "url": p.base_url or "",
-                    "enabled": o.get("enabled", p.enabled),
-                    "cookies": o.get("cookies", ""),
-                }
-            )
-        for cid in self.store.get_runtime_state("custom_sources") or []:
-            o = self._runtime(f"search_source:{cid}")
-            if not o:
-                continue
-            sources.append(
-                {
-                    "id": cid,
-                    "name": o.get("name", ""),
-                    "url": o.get("url", ""),
-                    "enabled": o.get("enabled", True),
-                    "cookies": o.get("cookies", ""),
-                }
-            )
-        return sources
-
-    def ai_search_tools(self) -> list[dict]:
-        tools = []
-        for name in sorted(AI_SEARCH_TOOL_NAMES):
-            tools.append(self._tool_view(name))
-        return tools
-
-    # --- search source / AI tool mutations ---------------------------------
-
-    def _runtime(self, key: str) -> dict:
-        value = self.store.get_runtime_state(key)
-        return value if isinstance(value, dict) else {}
-
-    def _reapply_providers(self) -> None:
-        if self.rebuild_providers is None:
-            return
-        providers = self.rebuild_providers()
-        self.orchestrator.search_service.replace_providers(providers)
-
-    def _source_view(self, source_id: str) -> dict:
-        provider = self.settings.search.providers.get(source_id)
-        o = self._runtime(f"search_source:{source_id}")
-        if provider is not None:
-            return {
-                "id": source_id,
-                "name": source_id,
-                "url": provider.base_url or "",
-                "enabled": o.get("enabled", provider.enabled),
-                "cookies": o.get("cookies", ""),
-            }
-        if o.get("custom"):
-            return {
-                "id": source_id,
-                "name": o.get("name", ""),
-                "url": o.get("url", ""),
-                "enabled": o.get("enabled", True),
-                "cookies": o.get("cookies", ""),
-            }
-        raise DomainError("NOT_FOUND", f"search source not found: {source_id}")
-
-    def _tool_view(self, tool_id: str) -> dict:
-        provider = self.settings.search.providers.get(tool_id)
-        o = self._runtime(f"ai_tool:{tool_id}")
-        return {
-            "id": tool_id,
-            "name": tool_id,
-            "description": f"{tool_id} AI search provider",
-            "enabled": o.get(
-                "enabled", provider.enabled if provider else False
-            ),
-            "api_key": "configured" if self._tool_has_key(tool_id) else "",
-            "api_key_env": (provider.api_key_env if provider else None)
-            or f"{tool_id.upper()}_API_KEY",
-        }
-
-    def _tool_has_key(self, tool_id: str) -> bool:
-        o = self._runtime(f"ai_tool:{tool_id}")
-        if o.get("api_key"):
-            return True
-        provider = self.settings.search.providers.get(tool_id)
-        if provider is not None and provider.api_key_env:
-            import os
-
-            return bool(os.environ.get(provider.api_key_env))
-        return False
-
-    def add_search_source(self, name: str, url: str) -> dict:
-        cid = new_id("src")
-        self.store.set_runtime_state(
-            f"search_source:{cid}",
-            {
-                "name": name,
-                "url": url,
-                "enabled": True,
-                "cookies": "",
-                "custom": True,
-            },
-        )
-        ids = list(self.store.get_runtime_state("custom_sources") or [])
-        ids.append(cid)
-        self.store.set_runtime_state("custom_sources", ids)
-        return {
-            "id": cid,
-            "name": name,
-            "url": url,
-            "enabled": True,
-            "cookies": "",
-        }
-
-    def toggle_search_source(self, source_id: str) -> dict:
-        o = self._runtime(f"search_source:{source_id}")
-        provider = self.settings.search.providers.get(source_id)
-        o["enabled"] = not o.get(
-            "enabled", provider.enabled if provider else True
-        )
-        self.store.set_runtime_state(f"search_source:{source_id}", o)
-        self._reapply_providers()
-        return self._source_view(source_id)
-
-    def update_search_source(self, source_id: str, patch: dict) -> dict:
-        o = self._runtime(f"search_source:{source_id}")
-        for key in ("enabled", "cookies"):
-            if key in patch:
-                o[key] = patch[key]
-        self.store.set_runtime_state(f"search_source:{source_id}", o)
-        self._reapply_providers()
-        return self._source_view(source_id)
-
-    def toggle_ai_tool(self, tool_id: str) -> dict:
-        o = self._runtime(f"ai_tool:{tool_id}")
-        provider = self.settings.search.providers.get(tool_id)
-        o["enabled"] = not o.get(
-            "enabled", provider.enabled if provider else False
-        )
-        self.store.set_runtime_state(f"ai_tool:{tool_id}", o)
-        self._reapply_providers()
-        return self._tool_view(tool_id)
-
-    def update_ai_tool_key(self, tool_id: str, api_key: str) -> dict:
-        o = self._runtime(f"ai_tool:{tool_id}")
-        o["api_key"] = api_key
-        self.store.set_runtime_state(f"ai_tool:{tool_id}", o)
-        self._reapply_providers()
-        return self._tool_view(tool_id)
-
     def export_report(
         self, conversation_id: str, fmt: str
     ) -> tuple[bytes, str, str]:
@@ -664,7 +509,7 @@ class ConversationService:
     def library_research(self) -> list[dict]:
         research = []
         for conv in self.list_conversations(archived=False):
-            task_id = self.store.latest_task_id(conv["id"])
+            task_id = self.task_store.latest_task_id(conv["id"])
             result = self._result(conv["id"])
             projection = self.projection(conv["id"])
             research.append(

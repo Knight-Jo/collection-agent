@@ -44,6 +44,9 @@ def test_claim_queued_atomic_and_conflict(tmp_path):
     with pytest.raises(DomainError) as raised:
         task_store.claim_queued(task.task_id)
     assert raised.value.code == "CONFLICT"
+    assert task_store.get_task(task.task_id).attempt == 1
+    task_store.update_task_status(task.task_id, "queued")
+    assert task_store.claim_queued(task.task_id) == 2
 
 
 def test_recover_interrupts_running_and_requeues_queued(tmp_path):

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createElement, type ReactNode } from "react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useMediaStream } from "./use-media-stream";
 
 const invalidateSpy = vi.spyOn(QueryClient.prototype, "invalidateQueries");

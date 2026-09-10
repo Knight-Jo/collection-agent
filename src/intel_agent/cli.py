@@ -151,7 +151,7 @@ def _write_report(result: ResearchResult, settings: ResearchSettings) -> str:
 
 
 async def _experiment(app, settings: ResearchSettings, args) -> int:
-    task = app.store.create_task(
+    task = app.task_store.create_task(
         args.question, deadline_seconds=settings.research.deadline_seconds
     )
     result = await app.orchestrator.run_task(task, event_sink=_cli_sink())

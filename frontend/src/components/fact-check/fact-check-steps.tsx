@@ -31,27 +31,18 @@ export function FactCheckSteps({ steps }: { steps: FactCheckStep[] }) {
   return (
     <ol className="space-y-2">
       {steps.map((step) => (
-        <li
-          key={step.id}
-          className="flex items-start gap-3 rounded-lg border bg-card p-3"
-        >
+        <li key={step.id} className="flex items-start gap-3 rounded-lg border bg-card p-3">
           <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">
-                {PHASE_LABELS[step.phase] ?? step.phase}
-              </span>
+              <span className="text-sm font-medium">{PHASE_LABELS[step.phase] ?? step.phase}</span>
               {step.state && (
                 <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-secondary-foreground">
                   {STATE_LABELS[step.state] ?? step.state}
                 </span>
               )}
             </div>
-            {step.summary && (
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {step.summary}
-              </p>
-            )}
+            {step.summary && <p className="mt-0.5 text-xs text-muted-foreground">{step.summary}</p>}
             {step.at && (
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {new Date(step.at).toLocaleString("zh-CN")}

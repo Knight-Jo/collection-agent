@@ -18,9 +18,15 @@ UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv run pytest
 UV_PROJECT_ENVIRONMENT=$CONDA_PREFIX uv build
 ```
 
-Copy `configs/default.yaml` to `config.yaml` (or point `INTEL_AGENT_CONFIG` at a
-config) before running `research-agent`. Use `uv add` or `uv remove` instead of
-installing project dependencies directly with `pip`.
+Select a config with `--config` or `INTEL_AGENT_CONFIG` before running
+`research-agent`; the default is `configs/default.yaml`, not root `config.yaml`.
+Relative paths are based on the config directory, so review them when moving
+a copy. Use `uv add` or `uv remove` instead of installing dependencies with `pip`.
+
+The workbench lives in `frontend/` and uses Bun 1.3.14. Run
+`bun install --frozen-lockfile`, `bun run test`, `bun run typecheck`,
+`bun run check`, and `bun run build` there. Commit `bun.lock`, not generated
+`node_modules/`, `dist/`, or `coverage/`.
 
 ## Coding Style & Static Checks
 
@@ -44,10 +50,6 @@ Pyright runs in `basic` mode across `src/`, `scripts/`, and `tests/`. Run `pyrig
   data formats, or architecture, update the relevant documentation.
 - Do not modify documentation for purely internal changes unless necessary.
 - Keep documentation consistent with the implementation.
-
-## Comments & Documentation
-
-Prefer self-explanatory code. Comments should explain intent, constraints, assumptions, or non-obvious behavior rather than restating code. Public APIs should have concise docstrings. Update relevant documentation when behavior, configuration, APIs, data formats, or architecture change.
 
 ## Testing Guidelines
 

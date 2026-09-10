@@ -40,7 +40,7 @@ async def _import_and_extract(harness, fixture):
 
 
 async def _run(harness, fixture):
-    task = harness.store.create_task(fixture["fixture_id"])
+    task = harness.task_store.create_task(fixture["fixture_id"])
     resource, result = await _import_and_extract(harness, fixture)
     identity = harness.store.resolve_identity(fixture["fixture_id"])
     revision = harness.store.resolve_revision(

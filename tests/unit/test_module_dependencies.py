@@ -68,3 +68,52 @@ def test_sql_lives_only_in_storage():
             kw in text for kw in ("SELECT ", "INSERT ", "UPDATE ", "DELETE ")
         )
         assert not has_sql, f"{path} contains SQL outside storage/"
+
+
+def test_material_store_does_not_own_task_execution():
+    tree = ast.parse(
+        (SRC / "storage/materials.py").read_text(encoding="utf-8")
+    )
+    methods = {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef)
+    }
+    task_methods = {
+        "create_task",
+        "get_task",
+        "update_task_status",
+        "save_checkpoint",
+        "record_budget_change",
+        "create_work_item",
+        "update_work_item",
+        "get_work_item",
+        "reserve_budget",
+        "settle_budget",
+        "budget_usage",
+        "begin_attempt",
+        "finish_attempt",
+        "list_task_artifacts",
+        "latest_task_id",
+        "list_work_items",
+    }
+    assert not methods & task_methods
+
+
+def test_conversation_does_not_own_search_settings():
+    tree = ast.parse((SRC / "conversation.py").read_text(encoding="utf-8"))
+    settings_methods = {
+        "search_sources",
+        "ai_search_tools",
+        "add_search_source",
+        "toggle_search_source",
+        "update_search_source",
+        "toggle_ai_tool",
+        "update_ai_tool_key",
+    }
+    methods = {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef)
+    }
+    assert not methods & settings_methods, "SearchSettings owns configuration"

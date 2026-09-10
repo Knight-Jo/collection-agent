@@ -105,7 +105,7 @@ class FakeContext:
 
 
 @pytest.fixture
-def research_harness(material_store, tmp_path):
+def research_harness(material_store, task_store, tmp_path):
     planner = FakeRole(
         ResearchPlan(
             questions=["q1"],
@@ -160,6 +160,7 @@ def research_harness(material_store, tmp_path):
         ResearchConfig(),
         "profile-1",
         tmp_path / "locks",
+        task_store=task_store,
     )
 
     class Harness:
@@ -181,7 +182,7 @@ async def test_two_rounds_use_planner_then_decider(research_harness):
 
 
 def _orchestrator(
-    material_store, tmp_path, roles, max_rounds: int = 3
+    material_store, task_store, tmp_path, roles, max_rounds: int = 3
 ) -> ResearchOrchestrator:
     return ResearchOrchestrator(
         material_store,
@@ -193,11 +194,12 @@ def _orchestrator(
         ResearchConfig(max_rounds=max_rounds),
         "profile-1",
         tmp_path / "locks",
+        task_store=task_store,
     )
 
 
 async def test_max_rounds_exhausted_forces_final_report(
-    material_store, tmp_path
+    material_store, task_store, tmp_path
 ):
     roles = {
         "planner": FakeRole(
@@ -228,14 +230,16 @@ async def test_max_rounds_exhausted_forces_final_report(
             )
         ),
     }
-    orchestrator = _orchestrator(material_store, tmp_path, roles, max_rounds=2)
+    orchestrator = _orchestrator(
+        material_store, task_store, tmp_path, roles, max_rounds=2
+    )
     result = await orchestrator.run("question")
 
     assert result.status == "completed"
     assert result.stop_reason == "max_rounds"
     assert result.report is not None
     assert result.report.title == "forced report"
-    assert material_store.get_task(result.task_id).status == "completed"
+    assert task_store.get_task(result.task_id).status == "completed"
 
 
 def test_question_batches_grouping():
@@ -288,7 +292,7 @@ def test_weak_questions_filter_and_fallback():
 
 
 async def test_per_question_context_builds_batched_queries(
-    material_store, tmp_path
+    material_store, task_store, tmp_path
 ):
     plan = ResearchPlan(
         questions=["战场态势", "军援规模", "制裁执行"],
@@ -317,8 +321,9 @@ async def test_per_question_context_builds_batched_queries(
         ResearchConfig(per_question_context=True, questions_per_context=2),
         "profile-1",
         tmp_path / "locks",
+        task_store=task_store,
     )
-    task = material_store.create_task("俄罗斯乌克兰战争三年情况")
+    task = task_store.create_task("俄罗斯乌克兰战争三年情况")
     await orchestrator.run_task(task)
     # three questions in batches of two -> two question-driven queries
     assert "战场态势 军援规模" in context.queries

@@ -34,6 +34,7 @@ from intel_agent.runtime.config import (
 from intel_agent.runtime.execution import Executor
 from intel_agent.storage.materials import MaterialStore
 from intel_agent.storage.resources import ResourceStore
+from intel_agent.storage.tasks import TaskStore
 
 SAMPLES = Path(__file__).resolve().parent.parent.parent / "samples"
 MANIFEST = (
@@ -51,6 +52,7 @@ class Harness:
 @pytest.fixture
 def harness(tmp_path: Path):
     store = MaterialStore(tmp_path / "research.sqlite")
+    task_store = TaskStore(store.db)
     resource_store = ResourceStore(
         tmp_path / "resources", [SAMPLES, tmp_path], store
     )
@@ -93,6 +95,7 @@ def harness(tmp_path: Path):
     yield Harness(
         import_roots=[SAMPLES, tmp_path],
         store=store,
+        task_store=task_store,
         resource_store=resource_store,
         extraction=extraction,
         indexing=indexing,

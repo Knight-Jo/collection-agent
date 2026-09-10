@@ -221,13 +221,15 @@ class _StubStore:
 def _export_service(result: dict | None):
     from intel_agent.conversation import ConversationService
 
+    stub = _StubStore(result)
     return ConversationService(
-        store=_StubStore(result),  # type: ignore[arg-type]
+        store=stub,  # type: ignore[arg-type]
         orchestrator=None,  # type: ignore[arg-type]
         event_bus=None,  # type: ignore[arg-type]
         roles={},
         registry=None,  # type: ignore[arg-type]
         settings=None,  # type: ignore[arg-type]
+        task_store=stub,  # type: ignore[arg-type]
     )
 
 

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from ..contracts.errors import DomainError
 from ..runtime.config import AI_SEARCH_TOOL_NAMES, ResearchSettings
 from ..storage.settings import SettingsStore
@@ -98,20 +96,6 @@ class SearchSettings:
 
     def revision(self) -> int:
         return self.store.current_revision()
-
-    def effective_overrides(self) -> dict:
-        """Return the merged runtime overrides used to build providers."""
-        overrides: dict[str, Any] = {}
-        for name, _provider in self.settings.search.providers.items():
-            key = (
-                f"ai_tool:{name}"
-                if name in AI_SEARCH_TOOL_NAMES
-                else f"search_source:{name}"
-            )
-            o = self._override(key)
-            if o:
-                overrides[key] = o
-        return overrides
 
     # --- mutations ----------------------------------------------------------
 

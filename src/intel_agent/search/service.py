@@ -18,8 +18,6 @@ from ..contracts.research import (
     SearchRequest,
 )
 from ..runtime.config import SearchConfig
-from ..runtime.limits import AttemptLedger
-from ..runtime.logging import StructuredLogger
 
 RRF_CONSTANT = 60
 
@@ -40,23 +38,17 @@ class SearchService:
     Attributes:
         providers: Search providers keyed by their public provider name.
         config: Search timeouts, retry counts, and result limits.
-        attempts: Optional shared ledger for tracking search attempts.
-        logger: Structured logger available to the search service.
     """
 
     def __init__(
         self,
         providers: list[SearchProvider],
         config: SearchConfig,
-        attempts: AttemptLedger | None = None,
-        logger: StructuredLogger | None = None,
     ) -> None:
         self.providers: dict[str, SearchProvider] = {
             p.name: p for p in providers
         }
         self.config = config
-        self.attempts = attempts
-        self.logger = logger or StructuredLogger()
 
     def replace_providers(self, providers: list[SearchProvider]) -> None:
         """Hot-swap the active providers (e.g. after a settings mutation)."""

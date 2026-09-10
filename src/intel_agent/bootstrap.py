@@ -356,6 +356,7 @@ async def bootstrap(
         store,
         resource_store,
         indexing,
+        task_store=task_store,
     )
     orchestrator = ResearchOrchestrator(
         store,
@@ -371,14 +372,10 @@ async def bootstrap(
         merged_context_cap=settings.context.merged_context_cap_tokens,
         search_per_provider_limit=settings.search.per_provider_limit,
         search_total_limit=settings.search.total_limit,
+        task_store=task_store,
     )
 
     event_bus = EventBus()
-
-    def rebuild_providers():
-        return build_search_providers(
-            settings, search_client, settings_store.get
-        )
 
     conversation_service = ConversationService(
         store,
@@ -387,7 +384,7 @@ async def bootstrap(
         roles,
         registry,
         settings,
-        rebuild_providers,
+        task_store=task_store,
     )
     application = ResearchApplication(
         store,

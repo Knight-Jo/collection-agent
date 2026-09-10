@@ -187,9 +187,7 @@ export function AppSidebar() {
 
         {(archived?.length ?? 0) > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel>
-              已归档 ({archived?.length ?? 0})
-            </SidebarGroupLabel>
+            <SidebarGroupLabel>已归档 ({archived?.length ?? 0})</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {archived?.map((conversation) => (
@@ -203,9 +201,7 @@ export function AppSidebar() {
                         to="/research/$conversationId"
                         params={{ conversationId: conversation.id }}
                       >
-                        <span className="truncate text-muted-foreground">
-                          {conversation.title}
-                        </span>
+                        <span className="truncate text-muted-foreground">{conversation.title}</span>
                       </Link>
                     </SidebarMenuButton>
                     <SidebarMenuAction
